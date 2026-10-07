@@ -117,10 +117,32 @@ def set_theme(mode, surface=None):
         import lgs_vr
         if mode == "on":
             lgs_vr.apply_once()
+            VR_STRIPPED.clear()
         else:
+            # remembered so the lock exit gives the pages their theme back (REQ P8->P10) when the step itself
+            # does not (shot/gates --theme off): stop() also pauses the daemon's page theming
+            VR_STRIPPED.add(surface)
             lgs_vr.stop()  # also stops a running watcher, which would re-theme the page
         return
     lgs.op(mode, quiet=True)
+
+
+# vr: pages a step stripped (set_theme off) and has not themed again; the lock exit themes them again while the
+# Steam theme is on (REQ P8->P10: a stripped SteamVR page left the daemon's page theming paused for up to 300 s)
+VR_STRIPPED = set()
+
+
+def give_back_vr_theme():
+    if not VR_STRIPPED:
+        return None
+    try:
+        if not lgs.is_on():
+            return "Steam theme off: SteamVR pages left stripped"
+        import lgs_vr
+        lgs_vr.apply_once()
+        return "SteamVR pages themed again"
+    finally:
+        VR_STRIPPED.clear()
 
 
 def flock_wait(path, seconds, what="lock"):
@@ -181,6 +203,15 @@ class Lock:
             purge_stale_hv()
             for p in self.paths:
                 self.files.append(flock_wait(p, 240, "lock"))
+            try:        # flags a killed step left in the flags file (session 5)
+                gone = reap_dead_flag_steps()
+                if gone:
+                    print(f"lab: put back session flags a killed lab step had left on: {', '.join(gone)}", file=sys.stderr)
+                    if not self.vr:
+                        lab_js("(() => { const rt = window.__LGS_RT; if (!rt || !rt.flags || typeof rt.flags.setSession !== 'function') "
+                               "return 'no runtime'; rt.flags.setSession(" + json.dumps(read_flags_file() or {}) + "); return 'session set'; })()")
+            except Exception as e:  # noqa: BLE001 - never block a step on it
+                print(f"lab: flag-step reaper: {e}", file=sys.stderr)
             if not self.vr:
                 try:
                     lab_js("L.mark()")
@@ -220,6 +251,12 @@ class Lock:
                     cdp_unhover()
             except Exception:  # noqa: BLE001 - the step options must still be undone
                 pass
+            try:
+                note = give_back_vr_theme()
+                if note:
+                    print(f"({note} at the lock exit)", file=sys.stderr)
+            except Exception as e:  # noqa: BLE001
+                print(f"lab: SteamVR pages not themed again: {e}", file=sys.stderr)
             try:
                 if self.step:
                     self.step.undo()
@@ -366,6 +403,89 @@ def read_flags_file():
     except ValueError:
         return {}
     return v if isinstance(v, dict) else {}
+
+
+FLAG_STEPS = "/tmp/lgs/flag-steps"
+
+
+def _lab_pid_alive(pid):
+    """Is pid a running lab process (lab.py, a native-session, a script that imports lab)?"""
+    try:
+        os.kill(int(pid), 0)
+    except (ProcessLookupError, ValueError, TypeError):
+        return False
+    except PermissionError:
+        return True
+    try:
+        with open(f"/proc/{int(pid)}/cmdline", "rb") as f:
+            return b"lab" in f.read()
+    except OSError:
+        return True
+
+
+def reap_dead_flag_steps():
+    """A step killed before its lock exit (SIGKILL, a dropped SSH session) leaves its keys in the flags file, where
+    they act as session flags for everyone until `lgs off` (C2b review R2, 13:13). Each step that writes the file
+    records its keys (their previous values and its own) in FLAG_STEPS/<pid>-<n>.json and deletes the record at its
+    exit; at every lock entry the records of processes that are gone are undone the way the step's exit would have:
+    each key put back to its previous value (or removed), but only while the file still holds the value that step
+    wrote (a later writer's value is kept). Session 5. Returns the keys put back."""
+    try:
+        names = sorted(os.listdir(FLAG_STEPS))
+    except OSError:
+        return []
+    undone = []
+    for nm in names:
+        p = os.path.join(FLAG_STEPS, nm)
+        try:
+            with open(p, encoding="utf-8") as f:
+                rec = json.load(f)
+        except (OSError, ValueError):
+            try:
+                os.remove(p)
+            except OSError:
+                pass
+            continue
+        if _lab_pid_alive(rec.get("pid")):
+            continue
+        with flags_file_lock():
+            cur = dict(read_flags_file() or {})
+            mine = []
+            for k, (had, prev) in (rec.get("prev") or {}).items():
+                if k in cur and cur[k] == (rec.get("set") or {}).get(k):
+                    if had:
+                        cur[k] = prev
+                    else:
+                        cur.pop(k, None)
+                    mine.append(k)
+            if mine:
+                write_flags_file(cur)
+                undone += mine
+        try:
+            os.remove(p)
+        except OSError:
+            pass
+    return undone
+
+
+def write_flag_step(own_prev, own_set):
+    """The record reap_dead_flag_steps() needs to undo this step's flags-file keys if it dies first."""
+    try:
+        os.makedirs(FLAG_STEPS, exist_ok=True)
+        p = os.path.join(FLAG_STEPS, f"{os.getpid()}-{int(time.time() * 1000) % 100000000}.json")
+        with open(p, "w", encoding="utf-8") as f:
+            json.dump({"pid": os.getpid(), "t": time.time(), "prev": own_prev, "set": own_set}, f)
+        return p
+    except OSError:
+        return None
+
+
+def drop_flag_step(path):
+    if path:
+        try:
+            os.remove(path)
+        except OSError:
+            pass
 
 
 def write_flags_file(obj):
@@ -609,6 +729,7 @@ class Step:
                 cur.update(self.flags)
                 write_flags_file(cur)
                 self.file_written = True
+                self.record = write_flag_step(self.own_prev, self.flags)
             via = "file only (vr step)" if self.vr else lab_js(STEP_JS_FLAGS % json.dumps(self.flags))
             self.report["flags"] = f"{json.dumps(self.flags)} via {via} + {FLAGS_FILE}"
         if self.mode:
@@ -620,6 +741,26 @@ class Step:
             self.report["media"] = f"{','.join(self.media)} on {n} targets"
         self.report["native"] = native_on()
         print("step: " + "  ".join(f"{k}={v}" for k, v in self.report.items()), file=sys.stderr)
+
+    def reapply_runtime(self):
+        """Put the runtime half of the step's options back after the runtime was reloaded inside the step (`perf
+        --ab` toggles the theme: each `lgs on` starts a new runtime, which reads the step's flags file but not the
+        in-memory overlay, the input-mode stub or the action logger). The flags file is not touched. Returns what
+        was applied ({} for a vr: step)."""
+        if self.vr:
+            return {}
+        out = {}
+        try:
+            r = lgs.run_js("SharedJSContext", STEP_JS_ACTIONS % ("true", "true"), 10)
+            self.actions = self.actions or r == "action logger on"
+            out["actions"] = r
+        except Exception as e:  # noqa: BLE001 - never block a step on it
+            out["actions"] = f"error: {e}"
+        if self.flags:
+            out["flags"] = lab_js(STEP_JS_FLAGS % json.dumps(self.flags))
+        if self.mode:
+            out["mode"] = lab_js(STEP_JS_MODE % json.dumps(self.mode))
+        return out
 
     def undo(self):
         errs = []
@@ -652,6 +793,7 @@ class Step:
                         write_flags_file(cur)          # empty -> no file (as P1's `lgs flags`)
                         prev = cur
                     self.file_written = False
+                    drop_flag_step(getattr(self, "record", None))
                 except OSError as e:
                     errs.append(f"flags file: {e}")
                 # A runtime reload during the step (another agent's `lgs on`, which takes no lab lock) bakes the

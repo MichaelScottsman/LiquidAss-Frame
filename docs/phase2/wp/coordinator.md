@@ -4,6 +4,13 @@ Owner: the coordinator (PLAN §2.6). This file records the coordinator's decisio
 
 ## Status
 
+- **Round R2, second pass done (2026-10-07 13:00–13:30, Steam build 11094443).**
+  - `grep -n "REQ [A-Za-z0-9-]*->[Cc]oordinator" docs/phase2/wp/*.md` found one open request: **P10->Coordinator (E-GRID)**. It is decided (R2-15) and marked `[x]` in `wp/P10.md`. The nine requests of the first pass are still `[x]`, and no requester added an objection under its answer.
+  - Also decided without a REQ line of their own: the label runs that E-GRID was waiving (C2b review R2, M1 and M4; folded into R2-15), and the owner of `theme/layers/21-search.json` (C1b review R2, m3; R2-16).
+  - C6b's "Observation for the coordinator" (SteamVR Display Brightness read 40 %, then 120 %) is checked and closed: the stored value is unchanged from before Glass Shell (below, "Other items seen").
+  - New requests from the coordinator: P10, C2b, C2a, V2, C1b (FYI) and C6b (FYI); the R2-15 / R2-16 lines under "Requests".
+  - **Device:** read-only. One SSH read of SteamVR's settings file (`ls`, `grep`, `diff` against the pre-Glass-Shell copy); nothing changed, no lab lock taken, no native session, no imagery.
+  - The first-pass request to P10 is being closed by P10's session 5 (its Status, 12:59): code and contract are in (`lab_gates.js` E-MENU rows and Cancel, `tools/p2/conformance.py` P-23 at 612, `perf --ab`); P10 answers under its line here.
 - **Round R2 done (2026-10-07, Steam build 11094443).** All nine open requests to the coordinator are decided and marked `[x]` in their logs, each with a one-line answer that points to its amendment:
   - C1a ×1 (it covers WN §11 O1 to O4);
   - C1c ×2;
@@ -13,8 +20,8 @@ Owner: the coordinator (PLAN §2.6). This file records the coordinator's decisio
   - P3 ×1;
   - P7 ×1.
 - **Also decided,** without a REQ line of their own: P9's morph sign-off (R2-12), P1's RT-7 deviation (R2-13) and C7's `/chat` circle (R2-14). WN's open items O1 to O4 came in C1a's request and are covered by R2-10, R2-11, R2-1 and R2-3.
-- **Amendments:** PLAN §1.19 R2-1 to R2-14. DESIGN2 follow-ups are listed as PLAN §1.18 A14 (P4).
-- **Open:** the coordinator's requests below, 14 lines, one per owner: C1c, P10, C2c, C1a, C2a, C4a, P4, P3, V1, V2, C5a, C6a, C7 and C3b. Nothing in them blocks another package's milestone.
+- **Amendments:** PLAN §1.19 R2-1 to R2-16 (R2-15 and R2-16 from the second pass). DESIGN2 follow-ups are listed as PLAN §1.18 A14 (P4, done 11:40); R2-15 and R2-16 need no DESIGN2 change (DESIGN2 has no launcher-cell or ownership text that disagrees).
+- **Open (13:30):** first pass: C1c, P10 (being closed by P10's session 5), C2c, C1a, C2a, C4a, P3, V1, V2, C5a, C6a, C7 and C3b (P4's is done). Second pass: P10, C2b, C2a, V2, C1b (FYI) and C6b (FYI). PLAN-2b-1 stays FAIL until C2b's labels meet E-GRID (labels), and that blocks only C2b's own M3 claim.
 - **Device:** none. These are document decisions, so no device step was run and the device was not touched. No native session was run, and no room imagery was taken.
 - **How to re-check.**
   - `grep -n "REQ [A-Za-z0-9-]*->[Cc]oordinator" docs/phase2/wp/*.md`: every hit is `[x]`.
@@ -41,6 +48,8 @@ Rules applied (PLAN §1.19):
 | P2->Coordinator (`actionsLive`) | S26 added; §4.5 item 4; §4.6 item 9 | R2-9 |
 | P3->Coordinator (IN-7, P3-D4) | §1.13's delays stand; IN-7's criterion amended with tolerances; `tipQuick` off (S29) | R2-8 |
 | P7->Coordinator (SG-5) | §1.8 states the measurement; CC-A `window.dim 0.6` alone; surface `dim` for a dim behind a pop | R2-4 |
+| P10->Coordinator (E-GRID), second pass | E-GRID added as proposed (cells: AUD SHRUNK only, live criterion); a separate E-GRID (labels) line for the text runs; C2b's unbuilt "…" not accepted as a deviation; PLAN-2b-4 (the full name on attention, T3 and the T1 fallback) | R2-15 |
+| C1b review R2 m3 (no REQ line), second pass | `theme/layers/21-search.json` is C1b's; C1b's tiers T1–T4 | R2-16 |
 
 ### Why, request by request
 
@@ -156,6 +165,28 @@ Rules applied (PLAN §1.19):
 - P1's RT-7 deviation (runtime.md §9) is accepted, and the same statistic is applied to G-PERF, because every owner faces the same shared-device noise.
 - C7's SM-D2 revision 3 moved the `/chat` circle with the 512 px sidebar. It is written as a rule, not a coordinate.
 
+**P10: E-GRID, and the label runs it waived (R2-15, second pass).**
+
+- Evidence read:
+  - `wp/P10.md` REQ and session 4 (live `gates barpopup`, 11:15: 35 E-GRID waivers, each cell 72 × 96, gaps 0 / 0, hit 100 % own; SIZE PASS on 24 cells); `lab/exemptions.json` (`_scope` E-GRID: `aud` / `SHRUNK`); `lab/lab_gates.js` `exemptCheck` case E-GRID; `lab/lab_helpers.js` `snap` (a text record inside a cell takes the cell's match through `exemptMatch(..., el, 'aud')`, so the cell's result waives its label too) and `diff` (SHRUNK = themed area under 85 % of stock).
+  - C2b's log (Status: 24 cells and 10 label runs SHRUNK; "not built: the word-aware … inside a single long word, T1 and T3 clip it at 70 px").
+  - C2b review R2 (in progress): M1 (11 of the 35 waivers are label runs, not cells) and M4 (9 of 23 labels cut mid-glyph, `scrollWidth` 73–78 against 70).
+  - HA §4 (cell, hit region, Labels row, the plate), §0.3 (11 of 23 names cannot fit two lines), §1.3 (stock hides 40 %), §11 (plate timing), AT-12; VP P-08 (its check is "AUD SHRUNK = 0").
+- Decision on the cells: as P10 proposed. SHRUNK is an area proxy for P-08, and the cells beat P-08 on both sides (87 × 116 main px, whole-cell hit) where Steam's rows were 48 main px tall. The criterion is live, so a cell that shrinks, opens a gap or loses hit area fails again.
+- Decision on the label runs: they are not cells, and the cell criterion says nothing about them. Three options:
+  - (a) Keep waiving them with the cell. That hides M4: a cut glyph would pass every gate.
+  - (b) Never waive them. Then PLAN-2b-1 fails on every label that HA §4 shortens by design (11 names cannot fit two lines of 70 px) for as long as the grid stands. The alternative grid (3 columns of 92 × 100, 950 px, 35°) was rejected in HA §4 and §17 row 9.
+  - (c) Waive them under their own line, which states what visionOS does with a long name: an ellipsis, never a cut glyph, and the whole name on attention.
+  - Decided: (c), with four measurable clauses (inside the cell, ≤ 2 lines, no glyph cut with breaks only between words or after "/", the full name kept in the DOM).
+- C2b's unbuilt "…" is therefore not a deviation: it fails clause (3). The fix is CSS (an ellipsis on the label box) or T2 (C2b review R2's `data-lgs-fit` suggestion).
+- The full name on attention is the half of the trade that keeps the function, so it becomes a card test (PLAN-2b-4). HA's plate is T3 only in the card. R23's fallback (the "+" patch fails) would then lose 9–11 full names, so the T1 floor shows the attended label whole, in CSS. The test runs in both tiers and both input modes.
+
+**C1b review R2 m3: `theme/layers/21-search.json` (R2-16, second pass).**
+
+- The file exists (2.1 KB, two rules behind `wp.c1b`), it follows §2.1's naming with C1b's NN, and C1b's log explains it (REQ C1b->C1c #8 withdrawn, the round's task asked areas for their own fragments). Nobody else claims it.
+- Confirmed for C1b, with a T4 line in its card that restates §1.7 rule 6 and §1.8. The fragment today has `"fill": "auto"` and no `"modal": true` (review m1, m2): those are C1b's fixes under rules PLAN already had, not new ones.
+- Ownership sweep (a script over §2.6's rows, run in the coordinator's scratchpad): nothing else under `theme/`, `device/`, `lab/`, `tools/`, `native/` or `docs/phase2/` is unlisted, apart from the frozen inputs (`audit/**`, `research/**`, `capabilities/**`) and `_wip` folders (`theme/layers/_wip/22-presentations.json` is C1c's draft; `lgs.py` skips `_wip`).
+
 ## Requests
 
 <!-- REQ lines: "- [ ] REQ Coordinator-><OWNER>: <what and why>". Owners answer under the line. -->
@@ -187,11 +218,12 @@ Rules applied (PLAN §1.19):
   - §3.8 Dimming: replace "in native mode it would dim only the hidden real panel" with SG-5's measurement (R2-4).
   - Nothing to change for R2-7: line 685 already names `--lgs-white-glow`, and line 1027 records .32.
   - P4 (2026-10-07 11:40, maintenance session): done, tagged **[A14]** in place (11 tags) and registered in DESIGN2 §0.3 (A1–A14, with sources). §3.2: the quiet legend's dim band on `window` routes with its values and flag (R2-1), the ornament hugs its members on library routes too and the laser Sort & Filter pill is the toolbar's trailing group (R2-2, also §7.3). §3.7: menu row with the 108–616 box and Cancel 60 with its own E-MENU line; the count table 6 compact, 7–10 grid, 11–14 grid with the row area scrolling inside the slab; "no menu of up to 10 items scrolls; the box is y 108–616"; value menus follow the table, "up to 8" is placement; E-MENU ≥ 320 in one column, ≥ 280 in the grid (R2-5); Alert centred at (640, 328) / (640, 360) and Sheet top 108, ≤ 488 / 552 tall, outside click and default focus as recorded deviations (R2-6). §3.8: source card 0 with a CSS glow in both profiles (R2-3); Dimming rewritten from SG-5's measurement, with the surface `dim` and CC-A's `window.dim` 0.6 alone (R2-4). FD-7 re-checked (`grep -o "\[A<n>[],]"`): A1 11, A2 4, A3 14, A4 6, A5 13, A6 3, A7 2, A8 3, A9 1, A10 1, A11 1, A12 3, A13 3, A14 11; `wp/P4.md`.
-- [ ] REQ Coordinator->P3: PLAN R2-8. P3-D4 is decided.
+- [x] REQ Coordinator->P3: PLAN R2-8. P3-D4 is decided.
   - `contracts/interaction.md` §0 and §4.1: drop "pending the coordinator" and cite PLAN R2-8; IN-7's pass criterion is the amended one.
   - `tipQuick` stays off (S29) and stays as a test switch.
   - Record IN-7 against the amended criterion in `wp/P3.md`. Your measurements (leave start 210–230 ms; label 0.9 at about 1050 ms; label gone at 400–420; node hidden at 560–610) already meet it.
   - Your `REQ P3->V1` can drop the `tipQuick` part.
+  - P3 (2026-10-07 14:45 EDT, maintenance session 4): done. `contracts/interaction.md` §0, §4.1 (and §8) cite R2-8 with the amended criterion, nothing "pending"; `tipQuick` stays off as a test switch; REQ P3->V1 now asks only for `wp.p3`. IN-7 recorded against the amended criterion in `wp/P3.md`: **PASS** (s3k, 08:17, both inputs; re-run this session on the busy device: laser meets every clause on its own samples, the pad materialize starts 802-803 ms after focus measured directly, its runner samples lag by the sampler's own frame gap; the runner now scores R2-8 itself). Noted there: the first tooltip shown in a window costs about 30 ms once (node and style created), not changed.
 - [ ] REQ Coordinator->V1: PLAN R2-1, R2-2, R2-6, R2-8, R2-9.
   - `device/defaults.json`: `"quietBacking": "window"` (C1a's open REQ). `"actionsLive": true` only at release, under §4.6 item 9 (P2's open REQ). Do **not** set `tipQuick`, `libFixedSlots` or `modalOutsideGuard` (S28 to S30 are off).
   - `docs/NATIVE.md`: point its glassd section to `glassd-material.md` (GM v2 materials, not the v1 table; P9's note in GM §7) when you do the §6 update.
@@ -214,6 +246,31 @@ Rules applied (PLAN §1.19):
   - `concepts/control-center.md` §3's "Power alert … `t1` tint" row: no `t1`; it is the CSS scrim (§1.8).
   - `control-center-power*.html`: Cancel 60 when you next re-render (C1c's REQ about these mockups stands otherwise).
 
+Second pass (R2-15, R2-16), 2026-10-07 13:10:
+
+- [ ] REQ Coordinator->P10: PLAN R2-15 (PLAN §1.16 E-GRID and E-GRID (labels)).
+  - (1) **E-GRID (labels) in `gates`' AUD.** A text record inside an E-GRID cell no longer takes the cell's result (`snap` matches it to the cell through `exemptMatch(..., el, 'aud')` today). Judge it by §1.16's label line on the themed snapshot:
+    - (a) its rect lies inside the cell's rect ± 1; for the attended cell (`.gpfocus` in pad mode, `:hover` or `.lgs-dwell` in laser mode) inside the popup's width (x 0–300) instead;
+    - (b) ≤ 2 line boxes: distinct tops (± 2 px) of `Range.getClientRects()` over its text, counted inside its visible rect;
+    - (c) no glyph cut: on the run's element and on each ancestor up to the cell whose `overflow` is not `visible` (or that has a `clip-path`), `scrollWidth > clientWidth + 1` needs computed `text-overflow: ellipsis` on that box, and `scrollHeight > clientHeight + 1` needs `-webkit-line-clamp` 1 or 2 on it; on the run's element `word-break` and `overflow-wrap` are `normal` and `hyphens` is not `auto`;
+    - (d) in `audDiff`: the themed record's text equals the stock record's, or it ends in "…" and the cell's `aria-label` equals the stock text.
+    - Report a pass under `exempt` as `{id: "E-GRID (labels)", waived: "SHRUNK", why}` with the clause results. A failing clause keeps the SHRUNK, with "(E-GRID label criterion not met: …)". The cell line is unchanged.
+  - (2) `tools/p2/test_gates_page.py`: four label cases: an ellipsized label (waived), a label cut without an ellipsis (SHRUNK kept), a three-line label (kept), and a T3-style "…" label whose cell has no `aria-label` (kept).
+  - (3) `contracts/lab.md` §6: E-GRID is in PLAN §1.16 [R2-15]. Drop "not yet in PLAN §1.16" and add the label line to the table.
+  - (4) Minor, seen while reading §6: the E-SEG check accepts ≥ 120 wide for every segment. PLAN §1.16, CTL §8.3 and CTL §18.1 say ≥ 140, and 120 only for a compact segment. CTL §8.3's regular label is 22 px, so check ≥ 140 when the segment's label computes to 22 px or more, and ≥ 120 below that (C4a's `--lgs-seg-min-w` is already 140).
+- [ ] REQ Coordinator->C2b: PLAN R2-15.
+  - (1) **Labels cut no glyph** (§1.16 E-GRID (labels); your review R2's M4). A name that does not fit ends in "…", drawn by the box that clips it: for example `text-overflow: ellipsis` on the clamped label, or T2's `data-lgs-fit` with `white-space: nowrap` for a single long word, as your reviewer suggests. Lines break only between words or after "/", at most two lines, inside the cell. Your log's "not built: the word-aware …" is not accepted as a deviation; please withdraw it.
+  - (2) **PLAN-2b-4** (your card): the full name on attention, in T3 and without T3 (R23's fallback), in both input modes. Without T3, the attended cell's own label shows the whole name in the plate's look, in CSS: on `.gpfocus` in gamepad mode, and in laser mode on `:hover` after the 0.4 s dwell (a `transition-delay`, for example), both keyed on the input mode (P-01, P-02). Keep it inside x 0–300, left-aligned in column 1 and right-aligned in column 4 as HA §4's plate, with the labels it overlaps at ≤ .22.
+  - (3) Re-run PLAN-2b-1 in T1 and T3, in both modes, and record each E-GRID waiver's `why` (cell line or label line) once P10's label line is live. Until then the evidence names R2-15 and says the label runs were judged by hand (`scrollWidth`, `text-overflow`, line count).
+  - Your Status's "READY" waits on (1) to (3) and on the review R2 findings.
+- [ ] REQ Coordinator->C2a: PLAN R2-15. `home-apps.md`:
+  - §4, Labels row: add "Without T3 (R23's fallback), the attended cell's own label shows the whole name in the plate's look, in CSS (PLAN-2b-4)".
+  - AT-12: add "no label cuts a glyph: a name that does not fit ends in '…' (PLAN §1.16 E-GRID (labels))".
+  - §0.5, the §1.16 row: E-GRID and E-GRID (labels) [R2-15].
+- [ ] REQ Coordinator->V2: PLAN R2-15. Score PLAN-2b-1 with §1.16's E-GRID lines as the only waivers; a waiver whose `why` does not name its clause results is a FAIL. In the function ledger (§4.5), HA §12.7 row P2 ("Launch a program") counts as kept only when PLAN-2b-4 passes too, in T3 and in the T1 fallback, in both modes.
+- [ ] REQ Coordinator->C1b: FYI, PLAN R2-16. `theme/layers/21-search.json` is yours (§2.6; your card's Owns and a new T4 line). The decision asks for no change of its own. The T4 line restates §1.7 rule 6 (`"modal": true` on the sheet rule) and §1.8 (`hole.fill` follows the scrim), which your review R2 lists as m1 and m2.
+- [ ] REQ Coordinator->C6b: FYI, your "Observation for the coordinator" is closed, and no change in your files is needed. SteamVR's stored Display Brightness never changed. `~/.config/openvr/config/steamvr.vrsettings` (rewritten by SteamVR at 12:45:19) holds `analogGain` 0.13320851755, the same value as `steamvr.vrsettings.pre-glass-shell` (0.13320851318, saved 2026-10-06 21:27) up to float noise. So at 12:45, after your 12:33 shot, SteamVR's live value was the pre-Glass-Shell one. It is also consistent with the 40 % you read at 11:52 to 12:29 (0.1332^(1/2.2) = 0.40, if the slider maps gain with a 2.2 gamma [inferred]). The 120 % is most likely a reading of the page (for example the slider before SteamVR filled in its value), not a changed setting. Please mark the observation closed when you next touch your log.
+
 ## Requests to the coordinator, handled
 
 Found at the start of round R2 with `grep -n "REQ [A-Za-z0-9-]*->[Cc]oordinator" docs/phase2/wp/*.md`, 2026-10-07. Each is marked `[x]` in its log, with the answer on the line under it.
@@ -229,9 +286,17 @@ Found at the start of round R2 with `grep -n "REQ [A-Za-z0-9-]*->[Cc]oordinator"
 | `P2.md` | 98 | `actionsLive` S-row and §4.6 item | R2-9 |
 | `P3.md` | 35 | IN-7 (P3-D4) | R2-8 |
 | `P7.md` | 76–80 | §1.8 after SG-5 | R2-4 |
+| `P10.md` | 72 (second pass, 13:10) | E-GRID in §1.16 | R2-15 |
 
 ## Other items seen (not requests to the coordinator)
 
 - **`theme/50-appdetails.css:268`** (C5a): laser hover on Play uses a lighter literal glow (`0 0 18px 2px` white .22). It is a hover look, weaker than focus by design; focus uses the token. No action.
 - **`device/rt/03-react-lab.js:30`** (P2): a lab fixture uses the old glow literal. Lab only, never shipped. No action.
 - **GM §7** (P9's notes): the reporter's wide `hdr-search` slab is superseded under `wp.c1a` (C1a's `layers/20-shell.json`), so nothing in the toolbar row pops. The NATIVE.md pointer is filed with V1 above.
+
+Second pass (2026-10-07 13:10):
+
+- **C6b's "Observation for the coordinator"** (SteamVR Display Brightness read 40 % at 11:52–12:29 and 120 % at 12:33). Checked read-only over SSH. `~/.config/openvr/config/steamvr.vrsettings` (mtime 12:45:19) has `analogGain` 0.13320851755. The pre-Glass-Shell copy `steamvr.vrsettings.pre-glass-shell` (2026-10-06 21:27) has 0.13320851318. The other differences are `lastAccessedExternalOverlayKey` and the `VRWebHelper` debugger block, which LAB.md documents. No setting value changed, so nothing needs restoring. Answered as REQ Coordinator->C6b (FYI).
+- **C1b review R2, the findings that say "with the coordinator".** Only m3 needed the coordinator (R2-16). M4 (AT-9c: B returns to the tab row, not the poster), M8 (the item menu and S-A to S-C rows) and m8 (AUD GONE for the virtualised reflow) are C1b's to fix first. If C1b wants a deviation or an exemption instead, it files `REQ C1b->Coordinator` with the evidence. Noted for that ruling: VP P-21 (a must) asks for focus back on the sheet's **source** after B, so any deviation from AT-9c must still meet P-21.
+- **P6 review R1 (f)**, "for the coordinator": on AllGames the search field overlapped the tab row in CSS-only mode, from in-progress C1a/C1b CSS. That is superseded by R2-2's toolbar rules and C2c's REQ (the ≥ 20 px gap), and the C1a/C1b/C2c gates on AllGames judge it. No separate action.
+- **E-SEG drift** (gate vs PLAN): see REQ Coordinator->P10 (R2-15) item 4.

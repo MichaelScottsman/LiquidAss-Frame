@@ -430,6 +430,8 @@ Adopted without change, with D2 §3.5 amended by P4:
 | E-SEG | Segment | Contiguous across the track; each ≥ 60 × 140 (120 compact) | CTL §18.1 |
 | E-KEY | Keyboard keys | Steam's geometry, identical to stock | CTL C10 |
 | E-TAB | Tab-bar items | Pitch ≥ 52 frame-menu px at the live window size | WN D-2 |
+| E-GRID | Launcher grid cells (the "+" popup, HA §4) [R2-15] | AUD's SHRUNK only: SIZE, TYPE and OUTLINE judge the cells as usual, and GONE, HIDDEN, UNCLICKABLE and CONTRAST are never waived. Per cell, live: ≥ 80 × m wide and ≥ 96 × m tall (67 × 80 popup px at m .83), abutting its row and column neighbours (gap ≤ 2), its own whole hit (≥ 95 % own, 0 % another target, sampled over the cell) | HA §4, §1.14 |
+| E-GRID (labels) | A text run inside an E-GRID cell [R2-15] | AUD's SHRUNK only, its own line: (1) the run lies inside its cell (± 1); (2) it shows ≤ 2 line boxes; (3) no glyph is cut: wherever the run overflows its own box or a clipping ancestor up to the cell by > 1 px, that box draws the ellipsis (`text-overflow: ellipsis` across, `-webkit-line-clamp` ≤ 2 down), and lines break only between words or after "/" (`word-break` and `overflow-wrap` `normal`, `hyphens` not `auto`); (4) the full name stays in the DOM: the run's text equals the stock run's text or, where T3 draws its own shortened string, the cell's `aria-label` equals it. The attended cell's run, shown whole as the name plate, meets (1) inside the popup's width (x 0–300) instead of its cell | HA §4 (Labels) |
 | E-BAR | Bar slots | ≥ 64 × 72 bar px | CC D-CC8 |
 | E-ROW58 | Storage rows, if the `rowHeight` patch (LA LQ2) fails | 58 px, with the actions also in the ornament | SET Q9 |
 | E-DRILL | Settings sections hidden in one drill-down view | Visible in exactly one other view; T-CNT sums equal stock | SET T-AUD |
@@ -495,7 +497,7 @@ The user cannot be asked. Each item below has a safe default and, where useful, 
 
 ### 1.19 Amendments from the build (R2)
 
-The coordinator decided these on 2026-10-07 (Steam build 11094443). They come from the requests packages filed while building (`grep -n "REQ [A-Za-z0-9-]*->[Cc]oordinator" docs/phase2/wp/*.md`) and from open review notes. Each one is applied in place in §0 to §5 and marked `[R2-n]` there. The decision log, with the evidence read for each, is `docs/phase2/wp/coordinator.md`. The requests to the owners of files that must change are filed there too.
+The coordinator decided these on 2026-10-07 (Steam build 11094443); R2-15 and R2-16 came in a second pass the same afternoon. They come from the requests packages filed while building (`grep -n "REQ [A-Za-z0-9-]*->[Cc]oordinator" docs/phase2/wp/*.md`) and from open review notes. Each one is applied in place in §0 to §5 and marked `[R2-n]` there. The decision log, with the evidence read for each, is `docs/phase2/wp/coordinator.md`. The requests to the owners of files that must change are filed there too.
 
 **How they were decided.**
 
@@ -521,6 +523,8 @@ The coordinator decided these on 2026-10-07 (Steam build 11094443). They come fr
 | R2-12 | Menu morph without a glassd morph | P9 review R1 m2 | §1.5 |
 | R2-13 | Performance verdicts on a shared device | P1 (RT-7, review R1 m1) | §2.3 P1, §4.1 G-PERF |
 | R2-14 | The `/chat` search circle follows the sidebar | C7 (SM-D2 rev. 3) | §1.9 |
+| R2-15 | Launcher grid cells and their labels (E-GRID) | P10 (REQ P10->Coordinator), C2b review R2 (M1, M4) | §1.16, §2.4 C2b, §5.1 R23 |
+| R2-16 | `theme/layers/21-search.json` belongs to C1b | C1b review R2 (m3) | §2.4 C1b, §2.6 |
 
 #### R2-1 Quiet legend on `window` routes: the dim band
 
@@ -747,6 +751,41 @@ The coordinator decided these on 2026-10-07 (Steam build 11094443). They come fr
   - The box follows the sidebar's trailing end: x = sidebar width − 94, y 14. With SM-D14's 512 px sidebar that is x 418.
   - This applies only while the circle variant is on (`searchCircle`, off today because of WN AT-4's SHRUNK).
 - **Check:** SM's People test with `searchCircle` on: the search element's rect is the 80 × 80 box at (sidebar width − 94, 14).
+
+#### R2-15 Launcher grid cells and their labels (E-GRID)
+
+- **Was:** §1.14 adopts HA §4's grid for the "+" popup (4 columns of 72 × 96 popup px) and the C2b card builds it, but §1.16 had no line for it. G-AUD therefore counted every cell as SHRUNK: Steam's 260 × 40 rows (10 400 px²) become 72 × 96 cells (6 912 px², 66 %), under AUD's 85 % area rule. PLAN-2b-1 could not pass. The labels inside the cells are SHRUNK too: a name on one line of 260 px becomes at most two lines of 70 px.
+- **Evidence:**
+  - P10 (REQ P10->Coordinator): `lab/exemptions.json` has carried E-GRID since session 4, scoped to AUD's SHRUNK. `gates barpopup --pre <OPEN> --only aud,size --mode laser` (11:15, T1, native off): AUD PASS with 35 E-GRID waivers, each cell "72 x 96, gaps 0 / 0, hit 100% own, 0% other"; SIZE PASS on all 24 cells.
+  - C2b review R2, M1: 11 of the 35 waived records are label runs, which the cell criterion does not judge. M4: 9 of 23 labels are cut mid-glyph with no ellipsis (`scrollWidth > clientWidth`: Chromium 73 > 70, LXTerminal 78, RenderDoc 78 and six more). C2b's log lists the word-aware "…" as "not built".
+  - HA §4 (Labels): lines break only between words or after "/"; a word too long for its line is cut with "…"; the full name shows on a plate on focus or after 0.4 s of attention, clamped inside the 300 px host, and the neighbours' labels under it fade to .22. HA §0.3: 11 of 23 names cannot fit two lines at the 15 px floor. HA §11: the plate materializes in 250 ms after 0.4 s, and dematerializes in 350 ms.
+- **Now:**
+  - §1.16 gains **E-GRID** for the cells: it waives AUD's SHRUNK only, and only while the cell meets its live criterion (size, abutting neighbours, the whole cell its own hit).
+  - §1.16 gains **E-GRID (labels)**, a line of its own for the text runs inside the cells: a label's SHRUNK is waived only while it stays inside its cell, shows at most two lines, cuts no glyph (the box that clips it draws the ellipsis; breaks between words or after "/") and keeps the full name in the DOM.
+  - C2b's "not built" word-aware "…" is not accepted as a deviation: a cut glyph fails clause (3).
+  - Knowing which program a cell launches is part of the launch function, so the full name on attention is a card test: **PLAN-2b-4** (§2.4 C2b). It runs in T3 and in R23's T1 fallback. Without T3 the attended cell's own label shows the whole name in the plate's look, in CSS: on `.gpfocus` in gamepad mode, and on `:hover` after the 0.4 s dwell in laser mode, keyed on the input mode (P-01, P-02).
+- **Why:**
+  - SHRUNK is AUD's area proxy for P-08: VP's check for P-08 is "AUD SHRUNK = 0". Here the proxy misreads the design. Each cell is 87 × 116 main px and the whole cell is the hit, above P-08's 80 × 80 on both sides; Steam's rows were 48 main px tall. The cells are the better targets, and all 23 programs fit without scrolling (the stock list hides 40 %, HA §1.3). Both paths stay: click a cell, or the D-pad and A.
+  - A label's SHRUNK is a different loss, of text. visionOS shortens a name with an ellipsis and shows the whole name on attention; it never cuts a glyph. The label line waives exactly that, and nothing more.
+  - Both waivers are live. A cell that shrinks, opens a gap or loses part of its hit fails again, and so does a label that clips.
+- **Check:**
+  - PLAN-2b-1: `glass.py gates barpopup --pre <OPEN>` in T1 and in T3 (`--flags wp.c2b`), in both modes, from `native=off` steps. Pass: AUD has 0 issues; every E-GRID entry under `exempt` says `waived: SHRUNK`, with a `why` that names the cell's numbers or the label's clauses; no line says the E-GRID criterion is not met.
+  - PLAN-2b-4, as in the C2b card.
+  - P10's offline fixture (`tools/p2/test_gates_page.py`) adds four label cases: an ellipsized label (waived), a label cut without an ellipsis (SHRUNK kept), a three-line label (kept), and a label that T3 shortened while the cell has no `aria-label` (kept).
+
+#### R2-16 `theme/layers/21-search.json` belongs to C1b
+
+- **Was:** §2.6 had no row for this file, C1b's card listed no fragment, and its tiers were T1–T3. A file that is not listed is the coordinator's, and a package creates new files only inside its listed patterns (§2.6).
+- **Evidence:**
+  - C1b wrote the search sheet's native rule in this file (C1b log, session 2; REQ C1b->C1c #8 withdrawn). The round's task asked every area for its own fragment, and §2.1's naming gives it NN = 21. Its rules are behind `wp.c1b`.
+  - C1b review R2 (m3) asked the coordinator to confirm.
+  - The coordinator's ownership sweep (every file under `theme/`, `device/`, `lab/`, `tools/`, `native/` and `docs/phase2/` against §2.6, `_wip` folders excepted) found no other unlisted file outside the frozen inputs.
+- **Now:**
+  - The file is C1b's: §2.6 has the row, and the C1b card lists it with a T4 line.
+  - Like every area fragment, it follows §1.7 and §1.8: the sheet rule is `modal: true` (rule 6), and under a pop the hole's `fill` follows the scrim. C1b review R2's m1 and m2 are C1b's to fix in its own file.
+- **Check:**
+  - `grep -n "21-search.json" docs/phase2/PLAN.md` finds the §2.6 row and the C1b card.
+  - G-DEPTH in a native session with the search sheet open: the sheet is the only pop on `main` (rule 6), at 10 mm.
 
 ---
 
@@ -1167,11 +1206,12 @@ Each card lists its routes, its sources in the concepts, what it builds, and its
 
 #### C1b Search
 
-- **Tiers:** T1–T3. **Size:** M.
-- **Owns:** `theme/21-search.css`, `device/rt/21-search.js` (LgsSearch + the provider API), `docs/phase2/mockups/window-nav-search.html`, `window-nav-results.html`.
+- **Tiers:** T1–T4 [R2-16]. **Size:** M.
+- **Owns:** `theme/21-search.css`, `device/rt/21-search.js` (LgsSearch + the provider API), `theme/layers/21-search.json` [R2-16], `docs/phase2/mockups/window-nav-search.html`, `window-nav-results.html`.
 - **Routes:** `/search`, `/search/tab/*`.
 - **Inputs:** WN §4, §9.1; XC §2; HA §6; §1.9 here.
 - **Builds:** the trigger on `focusin` of the field; the snapshot; the sheet (zero state, results, categories hosting Steam's page); recent searches in memory only; the provider API.
+  - **T4** [R2-16]: `layers/21-search.json`, the search sheet at +10 mm over a `thick` slab (§1.7's row "Sheets, the search sheet"), a `modal: true` rule (rule 6), with the hole's `fill` following the scrim (§1.8).
 - **Acceptance tests:** WN AT-9a to AT-9e, AT-10 (with C4b's echo), AT-16 (snapshot cost); HA AT-13 against C2a's provider; **PLAN-1b-1:** `cmp` against `window-nav-search.html` and `window-nav-results.html`; G-PAD from the sheet (Down from the field enters the sheet, B returns to the same poster).
 
 #### C1c System presentations
@@ -1218,10 +1258,10 @@ Each card lists its routes, its sources in the concepts, what it builds, and its
 - **Surface:** `barpopup` (the "+" popup).
 - **Inputs:** HA §4, §5, §12.7; CC §3.4 row "+"; §1.14 here.
 - **Builds:**
-  - **T1:** the 4-column grid with no `flow-children`, raised `max-height`, labels, the green pip on Liquid Glass.
+  - **T1:** the 4-column grid with no `flow-children`, raised `max-height`, labels, the green pip on Liquid Glass. Labels end in "…" where a name does not fit, and never cut a glyph; without T3, the attended cell's own label shows the whole name in the plate's look [R2-15].
   - **T3:** the memo patch (A–Z, the full-name plate, the toggle row with `preferredFocus` on the first program, the LQ10 order: navigate main to `/library/home` before launching the switch).
   - **T4:** popup `z` +25 mm.
-- **Acceptance tests:** HA AT-5 (a–e), AT-12; **PLAN-2b-1:** `audit barpopup` (OPEN pre) clean in T1 and T3; **PLAN-2b-2:** `cmp` against `home-apps-plus.html` and `-plus-t1.html`; **PLAN-2b-3:** the toggle row is logged, never executed, and logs `Navigate('/library/home', replace)` before the launch when main is on a `/library/lgs/*` route.
+- **Acceptance tests:** HA AT-5 (a–e), AT-12; **PLAN-2b-1:** `audit barpopup` (OPEN pre) clean in T1 and T3, with §1.16's E-GRID and E-GRID (labels) as the only waivers [R2-15]; **PLAN-2b-2:** `cmp` against `home-apps-plus.html` and `-plus-t1.html`; **PLAN-2b-3:** the toggle row is logged, never executed, and logs `Navigate('/library/home', replace)` before the launch when main is on a `/library/lgs/*` route; **PLAN-2b-4** [R2-15]: the full name on attention, in T3 (`--flags wp.c2b`) and without T3 (R23's T1 fallback), in both input modes. For every cell whose label is shortened (it overflows its box, or T3 drew "…"): gamepad focus (`L.gpTake`) and a laser hover held 0.8 s (`--hover`) each show the stock name whole (no overflow in its box), inside x 0–300 of the popup, by 800 ms after attention begins; the other cells' labels it overlaps are at opacity ≤ .22 (HA §4); 500 ms after attention ends the label is back at rest and no plate is visible.
 
 #### C2c Library catalogue
 
@@ -1465,6 +1505,7 @@ A package creates new files only inside its listed patterns.
 | `theme/layers/00-base.json` | P6 |
 | `theme/layers/99-legacy.json` | P6 (temporary) |
 | `theme/layers/20-shell.json` | C1a |
+| `theme/layers/21-search.json` | C1b [R2-16] |
 | `theme/layers/22-presentations.json` | C1c |
 | `theme/layers/30-bar.json` | C3a |
 | `theme/layers/31-cc.json` | C3b |
@@ -1731,7 +1772,7 @@ The brief asks for full glass, which only glassd can draw over the room. NATIVE.
 | R20 | The room behind the window is never captured, so the glass is flat | `hv` look | GM v2 row fill; shots right after the dashboard hides (GM §3.3) | P9 |
 | R21 | The vrbind relay disturbs SteamVR pages | AT-BIND-RETURN dry run | Flag off by default (S13) | C5b |
 | R22 | Plates exceed 24 layers per surface (Home with peeks and card) | RP-2, GL-1 | Peeks stay CSS only; the mosaic in 4 bands (HA §10.2) | C2a, P6 |
-| R23 | The "+" popup patch fails | HA AT-12 | The T1 grid in Steam's scan order; the green pip on Liquid Glass | C2b |
+| R23 | The "+" popup patch fails | HA AT-12 | The T1 grid in Steam's scan order; the green pip on Liquid Glass; the attended cell shows its whole name in place (CSS, PLAN-2b-4) [R2-15] | C2b |
 | R24 | CC-M's modal container unmounts the page | CC A7, CC11 | The route container `/library/lgs/cc` | C3b |
 
 ### 5.2 Fallback ladder for the whole product

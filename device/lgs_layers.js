@@ -232,7 +232,7 @@
   }
 
   const SURFACE_FIELDS = ['key', 'keyPrefix', 'cover', 'material', 'modes', 'modal', 'frameKey', 'laserOnly',
-    'docVisibility', 'maxLayers', 'coverMm', 'coverDz', 'space', 'enabled', 'flag'];
+    'docVisibility', 'maxLayers', 'coverMm', 'coverDz', 'scaleFrom', 'space', 'enabled', 'flag'];
 
   // Merge fragments in order: the first fragment that names a surface defines
   // it; a later one changes its fields only when it "owns" it. Rules are
@@ -385,6 +385,9 @@
         modes: null,
         modal: null,
         coverDz: null,
+        // whose metres-per-pixel glassd trusts for this surface (glassd §1.2):
+        // "overlay" keeps the overlay's own transform (REQ C4b->P6, the keyboard)
+        scaleFrom: sc.scaleFrom === 'overlay' || sc.scaleFrom === 'main' ? sc.scaleFrom : null,
         // a runtime flag the whole surface waits for (surfaces not yet
         // proven in native mode: toasts, volume HUD, tooltips)
         flag: typeof sc.flag === 'string' && sc.flag ? sc.flag : null,
@@ -408,6 +411,7 @@
       }
       if (sc.modal) s.modal = resolveSel(sc.modal, index, errs, name + '.modal');
       if (sc.coverMm !== undefined || sc.coverDz !== undefined) s.coverDz = mmOrUnits(sc.coverMm, sc.coverDz);
+      if (sc.scaleFrom !== undefined && !s.scaleFrom) errs.push(name + '.scaleFrom: "main" or "overlay"');
       // id -> the rules kept with that id. A later rule with an id already
       // taken is skipped, unless every earlier one is conditional (a flag, a
       // flagged supersede or a profile): then it is kept as their fallback
@@ -1426,6 +1430,7 @@
     surface.shapes = shapes;
     if (mode) surface.mode = mode;
     if (s.coverDz) surface.coverDz = r4(unitsOf(s.coverDz, ctx));
+    if (s.scaleFrom) surface.scaleFrom = s.scaleFrom;
 
     // the window request (CC-A dim, sheet recede): main's <html> or the mode element
     if (s.modes) {
@@ -1489,7 +1494,7 @@
       }
       surface.plates = plates;
     }
-    const bands = mosaicOf(ctx, q, mode, plates);
+    const bands = mosaicOf(ctx, q, mode, plates, shapes);
     if (bands) surface.mosaic = bands;
 
     // rule 7: at most 4 distinct depths at rest (0 counts), over every kept
@@ -1552,8 +1557,15 @@
   }
 
   // mosaic bands: [data-lgs-mosaic] boxes; in windowless mode without any,
-  // plates whose vertical spans overlap merged into one band (+2 px)
-  function mosaicOf(ctx, q, mode, plates) {
+  // plates whose vertical spans overlap merged into one band (+2 px).
+  // Only without a cover (contract §2.3: in the other modes the base is the
+  // whole surface). With a cover, Steam's real panel sits behind it, so a base
+  // limited to bands hid everything outside them: Home's bands still in the
+  // DOM while main was window / window-full (C2a's hook not answering, a
+  // route change, the module going at a step's end) drew the window glass
+  // with only the disc rows on it (REQ C2a->P8 #17).
+  function mosaicOf(ctx, q, mode, plates, shapes) {
+    if (shapes && shapes.length) return null;
     if (q.mosaic.length) {
       return boxes(ctx, q.mosaic).map((t) => ({ x: t.x, y: t.y, w: t.w, h: t.h }));
     }

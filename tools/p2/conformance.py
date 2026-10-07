@@ -82,6 +82,9 @@ def verdicts(r, bfs=None):
             v["P-08"] = ("FAIL", v["P-08"][1] + f"; AUD SHRUNK {len(shr)}: " + "; ".join(shr[:2]))
         con = [i for i in aud.get("issues", []) if i.startswith("CONTRAST")]
         v["P-39"] = ("FAIL" if con else "PASS", f"AUD CONTRAST {len(con)}" + (": " + "; ".join(con[:3]) if con else ""))
+        vac = [i for i in aud.get("issues", []) if i.startswith("VACUOUS")]
+        if vac:      # an empty snapshot decides nothing (session 5): no data never reads as a pass
+            v["P-39"] = ("BLOCKED", vac[0])
     else:
         v["P-39"] = ("N/A", "stock run (--stock): no themed-vs-stock diff")
     t_size = [f for f in typ.get("fails", []) if re.search(r"size|weight", f["why"])]

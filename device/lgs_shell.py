@@ -107,6 +107,7 @@ SG_RULES_DIR = os.path.join(lgs.THEME_DIR, "sg")              # transform overri
 MOTION_JS = os.path.join(HERE, "shared", "motion.js")         # P5's springs, prepended to lgs_sg.js
 VR_SCRIPT_DIRS = (os.path.join(HERE, "vr"), "/tmp/lgs/vr-scripts")   # page scripts; the second for tests
 VR_PAUSE = lgs_vr.PAUSE
+VR_PAUSE_MAX_S = 300                # a lab --theme off pause on vr: pages older than this is stale (REQ C6b->P8)
 
 BINDING = "lgsLayers"
 ACTION_BINDING = "lgsAction"       # Steam -> daemon actions (shell_ext)
@@ -997,6 +998,7 @@ class Shell:
         self.vrx_status = {}                  # page -> {script name: state}
         self.vrx_failed = {}                  # (page, name) -> version that threw
         self.vrx_sig, self.vrx_scripts = None, {}   # page script files: (folder, name, mtime) list, parsed
+        self.vr_pause_since = None            # a lab --theme off pause seen since (vr_paused)
         # flags (defaults.json < /tmp/lgs/flags.json)
         self.flagreader = FlagReader()
         self.rt_flags = {}
@@ -1098,6 +1100,15 @@ class Shell:
         if self.report is not None:
             return self.report
         return self.fallback
+
+    def page_away(self, overlay_key):
+        """True for Steam's main window while the dashboard frame shows another
+        page (SteamVR Settings, the binding UI): Steam's window is not on screen
+        then, so its cover, plates, base and pops must not be either (REQ C6b->P8:
+        glassd's main cover stayed drawn over SteamVR's settings panel). Unknown
+        (systemui unreachable, steam None) is not away."""
+        p = self.page
+        return overlay_key == STEAM_MAIN_KEY and isinstance(p, dict) and p.get("steam") is False
 
     def note(self, msg):
         self.errors.append(time.strftime("%H:%M:%S ") + msg)
@@ -1252,6 +1263,7 @@ class Shell:
             "bridge": {"runtime": self.bridge_runtime,
                        "sent": {k: round(time.time() - t, 1) for k, (_, t) in self.bridge_sent.items()}},
             "geom": self.geom, "page": self.page, "geomError": self.geom_err,
+            "mainAway": self.page_away(STEAM_MAIN_KEY),
             "geomDumpAt": round(self.geom_dump_at, 2) if self.geom_dump_at else None,
             "actions": dict(self.registry.status(), replies=list(self.replies), trustedCtx=self.trusted_ctx),
             "vrScripts": self.vrx_status,
@@ -1285,7 +1297,8 @@ class Shell:
                          "scheduler": sg.get("scheduler"), "expired": b.get("expired", sg.get("expired")),
                          "expiries": sg.get("expiries"), "rebuilds": sg.get("rebuilds"),
                          "flags": self.flags, "sgErrors": sg.get("errors")},
-            "steamvrPages": {"paused": os.path.exists(VR_PAUSE), "version": self.vr_version, "pages": self.vr_pages},
+            "steamvrPages": {"paused": os.path.exists(VR_PAUSE), "version": self.vr_version, "pages": self.vr_pages,
+                             "pausedS": round(time.time() - self.vr_pause_since, 1) if self.vr_pause_since else None},
             "stalls": {"count": self.stalls, "lastS": self.last_stall_s,
                        "agoS": round(time.monotonic() - self.stall_at, 1) if self.stalls else None},
             "errors": list(self.errors),
@@ -1316,6 +1329,15 @@ class Shell:
             texW, texH, radius = _num(s.get("texW") or 0, 0, 16384), _num(s.get("texH") or 0, 0, 16384), \
                 _num(s.get("radius") or 0, 0, 8192)
             if texW is None or texH is None or radius is None or not isinstance(s["overlayKey"], str):
+                continue
+            if self.page_away(s["overlayKey"]):
+                # Steam's page is not shown: glassd keeps the surface (its quad stays masked out of the
+                # room map, where SteamVR's own panel now is) but draws nothing on it; the spec leaves it
+                # out. No fades (nothing shows them); the items materialize again when the page is back.
+                surfaces.append({"name": name, "overlayKey": s["overlayKey"][:128], "texW": round(texW),
+                                 "texH": round(texH), "radius": round(radius),
+                                 "material": str(material_for(s))[:16], "visible": bool(s.get("visible", True)),
+                                 "slabs": [], "shapes": [], "plates": []})
                 continue
             slabs = []
             for L in s.get("layers") if isinstance(s.get("layers"), list) else []:
@@ -1522,7 +1544,7 @@ class Shell:
             if not isinstance(s, dict) or not isinstance(s.get("name"), str) or not isinstance(s.get("overlayKey"), str):
                 continue
             g = gsurf.get(s["name"])
-            if not isinstance(g, dict) or not s.get("visible", True):
+            if not isinstance(g, dict) or not s.get("visible", True) or self.page_away(s["overlayKey"]):
                 continue
             if s.get("name") == "main" and self.main_resized(g):
                 continue
@@ -1618,7 +1640,12 @@ class Shell:
                 sp["coverDz"] = _num(s["coverDz"], -1, 1)
             if _num(s.get("dim"), 0, 1) is not None:
                 sp["dim"] = _num(s["dim"], 0, 1)
-            if isinstance(s.get("mosaic"), list):
+            # mosaic bands only without a cover (contracts/reporter.md §2.3): with a cover Steam's real
+            # panel is hidden behind it, so a base limited to bands would hide everything outside them
+            # (REQ C2a->P8 #17; P6's reporter no longer sends both, this guards older copies)
+            shp = s.get("shapes")
+            has_cover = (isinstance(shp, list) and len(shp) > 0) or (shp is None and material_for(s) == "window")
+            if isinstance(s.get("mosaic"), list) and not has_cover:
                 sp["mosaic"] = [r for r in (clean_rect(m, ("x", "y", "w", "h"), ()) for m in s["mosaic"]
                                             if isinstance(m, dict)) if r][:16]
             # slabs glassd is fading out (contracts/daemon.md §7): no crop, their cell
@@ -2652,6 +2679,8 @@ class Shell:
                         if p != {k: v for k, v in (self.page or {}).items() if k != "at"}:
                             if self.page is not None:
                                 log(f"systemui: frame page {self.page.get('summonKey')} -> {p.get('summonKey')}")
+                            if (self.page or {}).get("steam") is not p.get("steam"):
+                                self.changed.set()      # Steam's window shown / hidden: glassd.json and the spec follow
                             self.page = dict(p, at=int(now * 1000))
                             self.bridge_values["page"] = self.page
                     await asyncio.sleep(GEOM_POLL_S)
@@ -2666,6 +2695,8 @@ class Shell:
             finally:
                 self.geom_ok = False
                 if self.page is not None:
+                    if self.page.get("steam") is False:
+                        self.changed.set()          # unknown again: Steam's window is no longer held hidden
                     self.page = {"v": 1, "at": int(time.time() * 1000), "frameID": None, "activePageID": None,
                                  "summonKey": None, "steam": None, "pages": {}}
                     self.bridge_values["page"] = self.page
@@ -2676,10 +2707,38 @@ class Shell:
                 await asyncio.sleep(delay)
 
     # ---------------------------------------------------------------- SteamVR page scripts (contract §6)
+    def vr_paused(self):
+        """A lab `--theme off` on a vr: page (lgs_vr.stop) pauses page theming and the page scripts. The
+        lab's `--theme on` (lgs_vr.apply_once) ends the pause; one older than VR_PAUSE_MAX_S is stale (a step
+        that turned the theme off and never on again, which left the pause for good): it is removed and
+        theming and the page scripts resume (REQ C6b->P8: a flagged page script was never installed)."""
+        try:
+            age = time.time() - os.stat(VR_PAUSE).st_mtime
+        except OSError:
+            if self.vr_pause_since is not None:
+                log(f"vr: page theming resumed (paused {time.time() - self.vr_pause_since:.0f} s)")
+                self.vr_pause_since = None
+            return False
+        if age > VR_PAUSE_MAX_S:
+            try:
+                os.remove(VR_PAUSE)
+            except OSError:
+                pass
+            log(f"vr: a page-theming pause {age:.0f} s old ended (a lab --theme off without its --theme on); "
+                "theming and page scripts resume")
+            self.vr_pause_since = None
+            return False
+        if self.vr_pause_since is None:
+            self.vr_pause_since = time.time() - age
+            log("vr: page theming paused (lab --theme off on a vr: page): page scripts removed with the theme")
+        return True
+
     async def vr_scripts_for(self, t, scripts):
         """Install, refresh or remove the page scripts of one SteamVR page."""
         name = t.get("title") or t.get("url")
-        flags = self.rt_flags
+        # the flags files themselves (a stat, cached by mtime), not the Steam loop's copy: a lab step's
+        # --flags reaches the page within one poll even while Steam's loop is slow or reconnecting
+        flags = self.flagreader.read()
         st = self.vrx_status.setdefault(name, {})
         mine = {n: s for n, s in scripts.items() if s["page"] == name}
         want = {n: s for n, s in mine.items() if not s["flag"] or flags.get(s["flag"]) is True}
@@ -2794,8 +2853,8 @@ class Shell:
         sig, full, probe = None, None, None
         while not self.stopping:
             await asyncio.sleep(lgs_vr.POLL)
-            if os.path.exists(VR_PAUSE):     # lab "--theme off" on a vr: page (page scripts stripped with it)
-                self.vrx_status = {}
+            if self.vr_paused():             # lab "--theme off" on a vr: page (page scripts stripped with it)
+                self.vrx_status, self.vr_pages = {}, {}
                 await self.vr_conns_close()
                 continue
             try:

@@ -105,7 +105,12 @@ def run_step(argv, base=None):
             announce_file(remote, f"shots/{name}.png")
         return code
     if argv[0] == "hv":
-        return hv_grab(argv[1:])
+        # The step's own --flags/--mode/--media/--hover/--stock go on top of the session's, as for every other step
+        # (lab.main parses them there). Until session 5 this path skipped parse_step(): an hv step's own
+        # `--mode laser` was dropped, and the look was taken in the session's mode (P7 recheck 12:46).
+        args = argv[1:]
+        lab.parse_step(args)
+        return hv_grab(args)
     return _call(argv)
 
 
@@ -278,7 +283,9 @@ def hv_grab(args):
     `--route R`, `--pre JS|@hover SEL[,MS]` (with `--surface S` for the pre, default main) and `--settle S` open a
     lab layer (a menu, an alert) for the capture (REQ C1c->P10): the step then holds lab.lock and lab-vr.lock (in that
     order), runs the route and the pre, waits the settle, grabs, and only then gives the usual restore at the lock
-    exit (menus the step opened are closed, the pointer goes to (1400, 900)). Steam step options apply to it."""
+    exit (menus the step opened are closed, the pointer goes to (1400, 900)). Steam step options apply to it, and any
+    of them (`--mode`, `--flags`, `--media`, `--stock`) also makes hv such a Steam step (session 5: a plain hv held
+    only lab-vr.lock, where they are not applied). The settle defaults to 1.5 s in native mode, 0.8 s otherwise."""
     offaxis = opt(args, "--offaxis")
     rect = opt(args, "--rect")
     look = flag(args, "--look")
@@ -288,8 +295,16 @@ def hv_grab(args):
     psurf = opt(args, "--surface", "main")
     grabs = max(1, int(opt(args, "--grabs", 2)))
     gap = max(0.0, float(opt(args, "--gap", HV_GAP_S)))
-    layer = bool(route or pre or STEP.get("hover"))
-    settle = float(opt(args, "--settle", 0.8 if layer else 0))
+    # Steam's state for the look: a route, a pre, a hover, or any Steam step option (--mode, --flags, --media,
+    # --stock). Each makes hv a Steam step (both lab locks; the options applied inside it), so `hv NAME --mode
+    # laser` alone really is a laser look: P6 reports the laser-only frame menu and P7 builds its copy only in laser
+    # mode. Until session 5 a plain hv held only lab-vr.lock, where Steam's options are not applied (vr: steps), so
+    # its --mode was silently dropped (P7 recheck 12:46).
+    opts_on = bool(STEP.get("mode") or STEP.get("flags") or STEP.get("media") or STEP.get("stock"))
+    layer = bool(route or pre or STEP.get("hover") or opts_on)
+    # the scene graph follows a Steam change through P6's report and the daemon's push: 1.5 s in native mode (as
+    # sgcheck's settle, springs at rest), 0.8 s for the CSS look
+    settle = float(opt(args, "--settle", (1.5 if lab.native_on() == "on" else 0.8) if layer else 0))
     name = args[0] if args and not args[0].startswith("--") else "hv"
     err = hv_build()
     if err:
@@ -338,7 +353,8 @@ def hv_grab(args):
         print(f"BLOCKED: hvgrab produced no frame ({r[-300:]})")
         return 3
     hv_reaper(out)
-    hv_opts = {"look": look, "full": scale == 1, "grabs": grabs, "layer": layer}
+    hv_opts = {"look": look, "full": scale == 1, "grabs": grabs, "layer": layer, "mode": STEP.get("mode"),
+               "native": lab.native_on()}
     if rect:
         hv_opts["rect"] = [int(float(v)) for v in rect.split(",")]
     print(f"@@hv {out} {name} {json.dumps(hv_opts, separators=(',', ':'))}", flush=True)
@@ -436,11 +452,21 @@ def _gates_body(surface, sj, S, route, pre, only, keep, rest_ms, theme, res, g):
             announce_file(remote, o["shotLocal"])
         if "aud" in only:
             stock_route = res.get("stockRoute")
+            # How many controls the surface shows: a theme switch can close a popup the pre opened (or a runtime
+            # patch can unmount what it drew), and an AUD over an empty snapshot compares nothing (REQ C2b-R2->P10:
+            # "controls 0, texts 0" on the "+" popup with wp.c2b). The pre is run again when the surface emptied.
+            count = f"(() => {{ try {{ return L.gates.controls({S}).length; }} catch (e) {{ return 0; }} }})()"
+            n0 = lab_js(count, surface=sj)
+            reran = []
             lab.set_theme("off", surface)
             time.sleep(0.4)
             if stock_route:          # REQ C2a->P10 #4: our route themed vs another route stock
                 lab_js(f"L.nav({json.dumps(stock_route)})")
                 time.sleep(1.2)
+            if pre and not stock_route and n0 and not lab_js(count, surface=sj):
+                run_pre(pre, surface)
+                time.sleep(0.6)
+                reran.append("stock")
             lab_js(f"(window.__LGS_AUDIT = L.snap({S}), 1)", surface=sj)
             lab.set_theme("on", surface)
             time.sleep(0.8)
@@ -450,8 +476,22 @@ def _gates_body(surface, sj, S, route, pre, only, keep, rest_ms, theme, res, g):
                 if pre:
                     run_pre(pre, surface)
                     time.sleep(0.5)
+            elif pre and n0 and not lab_js(count, surface=sj):
+                run_pre(pre, surface)
+                time.sleep(0.6)
+                reran.append("themed")
             g["AUD"] = lab_js(f"L.gates.audDiff(window.__LGS_AUDIT, L.snap({S}))", surface=sj)
             g["AUD"].pop("moved", None)
+            if reran:
+                g["AUD"]["preRerun"] = reran
+            # No data never reads as a pass (review R1 M3): a snapshot without a single control or text run is an
+            # error, not an AUD with 0 issues
+            a_n, b_n = g["AUD"].get("stockRecords", 1), g["AUD"].get("themedRecords", 1)
+            if not a_n or not b_n:
+                g["AUD"]["pass"] = False
+                g["AUD"]["error"] = (f"vacuous: the {'stock' if not a_n else 'themed'} snapshot of {surface} holds no "
+                                     "control or text (the surface closed or was empty when the theme was switched)")
+                g["AUD"].setdefault("issues", []).append("VACUOUS " + g["AUD"]["error"])
 
 
 # ---------------------------------------------------------------- pad-bfs
@@ -865,6 +905,9 @@ def conformance(args):
             time.sleep(0.8)
             g["AUD"] = lab_js(f"L.gates.audDiff(window.__LGS_AUDIT, L.snap({S}))", surface=sj)
             g["AUD"].pop("moved", None)
+            if not g["AUD"].get("stockRecords", 1) or not g["AUD"].get("themedRecords", 1):   # vacuous (session 5)
+                g["AUD"]["pass"] = False
+                g["AUD"].setdefault("issues", []).append(f"VACUOUS: an empty {surface} snapshot (stock or themed)")
         if not sj:
             rep = lab_js("(window.__LGS_LAYERS && typeof window.__LGS_LAYERS.snapshot === 'function') ? "
                          "window.__LGS_LAYERS.snapshot() : null")
@@ -929,11 +972,18 @@ def perf_ab(surface, route, pre, secs, ab, rounds):
     res = {"surface": surface, "route": route, "ab": ab, **stamp(),
            "step": {"flags": dict(STEP["flags"]), "mode": STEP["mode"], "media": list(STEP["media"])}}
 
+    step = {}
+
     def put(mode):
         if ab == "stock":
             lgs.op("off" if mode == "ref" else "on", quiet=True)
         else:
             lgs.op("on", quiet=True, rt=(mode == "sub"))
+        # each `lgs on` starts a new runtime: the subject runs get the step's --flags overlay, --mode stub and the
+        # action logger again (the new runtime reads only the flags file); the reference has no runtime (stock) or
+        # runs without it (theme only)
+        if mode == "sub" and step.get("obj") is not None:
+            step["last"] = step["obj"].reapply_runtime()
         time.sleep(0.4)
 
     def one(mode, rnd):
@@ -950,12 +1000,15 @@ def perf_ab(surface, route, pre, secs, ab, rounds):
         p = lab_js(f"L.perf({S}, {ms})", timeout=60 + secs, surface=sj)
         r = {"round": rnd, "mode": mode, "fps": p.get("fps"), "long": p.get("long"), "p95": p.get("p95"),
              "median": p.get("median"), "worst": p.get("worst"), "native": lab.native_on()}
+        if mode == "sub" and step.get("last"):
+            r["reapplied"] = step["last"]            # the step's runtime options in this run's runtime
         runs.append(r)
         print(f"run {len(runs):2d} r{rnd} {mode}: {r['fps']} fps, {r['long']} long frames, p95 {r['p95']} ms, "
               f"native {r['native']}", flush=True)
 
     v = None
-    with Lock(surface=surface):
+    with Lock(surface=surface) as lk:
+        step["obj"] = lk.step            # None when nested in another lab step (its options are that step's)
         # checked once the lock is held (the wait can be minutes): a CSS-only verdict pools only native=off runs
         # (R2-13), and toggling the theme under another agent's native session would make its daemon dormant
         res.update(stamp())

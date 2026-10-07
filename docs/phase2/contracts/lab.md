@@ -217,14 +217,25 @@ Rules, from PLAN §4.1 and VP §6:
 
 - **AUD**: the `audit` diff (theme off vs on in the same lock). GONE / HIDDEN / SHRUNK / UNCLICKABLE /
   CONTRAST = 0, except exempt elements (§6). A scoped exemption (§6 `_scope`, E-GRID) waives only the issue kinds
-  it lists (SHRUNK), and only while the themed element meets its own criterion (listed under `exempt` with
-  `waived` and `why`); otherwise the issue stays, with "(E-GRID criterion not met: …)".
+  it lists (SHRUNK), only on the element its criterion judges (the cell, not what the cell holds), and only while
+  that element meets its own criterion (listed under `exempt` with `waived` and `why`); otherwise the issue
+  stays, with "(E-GRID criterion not met: …)". The text runs inside an E-GRID cell have their own line, **E-GRID
+  (labels)** (§6, PLAN §1.16 [R2-15]). **Text runs are judged as text** (session 5, REQ C7->P10): a text run whose
+  box shrinks while its whole string stays shown (no ellipsis, line clamp or clip that cannot scroll cuts it: the
+  run's own clip, and each clipping ancestor per axis up to the first one that scrolls on that axis; with no
+  scroller, the window and C1a's glass cut), with the same text (case and spaces ignored) at a drawn size no
+  smaller than stock, is listed under `exempt` as `text-whole` with both sizes, not as SHRUNK (`/invites`' title,
+  1032 × 32 → 472 × 38 at 29.6 px for 22). A cut string or smaller type stays SHRUNK whatever the box's size (until
+  session 5 a text box ≥ 300 × 300 passed as a pane, cut or not). These AUD rules (`scroll-container`,
+  `container-pane`, `text-whole`) say what SHRUNK measures; they are not PLAN §1.16 exemptions and are listed for
+  the coordinator in `wp/P10.md` (REQ P10->Coordinator, session 5).
 - **SIZE** (P-08, P-80, P-83; SM G2b method): every visible focusable or clickable control: visible short side
   ≥ 60 (fields ≥ 64); hit region sampled with `elementFromPoint` on a 4 px grid over B = max(80, w) × 80
   centred on the control's **visible** rect (REQ C2a->P10 #13; for a fully visible control its own centre, and
-  w is the visible width): ≥ 95 % of samples hit the control or a descendant and 0 % another interactive
-  target (a control nested in a row may also hit its host row); icon-only controls are circles
-  (radius ≥ 0.48 × short side), text controls capsules (radius ≥ 0.45 × height) except vertical stacks.
+  w is the visible width; since session 5 the obscured test below uses this same box, so a tall control whose
+  visible part holds B is sampled there, not skipped): ≥ 95 % of samples hit the control or a descendant and 0 %
+  another interactive target (a control nested in a row may also hit its host row); icon-only controls are
+  circles (radius ≥ 0.48 × short side), text controls capsules (radius ≥ 0.45 × height) except vertical stacks.
   **Part of its host** (REQ C3a->P10): an element Steam renders with the `Focusable` class whose Panel says
   `focusable: false` and which has no activation handler of its own (`onClick`, `onActivate`, pointer, mouse or
   touch down/up, the gamepad button handlers; read from its React fibers up to that Panel), inside another
@@ -263,18 +274,23 @@ Rules, from PLAN §4.1 and VP §6:
 **Sweep scope (all gates).** While a `%{*ModalOverlayContent}` is active, SIZE and TYPE judge only what lies in the
 topmost one and OUTLINE probes nothing under it. Each element's visible part is its rect cut by every clipping
 ancestor (overflow other than visible, `clip-path`), the window and C1a's `--lgs-c1a-gh`: what is clipped away is
-skipped (`skipped: clipped`). **Obscured** (REQ C4a->P10 (2) and its refinement, session 4): a control in a
-scroller whose centre is clipped, or whose centre or ≥ 25 % of its hit box B lies under chrome outside its
-outermost scroller (bottom ornament, header) or outside the fixed clip (the window, the glass cut, clips of that
-scroller and its ancestors on axes they do not scroll), is `skipped: obscured` (it is scrolled into view before
-use; `under` = the share of B), **but only when the scrollers around it have the room** to move the whole box
-clear (an obscured band at the box's bottom edge needs `scrollHeight − clientHeight − scrollTop` ≥ the overlap,
-one at its top edge `scrollTop`, likewise across; a box obscured at both edges of an axis cannot clear on that
-axis). A control that cannot be scrolled clear is judged where it is: its P-08 failure says so ("… under chrome
-or the glass cut, and its scrollers cannot bring it clear: needs down N (room M) px"), and a passing one is listed
-under `inPlace`. A control that is
-only partly visible, with a visible part shorter (or narrower) than SIZE's 80 px box, is not sampled for P-08
-(`skipped: partly visible: P-08 not sampled`, REQ C2a->P10 #9); P-80 and P-83 are still judged. A clipping
+skipped (`skipped: clipped`). **Obscured** (REQ C4a->P10 (2) and its refinement, session 4; session 5): a control
+in a scroller whose box B (centred on its visible rect, as above) has its centre or ≥ 25 % under chrome outside
+its outermost scroller (bottom ornament, header) or outside the fixed clip (the window, the glass cut, clips of
+that scroller and its ancestors on axes they do not scroll), or that is only partly visible (its visible part
+shorter or narrower than B), is `skipped: obscured` (or `partly visible: P-08 not sampled (scrolls clear)`; it is
+scrolled into view before use; `under` = the share of B), **but only when its scrollers can bring the whole box
+clear**: along each axis some scroller around it scrolls, three lines through B (both edges and the centre) are
+probed every 4 px across the window with the same test, plus the viewport of the outermost scroller on that axis;
+B can clear when a clear run is at least as long as B and the shift that puts B into it is within the scrollers'
+room that way (`scrollHeight − clientHeight − scrollTop` to move content up, `scrollTop` to move it down; likewise
+across). Until session 5 only B's own samples were compared, so a box lying wholly in the ornament band (obscured
+at both of its edges) counted as never clearable. A control that cannot be scrolled clear is judged where it is,
+partly visible or not: its P-08 failure says so ("… under chrome or the glass cut, only partly visible, and its
+scrollers cannot bring it clear: needs down N (room M) px"), and a passing one is listed under `inPlace`. A
+control outside any scroller that is only partly visible, with a visible part shorter (or narrower) than SIZE's
+80 px box, is not sampled for P-08 (`skipped: partly visible: P-08 not sampled`, REQ C2a->P10 #9); P-80 and P-83
+are still judged. A clipping
 ancestor's `clip-path: inset(...)` is resolved (px, %, `calc(100% - Npx)`), so C1a's glass cut at
 `--lgs-c1a-gh` is seen wherever that variable lives. A control whose sampling box meets a visible
 `[data-lgs-transient]` element (Home's attention card, a popover) that is neither its ancestor nor its descendant
@@ -288,8 +304,9 @@ non-document timeline) skip the at-rest and duration checks but keep the easing 
 that stays ≥ 300 × 300 as `exempt: scroll-container` rather than SHRUNK, and likewise a **pane** that stays
 ≥ 300 × 300 as `exempt: container-pane` (REQ C7->P10: `/chat`'s panes under C1a's toolbar and footer pads): a
 focusable Panel that holds other controls, or that has no activation handler of its own (Steam's React props, as
-for "part of its host"; `/chat`'s empty `chatDialogs`), or a text box. Its controls are audited one by one; a leaf
-target with its own handler that shrinks is still SHRUNK, whatever its size. Only SHRUNK is waived for a pane. `--stock-route R2` (gates and `audit`)
+for "part of its host"; `/chat`'s empty `chatDialogs`). Its controls are audited one by one; a leaf target with its
+own handler that shrinks is still SHRUNK, whatever its size. Only SHRUNK is waived for a pane. Text runs are not
+panes (session 5): they are judged as text (`text-whole`, above). `--stock-route R2` (gates and `audit`)
 snaps R2 with the theme off and the `--route` themed, running the pre again (AUD keys are DOM paths: the page must
 keep Steam's DOM structure).
 
@@ -306,21 +323,32 @@ Gamepad reachability over the four directions (G-PAD, P-20 to P-24), one lock:
    route or opens the keyboard is undone (`SteamClient.OpenVR.Keyboard.Hide()`, `L.nav(R)`) and recorded; a move
    that leaves the window is brought back (below).
    **Exits** (REQ C1b->P10 #10, C2a->P10 #14): main has the gamepad only while Steam's active nav tree lives in
-   main's document (after Left from a row's first item it is the frame menu's `VRFrameMenu-…` tree; another
-   window's tree, such as the VR keyboard's, can also keep it while main still shows a stale `.gpfocus`). After an
-   `exit:` edge the sweep brings focus back as a user does: first the **opposite direction** (which also tells
-   whether the exit is reversible), then `FocusApplicationRoot()`, then main's own nav tree activated again
-   (`FindNavTreeInWindow(main)` → `Activate(true)`) and the root once more. Every exit is listed in `exits:
-   [{from, dir, to, back: 'opposite'|'root'|'tree'|null}]` (`null`: focus did not come back), and the next node is
-   taken only once main has the gamepad again. Exits do not enter `pass` (leaving the window at its edge is an
-   edge, as on stock Steam).
+   main's document. After Left from a row's first item it is the frame menu's `VRFrameMenu-…` tree or
+   `vr-null-tree` (the gamepad has left Steam's overlay: session 5 probes on `/library/tab/AllGames` and
+   `/search/tab/All`); another window's tree, such as the VR keyboard's, can also keep it while main still shows a
+   stale `.gpfocus`. After an `exit:` edge the sweep brings focus back, each step counted only if main still has
+   the gamepad 150 ms later (session 4 counted a moment Steam undid at once, and every later node was then
+   untakeable): (1) the **opposite direction** (which also tells whether the exit is reversible); (2) main's own nav
+   tree activated (`FindNavTreeInWindow(main)` → `Activate(true)`, `tree`); (3) `FocusApplicationRoot()` (`root`);
+   (4) Steam's `EnsureVROverlayVisible()` on the main window, then the root and Down + Up (`overlay`: what brings
+   the gamepad back after `vr-null-tree`; it is what Steam's own `Navigate` calls, here without navigating);
+   (5) Steam's `Navigate(route, replace)` to the same route, then the root and Down + Up (`nav`; the history entry is
+   replaced, so the final B sees Steam's own history); (6) the tree and the root once more (`tree+root`). A Down that
+   changes the page on the way (Settings) is undone. Every exit is listed in `exits: [{from, dir, to, back:
+   'opposite'|'tree'|'root'|'overlay'|'nav'|'tree+root'|null}]` (`null`: focus did not come back), and the next
+   node is taken only once main has the gamepad again. A take that does not land (main shows `.gpfocus` but its
+   tree is not Steam's active one) activates main's tree and takes once more (`retook` counts these); a node that
+   still cannot be taken is `untakeable`, and the summary lists such nodes. Exits do not enter `pass` (leaving the
+   window at its edge is an edge, as on stock Steam).
 4. Reversibility: for every edge `a -Down-> b` it checks `b -Up-> a` (and Right/Left), except at edges.
 5. B (unless `--no-b`): once at the end, B through `DispatchVirtualButtonClick(2)` from the entry focus;
    records whether the topmost layer closed or the route went back, then restores the route.
 
 Output: `{route, entry, nodes: [{id, el, text, rect, route, key}], edges: {id: {up, down, left, right}}, routes,
-universe, unreached: [...], irreversible: [...], untested: [...], exits: [...], b: {...}, pass}`. Budget defaults: `--max 120`
-nodes, `--budget 150` s (the step then ends with `truncated: true`). `--out FILE` (PC) also writes the JSON.
+universe, unreached: [...], irreversible: [...], untested: [...], exits: [...], retook, navs, b: {...}, pass}`. Budget
+defaults: `--max 120` nodes, `--budget 150` s (the step then ends with `truncated: true`; each exit costs about
+2–3 s to recover, so a large route such as `/library/tab/AllGames` with 350 posters needs a larger budget or a
+`--start`). `--out FILE` (PC) also writes the JSON.
 
 - **Universe.** The targets are the *leaf* focusables of the start route: elements with a Steam nav node that
   hold no other such element (a Settings row whose focus goes to its dropdown is a container, not a target),
@@ -411,11 +439,15 @@ default profile fail R8. Run it as a `native-session` step: without the reporter
    once (never fetched) and measures the last one; the metrics JSON says `grabs`.
 3. **A layer held open for the capture** (REQ C1c->P10): with `--route R` and/or `--pre JS` (or `"@hover SEL[,MS]"`
    on `--surface S`, default main; the step option `--hover` too) the step takes `lab.lock` then `lab-vr.lock`,
-   navigates, runs the pre, waits `--settle` s (default 0.8), grabs, and only then gives the usual restore at the
-   lock exit (menus, dialogs and popups the step opened closed, pointer to (1400, 900)). Steam step options
-   (`--flags`, `--mode`, `--media`) apply to it. The metrics JSON says `layer: true`. Example (C1c's G-HV with a
-   dialog up): `python glass.py hv c1c_alert --pre "<CONFIRM snippet>" --look`. Without them `hv` holds only
-   `lab-vr.lock`, as before.
+   navigates, runs the pre, waits `--settle` s (default 0.8; 1.5 in native mode, session 5), grabs, and only then
+   gives the usual restore at the lock exit (menus, dialogs and popups the step opened closed, pointer to
+   (1400, 900)). Steam step options (`--flags`, `--mode`, `--media`, `--stock`) apply to it, and **any of them alone
+   also makes `hv` such a Steam step** (session 5): `python glass.py hv NAME --mode laser` is a laser look (P6
+   reports the laser-only frame menu and P7 builds its copy only in laser mode). Until session 5 a plain `hv` held
+   only `lab-vr.lock`, where Steam's options are not applied, so its `--mode` was silently dropped. The metrics JSON
+   says `layer: true`, `mode` and `native`. Example (C1c's G-HV with a dialog up): `python glass.py hv c1c_alert
+   --pre "<CONFIRM snippet>" --look`. Without a route, pre, hover or step option `hv` holds only `lab-vr.lock`, as
+   before.
 4. Captures `system.HeadsetView` to `/tmp/lgs/hv-<pid>-<n>.png` and announces it (`@@hv`); `glass.py` fetches it
    **as the line streams** (also inside a `native-session`, while later steps run), deletes the Frame copy at
    once, and deletes any announced frame it could not handle. A detached `sleep 90; rm -f` on the Frame and the
@@ -447,7 +479,11 @@ SharedJSContext, then each step in order, then **always** returns to CSS only (`
 the native layer is off.
 
 - A step is any lab command line, quoted (`--step "shot main p2_c2a_home_native --route /library/home"`), or
-  one command after `--`. Steps take their own `lab.lock` as usual; step options (§1) work inside them.
+  one command after `--`. Steps take their own `lab.lock` as usual; step options (§1) work inside them, the
+  session's own options first and each step's on top. This includes `hv` steps since session 5 (P7's recheck,
+  12:46: an `hv` step's own `--mode laser` was dropped, because the session called the grab without parsing the
+  step's options; only `native-session --mode laser` reached it). Looks taken before that with a per-step `--mode`
+  were in the session's mode (pad by default), without the laser-only frame menu.
 - Files a step produces (`shot`, `motion`, `focus --keep`) are fetched to `shots/` like the plain commands, as the
   step announces them (the output streams).
 - `hv`, `sgcheck` and `conformance --route R` are valid steps; the PC finishes each measuring step's result
@@ -493,7 +529,10 @@ is the Phase 1 command (one theme-off run, one theme-on run). With it:
 1. Each round is ABBA × 2: reference, subject, subject, reference, twice (8 runs of `L.perf(SURF, S × 1000)`,
    default 3 s, the surface brought to the front first). `--ab stock`: reference = the theme off (stock), subject =
    the theme on (G-PERF). `--ab theme`: reference = the theme only (`lgs on` with the runtime off), subject = the
-   theme with the runtime (RT-7). Step options (`--flags`, `--mode`) apply to the subject runs as usual.
+   theme with the runtime (RT-7). Step options (`--flags`, `--mode`) apply to the subject runs as usual: each
+   `lgs on` starts a new runtime, which reads the step's flags file but not its in-memory flag overlay, input-mode
+   stub or action logger, so the step puts these back into every subject run's runtime (session 5; before, a
+   subject run after the first toggle ran without `--mode`). Each subject run records them as `reapplied`.
 2. Every run prints `fps`, long frames (> 34 ms), p95 and `native`. The verdict pools only runs with `native=off`
    (a CSS-only verdict): **PASS** when the median fps ratio subject / reference ≥ 0.95 and the median extra long
    frames (subject − reference) ≤ the reference's A/A spread (max − min of its long frames, min 1). While it fails,
@@ -541,6 +580,10 @@ The size, type and outline sweeps skip an element, and list it under `exempt`, w
 3. it is inside web content (`%{MainBrowserContainer}`, `/steamweb`, `/externalweb`: E-WEB), or the keyboard
    (E-KEY).
 
+Only PLAN §1.16 lists exemptions (§1 decides; the coordinator adds rows). Every id in `exemptions.json`, and every
+`labels` line named in its `_scope`, is a §1.16 row, or it is listed in `_pending` (below); `test_gates_page.py`
+case 0 checks this against PLAN.md.
+
 Each exemption is checked against its own criterion and reported as `exempt: [{el, id, rect, pass, why}]`; one
 that fails its criterion fails G-SIZE:
 
@@ -548,32 +591,46 @@ that fails its criterion fails G-SIZE:
 |---|---|
 | E-MENU | PLAN §1.16 [R2-5] (REQ Coordinator->P10 (1)). **Rows:** visible fill ≥ 60 (the element less a clear border: C1c's rows inset their fill with a 2 px transparent border and `background-clip: padding-box`), ≥ 320 wide in one column and ≥ 280 in the two-column grid (rows at two distinct x in the slab, or C1c's `.lgs-menu-grid`), pitch to the next row below in the same column ≥ 64 when the rows touch (compact, gap ≤ 2) or ≥ 78 (regular); the last row has none. **Steam's appended Cancel** (the last item of a top-level menu's first slab, as `22-presentations.css` selects it), its own line instead of P-08 and the row clauses: visible fill 60 tall and equal to its element (no clear border), ≥ 192 wide, ≥ 4 px clear of the visible fill of the row above, inside the slab, `elementFromPoint` at its centre hits it |
 | E-TAB | PLAN §1.16's pitch ≥ 52 frame-menu px on any surface (52 × m / 0.9: 52 on `frame.menu`, 48 on `barpopup`) along the bar, abutting the next item (gap ≤ 2); across it the visible item ≥ 60 × m (P-80: 50 bar px). The axis is the one the next item follows on: a column (the frame menu's tab bar) or a row (Quick Access's five tabs, REQ C3b->P10) |
-| E-GRID | **AUD only** (`_scope`: SHRUNK waived; SIZE, TYPE and OUTLINE judge the cells as usual). Each cell ≥ 80 × m by 96 × m (67 × 80 bar px), abutting its row and column neighbours (gap ≤ 2), and its own whole hit (≥ 95 % own, 0 % another target over the cell) (REQ C2b->P10, the "+" launcher's 72 × 96 cells) |
+| E-GRID | PLAN §1.16 [R2-15]. **AUD only** (`_scope`: SHRUNK waived; SIZE, TYPE and OUTLINE judge the cells as usual; GONE, HIDDEN, UNCLICKABLE and CONTRAST never waived), on the cell itself. Each cell ≥ 80 × m by 96 × m (67 × 80 bar px), abutting its row and column neighbours (gap ≤ 2), and its own whole hit (≥ 95 % own, 0 % another target over the cell) (REQ C2b->P10, the "+" launcher's 72 × 96 cells) |
+| E-GRID (labels) | PLAN §1.16 [R2-15], AUD's SHRUNK only, for a text run inside an E-GRID cell (`_scope` `labels`), from the themed snapshot and the stock run: (1) the run's box lies inside its cell (± 1); for the attended cell (`.gpfocus` or `:hover`), whose run shows the whole name as the plate, inside the popup's width instead; (2) it shows ≤ 2 line boxes (its text's line rects inside what is left visible); (3) no glyph is cut: wherever the run's text overflows its own box (`scrollWidth`/`scrollHeight`) or a clipping ancestor up to the cell by > 1 px, that box draws the ellipsis (`text-overflow: ellipsis` with overflow clipped, across; `-webkit-line-clamp` ≤ 2 on a vertical `-webkit-box`, down; the text is cut box by box, inside out), and the run breaks lines only between words or after "/" (`word-break` and `overflow-wrap` `normal`, `hyphens` not `auto`); (4) the full name stays in the DOM: the run's `textContent` equals the stock run's, or the cell's `aria-label` does (where T3 draws its own shortened string). Waived entries say `waived: SHRUNK` with the four clauses; otherwise the SHRUNK stays with "(E-GRID (labels) not met: …)" |
 | E-SWITCH | hit ≥ 95 % own over 86 × 80 around its centre, no other target |
 | E-CHECK | hit ≥ 95 % own over 80 × 80 |
 | E-MINI | hit ≥ 95 % own over 80 × 80; another target only if it is the field it clears |
 | E-SEG | ≥ 60 × 120 and contiguous with the next segment (gap ≤ 2) |
 | E-BAR | ≥ 64 × 72 bar px |
 | E-BACK | `aria-label` set and the centre hits it |
-| E-KEY, E-WEB, E-ROW58, E-DRILL | none here (judged by their owners' tests); `pass: null`. E-KEY lists the visible key `%{*KeyboardKey}` and its focusable parent `%{KeyboardKeyHitArea}`, which SIZE judges (REQ C4b->P10) |
+| E-KEY | PLAN §1.16 "Steam's geometry, identical to stock": scoped to SIZE, TYPE and OUTLINE (`_scope`, session 5), so **AUD still judges the keys** against stock (GONE, HIDDEN, SHRUNK, UNCLICKABLE, CONTRAST): the criterion is a comparison with stock, which is what AUD makes. Lists the visible key `%{*KeyboardKey}` and its focusable parent `%{KeyboardKeyHitArea}`, which SIZE judges (REQ C4b->P10); also through C4b's `data-lgs-exempt="E-KEY"` on the key grid. In SIZE `pass: null` |
+| E-WEB, E-ROW58, E-DRILL | none here (judged by their owners' tests); `pass: null` |
 
-`lab/exemptions.json` today: E-WEB, E-KEY, E-TAB (frame-menu items; Quick Access's tabs
+`lab/exemptions.json` today: E-WEB, E-KEY (scoped), E-TAB (frame-menu items; Quick Access's tabs
 `%{QuickAccessMenu} %{PopupBody>Tab}`), E-MENU (context-menu items), E-SWITCH, E-CHECK, E-SEG, E-MINI (Steam's
-primitives and the `.lgs-*` controls), E-GRID (the "+" launcher cells
-`%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}`).
+primitives and the `.lgs-*` controls), E-GRID with its `labels` line (the "+" launcher cells
+`%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}`), `_pending` empty.
 
-**Scope** (session 4): `"_scope": {"E-GRID": {"sweeps": ["aud"], "aud": ["SHRUNK"]}}` limits an exemption to some
-sweeps (`size`, `type`, `outline`, `aud`) and, in AUD, to some issue kinds; outside its scope the element is judged
-as usual. An exemption without a `_scope` entry applies to every sweep and every AUD kind (as before). E-GRID is not
-yet in PLAN §1.16 (REQ P10->Coordinator in `wp/P10.md` asks to add the row): it waives nothing SIZE checks, only the
-SHRUNK that HA §4's grid (adopted by PLAN §1.14, built by §2.4 C2b) makes by design, under HA §4's own criterion
-(hit region = the whole cell, ≥ 67 popup px both ways). Until the row is added, evidence that relies on it names it.
+**Scope** (session 4): `"_scope": {"E-GRID": {"sweeps": ["aud"], "aud": ["SHRUNK"], "labels": "E-GRID (labels)"},
+"E-KEY": {"sweeps": ["size", "type", "outline"]}}` limits an exemption to some sweeps (`size`, `type`, `outline`,
+`aud`) and, in AUD, to some issue kinds, which it waives on the element its criterion judges (the cell), not on
+what that element holds; `labels` names the §1.16 line that judges the text runs inside it (session 5). Outside its
+scope the element is judged as usual. An exemption without a `_scope` entry applies to every sweep and every AUD kind
+(as before).
+
+**Pending** (session 5): `"_pending": {"E-X": "why"}` lists ids that PLAN §1.16 does not have yet. The sweeps check
+and report a pending exemption's criterion (`pending` in its `exempt` entry, `waived: null`) and waive nothing: the
+issue stays, with "(E-X pending: …; its criterion is met / not met: …)". P10 drops an id from `_pending` once
+§1.16 lists it (case 0 fails while a pending id is in PLAN). E-GRID was pending in session 5 until the coordinator
+added it (R2-15, 13:10); `_pending` is empty today.
 
 **Offline test** of the sweeps: `python tools/p2/test_gates_page.py` runs `tools/p2/fixtures/gates_page.html` in a
-local headless Chrome or Edge (1280 × 720, a fresh temporary profile): obscured with and without scroll room, the
-visible-rect P-08 box, E-TAB on a row, E-GRID's AUD waiver (met, not met, GONE kept), the pill's hosted glyphs,
-E-MENU rows (column, grid, too narrow) and Cancel (passing, and a 56 px fill inside a clear border failing), and a
-panes versus a leaf target in AUD (20 cases).
+local headless Chrome or Edge (1280 × 720, a fresh temporary profile), after case 0 (`exemptions.json` against PLAN
+§1.16): obscured with and without scroll room, the visible-rect P-08 box (a control cut by the window; a tall
+control cut by its scroller, sampled on its visible part), a partly visible control that cannot scroll clear
+(judged in place), E-TAB on a row, E-GRID's AUD waiver (met, not met, GONE kept, pending), the pill's hosted
+glyphs, E-MENU rows (column, grid, too narrow) and Cancel (passing, and a 56 px fill inside a clear border
+failing), panes versus a leaf target in AUD, text runs judged as text (a narrower box with the whole string and
+larger type waived; an ellipsis, smaller type and a cut block ≥ 300 × 300 kept), E-GRID (labels) (an ellipsized
+label waived; a label cut without an ellipsis, a three-line label, a T3-shortened label without the cell's
+`aria-label` and a plate outside a resting cell kept; with the `aria-label`, the attended cell's plate inside the
+popup and a short label waived) and E-KEY's scope (SIZE exempt, AUD still SHRUNK) (34 cases, plus case 0).
 
 ## 7. New lab helpers (`L`, in SharedJSContext)
 

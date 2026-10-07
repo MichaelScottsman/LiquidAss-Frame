@@ -365,6 +365,9 @@ def hv_measure(c, remote, name, opts):
         res["grabs"] = opts.get("grabs", 1)
         if opts.get("layer"):
             res["layer"] = True          # a --route/--pre layer was held open for the capture (REQ C1c->P10)
+        for k in ("mode", "native"):     # the input mode and native state the look was taken in (session 5)
+            if opts.get(k):
+                res[k] = opts[k]
         print(json.dumps(res, indent=1), flush=True)
         if opts.get("look"):
             look = TMP / f"{HV_LOOK_PREFIX}{os.getpid()}-{int(time.time() * 1000) % 10000000}"
@@ -502,6 +505,12 @@ def gates_finish(res, keep_name=None):
             for pr in o.get("probes", []):
                 e = edge_probe(ep, L, pr, dpr)
                 if e:
+                    # High Contrast draws its 2 px edge on purpose (D2's HC glass; P-42 exempts it, as the DOM part
+                    # already does for rings, rims and lines): measured, not judged (REQ C2a-R2->P10 (5), session 5)
+                    if o.get("highContrast"):
+                        e["highContrast"] = True
+                        e["judgedPass"] = e["pass"]
+                        e["pass"] = True
                     edges.append(e)
             o["shot"] = rel if keep_name else None
             if not keep_name and path.name.startswith("_gates_tmp_"):
@@ -529,6 +538,7 @@ def gates_summary(res):
                 sides[e.get("side", "top")] = sides.get(e.get("side", "top"), 0) + 1
             extra = (f", {len(v.get('edges', []))} edge probes ({', '.join(f'{n} {s}' for s, n in sides.items()) or 'none'})"
                      + (f", {v.get('pseudoChecked')} pseudo-elements checked" if v.get("pseudoChecked") is not None else "")
+                     + (" (High Contrast: rings, rims, lines and edge profiles not judged, P-42)" if v.get("highContrast") else "")
                      + (f"; ERROR {v['error']}" if v.get("error") else ""))
         out.append(f"  G-{k:8} {'PASS' if v.get('pass') else 'FAIL'}  {n} findings{extra}"
                    + (f", {len(v.get('exempt', []))} exempt" if v.get("exempt") else ""))
@@ -590,6 +600,12 @@ def bfs_summary(r):
         out.append(f"  exits from main: {len(r['exits'])}, focus back by " + ", ".join(f"{k} {n}" for k, n in how.items())
                    + "  (opposite = the reverse press returned)")
         out += [f"      {name(x['from'])} -{x['dir']}-> {x['to']}, back: {x.get('back') or 'LOST'}" for x in r["exits"][:8]]
+    # nodes whose focus could not be taken (session 5: the symptom of REQ C1b->P10 #10 / C2a #14), and takes that
+    # needed main's nav tree activated again first
+    untk = [int(i) if str(i).isdigit() else i for i, e in r["edges"].items() if "untakeable" in e.values()]
+    if untk or r.get("retook"):
+        out.append(f"  untakeable nodes: {len(untk)}; takes that needed main's nav tree activated again: {r.get('retook', 0)}")
+        out += [f"      {name(i)}" for i in untk[:6]]
     out.append(f"  routes visited: {', '.join(r.get('routes', []))}")
     out.append(f"  unreached visible focusables: {len(r['unreached'])} of {r.get('universe', '?')}")
     out += [f"      {u['el']} \"{u.get('text', '')[:30]}\" {u['rect']}" for u in r["unreached"][:12]]

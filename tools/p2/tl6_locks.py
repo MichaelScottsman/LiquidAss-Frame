@@ -23,7 +23,7 @@ ROOT = Path(__file__).resolve().parents[2]
 # command -> the lock it must take (contracts/lab.md section 2)
 EXPECT = {
     "native_session": "native.lock, then lab.lock + lab-vr.lock for setup and return",
-    "hv_grab": "lab-vr.lock (lab.lock + lab-vr.lock with --route/--pre)", "gates": "lab.lock (lab-vr.lock for vr: surfaces)", "pad_bfs": "lab.lock",
+    "hv_grab": "lab-vr.lock (lab.lock + lab-vr.lock with --route/--pre/--hover or a Steam step option)", "gates": "lab.lock (lab-vr.lock for vr: surfaces)", "pad_bfs": "lab.lock",
     "focus_live": "lab.lock (lab-vr.lock for vr:)", "motion": "lab.lock (lab-vr.lock for vr:)",
     "sgcheck_live": "lab.lock + lab-vr.lock", "cmp_rects": "lab.lock (lab-vr.lock for vr:)",
     "conformance": "lab.lock (lab-vr.lock for vr:)",
@@ -81,8 +81,16 @@ def static_review():
     flags_ok = step_src.count("with flags_file_lock()") >= 2 and "open(FLAGS_FILE, \"w\"" not in step_src \
         and "self.own_prev" in step_src
     ok &= flags_ok
+    # An hv step's own step options (session 5, P7 recheck): native-session parses them before hv_grab, and any
+    # Steam step option makes hv a Steam step (both lab locks), so its --mode is applied, not dropped.
+    rs, hg = funcs.get("run_step", ""), funcs.get("hv_grab", "")
+    hv_opts = bool(re.search(r"\n\s+lab\.parse_step\((\w+)\)\n\s+return hv_grab\(\1\)", rs)) \
+        and bool(re.search(r"layer = bool\([^\n]*opts_on\)", hg)) \
+        and all(f'STEP.get("{k}")' in (re.search(r"opts_on = ([^\n]*)", hg) or ["", ""])[1]
+                for k in ("mode", "flags", "media", "stock"))
+    ok &= hv_opts
     return {"commands": rows, "phase1": p1, "nativeBeforeLab": order_ok, "systemuiReads": touches,
-            "flagsFileLocked": flags_ok, "pass": ok}
+            "flagsFileLocked": flags_ok, "hvStepOptions": hv_opts, "pass": ok}
 
 
 # Offline on the Frame (no Steam): lab.Lock with flock_wait stubbed to time out once, then a Step.apply that raises
@@ -199,6 +207,7 @@ def main(argv):
     print(f"  native.lock taken before any lab lock: {'ok' if st['nativeBeforeLab'] else 'BAD'}")
     print("  vr:systemui reads under lab-vr.lock: " + (", ".join(f"{k} {'ok' if v else 'BAD'}" for k, v in st["systemuiReads"].items()) or "none"))
     print(f"  flags file under its own flags.lock, own keys restored: {'ok' if st['flagsFileLocked'] else 'BAD'}")
+    print(f"  hv step options parsed inside native-session and applied under the Steam lock: {'ok' if st['hvStepOptions'] else 'BAD'}")
     ok = st["pass"]
     if "--static-only" not in argv:
         ls = lock_safety()

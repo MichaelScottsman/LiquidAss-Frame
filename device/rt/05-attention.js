@@ -216,13 +216,25 @@
       function enter(reg, el, source, rec) {
         const cur = reg.active.get(el);
         if (cur) {
+          const back = !!cur.leaveTimer;
           if (cur.leaveTimer) { H.clearTimeout(cur.leaveTimer); cur.leaveTimer = 0; }
           // The input that entered last owns the attention, so its own leave paths end it (a feed
           // attention the laser takes over must end when the laser leaves; found by the R1 leak test).
           cur.source = source;
+          if (back) {
+            // Attention came back within the leave grace: it never ended. Tell the consumer (it may have
+            // reacted to another element meanwhile), then fire the steps that came due during the grace,
+            // in order (REQ C2a-R2->P3).
+            call(reg.o.onReenter, el, evOf(cur, { reentry: true, reached: cur.reached.slice() }));
+            const due = cur.deferred.splice(0).sort((x, y) => x - y);
+            for (const th of due) {
+              if (reg.active.get(el) !== cur || live !== st) break;
+              reach(reg, cur, th);
+            }
+          }
           return cur;
         }
-        const A = { el, source, since: now(), reached: [], timers: [], leaveTimer: 0, win: rec ? rec.win : null, doc: rec ? rec.doc : el.ownerDocument };
+        const A = { el, source, since: now(), reached: [], deferred: [], timers: [], leaveTimer: 0, win: rec ? rec.win : null, doc: rec ? rec.doc : el.ownerDocument };
         reg.active.set(el, A);
         if (reg.o.classes) addCls(el, 'lgs-attend');
         call(reg.o.onEnter, el, evOf(A));
@@ -233,7 +245,12 @@
           if (immediate || th <= 0) { reach(reg, A, th); continue; }
           A.timers.push(H.setTimeout(() => {
             if (reg.active.get(el) !== A || live !== st) return;
-            if (A.source === 'laser' && !A.leaveTimer && rec && !stillOver(rec, el)) { leaveNow(reg, A, false); return; }
+            // A step that comes due while the leave grace runs waits, in every input mode: it fires when
+            // the attention returns within the grace (enter() above) and never when it does not. Firing it
+            // here let a neighbour the laser or the D-pad only passed over take a 400 ms step (Home's card
+            // moved to it and was lost; REQ C2a-R2->P3).
+            if (A.leaveTimer) { if (!A.deferred.includes(th)) A.deferred.push(th); return; }
+            if (A.source === 'laser' && rec && !stillOver(rec, el)) { leaveNow(reg, A, false); return; }
             if (!el.isConnected) { leaveNow(reg, A, false); return; }
             reach(reg, A, th);
           }, th));
@@ -380,7 +397,7 @@
           padImmediate: !!o0.padImmediate,
           leaveMs: typeof o0.leaveMs === 'number' && o0.leaveMs >= 0 ? o0.leaveMs : 0,
           classes: o0.classes !== false,
-          onEnter: o0.onEnter, onDwell: o0.onDwell, onStep: o0.onStep, onLeave: o0.onLeave,
+          onEnter: o0.onEnter, onDwell: o0.onDwell, onStep: o0.onStep, onLeave: o0.onLeave, onReenter: o0.onReenter,
         };
         const reg = {
           o, ths: thresholdsOf(o), match: matcherFor(target), active: new Map(),

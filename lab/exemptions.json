@@ -1,5 +1,5 @@
 {
- "_doc": "PLAN 1.16 exemptions for glass.py gates (contracts/lab.md section 6). Owned by P10: request additions with 'REQ <YOU>->P10' in your evidence log. Elements may also carry data-lgs-exempt=\"E-...\" (set by the owning package). Selectors accept %{Token}; one that does not resolve is skipped. Each exempt element is checked against its own criterion (gates SIZE 'exempt' list, pass/why). '_scope' limits an exemption to some sweeps ('size', 'type', 'outline', 'aud') and, for 'aud', to some issue kinds; elsewhere the element is judged as usual.",
+ "_doc": "PLAN 1.16 exemptions for glass.py gates (contracts/lab.md section 6). Owned by P10: request additions with 'REQ <YOU>->P10' in your evidence log. Elements may also carry data-lgs-exempt=\"E-...\" (set by the owning package). Selectors accept %{Token}; one that does not resolve is skipped. Each exempt element is checked against its own criterion (gates SIZE 'exempt' list, pass/why). '_scope' limits an exemption to some sweeps ('size', 'type', 'outline', 'aud') and, for 'aud', to some issue kinds, on the element its criterion judges; 'labels' names the PLAN 1.16 line that judges the text runs inside it (E-GRID (labels)); elsewhere an element is judged as usual. '_pending' lists ids PLAN 1.16 does not have yet (only the coordinator adds exemptions): their criterion is checked and reported, nothing is waived; P10 drops an id from '_pending' once PLAN 1.16 lists it.",
  "E-WEB": ["%{MainBrowserContainer}", "%{*Browser}", "iframe"],
  "E-KEY": ["%{*KeyboardKey}", "%{KeyboardKeyHitArea}"],
  "E-TAB": ["%{DashboardMenu}%{Variant_FrameMenu} %{DashboardMenu>Item}", "%{QuickAccessMenu} %{PopupBody>Tab}"],
@@ -9,5 +9,6 @@
  "E-SEG": ["%{Group>Button}", ".lgs-seg > [aria-pressed]"],
  "E-MINI": [".lgs-btn-mini.lgs-btn-circle", ".lgs-btn-sm.lgs-btn-circle"],
  "E-GRID": ["%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}"],
- "_scope": {"E-GRID": {"sweeps": ["aud"], "aud": ["SHRUNK"]}}
+ "_scope": {"E-GRID": {"sweeps": ["aud"], "aud": ["SHRUNK"], "labels": "E-GRID (labels)"}, "E-KEY": {"sweeps": ["size", "type", "outline"]}},
+ "_pending": {}
 }

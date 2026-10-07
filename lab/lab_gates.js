@@ -3,7 +3,7 @@
 // lab_helpers.js and lab_p2.js; extends window.__LGS_LAB with L.gates.
 (function () {
   const L = window.__LGS_LAB;
-  if (!L || (L.gates && L.gates.v === 7)) return;
+  if (!L || (L.gates && L.gates.v === 8)) return;
 
   // D2 2.5: the multiplier m of each surface (sizes in main-window px x m).
   const M = [[/^main$/, 1], [/^frame\.menu|^tooltip|^notifications|^floatingfooter/, 0.9], [/^bar|^barpopup/, 0.83],
@@ -48,17 +48,26 @@
   // none = any exemption (the Phase 1 behaviour).
   const scopeOf = (id) => { const s = (exemptions()._scope || {})[id]; return s && typeof s === 'object' ? s : null; };
   const inScope = (id, sweep) => { const s = scopeOf(id); return !sweep || !s || !Array.isArray(s.sweeps) || s.sweeps.includes(sweep); };
-  // -> {id, host}: the exemption and the element that carries it (the tagged ancestor or the selector's match).
-  function exemptMatch(alias, el, sweep) {
+  // A pending exemption ("_pending": {"E-GRID": "why"}) is one PLAN §1.16 does not list yet: only the coordinator
+  // adds exemptions (PLAN §1 decides), so the sweeps check and report its criterion but waive nothing until it is
+  // listed (session 5; C2b review R2 M1). Its reason, or null.
+  const pendingOf = (id) => { const p = exemptions()._pending; return p && typeof p === 'object' && Object.prototype.hasOwnProperty.call(p, id) ? String(p[id] || 'not in PLAN 1.16') : null; };
+  // -> {id, host, pending}: the exemption and the element that carries it (the tagged ancestor or the selector's
+  // match). Pending exemptions are matched only with withPending (callers that report them).
+  function exemptMatch(alias, el, sweep, withPending) {
     const host = el.closest('[data-lgs-exempt]');
-    if (host && inScope(host.getAttribute('data-lgs-exempt'), sweep)) return { id: host.getAttribute('data-lgs-exempt'), host };
+    if (host) {
+      const id = host.getAttribute('data-lgs-exempt');
+      if (inScope(id, sweep) && (withPending || !pendingOf(id))) return { id, host, pending: pendingOf(id) };
+    }
     const t = exemptions();
     for (const id of Object.keys(t)) {
       if (!Array.isArray(t[id]) || !inScope(id, sweep)) continue;
+      if (!withPending && pendingOf(id)) continue;
       for (const s of t[id]) {
         let sel;
         try { sel = L.sel(s); } catch (_) { continue; }
-        try { const h = el.closest(sel); if (h) return { id, host: h }; } catch (_) { /* bad selector */ }
+        try { const h = el.closest(sel); if (h) return { id, host: h, pending: pendingOf(id) }; } catch (_) { /* bad selector */ }
       }
     }
     return null;
@@ -194,8 +203,8 @@
   // ancestors (clip-path always, overflow on the axes they do not scroll), and chrome (a hit outside `top` that is
   // not its ancestor: the bottom ornament, a header). Samples every 4 px down (at most 40 columns across) over the
   // bw x bh box at (cx, cy):
-  // `frac` = the share under those; `clearable` = the scrollers around el have the room to move the whole box out
-  // (vertically or horizontally), so the user (or C1a's scroll guard) brings it clear before using it. A control
+  // `frac` = the share under those; `clearable` = the scrollers around el can move the whole box into a clear part
+  // of the view (vertically or horizontally), so the user (or C1a's scroll guard) brings it clear before using it. A control
   // that cannot be scrolled clear is judged where it is: hiding it would hide a real defect.
   function obscuredInfo(w, el, top, cx, cy, bw, bh) {
     const d = w.document;
@@ -218,7 +227,6 @@
       return h && !top.contains(h) && !h.contains(top) ? 'chrome' : null;
     };
     let n = 0, ob = 0, chrome = 0, rows = 0, cols = 0;
-    let minY = Infinity, maxY = -Infinity, minX = Infinity, maxX = -Infinity;
     let topRow = false, bottomRow = false, leftCol = false, rightCol = false;
     const ys = [], xs = [];
     for (let y = cy - bh / 2 + 2; y < cy + bh / 2; y += 4) ys.push(y);
@@ -231,7 +239,6 @@
       if (!u) return;
       ob++;
       if (u === 'chrome') chrome++;
-      minY = Math.min(minY, y); maxY = Math.max(maxY, y); minX = Math.min(minX, x); maxX = Math.max(maxX, x);
       if (iy === 0) topRow = true;
       if (iy === rows - 1) bottomRow = true;
       if (ix === 0) leftCol = true;
@@ -244,19 +251,59 @@
       if (canScroll(w, s, 'y')) { down += s.scrollHeight - s.clientHeight - s.scrollTop; up += s.scrollTop; }
       if (canScroll(w, s, 'x')) { right += s.scrollWidth - s.clientWidth - Math.abs(s.scrollLeft); left += Math.abs(s.scrollLeft); }
     }
-    // The shift that moves the box off every obscured sample (one 4 px grid step of margin). What is obscured at
-    // the box's edge goes on beyond it (a band: the ornament, the window edge, a header), so the box can only move
-    // away from that edge: content up (scroll down) off a band at its bottom, content down off one at its top; an
-    // obscured patch inside the box may be cleared either way. Obscured at both edges of an axis: not that axis.
+    // Where could the box be clear? Along each axis some scroller around el scrolls: probe a line through the box's
+    // centre across the window, every 4 px, with the same test (the fixed clip, chrome) plus the viewport of the
+    // outermost scroller on that axis (content is never seen outside it), and take the clear runs. The box can be
+    // scrolled clear when a run is at least as long as the box and the shift that puts the box inside it is within
+    // the scrollers' room that way: content up (scroll down) to a run above the box, content down (scroll up) to a
+    // run below it. Since session 5 (the rule before compared only the box's own samples, so a box lying wholly in
+    // the ornament band, obscured at both of its edges, counted as never clearable and was judged in place).
     const bTop = cy - bh / 2, bBot = cy + bh / 2, bLeft = cx - bw / 2, bRight = cx + bw / 2;
-    const nD = ob ? bBot - (minY - 4) : 0, nU = ob ? (maxY + 4) - bTop : 0;
-    const nR = ob ? bRight - (minX - sx) : 0, nL = ob ? (maxX + sx) - bLeft : 0;
-    const vOk = !(topRow && bottomRow) && ((!topRow && nD <= down + 1) || (!bottomRow && nU <= up + 1));
-    const hOk = !(leftCol && rightCol) && ((!leftCol && nR <= right + 1) || (!rightCol && nL <= left + 1));
+    let vSc = null, hSc = null;
+    for (let s = el.parentElement; s && s.nodeType === 1 && s !== d.documentElement; s = s.parentElement) {
+      if (canScroll(w, s, 'y')) vSc = s;
+      if (canScroll(w, s, 'x')) hSc = s;
+    }
+    const runs = (len, f) => {
+      const out = [];
+      let s = null;
+      for (let p = 2; p < len; p += 4) {
+        const clear = !f(p);
+        if (clear && s === null) s = p - 2;
+        if (!clear && s !== null) { out.push([s, p - 2]); s = null; }
+      }
+      if (s !== null) out.push([s, len]);
+      return out;
+    };
+    // the run the box can move into with the least shift: {ok, dir, px} (dir: the scroll direction needed)
+    const fit = (rs, b0, b1, back, fwd, backName, fwdName) => {
+      let best = null;
+      for (const [r0, rEnd] of rs) {
+        if (rEnd - r0 + 4 < b1 - b0) continue;                  // 4 px: the probe's step
+        // a box already inside a clear run on these lines yet obscured is covered off them: this axis cannot help
+        const m = b0 >= r0 - 2 && b1 <= rEnd + 2 ? { dir: null, px: 0 }
+          : b1 > rEnd ? { dir: fwdName, px: b1 - rEnd } : { dir: backName, px: r0 - b0 };
+        m.ok = m.dir !== null && (m.dir === fwdName ? m.px <= fwd + 4 : m.px <= back + 4);
+        if (!best || (m.ok && !best.ok) || (m.ok === best.ok && m.px < best.px)) best = m;
+      }
+      return best || { ok: false, dir: null, px: null };
+    };
+    let vFit = { ok: false }, hFit = { ok: false };
+    // three lines per axis (both edges of the box and its centre): a point is clear only when all three are
+    const clampTo = (v, hi) => Math.min(Math.max(v, 1), hi - 1);
+    if (ob && vSc) {
+      const q = vSc.getBoundingClientRect(), lxs = [bLeft + 2, cx, bRight - 2].map((x) => clampTo(x, w.innerWidth));
+      vFit = fit(runs(w.innerHeight, (y) => y < q.top || y >= q.bottom ? 'clip' : lxs.some((lx) => under(lx, y))), bTop, bBot, up, down, 'up', 'down');
+    }
+    if (ob && hSc) {
+      const q = hSc.getBoundingClientRect(), lys = [bTop + 2, cy, bBot - 2].map((y) => clampTo(y, w.innerHeight));
+      hFit = fit(runs(w.innerWidth, (x) => x < q.left || x >= q.right ? 'clip' : lys.some((ly) => under(x, ly))), bLeft, bRight, left, right, 'left', 'right');
+    }
     const r1 = (v) => Math.round(v);
-    return { frac: n ? ob / n : 0, chromeFrac: n ? chrome / n : 0, centre, clearable: ob === 0 || vOk || hOk,
-      edges: { top: topRow, bottom: bottomRow, left: leftCol, right: rightCol },
-      need: { down: topRow ? 0 : r1(nD), up: bottomRow ? 0 : r1(nU), right: leftCol ? 0 : r1(nR), left: rightCol ? 0 : r1(nL) },
+    const need = { down: 0, up: 0, right: 0, left: 0 };
+    for (const f of [vFit, hFit]) if (f.dir) need[f.dir] = r1(f.px);
+    return { frac: n ? ob / n : 0, chromeFrac: n ? chrome / n : 0, centre, clearable: ob === 0 || !!vFit.ok || !!hFit.ok,
+      edges: { top: topRow, bottom: bottomRow, left: leftCol, right: rightCol }, need,
       room: { down: r1(down), up: r1(up), right: r1(right), left: r1(left) } };
   }
 
@@ -392,9 +439,15 @@
         return { pass: h.own >= 0.95 && h.other === 0, why: `hit ${Math.round(h.own * 100)}% own over 80 x 80, ${Math.round(h.other * 100)}% another target` };
       }
       case 'E-SEG': {
+        // PLAN 1.16, CTL 8.3 / 18.1: >= 60 x 140, 120 for a compact segment; compact = a label under 22 px (CTL 8.3's
+        // regular label is 22 px) (REQ Coordinator->P10 R2-15 (4); until session 5 every segment passed at 120)
         const g = gapTo('x');
-        const ok = r.height + 0.5 >= 60 && r.width + 0.5 >= 120 && (g === null || g <= 2);
-        return { pass: ok, why: `${Math.round(r.width)} x ${Math.round(r.height)}, gap ${g === null ? 'last' : Math.round(g)} (needs >= 60 x 120, contiguous)` };
+        let lfs = null;
+        const tw = w.document.createTreeWalker(el, w.NodeFilter.SHOW_TEXT);
+        for (let t = tw.nextNode(); t; t = tw.nextNode()) if (t.textContent.trim() && t.parentElement) { lfs = parseFloat(w.getComputedStyle(t.parentElement).fontSize) || null; break; }
+        const minW = lfs !== null && lfs + 0.01 < 22 ? 120 : 140;
+        const ok = r.height + 0.5 >= 60 && r.width + 0.5 >= minW && (g === null || g <= 2);
+        return { pass: ok, why: `${Math.round(r.width)} x ${Math.round(r.height)}, label ${lfs === null ? 'none' : lfs + ' px'} (${minW === 120 ? 'compact' : 'regular'}), gap ${g === null ? 'last' : Math.round(g)} (needs >= 60 x ${minW}, contiguous)` };
       }
       case 'E-BAR': {
         const ok = r.width + 0.5 >= 64 && r.height + 0.5 >= 72;
@@ -420,6 +473,78 @@
     try { c = exemptCheck(alias, id, host, w, isCtl, mOf(alias)); } catch (e) { c = { pass: null, why: e.message }; }
     if (cache) cache.set(host, c);
     return c;
+  }
+
+  // PLAN 1.16 "E-GRID (labels)" [R2-15]: the facts of a text run inside a grid cell (host), from one snapshot.
+  // AUD compares them with the stock run (audDiff): (1) the run lies inside its cell (+-1; the attended cell's run,
+  // shown whole as the name plate, inside the popup's width instead); (2) it shows <= 2 line boxes; (3) no glyph is
+  // cut: wherever the run overflows its own box or a clipping ancestor up to the cell by > 1 px, that box draws the
+  // ellipsis (text-overflow: ellipsis across, -webkit-line-clamp <= 2 down), and lines break only between words or
+  // after "/" (word-break and overflow-wrap normal, hyphens not auto); (4) the full name stays in the DOM (the run's
+  // text, or the cell's aria-label where T3 draws its own shortened string).
+  function labelFacts(alias, el, host) {
+    const w = L.surface(alias), d = w.document;
+    const cs = w.getComputedStyle(el);
+    const rects = [];
+    const rg = d.createRange();
+    for (const t of el.childNodes) {
+      if (t.nodeType !== 3 || !t.textContent.trim()) continue;
+      rg.selectNodeContents(t);
+      for (const q of rg.getClientRects()) if (q.width > 0 && q.height > 0) rects.push(q);
+    }
+    const r = el.getBoundingClientRect(), hr = host.getBoundingClientRect();
+    // attended: gamepad focus, or the laser on it (:hover; P3's .lgs-dwell after the dwell) (REQ Coordinator->P10 R2-15 (a))
+    const attended = (() => { try { return host.matches('.gpfocus, :hover, .lgs-dwell'); } catch (_) { return false; } })();
+    const out = { full: (el.textContent || '').trim().replace(/\s+/g, ' '), aria: (host.getAttribute('aria-label') || '').trim(),
+      attended, cuts: [] };
+    // (1) inside its cell (+-1), or, for the attended cell's plate, inside the popup's width
+    out.inside = attended ? r.left >= -1 && r.right <= w.innerWidth + 1
+      : r.left >= hr.left - 1 && r.right <= hr.right + 1 && r.top >= hr.top - 1 && r.bottom <= hr.bottom + 1;
+    out.insideOf = attended ? `popup x 0-${Math.round(w.innerWidth)}` : 'cell';
+    out.box = [Math.round(r.left - hr.left), Math.round(r.top - hr.top), Math.round(r.width), Math.round(r.height)];
+    if (!rects.length) { out.lines = 0; out.breaks = true; return out; }
+    // the run's text extent, cut progressively by its own clip and every clipping ancestor up to the cell
+    let cur = { l: Math.min(...rects.map((q) => q.left)), t: Math.min(...rects.map((q) => q.top)), r: Math.max(...rects.map((q) => q.right)), b: Math.max(...rects.map((q) => q.bottom)) };
+    const lh = parseFloat(cs.lineHeight) || (parseFloat(cs.fontSize) || 16) * 1.2;
+    const tolY = 1 + Math.max(0, (Math.min(...rects.map((q) => q.height)) - lh) / 2);   // glyph boxes overhang a tight line-height
+    const nm = (n) => L.readable(n).slice(0, 2).join(' ') || n.tagName.toLowerCase();
+    // -webkit-line-clamp acts on a vertical -webkit-box (Chromium 126 computes display -webkit-box; later builds
+    // compute the same legacy clamp as flow-root)
+    const clampOf = (c) => { const v = parseInt(c.webkitLineClamp, 10); return /-webkit-(inline-)?box|flow-root/.test(c.display) && c.webkitBoxOrient === 'vertical' && v > 0 ? v : 0; };
+    for (let n = el; n && n.nodeType === 1; n = n.parentElement) {
+      const c = n === el ? cs : w.getComputedStyle(n);
+      const clip = c.clipPath && c.clipPath !== 'none';
+      const clamp = clampOf(c);
+      const cx = c.overflowX !== 'visible' || clip, cy = c.overflowY !== 'visible' || clip || clamp > 0;
+      if (cx || cy) {
+        const q = n.getBoundingClientRect();
+        const k = clip ? clipBox(c, q) : { l: q.left, t: q.top, r: q.right, b: q.bottom };
+        const own = n === el;
+        // across on the run's own box: its shown lines' rects past its edges by > 1 px (scrollWidth reads 2 px
+        // wide on a centred line-clamped box whose lines all fit: Chromium, session 5)
+        const shown = rects.filter((q) => q.bottom > k.t + 1 && q.top < k.b - 1);
+        const overX = cx && (own ? (shown.length ? shown.some((q) => q.left < k.l - 1 || q.right > k.r + 1) : n.scrollWidth > n.clientWidth + 1)
+          : (cur.l < k.l - 1 || cur.r > k.r + 1));
+        const overY = cy && (own ? n.scrollHeight > n.clientHeight + 1 : (cur.t < k.t - tolY || cur.b > k.b + tolY));
+        // across, the box must clip and draw the ellipsis; a line-clamped box draws none across (Chromium: a single
+        // word wider than a -webkit-line-clamp box is cut mid-glyph although text-overflow computes to ellipsis,
+        // REQ C2b-R2->P10), so there an overflow across is a cut whatever text-overflow says
+        if (overX && (clamp > 0 || !(c.textOverflow === 'ellipsis' && c.overflowX !== 'visible'))) out.cuts.push(`cut across at ${own ? 'the run' : nm(n)} without an ellipsis${clamp > 0 ? ' (a line-clamped box draws none across)' : ''}`);
+        if (overY && !(clamp > 0 && clamp <= 2)) out.cuts.push(`cut down at ${own ? 'the run' : nm(n)} without -webkit-line-clamp <= 2`);
+        if (cx) { cur.l = Math.max(cur.l, k.l); cur.r = Math.min(cur.r, k.r); }
+        if (cy) { cur.t = Math.max(cur.t, k.t); cur.b = Math.min(cur.b, k.b); }
+      }
+      if (n === host) break;
+    }
+    // (2) line boxes shown: distinct line tops among the text's rects inside what is left visible
+    // (distinct tops, +-2 px, REQ Coordinator->P10 R2-15 (b))
+    const tops = rects.filter((q) => q.bottom > cur.t + 1 && q.top < cur.b - 1).map((q) => q.top).sort((x, y) => x - y);
+    out.lines = tops.filter((t, i) => i === 0 || t - tops[i - 1] > 2).length;
+    // (3) breaks only between words or after "/"
+    const ow = cs.overflowWrap || cs.wordWrap || 'normal';
+    out.breaks = cs.wordBreak === 'normal' && ow === 'normal' && cs.hyphens !== 'auto'
+      ? true : `word-break ${cs.wordBreak}, overflow-wrap ${ow}, hyphens ${cs.hyphens}`;
+    return out;
   }
 
   // ------------------------------------------------------------ G-SIZE (P-08, P-80, P-83; SM G2b)
@@ -455,26 +580,36 @@
       if (modal && !modal.contains(el)) { if (skipped.length < 40) skipped.push({ el: name, why: 'under modal' }); continue; }
       const vr = visibleRect(w, el);
       if (vr.w < 1 || vr.h < 1) { if (skipped.length < 40) skipped.push({ el: name, why: 'clipped' }); continue; }
-      // Obscured (REQ C4a->P10 (2) and its refinement): in a scroller, with its centre clipped or under chrome
-      // outside the scroller (the bottom ornament, a header), or >= 25 % of its 80 px hit box there. The user (or
-      // C1a's scroll guard) scrolls it clear before using it, so it is skipped, but only when the scrollers around
-      // it have the room to bring the whole hit box clear; otherwise it is judged where it is (obscuredInfo).
+      // The sampling box B = max(80m, w) x 80m is centred on the control's VISIBLE rect (REQ C2a->P10 #13): a
+      // control whose visible part holds the box can be hit anywhere in it, and nothing can be pointed at in the
+      // part that is cut away. For a fully visible control this is its own centre; the box keeps the full width of
+      // a wide control's visible part.
       const cx = r.x + r.width / 2, cy = r.y + r.height / 2;
       const bw = Math.max(80 * m, r.width), bh = 80 * m;
+      const vcx = (vr.x0 + vr.x1) / 2, vcy = (vr.y0 + vr.y1) / 2, vbw = Math.max(80 * m, vr.w);
+      // A control only partly visible (cut by its scroller, the glass cut or the window edge) whose visible part is
+      // shorter or narrower than the box cannot meet P-08 where it is (REQ C2a->P10 #9).
+      const partly = (vr.h + 1 < r.height || vr.w + 1 < r.width) && (vr.h + 0.5 < bh || vr.w + 0.5 < Math.min(bw, 80 * m));
+      // Obscured (REQ C4a->P10 (2) and its refinement): in a scroller, with the box's centre under chrome outside
+      // the scroller (the bottom ornament, a header) or the glass cut, or >= 25 % of the box there, or only partly
+      // visible. The user (or C1a's scroll guard) scrolls it clear before using it, so it is skipped, but only when
+      // the scrollers around it have the room to bring the whole box clear; otherwise it is judged where it is
+      // (obscuredInfo), partly visible or not. Since session 5 the box tested is the visible-rect box above (it was
+      // the full rect's: a tall control whose visible part held the box, such as What's New's sale banner cut by the
+      // window at 720, was skipped instead of sampled).
       const sc = scrollerOf(w, el);
       let stuck = null;
       if (sc) {
         const top = topScroller(w, el) || sc;
-        const centreClipped = cy < vr.y0 || cy > vr.y1 || cx < vr.x0 || cx > vr.x1;
-        const ob = obscuredInfo(w, el, top, cx, cy, bw, bh);
-        if (centreClipped || ob.centre || ob.frac >= 0.25) {
+        const ob = obscuredInfo(w, el, top, vcx, vcy, vbw, bh);
+        if (ob.centre || ob.frac >= 0.25 || partly) {
           const pct = Math.round(ob.frac * 100);
           if (ob.clearable) {
-            if (skipped.length < 40) skipped.push({ el: name, why: 'obscured: scrolled under chrome', under: pct });
+            if (skipped.length < 40) skipped.push({ el: name, why: partly && !ob.centre && ob.frac < 0.25 ? 'partly visible: P-08 not sampled (scrolls clear)' : 'obscured: scrolled under chrome', under: pct });
             continue;
           }
           const nd = Object.entries(ob.need).filter(([, v]) => v > 0).map(([k, v]) => `${k} ${v} (room ${ob.room[k]})`).join(', ');
-          stuck = `${pct}% of its hit box under chrome or the glass cut, and its scrollers cannot bring it clear: needs ${nd || 'both ways'} px`;
+          stuck = `${pct}% of its hit box under chrome or the glass cut${partly ? ', only partly visible,' : ''} and its scrollers cannot bring it clear: needs ${nd || 'both ways'} px`;
         }
       }
       const ex = exemptId(alias, el, 'size');
@@ -483,6 +618,13 @@
         try { c = exemptCheck(alias, ex, el, w, isCtl, m); } catch (e) { c = { pass: null, why: e.message }; }
         exempt.push({ el: name, id: ex, rect: rectOf(el), pass: c.pass, why: c.why });
         continue;
+      }
+      // a pending exemption (not in PLAN 1.16 yet): its criterion is reported, and the control is judged as usual
+      const pm = exemptMatch(alias, el, 'size', true);
+      if (pm && pm.pending) {
+        let c = { pass: null, why: '' };
+        try { c = exemptCheck(alias, pm.id, el, w, isCtl, m); } catch (e) { c = { pass: null, why: e.message }; }
+        exempt.push({ el: name, id: pm.id, rect: rectOf(el), pass: c.pass, why: c.why, pending: pm.pending });
       }
       // A wrapper around exactly one same-size control is judged by that control.
       const inner = [...el.querySelectorAll(INTERACTIVE)].filter((c) => set.has(c));
@@ -501,17 +643,12 @@
       const isField = el.matches(FIELD);
       const minVis = (isField ? 64 : 60) * m;
       if (short + 0.5 < minVis) fails.push({ el: name, rect: rectOf(el), rule: 'P-80', why: `visible short side ${Math.round(short)} < ${Math.round(minVis)}` });
-      // Hit sampling over B = max(80m, w) x 80m (bw, bh above). A control that is only partly visible (cut by its
-      // scroller, the window glass bottom or the window edge) with a visible part shorter or narrower than the box
-      // cannot meet P-08 where it is; the scroll guard brings it into view before it takes focus (REQ C2a->P10
-      // #9). P-80 and P-83 are still judged.
-      const partly = (vr.h + 1 < r.height || vr.w + 1 < r.width) && (vr.h + 0.5 < bh || vr.w + 0.5 < Math.min(bw, 80 * m));
-      if (partly) { if (skipped.length < 40) skipped.push({ el: name, why: 'partly visible: P-08 not sampled' }); }
-      // The box is centred on the control's VISIBLE rect (REQ C2a->P10 #13): a control whose visible part holds
-      // the box can be hit anywhere in it, and nothing can be pointed at in the part that is cut away. For a fully
-      // visible control this is its own centre; the box keeps the full width of a wide control's visible part.
-      const vcx = (vr.x0 + vr.x1) / 2, vcy = (vr.y0 + vr.y1) / 2, vbw = Math.max(80 * m, vr.w);
-      const h = partly ? { own: 1, other: 0 } : hitStats(w, el, vcx, vcy, vbw, bh, isCtl);
+      // Hit sampling over the visible-rect box (vcx, vcy, vbw x bh above). A partly visible control outside any
+      // scroller is not sampled for P-08 (REQ C2a->P10 #9; P-80 and P-83 are still judged); one in a scroller that
+      // cannot scroll it clear (stuck) is sampled where it is, so its P-08 failure says why.
+      const skipP08 = partly && !stuck;
+      if (skipP08) { if (skipped.length < 40) skipped.push({ el: name, why: 'partly visible: P-08 not sampled' }); }
+      const h = skipP08 ? { own: 1, other: 0 } : hitStats(w, el, vcx, vcy, vbw, bh, isCtl);
       if (h.own < 0.95 || h.other > 0) {
         fails.push({ el: name, rect: rectOf(el), rule: 'P-08', why: `hit ${Math.round(h.own * 100)}% own, ${Math.round(h.other * 100)}% other${h.otherName ? ' (' + h.otherName + ')' : ''} over ${Math.round(vbw)}x${Math.round(bh)}${stuck ? '; ' + stuck : ''}` });
       } else if (stuck && inPlace.length < 40) inPlace.push({ el: name, why: stuck });
@@ -530,7 +667,7 @@
         else if (text && !stack && rad < 0.45 * r.height - 0.5 && r.height <= 120 * m) fails.push({ el: name, rect: rectOf(el), rule: 'P-83', why: `text control radius ${rad} < 0.45 x height ${Math.round(r.height)}` });
       }
     }
-    const exFail = exempt.filter((e) => e.pass === false);
+    const exFail = exempt.filter((e) => e.pass === false && !e.pending);
     // inPlace: obscured controls whose scrollers cannot bring them clear, judged where they are (and passing)
     return { pass: fails.length === 0 && exFail.length === 0, m, checked, fails: fails.slice(0, opts.max || 80), failCount: fails.length, exempt, exemptFail: exFail.length, skipped, inPlace, modal: !!modal };
   }
@@ -866,18 +1003,60 @@
   // G-AUD with exemptions: drop exempt records from both snapshots, then L.diff. A scoped exemption (exemptions.json
   // "_scope": {"E-GRID": {"aud": ["SHRUNK"]}}) waives only the listed issue kinds, and only while the themed
   // element meets the exemption's own criterion (`exc`, from L.snap); its other issues are reported as usual.
+  // PLAN 1.16 "E-GRID (labels)" [R2-15]: a label run's four clauses, from its themed facts (labelFacts) and the stock
+  // run's text. -> {pass, why}
+  const normText = (s) => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  function labelVerdict(a, b) {
+    const f = b && b.lab;
+    if (!f || f.error) return { pass: false, why: 'no label facts' + (f && f.error ? ': ' + f.error : '') };
+    const stock = normText((a.lab && a.lab.full) || a.text);
+    const c1 = !!f.inside, c2 = f.lines <= 2, c3 = !f.cuts.length && f.breaks === true;
+    // (4) the stock text, or a shortened string that T3 draws (it ends in an ellipsis) with the cell's aria-label
+    // holding the stock name (REQ Coordinator->P10 R2-15 (d))
+    const own = normText(f.full) === stock, aria = /(…|\.\.\.)$/.test(f.full) && !!f.aria && normText(f.aria) === stock;
+    const c4 = own || aria;
+    const cut = [...f.cuts, ...(f.breaks === true ? [] : ['breaks: ' + f.breaks])].join('; ');
+    return { pass: c1 && c2 && c3 && c4,
+      why: `(1) ${c1 ? 'inside' : 'outside'} its ${f.insideOf} (box ${f.box.join(',')}); (2) ${f.lines} line(s); (3) ${c3 ? 'no glyph cut' : cut}; ` +
+        `(4) ${own ? 'its text is the stock name' : aria ? "the cell's aria-label is the stock name" : 'the full name is not in the DOM (text "' + f.full.slice(0, 24) + '", aria-label "' + f.aria.slice(0, 24) + '")'}` };
+  }
+
   function audDiff(a, b) {
     const ex = [], scoped = [];
     const a2 = {}, b2 = {};
     for (const k of Object.keys(a)) {
+      // a label run inside an E-GRID cell: only its own line waives its SHRUNK (R2-15); other kinds as usual
+      const labLine = (b[k] && b[k].labLine) || a[k].labLine;
+      if (labLine) {
+        const one = L.diff({ [k]: a[k] }, b[k] ? { [k]: b[k] } : {});
+        const kinds = (b[k] && b[k].labKinds) || a[k].labKinds || ['SHRUNK'];
+        const pending = (b[k] && b[k].exPending) || a[k].exPending;
+        const v = b[k] ? labelVerdict(a[k], b[k]) : { pass: false, why: 'no themed record' };
+        const elName = a[k].el + (a[k].text ? ' "' + a[k].text + '"' : '');
+        for (const iss of one.issues) {
+          const kind = iss.split(' ')[0];
+          if (kinds.includes(kind) && pending) {
+            scoped.push(`${iss} (${labLine} pending: ${pending}; its clauses are ${v.pass ? 'met' : 'not met'}: ${v.why})`);
+            if (ex.length < 40) ex.push({ el: elName, id: labLine, waived: null, pending, criterion: v.pass, why: v.why });
+          } else if (kinds.includes(kind) && v.pass) { if (ex.length < 40) ex.push({ el: elName, id: labLine, waived: kind, why: v.why }); }
+          else scoped.push(kinds.includes(kind) ? `${iss} (E-GRID label criterion not met: ${v.why})` : iss);
+        }
+        continue;
+      }
       const kinds = a[k].exKinds || (b[k] && b[k].exKinds);
       if (kinds && kinds.length) {
         const one = L.diff({ [k]: a[k] }, b[k] ? { [k]: b[k] } : {});
         const c = (b[k] && b[k].exc) || { pass: null, why: 'no themed record' };
         const id = (b[k] && b[k].ex) || a[k].ex;
+        // pending (not in PLAN 1.16 yet): the criterion is reported, nothing is waived (session 5)
+        const pending = (b[k] && b[k].exPending) || a[k].exPending;
+        const elName = a[k].el + (a[k].text ? ' "' + a[k].text + '"' : '');
         for (const iss of one.issues) {
           const kind = iss.split(' ')[0];
-          if (kinds.includes(kind) && c.pass === true) { if (ex.length < 40) ex.push({ el: a[k].el + (a[k].text ? ' "' + a[k].text + '"' : ''), id, waived: kind, why: c.why }); }
+          if (kinds.includes(kind) && pending) {
+            scoped.push(`${iss} (${id} pending: ${pending}; its criterion is ${c.pass === true ? 'met' : 'not met'}: ${c.why})`);
+            if (ex.length < 40) ex.push({ el: elName, id, waived: null, pending, criterion: c.pass, why: c.why });
+          } else if (kinds.includes(kind) && c.pass === true) { if (ex.length < 40) ex.push({ el: elName, id, waived: kind, why: c.why }); }
           else scoped.push(kinds.includes(kind) ? `${iss} (${id} criterion not met: ${c.why})` : iss);
         }
         continue;
@@ -889,22 +1068,34 @@
       // A scroll container that stays >= 300 x 300 is not a small target (REQ C1c->P10 c): a sheet capped at
       // 960 px keeps every row reachable by scrolling. Nor is a pane that stays >= 300 x 300 (REQ C7->P10: /chat's
       // panes under C1a's toolbar and footer pads): a focusable Panel that holds other controls or has no handler
-      // of its own, or a text box; its controls are audited one by one. Their size change is listed, not counted as
-      // SHRUNK; a leaf target with its own handler is always judged.
-      // a pane: a control that holds other controls or has no activation handler of its own (Steam's data), or a
-      // text box; a leaf target with its own handler is never one
-      const pane = a[k].kind === 'text' || (a[k].kind === 'ctl' && (a[k].nl || (b[k] && b[k].nl) || a[k].act === false));
-      if (b[k] && (a[k].sc || b[k].sc || pane) && b[k].w >= 300 && b[k].h >= 300 && b[k].w * b[k].h < a[k].w * a[k].h) {
+      // of its own; its controls are audited one by one. Their size change is listed, not counted as SHRUNK; a leaf
+      // target with its own handler is always judged.
+      const pane = a[k].kind === 'ctl' && (a[k].nl || (b[k] && b[k].nl) || a[k].act === false);
+      // A text run is judged as text (session 5, REQ C7->P10: /invites' title 1032 x 32 -> 472 x 38, larger type,
+      // the whole string shown): a box that shrinks while the whole string stays shown, at a drawn size no smaller
+      // than stock, loses nothing. A cut string (ellipsis, clamp, a clip that cannot scroll) or smaller type stays
+      // SHRUNK, whatever the box's size (until session 5 a text box >= 300 x 300 passed as a pane, cut or not).
+      const textWhole = !!b[k] && a[k].kind === 'text' && b[k].kind === 'text' && b[k].cut === false
+        && normText(a[k].text) === normText(b[k].text) && typeof a[k].efs === 'number' && typeof b[k].efs === 'number'
+        && b[k].efs + 0.25 >= a[k].efs;
+      const shrinks = !!b[k] && b[k].w * b[k].h < a[k].w * a[k].h;
+      if (shrinks && (a[k].sc || b[k].sc || pane) && b[k].w >= 300 && b[k].h >= 300) {
         if (ex.length < 40) ex.push({ el: a[k].el + (a[k].text ? ' "' + a[k].text + '"' : ''), id: (a[k].sc || b[k].sc) ? 'scroll-container' : 'container-pane', why: `${a[k].w}x${a[k].h} -> ${b[k].w}x${b[k].h}` });
+        b2[k] = Object.assign({}, b[k], { w: a[k].w, h: a[k].h });
+      } else if (shrinks && textWhole) {
+        if (ex.length < 40) ex.push({ el: a[k].el + (a[k].text ? ' "' + a[k].text + '"' : ''), id: 'text-whole', why: `${a[k].w}x${a[k].h} -> ${b[k].w}x${b[k].h}, the whole string shown at ${b[k].efs} px (stock ${a[k].efs} px)` });
         b2[k] = Object.assign({}, b[k], { w: a[k].w, h: a[k].h });
       }
     }
     const r = L.diff(a2, b2);
     r.issues = r.issues.concat(scoped);
     r.exempt = ex;
+    // every record of each snapshot, exempt ones included (an empty snapshot is a vacuous AUD, see gates)
+    r.stockRecords = Object.keys(a).length;
+    r.themedRecords = Object.keys(b).length;
     r.pass = r.issues.length === 0;
     return r;
   }
 
-  L.gates = { v: 7, shadowLines, pseudoBox, visibleRect, topModal, hitStats, exemptCheck, exemptMatch, exemptCriterion, obscuredInfo, topScroller, canScroll, partOfHost, ownHandler, fillRect, isMenuCancel, isScrollDriven, isOurs, ourSheets, audDiff, mOf, exemptions, exemptId, controls, size, type, outline, animsNow, motionAudit, atRest, cssAudit, isTokenMs, isTokenEase, TOKENS };
+  L.gates = { v: 8, clipBox, pendingOf, labelFacts, labelVerdict, shadowLines, pseudoBox, visibleRect, topModal, hitStats, exemptCheck, exemptMatch, exemptCriterion, obscuredInfo, topScroller, canScroll, partOfHost, ownHandler, fillRect, isMenuCancel, isScrollDriven, isOurs, ourSheets, audDiff, mOf, exemptions, exemptId, controls, size, type, outline, animsNow, motionAudit, atRest, cssAudit, isTokenMs, isTokenEase, TOKENS };
 })();

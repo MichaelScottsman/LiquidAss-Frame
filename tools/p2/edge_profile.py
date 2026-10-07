@@ -27,11 +27,30 @@ W601 = (0.299, 0.587, 0.114)
 W709 = (0.2126, 0.7152, 0.0722)
 
 
-def lum(img, weights=W601):
-    """Luma plane (float, 0..255) of a path or a PIL image, composited on black."""
+ROOMS = {"bright": (210, 210, 210), "dark": (24, 24, 24), "grey": (128, 128, 128), "black": (0, 0, 0)}  # = AUD's
+
+
+def lum(img, weights=W601, room=None):
+    """Luma plane (float, 0..255) of a path or a PIL image. room None: the stored colour with the alpha dropped
+    (opaque renders, mockups; the Phase 1 behaviour). room (r, g, b) or a ROOMS name: each texel composited over that
+    room by its alpha, as the headset shows a translucent overlay over the room (session 5, REQ C2a-R2->P10 (3))."""
     im = Image.open(img) if isinstance(img, str) else img
-    a = np.asarray(im.convert("RGB")).astype(float)
+    if room is None or im.mode not in ("RGBA", "LA", "PA") and "transparency" not in im.info:
+        a = np.asarray(im.convert("RGB")).astype(float)
+    else:
+        rgba = np.asarray(im.convert("RGBA")).astype(float)
+        bg = np.array(ROOMS[room] if isinstance(room, str) else room, dtype=float)
+        al = rgba[..., 3:4] / 255.0
+        a = rgba[..., :3] * al + bg * (1.0 - al)
     return weights[0] * a[..., 0] + weights[1] * a[..., 1] + weights[2] * a[..., 2]
+
+
+def alpha_plane(img):
+    """Alpha (0..1) of a path or PIL image; all ones for an opaque image."""
+    im = Image.open(img) if isinstance(img, str) else img
+    if im.mode not in ("RGBA", "LA", "PA") and "transparency" not in im.info:
+        return np.ones((im.size[1], im.size[0]))
+    return np.asarray(im.convert("RGBA"))[..., 3].astype(float) / 255.0
 
 
 def mask(shape, spec, inset=0):

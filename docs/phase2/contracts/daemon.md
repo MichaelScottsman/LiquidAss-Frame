@@ -107,6 +107,8 @@ Read in `vr:systemui` once a second while SteamVR's devtools (8090) is up, with 
 
 `steam` is true when the Steam frame's active page shows `valve.steam.gamepadui.main`. `null` values while systemui is unreachable.
 
+**Steam's window away.** While `steam` is `false` (the frame shows SteamVR Settings or the binding UI), Steam's window is not on screen, so its glass is not either: main stays in `glassd.json` with nothing to draw (`shapes`, `plates`, `slabs` empty, so its quad stays masked out of the room map) and is left out of the scene-graph spec (no cover, base, pop or slab nodes; `lgs-native` comes off main). When the page is back, main's plates and slabs materialize again. `status.mainAway` says so. Unknown (`null`) counts as shown. (REQ C6b->P8: glassd's main cover stayed drawn over SteamVR's settings panel.)
+
 ---
 
 ## 5. Actions: Steam → daemon → plugins
@@ -191,6 +193,8 @@ Files `device/vr/<page>.<name>.js` (owners per PLAN §2.6, e.g. C5b `systemui.no
 - The file is **one JS function expression**: `(function (ctx) { …; return { remove() {…}, status() {…} }; })`. `ctx = {name, page, version, flags}`. Whatever it adds to the page, `remove()` must take away.
 - An optional header line `// @lgs-flag <name>` (anywhere in the first 5 lines) injects it only while that flag is on (context packages use their `wp.<id>`).
 - Injected after the page's theme CSS, into every page whose title matches, while the theme is on and the page theming is not paused (`/tmp/lgs/vr-theme-paused`, lab `--theme off vr:…`). Re-injected when the file changes or the page reloads; `remove()` of the old copy is called first.
+- **Flags:** each page-script pass (every 1.5 s) reads the flags files itself, so a lab step's `--flags wp.<id>` installs a flagged script within one pass (≤ 1.5 s; a step should wait for `window.__LGS_VRX[name]`) and its removal at the step's end takes one pass too.
+- **Pause:** the lab's `--theme on` for a `vr:` page (`lgs_vr.apply_once()`, also the end of `gates` / `audit`'s stock snapshot) ends the pause; a pause older than **300 s** is stale (a `--theme off` never given back): the daemon removes it, logs it and themes the pages and injects the scripts again. `status.steamvrPages.pausedS` says how long it has been paused. (REQ C6b->P8: after a `vr:` gates run the pause stayed, so no flagged script was ever installed.)
 - The daemon keeps the returned object as `window.__LGS_VRX[name] = {version, api, at}` and deletes `window.__LGS_VRX` when the last one is removed.
 - Removed (`remove()`, then deleted) on daemon stop, on pause, when its flag goes off and when its file disappears. A script that throws is listed in `status.vrScripts` with the error and not retried until its file changes.
 - Status per page and name: `installed`, `ok`, `flag-off`, `error: …`, `removed`.
@@ -243,7 +247,7 @@ When the report's `hole` is `true` or has no `clip` and P8 trims a sliver (`clip
 | `slabsOut` | surface | `[{id, x, y, w, h, dz, slab, until}]`: slabs fading out (§7), no crop | live |
 | `coverDz` | surface | from the report's surface `coverDz` when given, else 0.001 | live |
 | `dim` | surface | the report's surface `dim` (0..1) | live |
-| `mosaic` | surface | the report's `mosaic` bands `[{x, y, w, h}]` (≤ 16) | live |
+| `mosaic` | surface | the report's `mosaic` bands `[{x, y, w, h}]` (≤ 16), **only when the surface has no cover** (no cover shapes, and not the shape-less `window` fallback): with a cover the base is the whole surface (reporter §2.3; REQ C2a->P8 #17) | live |
 | `popped[].interactive` | pop | `true` only when the layer says so **and** the profile is `wearer` | live |
 | `popped[].from`, `motion`, `sink` | pop | copied from the report's layer | live |
 | `dimSlabs` | surface | `[{id, x, y, w, h, dz, slab}]`: `material: "dim"` layers (glassd §1.4 room-dim cells). They are **not popped** (no element to crop); P7 places the cell (behind the window, scaled up) when it supports room dim | built |
@@ -254,7 +258,7 @@ When the report's `hole` is `true` or has no `clip` and P8 trims a sliver (`clip
 
 ## 10. Status (`/dev/shm/lgs/shell.json`, every 2 s; `lgs_shell.py status`)
 
-Phase 1 fields stay. `mode` is `native`, `starting`, `css-only (<reason>)` or `dormant` (§1). New: `dormant` (§1), `stalls` (`{count, lastS, agoS}`, §1), `geomDumpAt` (§4), `steam.restarted`, `steam.slowEvals` (Steam evaluations that timed out with the connection kept), `native.{requested, resolved, source}`, `flags` (merged), `bridge` (`runtime` present, last `sent` names and times), `geom`, `page`, `actions` (`types`, `plugins`, `failed`, `calls`, `rejected` (last 10), `dryRun`), `vrScripts` (`{page: {name: state}}`), `glassd.caps`, `steam.plateAcks`.
+Phase 1 fields stay. `mode` is `native`, `starting`, `css-only (<reason>)` or `dormant` (§1). New: `mainAway` (§4.2), `steamvrPages.pausedS` (§6), `dormant` (§1), `stalls` (`{count, lastS, agoS}`, §1), `geomDumpAt` (§4), `steam.restarted`, `steam.slowEvals` (Steam evaluations that timed out with the connection kept), `native.{requested, resolved, source}`, `flags` (merged), `bridge` (`runtime` present, last `sent` names and times), `geom`, `page`, `actions` (`types`, `plugins`, `failed`, `calls`, `rejected` (last 10), `dryRun`), `vrScripts` (`{page: {name: state}}`), `glassd.caps`, `steam.plateAcks`.
 
 ## 11. Test hooks (lab only)
 
@@ -268,6 +272,7 @@ Phase 1 fields stay. `mode` is `native`, `starting`, `css-only (<reason>)` or `d
 
 ## 12. Changes
 
+- 2026-10-07 (maintenance, session 4): §4.2 Steam's window away (main empty in glassd.json, out of the spec, while the frame shows another page; REQ C6b->P8); §6 the page-script pass reads the flags files itself, `apply_once()` ends the vr pause, a pause older than 300 s is stale (REQ C6b->P8); §9 `mosaic` only without a cover (REQ C2a->P8 #17); §10 `mainAway`, `pausedS`. All backward compatible.
 - 2026-10-07 04:10: first version (M1).
 - 2026-10-07 08:10-09:30 (review R1): §1 glassd stopped while dormant, `mode` `dormant`, `--stay` bounded (2400 s) and ended by a Steam restart or loss, `start()` serialized, `python3 -B`; §5 `lgsLayers` only in native mode, both binding globals deleted at teardown, RAM test plugins; §4 frame-menu dumps after a change (+ 15 s safety net), `geomDumpAt`; §7 `hole.edges` (REQ P9->P8), type checks; §10 `mode` values; §11 tests. 09:25: §4.1 Steam's page by summon key, §1 own stalls (REQ P7->P8 ×2), selftest `freeze`. All backward compatible.
 - 2026-10-07 06:15-07:00: §1 theme off without `lgs off` → dormant (grace flag `shellThemeGraceS`, default 600 s), exit on a Steam restart or 120 s without Steam; §5.1 binary fonts in SteamVR pages (REQ P4->P8); §7 `roomDim`, `dim` slabs and `dim` plates behind their caps; §9 `dimSlabs`; §10 `dormant`, `steam.restarted`, `steam.slowEvals`; §11 `grace`, `plates` selftests. A Steam evaluation that times out no longer drops the connection (two in a row are tolerated). All backward compatible.

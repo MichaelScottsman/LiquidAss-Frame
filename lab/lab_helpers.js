@@ -1,7 +1,7 @@
 // Development helpers evaluated in SharedJSContext (prepended with
 // lgs_index.js). Installs window.__LGS_LAB; lives in memory only.
 (function () {
-  if (window.__LGS_LAB && window.__LGS_LAB.v === 12) return;
+  if (window.__LGS_LAB && window.__LGS_LAB.v === 13) return;
   // SteamVR's own pages (vrwebhelper) are single documents with no popup
   // manager; every helper then works on this page.
   const SINGLE = typeof window.g_PopupManager === 'undefined';
@@ -342,6 +342,52 @@
     return true;
   }
 
+  // Phase 2 (P10, session 5): does el's own text run past what can be seen of it? Its own clip (overflow other
+  // than visible, text-overflow, -webkit-line-clamp: content larger than its box), or a clipping ancestor, per axis
+  // up to the first ancestor that scrolls on that axis (scrolling brings the text into view; a clip that cannot
+  // scroll cuts it for good); with no scroller on an axis, the window (and C1a's glass cut, vertically) too. Only
+  // el's own text nodes are measured (descendant elements have records of their own).
+  function textCut(w, el, cs) {
+    const clamp = cs.webkitLineClamp && cs.webkitLineClamp !== 'none';
+    if ((cs.overflowX !== 'visible' || cs.overflowY !== 'visible' || clamp) && (el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1)) return true;
+    let tx0 = Infinity, ty0 = Infinity, tx1 = -Infinity, ty1 = -Infinity;
+    const rg = w.document.createRange();
+    for (const t of el.childNodes) {
+      if (t.nodeType !== 3 || !t.textContent.trim()) continue;
+      rg.selectNodeContents(t);
+      const q = rg.getBoundingClientRect();
+      if (!(q.width > 0 && q.height > 0)) continue;
+      tx0 = Math.min(tx0, q.left); ty0 = Math.min(ty0, q.top); tx1 = Math.max(tx1, q.right); ty1 = Math.max(ty1, q.bottom);
+    }
+    if (!(tx1 > tx0)) return false;
+    const fs = parseFloat(cs.fontSize) || 16;
+    const tolX = 2, tolY = Math.max(2, 0.3 * fs);        // glyph boxes overhang a tight line-height
+    const G = window.__LGS_LAB && window.__LGS_LAB.gates;
+    let x0 = -Infinity, y0 = -Infinity, x1 = Infinity, y1 = Infinity, stopX = false, stopY = false;
+    for (let n = el.parentElement; n && n.nodeType === 1 && n !== w.document.documentElement && !(stopX && stopY); n = n.parentElement) {
+      const c = w.getComputedStyle(n);
+      const sX = /(auto|scroll)/.test(c.overflowX) && n.scrollWidth > n.clientWidth + 1;
+      const sY = /(auto|scroll)/.test(c.overflowY) && n.scrollHeight > n.clientHeight + 1;
+      const clip = c.clipPath && c.clipPath !== 'none';
+      const cx = !stopX && ((c.overflowX !== 'visible' && !sX) || clip), cy = !stopY && ((c.overflowY !== 'visible' && !sY) || clip);
+      if (cx || cy) {
+        const q = n.getBoundingClientRect();
+        const k = clip && G && G.clipBox ? G.clipBox(c, q) : { l: q.left, t: q.top, r: q.right, b: q.bottom };
+        if (cx) { x0 = Math.max(x0, k.l); x1 = Math.min(x1, k.r); }
+        if (cy) { y0 = Math.max(y0, k.t); y1 = Math.min(y1, k.b); }
+      }
+      if (sX) stopX = true;
+      if (sY) stopY = true;
+    }
+    if (!stopX) { x0 = Math.max(x0, 0); x1 = Math.min(x1, w.innerWidth); }
+    if (!stopY) {
+      y0 = Math.max(y0, 0); y1 = Math.min(y1, w.innerHeight);
+      const gh = parseFloat(w.getComputedStyle(w.document.documentElement).getPropertyValue('--lgs-c1a-gh'));
+      if (gh > 0) y1 = Math.min(y1, gh);
+    }
+    return tx0 < x0 - tolX || tx1 > x1 + tolX || ty0 < y0 - tolY || ty1 > y1 + tolY;
+  }
+
   function snap(alias) {
     const w = surface(alias);
     const doc = w.document;
@@ -367,18 +413,41 @@
         try { rec.act = window.__LGS_LAB.gates.ownHandler(el); } catch (_) { /* no fibers */ }
       }
       // Phase 2 (P10): PLAN 1.16 exemption of this element, for `gates` (audit ignores it). A scoped exemption
-      // (exemptions.json "_scope", e.g. E-GRID: AUD waives SHRUNK only) carries its kinds and its own criterion.
+      // (exemptions.json "_scope", e.g. E-GRID: AUD waives SHRUNK only) carries its kinds and its own criterion,
+      // and applies to the element its criterion judges (the cell), not to what the cell holds: a label run inside
+      // a cell is text and is judged as text (session 5: a cut label must not pass on its cell's criterion). A
+      // pending exemption (not in PLAN 1.16 yet) is matched only to report its criterion (rec.exPending).
       const g = window.__LGS_LAB && window.__LGS_LAB.gates;
       if (g) {
         try {
-          const mx = g.exemptMatch ? g.exemptMatch(alias, el, 'aud') : null;
-          const ex = mx ? mx.id : g.exemptId(alias, el);
-          if (ex) rec.ex = ex;
+          const mx = g.exemptMatch ? g.exemptMatch(alias, el, 'aud', true) : null;
           const sc = mx && (g.exemptions()._scope || {})[mx.id];
-          if (sc && Array.isArray(sc.aud)) { rec.exKinds = sc.aud; rec.exc = g.exemptCriterion(alias, mx.id, mx.host, exCache); }
+          const scoped = !!(sc && Array.isArray(sc.aud));
+          if (mx && scoped) {
+            if (mx.host === el) {
+              rec.exKinds = sc.aud; rec.ex = mx.id;
+              rec.exc = g.exemptCriterion(alias, mx.id, mx.host, exCache);
+              if (mx.pending) rec.exPending = mx.pending;
+            } else if (kind === 'text' && sc.labels && g.labelFacts) {
+              // a text run inside the cell: its own line (PLAN 1.16 "E-GRID (labels)", R2-15), judged in audDiff
+              rec.labLine = String(sc.labels); rec.labKinds = sc.aud;
+              try { rec.lab = g.labelFacts(alias, el, mx.host); } catch (e) { rec.lab = { error: String(e && e.message) }; }
+              if (mx.pending) rec.exPending = mx.pending;
+            }
+          } else if (mx && !mx.pending) rec.ex = mx.id;
+          else if (!mx && !g.exemptMatch) { const ex = g.exemptId(alias, el); if (ex) rec.ex = ex; }
         } catch (_) { /* none */ }
       }
       if (kind === 'text') {
+        // Phase 2 (P10, session 5): is the whole string shown, and at what size? A text run's box may shrink
+        // without any loss (a narrower box, larger type, the whole string visible: REQ C7->P10's /invites title);
+        // what a reader loses is a cut string or smaller type. fs = font size, efs = the size as drawn (with any
+        // transform scale), cut = the text runs past its own clip (ellipsis, overflow, line clamp) or past a
+        // clipping ancestor that does not scroll (the window and C1a's glass cut too when nothing scrolls).
+        rec.fs = parseFloat(cs.fontSize) || 0;
+        const sx = el.offsetWidth ? r.width / el.offsetWidth : 1, sy = el.offsetHeight ? r.height / el.offsetHeight : 1;
+        rec.efs = Math.round(rec.fs * Math.min(sx, sy) * 10) / 10;
+        try { rec.cut = textCut(w, el, cs); } catch (_) { /* unknown: no waiver */ }
         const fg = parseColor(cs.color) || [255, 255, 255, 1];
         const size = parseFloat(cs.fontSize), weight = parseInt(cs.fontWeight, 10) || 400;
         rec.large = size >= 24 || (size >= 18.66 && weight >= 700);
@@ -472,6 +541,6 @@
     };
   }
 
-  window.__LGS_LAB = { v: 12, single: SINGLE, mark, restore, openThings, perf, surface, sel, q, qa, click, clickText, sleep, pad, focused, nav, back, route, outline, styles, classes, surfaces, readable, snap, diff };
+  window.__LGS_LAB = { v: 13, single: SINGLE, mark, restore, openThings, perf, surface, sel, q, qa, click, clickText, sleep, pad, focused, nav, back, route, outline, styles, classes, surfaces, readable, snap, diff, textCut };
   Object.defineProperty(window.__LGS_LAB, 'index', { get: IX, enumerable: true });
 })();

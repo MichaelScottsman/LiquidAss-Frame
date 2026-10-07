@@ -14,7 +14,8 @@ daemon" (the old standalone "lgs-vr" watcher) still works on its own.
 
   lgs_vr.py daemon    run the standalone watcher
   lgs_vr.py strip     remove the theme from every SteamVR page
-  lgs_vr.py stop      pause the watcher's page theming and strip every page
+  lgs_vr.py stop      pause the watcher's page theming and strip every page (until the
+                      next apply_once / lgs on, or VR_PAUSE_MAX_S in lgs_shell.py)
   lgs_vr.py status    per-page status
 """
 import asyncio
@@ -96,12 +97,28 @@ async def each_page(expr_for):
     return out
 
 
+def resume():
+    """End a pause left by stop(): the daemon's watcher themes pages and injects the page scripts again."""
+    try:
+        os.remove(PAUSE)
+        return True
+    except OSError:
+        return False
+
+
 def apply_once():
-    """Theme every SteamVR page now (the lab uses this; users get the watcher)."""
+    """Theme every SteamVR page now (the lab's `--theme on` for vr: pages; users get the watcher). The theme
+    is on again, so a pause left by stop() (the lab's `--theme off`, e.g. the stock snapshot of `gates` and
+    `audit` on a vr: page) ends too: until then the daemon injected no page script and themed no new page
+    (REQ C6b->P8)."""
     if not available():
+        resume()
         return {}
     full = core_call(payload())
-    return asyncio.run(each_page(lambda t: full))
+    try:
+        return asyncio.run(each_page(lambda t: full))
+    finally:
+        resume()
 
 
 def strip():

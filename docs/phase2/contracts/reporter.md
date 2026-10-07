@@ -85,7 +85,7 @@ The base mosaic (Steam's texture copied at +2 mm in front of the cover, NATIVE.m
 
 - Elements with `data-lgs-mosaic` declare the bands: the report's `mosaic` is their boxes (texture px). Keep it to about 4 bands (HA §10.2).
 - In `windowless` mode without any `data-lgs-mosaic` element, the reporter builds the bands itself: plates whose vertical spans overlap are merged into one band from the leftmost to the rightmost plate, + 2 px on every side.
-- In the other modes `mosaic` is absent: the whole surface (Phase 1).
+- In the other modes `mosaic` is absent: the whole surface (Phase 1). **Bands are reported only when the surface has no cover shape**, whatever `data-lgs-mosaic` elements the page still holds: with a cover, Steam's real panel lies behind the cover's opaque glass, so a base limited to bands would hide everything outside them (2026-10-07 maintenance, REQ C2a->P8 #17: Home's bands still in the DOM while main was `window` / `window-full` drew the window glass with only the disc rows on it). P8's daemon drops bands next to a cover too (daemon contract §9).
 
 ### 2.4 Admission tags
 
@@ -125,6 +125,7 @@ Per surface (only the first fragment, or an owner, sets the first five):
 | `cover` | `{sel, all, r, inset, outset, pseudo}`: the element(s) whose box is the surface's own glass. Selector tokens `%{Name}` resolve like theme CSS |
 | `material` | The cover's material |
 | `coverMm` / `coverDz` | Where glassd's cover and plates sit, mm / units (K-G6: the keyboard platter at −10 mm). Reported as `coverDz` |
+| `scaleFrom` | `"main"` or `"overlay"`: whose metres-per-pixel glassd trusts for this surface (`contracts/glassd.md` §1.2; `"overlay"` keeps the overlay's own transform, e.g. the keyboard if K-G2 / C24 shows it reports it right). Reported as `scaleFrom`; another value is an error and is ignored. Set by the first fragment or an owner, like `coverMm` (REQ C4b->P6) |
 | `modes` | Main only: `{attr, sel, window: {h, r}, window-full: {h, r}, hero: {h, r}, windowless: {cover: false}}` (§2.1) |
 | `modal` | A selector for Steam's open modals (menus, alerts, sheets) on this surface (admission rule 6) |
 | `frameKey`, `laserOnly`, `docVisibility`, `maxLayers` | As Phase 1 (`layers.json` `about`) |
@@ -296,6 +297,7 @@ Version **3**. Phase 1 fields are unchanged (NATIVE.md "Steam → daemon"). New 
 | `layers[].modal` | layer | `true` for modal rules |
 | `layers[].from`, `sink` | layer | Passed to P7 (`contracts/sg.md` §2) when the rule sets them |
 | `coverDz` | surface | From the surface's `coverMm` (units at live S, r) or `coverDz`; absent = P7's default 0.001 |
+| `scaleFrom` | surface | The fragment's `scaleFrom` (`"main"` / `"overlay"`), absent when not set; P8 passes it to glassd with its `scaleFrom` cap |
 | `window` | top | `{dim, recede}` asked for from Steam's side: `data-lgs-window-dim` (0..1, the window's brightness, CC-A) and `data-lgs-window-recede` (mm, the sheet-recede variant S7) on main's `<html>` or `%{BasicUiRoot}`; recede reported in units. Absent when neither is set |
 
 With only the legacy configuration loaded, surfaces and layers carry none of the new fields (no `plates` when there are none, no `interactive` on admission-off layers), so RP-1 compares the surfaces byte for byte.
@@ -393,3 +395,4 @@ Filed in `docs/phase2/wp/P6.md` § Requests:
 - 2026-10-07 (review R1): `hole.fill: "auto"` and literal `hole.edges` (§3.2, §3.4; REQ P9->P6); duplicate ids may be fallbacks of conditional rules, and rule-level `admission: false` is ignored with an error (§3.1); rule 2 counts every focusable that intersects the crop, rule 7 counts legacy layers too, marked `(legacy)` (§4); the popup wrapper follows entry flags and `geom` while popups are shown, its API is `__LGS_RT.popups` / `rt.use('popups')`, the global `__LGS_POPUPS_API` is gone (§5); `05-native.css` turns off the E3 hook of hosts of popped pseudo-elements and the literal glass of the legacy footer, Back and window-sheen paints (§8); legacy retirement table (§3.5). The token index comes through P1's `lgsIndexShared()` when it is in scope (else `__LGS_INDEX`; a fresh build is cached only when good) and the webpack probe record is spliced out of `webpackChunksteamui` at once (REQ P1->P6).
 - 2026-10-07 (M3): surface field `flag` (§3.1; C3a's `notifications`, `volumelevel`, `tooltip` behind `wp.c3a`); attribute `data-lgs-noslab` for `slab: "none"` pops and the Phase 2 `05-native.css` rules (§7, §8); globals after `stop()` (§9); popup wrapper `apply(list)` (§5.3). RP-1 to RP-8 pass on the Frame (`wp/P6.md`).
 - 2026-10-07 (maintenance): `main.modal` also matches `.lgs-cc` (CC-M's root), so no other main rule pops while Control Center is open (§4 rule 6; REQ C3b->P6).
+- 2026-10-07 (maintenance, session 4): mosaic bands only on a surface without a cover shape (§2.3; REQ C2a->P8 #17); surface field `scaleFrom` passed through to the report (§3.1, §6; REQ C4b->P6). RP-MO (new), RP-1, RP-2 and RP-X pass on the Frame (`wp/P6.md`).

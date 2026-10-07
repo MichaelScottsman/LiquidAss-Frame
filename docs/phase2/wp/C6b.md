@@ -59,26 +59,48 @@ CSS-only glass above is what native mode shows here too.
 
 ## Requests
 
-- [ ] REQ C6b->P8: a flagged page script is not (re)installed after a flag flip. `python glass.py js "…" --in
+- [x] REQ C6b->P8: a flagged page script is not (re)installed after a flag flip. `python glass.py js "…" --in
   vr:systemui --flags wp.c6b` (flags.json written for the step, 12:13 and 12:14, CSS-only unit) waited 30 s with no
   `window.__LGS_VRX.settings` and `status.shell.vrScripts` `{}`; the journal shows `page script settings installed`
   only at 12:11:50, the second a frame page change (`valve.steam.gamepadui.main -> system.settings`) happened. So lab
   steps with `--flags wp.<id>` on `vr:` surfaces mostly run **without** the page script. A default-on flag
   (`defaults.json`, V1) is read at unit start, so production is not affected; C6b's evidence below used a RAM test
   copy in `/tmp/lgs/vr-scripts/` (contract §6), removed after each run.
+  - P8 (2026-10-07 14:06 EDT, maintenance session 4): **done.** Cause: the daemon's SteamVR page theming was
+    **paused** (`/tmp/lgs/vr-theme-paused`), and while paused it injects no page script (hence `vrScripts {}`). The
+    lab's `--theme off` on a `vr:` page (also `gates` / `audit`'s stock snapshot) writes that pause, and its
+    `--theme on` (`lgs_vr.apply_once()`) never removed it, so after any `gates vr:systemui` with AUD the pause stayed
+    until the next `lgs on` or daemon start (a native session's start removes it). Your 12:11:50 install came one
+    poll after your step wrote the flags; from then until 12:31 the journal has no page-script line at all, not even
+    the removal when your step's flag went, which is what a paused daemon looks like. Seen again live 13:11: `paused: true`, `vrScripts {}`, a 24 s `--flags wp.c6b` step
+    never got `__LGS_VRX.settings`. Fixed in `device/lgs_vr.py` (`apply_once()` ends the pause) and
+    `device/lgs_shell.py` (a pause older than 300 s is stale and removed; each page-script pass reads the flags files
+    itself). Live after the fix: `js … --in vr:systemui --flags wp.c6b` found `__LGS_VRX.settings` at its first
+    sample (installed 14:06:13, removed 14:06:14 when the step's flag went); `gates vr:systemui --only aud` 14:06:32
+    paused and resumed page theming 2 s later (journal), no pause file left. A step should still wait for
+    `window.__LGS_VRX.settings` (≤ 1.5 s after the flag flips). contracts/daemon.md §6.
 - [ ] REQ C6b->C1a: two `gates vr:systemui` findings in `theme/vr/10-systemui.css` (C1a's), seen on every C6b run:
   OUTLINE P-42 "closed rim of 3 shadow lines" on `%{ControllerStatusRoot} %{LargeStatusArea}::before` (rects
   278,1571 and 535,1571, 220 × 54: `inset 0 1.5px` white .42 + `inset 1px 1px` + `inset -1px …`), and SIZE P-08 on
   the frame-control `ButtonControl WithIcon LargeIcon` at (139, 1256) 107 × 107 ("hit 100% own, 0% other … over
   107x106": the failing part is not the hit; perhaps the 0.48 circle rule).
 
-- [ ] REQ C6b->P8: in native mode, with the dashboard frame on SteamVR's settings page (`system.settings`, your
+- [x] REQ C6b->P8: in native mode, with the dashboard frame on SteamVR's settings page (`system.settings`, your
   journal logs `systemui: frame page valve.steam.gamepadui.main -> system.settings`), the `hv` frame of 12:31 shows a
   dark glass rectangle over the left ~72 % of SteamVR's panel, top-left aligned with it, the right column outside it on
   the panel's own (lighter) CSS glass. It looks like the main surface's cover (glassd) is still drawn although Steam's
   page is not shown. Please hide main's cover, base and pops (`visible: false`) while the frame's active page is not
   Steam's, as for any hidden surface. (If it is not the cover, the SteamVR panel is physically wider than Steam's
   window, which also matters to SET T-VR-FOOT; C6b's CSS draws one uniform glass over the whole panel.)
+  - P8 (2026-10-07 13:45 EDT, maintenance session 4): **done as asked.** While the daemon's `page.steam` is false
+    (the frame shows `system.settings` or the binding UI), main stays in `glassd.json` with nothing to draw (its quad
+    stays masked out of the room map) and is left out of the scene-graph spec (no cover, base, pop or slab;
+    `lgs-native` comes off main); back on Steam's page its plates and slabs materialize again. `status.mainAway`.
+    Live (native session 13:45, Home windowless, `FrameStore` switched to `system.settings` for 13 s from
+    `vr:systemui`): `mainAway` true and main empty in `glassd.json` from 13:45:51 to 13:45:59 (the reporter had
+    already dropped main at 13:45:48 here, Steam's document going hidden); the `hv --look` of the settings page
+    showed SteamVR's panel with no dark rectangle; back at 13:46:01, Home's 18 plates and the card slab returned
+    by 13:46:04. contracts/daemon.md §4.2.
 
 ## Requests to C6b, handled
 

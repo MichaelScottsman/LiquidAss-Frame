@@ -15,14 +15,19 @@
   #page { position: absolute; left: 0; top: 0; width: 640px; height: 720px; overflow-y: auto; }
   #page .content { position: relative; height: 1600px; }
   #ornament { position: absolute; left: 0; top: 656px; width: 640px; height: 64px; background: rgb(30 30 36 / .9); }
-  /* case 4: a scroller already at its end: its last row cannot be scrolled clear of the ornament */
-  #stuck { position: absolute; left: 660px; top: 0; width: 300px; height: 720px; overflow-y: auto; }
+  /* case 4: a scroller already at its end: its last row cannot be scrolled clear of the ornament; case 4b (session 5):
+     a row below it, cut by the scroller's clip-path at 710 (partly visible), cannot be scrolled clear either */
+  #stuck { position: absolute; left: 660px; top: 0; width: 300px; height: 720px; overflow-y: auto; clip-path: inset(0 0 10px 0); }
   #stuck .content { position: relative; height: 760px; }
   #ornament2 { position: absolute; left: 660px; top: 656px; width: 300px; height: 64px; background: rgb(30 30 36 / .9); }
   /* case 5: a control cut by the window bottom, not in a scroller: its visible part (600-720) holds the 80 px
      box; a non-interactive 20 px band covers the window's last rows (REQ C2a->P10 #13) */
   #banner { position: absolute; left: 980px; top: 600px; width: 280px; height: 215px; border-radius: 0; background: rgb(80 80 90 / .6); }
   #band { position: absolute; left: 960px; top: 700px; width: 320px; height: 20px; background: rgb(0 0 0 / .4); }
+  /* case 5b (session 5): a tall control in a scroller, cut by the scroller's bottom (600); its visible part (490-600)
+     holds the 80 px box; below the scroller lies the banner (chrome) */
+  #tall { position: absolute; left: 980px; top: 450px; width: 280px; height: 150px; overflow-y: auto; }
+  #tall .content { position: relative; height: 400px; }
   /* case 6: a tab row (E-TAB, horizontal): five 60 x 56 tabs abutting in a 300 px card, at m .83 (pitch 48, across 50) */
   #tabs { position: absolute; left: 980px; top: 40px; width: 300px; height: 56px; display: flex; }
   #tabs .tab { width: 60px; height: 56px; border-radius: 28px; display: flex; align-items: center; justify-content: center; }
@@ -54,6 +59,33 @@
   #leaf.themed { width: 300px; height: 350px; }
   #bare { position: absolute; left: 860px; top: 430px; width: 400px; height: 400px; }
   #bare.themed { width: 320px; height: 300px; }
+  /* case 11 (shown alone, session 5): text runs judged as text (REQ C7->P10): stock vs themed boxes */
+  #texts { display: none; position: absolute; left: 0; top: 0; width: 1280px; height: 720px; }
+  #texts .tx { position: absolute; left: 20px; font: 500 20px/26px sans-serif; }
+  #t1 { top: 10px; width: 1032px; } #t1.themed { width: 472px; font-size: 24px; line-height: 38px; }
+  #t2 { top: 60px; width: 600px; white-space: nowrap; } #t2.themed { width: 120px; overflow: hidden; text-overflow: ellipsis; }
+  #t3 { top: 110px; width: 1032px; font-size: 24px; } #t3.themed { width: 472px; font-size: 18px; }
+  #t4 { top: 160px; width: 900px; height: 500px; } #t4.themed { width: 400px; height: 320px; overflow: hidden; }
+  /* case 12 (shown alone, session 5): E-GRID (labels), PLAN 1.16 R2-15. Stock rows 260 x 40 with a one-line
+     260 px label; themed 72 x 96 cells with a 70 px label */
+  #lgrid { display: none; position: absolute; left: 10px; top: 10px; width: 288px; grid-template-columns: repeat(4, 72px); grid-auto-rows: 96px; }
+  #lgrid.stock { grid-template-columns: 260px; grid-auto-rows: 40px; }
+  #lgrid .lcell { overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; border-radius: 24px; background: rgb(60 60 70 / .6); }
+  #lgrid .lbl { width: 70px; font: 500 15px/18px sans-serif; text-align: center; flex: none; }
+  #lgrid.stock .lbl { width: 260px; white-space: nowrap; }
+  #lgrid:not(.stock) .lbl.ell { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; text-overflow: ellipsis; }
+  #lgrid:not(.stock) .lbl.cut { overflow: hidden; white-space: nowrap; }
+  #lgrid:not(.stock) .lbl.fit { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  #lgrid:not(.stock) .lcell.open { overflow: visible; }
+  #lgrid:not(.stock) .lbl.plate { width: 160px; white-space: nowrap; position: relative; z-index: 1; pointer-events: none; background: rgb(40 40 48 / .9); }
+  /* case 13 (shown alone, session 5): a pending exemption, and E-KEY scoped to size/type/outline */
+  #misc { display: none; position: absolute; left: 0; top: 0; width: 1280px; height: 720px; }
+  #key1 { position: absolute; left: 20px; top: 20px; width: 60px; height: 47px; background: rgb(60 60 70 / .6); border-radius: 12px; }
+  #key1.themed { width: 40px; height: 40px; }
+  /* case 14 (session 5): E-SEG widths, 140 regular (22 px label) and 120 compact (REQ Coordinator->P10 R2-15 (4)) */
+  .segrow { position: absolute; left: 20px; display: flex; }
+  .segrow .seg { width: 130px; height: 60px; display: flex; align-items: center; justify-content: center; border-radius: 30px; }
+  #segs1 { top: 200px; font-size: 22px; } #segs2 { top: 300px; font-size: 20px; }
 </style>
 </head>
 <body>
@@ -65,9 +97,11 @@
 <div id="ornament"></div>
 <div id="stuck"><div class="content">
   <div id="c4" class="btn Focusable" role="button" style="left: 0; top: 690px; width: 300px; height: 60px;">last row, no room</div>
+  <div id="c6" class="btn Focusable" role="button" style="left: 0; top: 740px; width: 300px; height: 20px;">cut last row, no room</div>
 </div></div>
 <div id="ornament2"></div>
 <div id="banner" class="Focusable" role="button">sale banner</div>
+<div id="tall"><div class="content"><div id="c5" class="btn Focusable" role="button" style="left: 20px; top: 40px; width: 240px; height: 200px;">tall card</div></div></div>
 <div id="band"></div>
 <div id="tabs"><div class="tab Focusable" role="tab">1</div><div class="tab Focusable" role="tab">2</div><div class="tab Focusable" role="tab">3</div><div class="tab Focusable" role="tab">4</div><div class="tab Focusable" role="tab">5</div></div>
 <div id="grid"></div>
@@ -78,6 +112,28 @@
   <div id="m3" class="mhdr"><div class="mcont"><div class="mi Focusable">Narrow one</div><div class="mi Focusable">Narrow two</div><div class="sep"></div><div class="mi Focusable">Cancel</div></div></div>
 </div>
 <div id="panes"><div id="pane" class="Focusable" role="group"><div class="btn Focusable" role="button">inside</div></div><div id="leaf" class="Focusable" role="button" onclick="void 0">leaf</div><div id="bare" class="Focusable">empty pane</div></div>
+<div id="texts">
+  <div id="t1" class="tx">Recently played with friends</div>
+  <div id="t2" class="tx">A long status line that will be cut short</div>
+  <div id="t3" class="tx">Smaller type than stock</div>
+  <div id="t4" class="tx">Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text. Body text.</div>
+</div>
+<div id="lgrid">
+  <div class="lcell Focusable" role="button"><div class="lbl ell" id="L1">Supercalifragilistic Expialidocious Deluxe Program</div></div>
+  <div class="lcell Focusable" role="button"><div class="lbl cut" id="L2">Chromium Browser Long</div></div>
+  <div class="lcell Focusable" role="button"><div class="lbl" id="L3">One Two Three Four Five</div></div>
+  <div class="lcell Focusable" role="button"><div class="lbl" id="L4">Chromium Web Browser</div></div>
+  <div class="lcell Focusable" role="button" aria-label="Chromium Web Browser"><div class="lbl" id="L5">Chromium Web Browser</div></div>
+  <div class="lcell Focusable gpfocus open" role="button"><div class="lbl plate" id="L6">Chromium Web</div></div>
+  <div class="lcell Focusable open" role="button"><div class="lbl plate" id="L7">Chromium Web</div></div>
+  <div class="lcell Focusable" role="button"><div class="lbl" id="L8">Steam</div></div>
+  <div class="lcell Focusable" role="button"><div class="lbl ell" id="L9">Half SBS Toggle Program Extra Words</div></div>
+  <div class="lcell Focusable" role="button"><div class="lbl fit" id="L10">Qbittorrentclient</div></div>
+</div>
+<div id="misc"><div id="key1" class="key Focusable" role="button" onclick="void 0">g</div>
+  <div id="segs1" class="segrow"><div class="seg Focusable" role="button">Wide A</div><div class="seg Focusable" role="button">Wide B</div><div class="seg Focusable" role="button">Wide C</div></div>
+  <div id="segs2" class="segrow"><div class="seg Focusable" role="button">Cmp A</div><div class="seg Focusable" role="button">Cmp B</div><div class="seg Focusable" role="button">Cmp C</div></div>
+</div>
 <script src="../../../device/lgs_index.js"></script>
 <script src="../../../lab/lab_helpers.js"></script>
 <script src="../../../lab/lab_p2.js"></script>
@@ -117,6 +173,12 @@
     // 5: the box centred on the visible rect (600-720): the band at 700-720 is outside it -> no P-08 failure
     const f5 = (s.fails || []).filter((x) => (x.el || '').includes('sale banner') && x.rule === 'P-08');
     ok('5 P-08 box on the visible rect -> pass', f5.length === 0, f5);
+    // 5b (session 5, REQ C2a->P10 #13): a tall control in a scroller whose visible part holds the box is sampled
+    // there (checked, passes), not skipped as obscured on its full rect's box (the rule before session 5)
+    ok('5b tall control cut by its scroller: sampled on its visible part, passes', !find(s.skipped, 'tall card') && !find(s.fails, 'tall card') && !find(s.exempt, 'tall card'), { skipped: find(s.skipped, 'tall card'), fail: find(s.fails, 'tall card') });
+    // 4b (session 5): partly visible AND unable to scroll clear: sampled where it is, P-08 fails and says why
+    const f4b = (s.fails || []).find((x) => (x.el || '').includes('cut last row') && x.rule === 'P-08');
+    ok('4b partly visible, no room to scroll -> judged in place, not skipped', f4b && f4b.rule === 'P-08' && /only partly visible/.test(f4b.why), f4b || find(s.skipped, 'cut last row'));
     // 6: the tab row is E-TAB, row axis, criterion met
     const t6 = (s2.exempt || []).filter((e) => e.id === 'E-TAB');
     ok('6 E-TAB row: five tabs exempt, criterion passes', t6.length === 5 && t6.every((e) => e.pass === true) && /row item/.test(t6[0].why), t6[0]);
@@ -148,13 +210,24 @@
     grid.appendChild(gone);
     const d3 = G.audDiff(a3, b3);
     ok('7d E-GRID: GONE still reported', d3.issues.some((x) => /^GONE/.test(x)), d3.issues.slice(0, 3));
+    // 7e (session 5): a pending exemption (listed in _pending: not in PLAN 1.16 yet) waives nothing; its criterion is
+    // reported with the issue
+    G.exemptions({ 'E-GRID': ['#grid .cell'], _scope: { 'E-GRID': { sweeps: ['aud'], aud: ['SHRUNK'] } }, _pending: { 'E-GRID': 'test: not in PLAN 1.16' } });
+    grid.classList.add('stock');
+    const a4 = L.snap('barpopup');
+    grid.classList.remove('stock');
+    const b4 = L.snap('barpopup');
+    const d4 = G.audDiff(a4, b4);
+    const pend = d4.issues.filter((x) => /^SHRUNK/.test(x) && /pending: test/.test(x) && /criterion is met/.test(x));
+    ok('7e pending exemption: SHRUNK kept, criterion reported', pend.length === 8 && !d4.pass && d4.exempt.every((e) => e.waived === null && e.pending), { n: pend.length, first: d4.issues[0] });
+    G.exemptions({ 'E-TAB': ['#tabs .tab'], 'E-GRID': ['#grid .cell'], _scope: { 'E-GRID': { sweeps: ['aud'], aud: ['SHRUNK'] } } });
     // 8: the pill's focusable: false glyphs without a handler are part of the pill; one with its own handler is not
     ok('8a hosted glyphs skipped as part of their host', (s.skipped || []).filter((x) => /part of its host/.test(x.why)).length === 3, (s.skipped || []).filter((x) => /part of its host/.test(x.why)).length);
     ok('8b a glyph with its own handler stays a target (P-80 fails)', (s.fails || []).some((x) => x.rule === 'P-80' && /#g4|glyph/.test(x.el) && x.rect[2] === 18), (s.fails || []).filter((x) => x.rect && x.rect[2] === 18));
     ok('8c the pill is judged whole and passes', !(s.fails || []).some((x) => x.rect && x.rect[2] === 232) && !(s.skipped || []).some((x) => x.el && /^div$|pill/.test(x.el) && x.why), (s.fails || []).filter((x) => x.rect && x.rect[2] === 232));
     // 9: menus alone. Column rows 340 x 72 at pitch 78; grid rows 290 wide; a 300 wide column row fails; Cancel
     // 192+ x 60 on its element passes, a Cancel whose fill is inset by a 2 px clear border (56 tall) fails.
-    const others = ['page', 'ornament', 'stuck', 'ornament2', 'banner', 'band', 'tabs', 'grid', 'pill'].map((id) => document.getElementById(id));
+    const others = ['page', 'ornament', 'stuck', 'ornament2', 'banner', 'band', 'tall', 'tabs', 'grid', 'pill'].map((id) => document.getElementById(id));
     others.forEach((e) => { e.style.display = 'none'; });
     document.getElementById('menus').style.display = 'block';
     G.exemptions({ 'E-MENU': ['#menus .mi'] });
@@ -182,6 +255,72 @@
     ok('10b a leaf target with its own handler that shrinks is still SHRUNK', d10.issues.some((x) => /^SHRUNK/.test(x) && /leaf/.test(x)), d10.issues);
     ok('10c a focusable pane without a handler (empty) staying >= 300 x 300: container-pane', d10.exempt.some((e) => e.id === 'container-pane' && /400x400 -> 320x300/.test(e.why)) && !d10.issues.some((x) => /empty pane/.test(x)), { ex: d10.exempt, issues: d10.issues });
     document.getElementById('panes').style.display = 'none';
+    // 11 (session 5, REQ C7->P10): text runs are judged as text. A box that shrinks with the whole string shown at
+    // >= stock size is listed as text-whole; a cut string (ellipsis), smaller type or a cut text block >= 300 x 300
+    // stays SHRUNK.
+    const texts = document.getElementById('texts');
+    texts.style.display = 'block';
+    G.exemptions({});
+    const ta = L.snap('main');
+    const tt = (on) => ['t1', 't2', 't3', 't4'].forEach((id) => document.getElementById(id).classList.toggle('themed', on));
+    tt(true);
+    const tb = L.snap('main');
+    tt(false);
+    const d11 = G.audDiff(ta, tb);
+    const sh = (txt) => d11.issues.some((x) => /^SHRUNK/.test(x) && x.includes(txt));
+    ok('11a narrower box, larger type, whole string: text-whole, not SHRUNK', d11.exempt.some((e) => e.id === 'text-whole' && /Recently played/.test(e.el) && /24 px \(stock 20 px\)/.test(e.why)) && !sh('Recently played'), { ex: d11.exempt, issues: d11.issues });
+    ok('11b a string cut by an ellipsis stays SHRUNK', sh('A long status line'), d11.issues);
+    ok('11c smaller type stays SHRUNK', sh('Smaller type'), d11.issues);
+    ok('11d a cut text block >= 300 x 300 stays SHRUNK (no longer a pane)', sh('Body text') && !d11.exempt.some((e) => /Body text/.test(e.el)), { ex: d11.exempt, issues: d11.issues });
+    texts.style.display = 'none';
+    // 12 (session 5): E-GRID (labels), PLAN 1.16 R2-15. Each label 260 x 18 (stock row) -> 70 px wide in its cell.
+    const lg = document.getElementById('lgrid');
+    lg.style.display = 'grid';
+    G.exemptions({ 'E-GRID': ['#lgrid .lcell'], _scope: { 'E-GRID': { sweeps: ['aud'], aud: ['SHRUNK'], labels: 'E-GRID (labels)' } } });
+    const L4 = document.getElementById('L4'), L5 = document.getElementById('L5');
+    lg.classList.add('stock');
+    const la = L.snap('barpopup');
+    lg.classList.remove('stock');
+    L4.textContent = 'Chromi…'; L5.textContent = 'Chromi…';          // T3 draws its own shortened string
+    const lb = L.snap('barpopup');
+    L4.textContent = 'Chromium Web Browser'; L5.textContent = 'Chromium Web Browser';
+    lg.style.display = 'none';
+    const d12 = G.audDiff(la, lb);
+    const txtOf = { L1: 'Supercalifragilistic', L2: 'Chromium Browser Long', L3: 'One Two Three' };
+    const byLine = (frag) => ({ w: d12.exempt.filter((e) => e.id === 'E-GRID (labels)' && e.waived === 'SHRUNK' && e.el.includes(frag)).length,
+      k: d12.issues.filter((x) => /^SHRUNK/.test(x) && x.includes(frag) && /E-GRID label criterion not met/.test(x)) });
+    const r1 = byLine(txtOf.L1), r2 = byLine(txtOf.L2), r3 = byLine(txtOf.L3), r8 = byLine('"Steam"');
+    const r9 = byLine('Half SBS Toggle'), r10 = byLine('Qbittorrentclient');
+    ok('12a an ellipsized label (words clamped to 2 lines, ellipsis) is waived', r9.w === 1 && r9.k.length === 0, { r9 });
+    ok('12a2 a single long word cut by a line-clamped box keeps its SHRUNK (REQ C2b-R2->P10)', r1.w === 0 && r1.k.length === 1 && /draws none across/.test(r1.k[0]), r1);
+    ok('12a3 a single long word ellipsized on one line (nowrap, text-overflow) is waived', r10.w === 1 && r10.k.length === 0, r10);
+    ok('12b a label cut without an ellipsis keeps its SHRUNK (clause 3)', r2.w === 0 && r2.k.length === 1 && /cut across at the run without an ellipsis/.test(r2.k[0]), r2);
+    ok('12c a three-line label keeps its SHRUNK (clause 2)', r3.w === 0 && r3.k.length === 1 && /\(2\) 3 line/.test(r3.k[0]), r3);
+    // L4 and L5 both read "Chromium Web Browser" in stock: L4's cell has no aria-label (kept), L5's has (waived)
+    const r45 = byLine('Chromium Web Browser');
+    ok('12d T3 shortened, no aria-label: kept (clause 4); with the aria-label: waived', r45.w === 1 && r45.k.length === 1 && /full name is not in the DOM/.test(r45.k[0]), r45);
+    // L6 (attended: .gpfocus) shows the name whole as a 160 px plate inside the popup: waived; L7, the same plate on
+    // a cell that is not attended, lies outside its cell: kept (clause 1)
+    const r67 = byLine('"Chromium Web"');
+    ok('12e the attended plate inside the popup is waived; a plate outside a resting cell is kept (clause 1)', r67.w === 1 && r67.k.length === 1 && /outside its cell/.test(r67.k[0]), r67);
+    ok('12f a short label that fits is waived', r8.w === 1 && r8.k.length === 0, r8);
+    // 13 (session 5): E-KEY scoped to size/type/outline: SIZE lists the key exempt, AUD still judges it
+    const misc = document.getElementById('misc');
+    misc.style.display = 'block';
+    G.exemptions({ 'E-KEY': ['.key'], _scope: { 'E-KEY': { sweeps: ['size', 'type', 'outline'] } } });
+    const s13 = G.size('keyboard');
+    const ka = L.snap('keyboard');
+    document.getElementById('key1').classList.add('themed');
+    const kb = L.snap('keyboard');
+    document.getElementById('key1').classList.remove('themed');
+    const d13 = G.audDiff(ka, kb);
+    ok('13 E-KEY: SIZE exempt, AUD still judges the key (SHRUNK reported)', (s13.exempt || []).some((e) => e.id === 'E-KEY') && d13.issues.some((x) => /^SHRUNK/.test(x) && /"g"/.test(x)), { ex: s13.exempt, issues: d13.issues });
+    // 14 (session 5): E-SEG: 130 px segments fail with a 22 px label (regular, >= 140), pass with a 20 px one (compact)
+    G.exemptions({ 'E-SEG': ['.seg'] });
+    const s14 = G.size('main');
+    const segs = (s14.exempt || []).filter((e) => e.id === 'E-SEG');
+    ok('14 E-SEG: 140 for a 22 px label (fails at 130), 120 compact (passes)', segs.length === 6 && segs.filter((e) => /Wide/.test(e.el)).every((e) => e.pass === false && /needs >= 60 x 140/.test(e.why)) && segs.filter((e) => /Cmp/.test(e.el)).every((e) => e.pass === true && /compact/.test(e.why)), segs.map((e) => e.why));
+    misc.style.display = 'none';
     others.forEach((e) => { e.style.display = ''; });
     return { pass: out.every((x) => x.pass), cases: out, size: { checked: s.checked, fails: s.fails.length, skipped: s.skipped.length, inPlace: (s.inPlace || []).length } };
   };

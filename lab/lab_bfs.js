@@ -10,7 +10,7 @@
 // keyboard) is recorded and undone.
 (function () {
   const L = window.__LGS_LAB;
-  if (!L || L.single || (L.bfs && L.bfs.v === 10)) return;
+  if (!L || L.single || (L.bfs && L.bfs.v === 11)) return;
   const sleep = L.sleep;
   const CODE = { up: 9, down: 10, left: 11, right: 12 };
   const OPP = { up: 'down', down: 'up', left: 'right', right: 'left' };
@@ -102,28 +102,69 @@
   // made active again in Steam's focus context (FindNavTreeInWindow + SetActiveNavTree) and the root once more.
   // Returns how focus came back ('opposite' | 'root' | 'tree'), or null when it did not.
   function ctxOf() { const i = inst(); try { return (i.GetFocusNavContext && i.GetFocusNavContext()) || i.m_FocusNavContext || null; } catch (_) { return null; } }
+  // main's own nav tree (GamepadUI_VR_Full_Root) made Steam's active one (FindNavTreeInWindow + Activate). After an
+  // exit the gamepad can sit in another window's tree (the frame menu, the VR keyboard) or in `vr-null-tree`, and
+  // then neither FocusApplicationRoot, D-pad presses nor BTakeFocus reach main (session 5 probe on
+  // /library/tab/AllGames: Left from the first poster -> vr-null-tree; root, BTakeFocus and Down left it there;
+  // Activate gave main the gamepad back). Steam's own focus API: it runs no action.
+  function activateMain() {
+    const ctx = ctxOf();
+    try {
+      const t = ctx && typeof ctx.FindNavTreeInWindow === 'function' ? ctx.FindNavTreeInWindow(W()) : null;
+      if (t && typeof t.Activate === 'function') { t.Activate(true); return true; }
+      if (t && ctx && typeof ctx.SetActiveNavTree === 'function') { ctx.SetActiveNavTree(t); return true; }
+    } catch (_) { /* older build */ }
+    return false;
+  }
+  // main has the gamepad, and still has it 150 ms later (an activation Steam undoes at once is not a recovery: the
+  // session 4 sweep counted such a moment as "back" and then found every later node untakeable)
+  async function held(ms) {
+    for (let k = 0; k < (ms || 300) / 20 && !gp(); k++) await sleep(20);
+    if (!gp()) return false;
+    await sleep(150);
+    return !!gp();
+  }
   async function regain(S, dir) {
     if (gp()) return 'kept';
     if (dir) {
       FocusNavController.DispatchVirtualButtonClick(CODE[OPP[dir]]);
       S.moves++;
-      for (let k = 0; k < 15 && !gp(); k++) await sleep(20);
-      if (gp()) return 'opposite';
+      if (await held()) return 'opposite';
     }
+    if (activateMain() && await held()) return 'tree';
     try { inst().FocusApplicationRoot(); } catch (_) { /* no main */ }
-    for (let k = 0; k < 15 && !gp(); k++) await sleep(20);
-    if (gp()) return 'root';
-    // main's own nav tree (GamepadUI_VR_Full_Root) made the active one again: another window's tree (the frame
-    // menu, the VR keyboard) can keep the gamepad after an exit, and then neither the root nor BTakeFocus reach main
-    const ctx = ctxOf();
-    try {
-      const t = ctx && typeof ctx.FindNavTreeInWindow === 'function' ? ctx.FindNavTreeInWindow(W()) : null;
-      if (t && typeof t.Activate === 'function') t.Activate(true);
-      else if (t && typeof ctx.SetActiveNavTree === 'function') ctx.SetActiveNavTree(t);
-      inst().FocusApplicationRoot();
-    } catch (_) { /* older build */ }
-    for (let k = 0; k < 15 && !gp(); k++) await sleep(20);
-    if (gp()) return 'tree';
+    if (await held()) return 'root';
+    // The main overlay given the VR gamepad again, then the root and a Down + Up (SR 4: the first press activates
+    // focus). After an exit from a text field (/search/tab/All: Left on the field makes vr-null-tree active: the
+    // gamepad left Steam's overlay) neither the tree, the root nor D-pad presses reach main. Steam's own
+    // EnsureVROverlayVisible (what its Navigate calls after every route change) followed by the root and Down + Up
+    // does, with no navigation (session 5 probes 14:00-14:12). Last resort: Navigate to the same route, replacing
+    // the history entry (Steam's Navigate(path, replace)), so the final B still sees Steam's own history. A Down that
+    // changes the page (Settings: selection follows focus) is undone by the route check.
+    const rootDownUp = async (r) => {
+      try { inst().FocusApplicationRoot(); } catch (_) { /* no main */ }
+      await sleep(300);
+      FocusNavController.DispatchVirtualButtonClick(10); S.moves++; await sleep(260);
+      FocusNavController.DispatchVirtualButtonClick(9); S.moves++; await sleep(260);
+      if (L.route() !== r) { L.nav(r); await sleep(1300); }
+    };
+    const r = L.route();
+    if (typeof inst().EnsureVROverlayVisible === 'function') {
+      try { inst().EnsureVROverlayVisible(); } catch (_) { /* older build */ }
+      await sleep(500);
+      await rootDownUp(r);
+      if (await held()) return 'overlay';
+    }
+    if (seg(r) === seg(S.route)) {
+      try { inst().Navigate(r, true); } catch (_) { L.nav(r); }
+      S.navs++;
+      await sleep(1000);
+      await rootDownUp(r);
+      if (await held()) return 'nav';
+    }
+    activateMain();
+    try { inst().FocusApplicationRoot(); } catch (_) { /* no main */ }
+    if (await held()) return 'tree+root';
     return null;
   }
   async function takeDirect(S, i) {
@@ -137,11 +178,17 @@
       n.el = findByKey(n.key);
       if (!n.el) return false;
     }
-    try { L.gpTakeEl(n.el); } catch (_) { return false; }
-    for (let k = 0; k < 12; k++) {
-      await sleep(20);
-      const g = gp();
-      if (g && (g === n.el || keyOf(g) === n.key)) return true;
+    // A BTakeFocus that does not land: main's tree may not be Steam's active one although main still shows a
+    // .gpfocus (REQ C1b->P10 #10, C2a->P10 #14). Activate main's tree and take once more before calling the node
+    // untakeable.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try { L.gpTakeEl(n.el); } catch (_) { return false; }
+      for (let k = 0; k < 12; k++) {
+        await sleep(20);
+        const g = gp();
+        if (g && (g === n.el || keyOf(g) === n.key)) { if (attempt) S.retook++; return true; }
+      }
+      if (!attempt) { activateMain(); await sleep(60); }
     }
     return false;
   }
@@ -178,7 +225,7 @@
 
   async function init(o) {
     o = o || {};
-    const S = window.__LGS_BFS = { route: L.route(), nodes: [], info: [], byKey: new Map(), edges: {}, rev: [], untested: [], exits: [], queue: [], parent: {}, replayed: 0, seen: new Set(), moves: 0, t0: Date.now() };
+    const S = window.__LGS_BFS = { route: L.route(), nodes: [], info: [], byKey: new Map(), edges: {}, rev: [], untested: [], exits: [], queue: [], parent: {}, replayed: 0, retook: 0, navs: 0, seen: new Set(), moves: 0, t0: Date.now() };
     inst().FocusApplicationRoot();
     await sleep(300);
     // the first press both activates focus and moves it (SR 4): Down then Up
@@ -262,12 +309,12 @@
       untested: S.untested.map((r) => ({ from: r.a, dir: r.dir, to: r.b, why: r.why })), universe: S.universe.size,
       // moves that left the main window, and how focus came back (REQ C1b->P10 #10, C2a->P10 #14)
       exits: S.exits.map((r) => ({ from: r.a, dir: r.dir, to: r.to, back: r.back })),
-      unreached, b, moves: S.moves, replayed: S.replayed, seconds: Math.round((Date.now() - S.t0) / 100) / 10, truncated: S.queue.length > 0,
+      unreached, b, moves: S.moves, replayed: S.replayed, retook: S.retook, navs: S.navs, seconds: Math.round((Date.now() - S.t0) / 100) / 10, truncated: S.queue.length > 0,
     };
     res.pass = unreached.length === 0 && res.irreversible.length === 0 && !res.truncated;
     delete window.__LGS_BFS;
     return res;
   }
 
-  L.bfs = { v: 10, init, step, finish, keyOf, leaves, regain };
+  L.bfs = { v: 11, init, step, finish, keyOf, leaves, regain, activateMain };
 })();
