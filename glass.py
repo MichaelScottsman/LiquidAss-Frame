@@ -39,6 +39,7 @@ returns the stock UI.
 """
 import importlib.util
 import io
+import json
 import os
 import re
 import shlex
@@ -151,12 +152,287 @@ def unmangle(arg):
     return m.group(1).replace("\\", "/") if m else arg
 
 
+# ------------------------------------------------------------ Phase 2 tools (P10)
+# docs/phase2/contracts/lab.md is the interface. Exit codes: 0 pass, 1 fail,
+# 2 usage, 3 blocked (a dependency is not there yet).
+
+def blocked(what):
+    print(f"BLOCKED: {what} (stub; see docs/phase2/contracts/lab.md section 9)")
+    return 3
+
+
+def p2_stub(name):
+    def run(*_a):
+        return blocked(f"glass.py {name} is not implemented yet")
+    return run
+
+
+def p2_tool(name):
+    """tools/p2/<name>.py as a module."""
+    p = ROOT / "tools" / "p2" / f"{name}.py"
+    spec = importlib.util.spec_from_file_location(f"p2_{name}", p)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def cmd_check_theme(rest):
+    return p2_tool("check_theme").main(["check-theme"] + rest)
+
+
+def cmd_edge(rest):
+    return p2_tool("edge_profile").main_edge(rest)
+
+
+def P2_SGCHECK_OFFLINE(rest):
+    return p2_stub("sgcheck --spec")()
+
+
+HV_LOOK = Path(os.environ.get("TEMP", "/tmp")) / "lgs-hv"
+
+
+def hv_clean(quiet=True):
+    """Delete every kept headset-view frame on this PC (room imagery, LAB never-list)."""
+    n = 0
+    if HV_LOOK.exists():
+        for f in HV_LOOK.iterdir():
+            try:
+                f.unlink()
+                n += 1
+            except OSError:
+                pass
+    if n and not quiet:
+        print(f"hv: deleted {n} kept headset-view frame(s) in {HV_LOOK}")
+    return n
+
+
+def hv_measure(c, remote, name, opts):
+    """Fetch one hvgrab frame, measure it, delete both copies (or keep the
+    local one in HV_LOOK for --look, deleted by the next glass.py command)."""
+    import tempfile
+    tmpd = Path(tempfile.mkdtemp(prefix="lgs-hv-"))
+    local = tmpd / f"{name}.png"
+    sftp = c.open_sftp()
+    try:
+        sftp.get(remote, str(local))
+    finally:
+        try:
+            sftp.remove(remote)
+        except OSError:
+            pass
+        sftp.close()
+    sh(c, f"rm -f {shlex.quote(remote)}", echo=False)
+    try:
+        res = p2_tool("hv_metrics").measure(str(local), rect=opts.get("rect"))
+        res["name"] = name
+        print(json.dumps(res, indent=1))
+        if opts.get("look"):
+            HV_LOOK.mkdir(parents=True, exist_ok=True)
+            keep = HV_LOOK / f"{name}.png"
+            local.replace(keep)
+            print(f"LOOK: {keep}  (room imagery: view it now; the next glass.py command deletes it)")
+        return 1 if res.get("pass") is False else 0
+    finally:
+        if local.exists():
+            local.unlink()
+        try:
+            tmpd.rmdir()
+        except OSError:
+            pass
+
+
+def lab_fetch(c, args, timeout=600, hv_opts=None, results=None, quiet_files=()):
+    """Run a lab command whose output may announce files (@@file, @@hv) or
+    results (@@<kind> JSON); print the rest, fetch the files, collect results
+    into `results` ({kind: [obj]}), and return the exit code."""
+    code, o, e = lab(c, *args, timeout=timeout, echo=False)
+    rc = code
+    for line in o.splitlines():
+        if line.startswith("@@file "):
+            _, remote, rel = line.split(" ", 2)
+            local = ROOT / rel
+            local.parent.mkdir(parents=True, exist_ok=True)
+            sftp = c.open_sftp()
+            try:
+                sftp.get(remote, str(local))
+                sftp.remove(remote)
+            finally:
+                sftp.close()
+            if not any(rel.startswith(q) for q in quiet_files):
+                print(f"saved {local}")
+        elif line.startswith("@@hv "):
+            _, remote, name = line.split(" ", 2)
+            r = hv_measure(c, remote, name, hv_opts or {})
+            rc = rc or r
+        elif line.startswith("@@") and " " in line and results is not None:
+            kind, payload = line[2:].split(" ", 1)
+            try:
+                results.setdefault(kind, []).append(json.loads(payload))
+            except ValueError:
+                print(line)
+        else:
+            print(line)
+    if e:
+        sys.stderr.write(e)
+    return rc
+
+
+def gates_finish(res, keep_name=None):
+    """PC half of gates: edge profiles on the OUTLINE capture, overall pass."""
+    g = res["gates"]
+    o = g.get("OUTLINE")
+    if o:
+        rel = f"shots/{keep_name}.png" if keep_name else None
+        tmp = [p for p in SHOTS.glob("_gates_tmp_*.png")]
+        path = (ROOT / rel) if rel else (max(tmp, key=lambda p: p.stat().st_mtime) if tmp else None)
+        edges = []
+        if path and path.exists():
+            ep = p2_tool("edge_profile")
+            L = ep.lum(str(path), ep.W709)
+            dpr = float(o.get("dpr") or 1.5)
+            for pr in o.get("probes", []):
+                y, x0, x1 = int(pr["y"] * dpr), int(pr["x0"] * dpr), int(pr["x1"] * dpr)
+                if x1 - x0 < 16 or y + 12 >= L.shape[0]:
+                    continue
+                r = ep.edge(L, y, x0, x1)
+                edges.append({"el": pr["el"], "y": y, "x0": x0, "x1": x1, "ratio": r["ratio"],
+                              "segments": r["segments"], "pass": r["pass"]})
+            o["shot"] = str(path.relative_to(ROOT)) if keep_name else None
+            if not keep_name:
+                for p in tmp:
+                    p.unlink()
+        o["edges"] = edges
+        o.pop("shotRemote", None)
+        o["pass"] = bool(o.get("pass")) and all(e["pass"] for e in edges)
+    res["pass"] = all(v.get("pass") for v in g.values())
+    return res
+
+
+def gates_summary(res):
+    out = [f"gates {res['surface']}{' ' + res['route'] if res.get('route') else ''}  "
+           f"(build {res.get('build')}, {res.get('date')}, step {json.dumps(res.get('step'))})"]
+    for k, v in res["gates"].items():
+        n = v.get("failCount", len(v.get("fails", v.get("issues", []))))
+        extra = ""
+        if k == "MOTION":
+            n = len(v["nonToken"]) + len(v["atRest"]["running"]) + len(v["atRest"]["lgsLeft"]) + len(v["cssNonToken"])
+        if k == "OUTLINE":
+            extra = f", {len(v.get('edges', []))} edge probes"
+        out.append(f"  G-{k:8} {'PASS' if v.get('pass') else 'FAIL'}  {n} findings{extra}"
+                   + (f", {len(v.get('exempt', []))} exempt" if v.get("exempt") else ""))
+        items = []
+        if k in ("SIZE", "TYPE", "OUTLINE"):
+            items = [f"{f.get('rule', '')} {f['el']} {f.get('rect', '')}: {f['why']}" for f in v.get("fails", [])[:12]]
+            if k == "OUTLINE":
+                items += [f"edge {e['el']}: ratio {e['ratio']}" for e in v.get("edges", []) if not e["pass"]][:6]
+        elif k == "AUD":
+            items = v.get("issues", [])[:12]
+        elif k == "MOTION":
+            items = (v["nonToken"] + v["atRest"]["running"] + v["atRest"]["lgsLeft"] + v["cssNonToken"])[:12]
+        out += ["      " + i for i in items]
+    out.append("  overall: " + ("PASS" if res["pass"] else "FAIL"))
+    return "\n".join(out)
+
+
+def cmd_gates(c, rest):
+    rest = list(rest)
+    as_json = "--json" in rest
+    keep = None
+    if "--shot" in rest:
+        keep = rest[rest.index("--shot") + 1]
+    results = {}
+    rc = lab_fetch(c, ["gates"] + rest, timeout=900, results=results, quiet_files=("shots/_gates_tmp_",))
+    if not results.get("gates"):
+        return rc or 3
+    res = gates_finish(results["gates"][0], keep)
+    print(json.dumps(res, indent=1) if as_json else gates_summary(res))
+    return 0 if res["pass"] else 1
+
+
+def bfs_summary(r):
+    name = lambda i: (lambda n: f"#{i} {n['el']}{' \"' + n['text'][:24] + '\"' if n.get('text') else ''}")(r["nodes"][i]) \
+        if isinstance(i, int) and i < len(r["nodes"]) else str(i)
+    out = [f"pad-bfs {r.get('route')}  (build {r.get('build')}, {r.get('date')}): {len(r['nodes'])} nodes, "
+           f"{r.get('moves')} moves, {r.get('seconds')} s{', TRUNCATED' if r.get('truncated') else ''}",
+           f"  entry focus: {r['entry']['el']} \"{r['entry'].get('text', '')[:30]}\" {r['entry']['rect']}"]
+    exits = sorted({v for e in r["edges"].values() for v in e.values() if isinstance(v, str) and ":" in v})
+    if exits:
+        out.append("  leaves the window: " + ", ".join(exits))
+    out.append(f"  unreached visible focusables: {len(r['unreached'])}")
+    out += [f"      {u['el']} \"{u.get('text', '')[:30]}\" {u['rect']}" for u in r["unreached"][:12]]
+    out.append(f"  irreversible moves: {len(r['irreversible'])}")
+    out += [f"      {name(x['from'])} -{x['dir']}-> {name(x['to'])}, back -> {name(x['back'])}" for x in r["irreversible"][:12]]
+    if r.get("b"):
+        out.append(f"  B from the entry focus: {r['b']['effect']}")
+    out.append("  overall: " + ("PASS" if r.get("pass") else "FAIL"))
+    return "\n".join(out)
+
+
+def cmd_pad_bfs(c, rest):
+    rest = list(rest)
+    as_json = "--json" in rest
+    outp = None
+    if "--out" in rest:
+        i = rest.index("--out")
+        outp = rest[i + 1]
+        del rest[i:i + 2]
+    results = {}
+    rc = lab_fetch(c, ["pad-bfs"] + rest, timeout=600, results=results)
+    if not results.get("bfs"):
+        return rc or 3
+    r = results["bfs"][0]
+    if outp:
+        Path(outp).write_text(json.dumps(r, indent=1), encoding="utf-8")
+    print(json.dumps(r, indent=1) if as_json else bfs_summary(r))
+    return 0 if r.get("pass") else 1
+
+
+def cmd_native_session(c, rest):
+    return lab_fetch(c, ["native-session"] + rest, timeout=2400)
+
+
+def cmd_hv(c, rest):
+    rest = list(rest)
+    if "--clean" in rest:
+        hv_clean(quiet=False)
+        sh(c, "rm -f /tmp/lgs/hv-*.png", echo=False)
+        return 0
+    opts = {"look": "--look" in rest}
+    if "--look" in rest:
+        rest.remove("--look")
+    if "--rect" in rest:
+        i = rest.index("--rect")
+        opts["rect"] = [int(float(v)) for v in rest[i + 1].split(",")]
+        del rest[i:i + 2]
+    if "--offaxis" in rest:
+        i = rest.index("--offaxis")
+        del rest[i:i + 2]
+        return blocked("hv --offaxis needs P7's yaw test hook (REQ P10->P7 in docs/phase2/wp/P10.md)")
+    return lab_fetch(c, ["hv-grab"] + rest, timeout=180, hv_opts=opts)
+
+
+# Offline commands: no device connection.
+P2_OFFLINE = {name: p2_stub(name) for name in ("cmp", "ledger")}
+P2_OFFLINE.update({"check-theme": cmd_check_theme, "edge": cmd_edge})
+# Live commands: get the SSH client first.
+P2_LIVE = {name: p2_stub(name) for name in ("focus", "motion", "sgcheck", "conformance")}
+P2_LIVE.update({"native-session": cmd_native_session, "hv": cmd_hv, "gates": cmd_gates, "pad-bfs": cmd_pad_bfs})
+
+
 def main(argv):
     argv = [argv[0]] + [unmangle(a) for a in argv[1:]]
     if len(argv) < 2 or argv[1] in ("-h", "--help"):
         print(__doc__)
         return 0
     cmd, rest = argv[1], argv[2:]
+    if not (cmd == "hv" and "--look" in rest):
+        hv_clean(quiet=False)   # a kept --look frame never outlives the next command
+    if cmd in P2_OFFLINE:
+        return P2_OFFLINE[cmd](rest)
+    if cmd == "focus" and "--png" in rest:      # offline form: luma pairs in an image
+        return p2_tool("edge_profile").main_focus_png(rest)
+    if cmd == "sgcheck" and "--spec" in rest:   # offline form: rules over a check model
+        return P2_SGCHECK_OFFLINE(rest)
     c = connect()
     try:
         if cmd == "check":
@@ -207,6 +483,8 @@ def main(argv):
         elif cmd in ("outline", "styles", "classes", "click", "js", "route", "nav", "back", "surfaces", "eval", "audit", "perf"):
             code, _, _ = lab(c, cmd, *rest)
             return code
+        elif cmd in P2_LIVE:
+            return P2_LIVE[cmd](c, rest)
         else:
             print(__doc__)
             return 2

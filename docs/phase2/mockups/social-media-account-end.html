@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <title>Glass Shell P2 — Account, scrolled to the end</title>
 <link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="window-nav-shared.css">
 <link rel="stylesheet" href="social-media.css">
 <style>
   .idcard { position: absolute; left: 260px; top: 100px; width: 760px; height: 160px; border-radius: 30px; overflow: hidden; background-size: cover; background-position: 50% 40%; }
@@ -13,37 +14,36 @@
   .tile .lbl { position: absolute; left: 22px; top: 80px; font: 600 22px/1.2 var(--lg-font); white-space: nowrap; }
   .tile .sub { position: absolute; left: 22px; right: 18px; top: 108px; font: 500 18px/1.2 var(--lg-font); color: var(--lg-text-2); }
   .tile .ext { position: absolute; right: 20px; top: 22px; --is: 22px; color: var(--lg-text-3); }
-  .dd { height: 60px; padding: 0 18px 0 24px; gap: 12px; font-size: 22px; }
 </style>
 </head>
 <body>
-<!-- Concept: docs/phase2/concepts/social-media.md §3.4 (revision 2). Route /account scrolled to its end. Name, code and art are invented.
-     Sign Out is red at rest and 24 px from Change Account; the laser hovers Change Account. Quiet legend inside the 720 px glass. -->
+<!-- Concept: docs/phase2/concepts/social-media.md §3.4 (revision 3, PLAN §1). Route /account scrolled to its end, laser mode.
+     Name, code and art are invented. Sign Out has a red label at rest (one destructive control: CTL §5) and sits 24 px from
+     Change Account, 32 px below the group above; the laser has dwelt on Change Account (+ white .08 and the light spot).
+     Quiet legend inside the 720 px glass: A and B stay (PLAN §1.10), labels only in laser mode (VP P-26). -->
 <div class="lgk-view" data-room="lounge" data-tab="none" data-chrome="bar">
   <div class="lgk-overlay" style="left:320px; top:66px">
-    <div class="lgk-glass sm-win full" data-mat="window" data-dz="0" data-tier="T5 window (1280 x 720) / T1 tint">
-      <span class="lgk-btn circle sm-back"><i data-i="chevron-left"></i></span>
-      <span class="lgk-btn circle sm-mag"><i data-i="search"></i></span>
+    <div class="lgk-glass sm-win full" data-mat="window" data-dz="0" data-id="window" data-tier="glass mode window-full (720): T5 window cover / T1 smoky tint">
+      <span class="lgk-btn circle sm-back" data-id="back"><i data-i="chevron-left"></i></span>
+      <span class="lgk-btn circle sm-mag" data-id="search"><i data-i="search"></i></span>
 
       <div class="sm-scroll" style="left:0; top:96px; width:1280px; height:536px; -webkit-mask-image:linear-gradient(180deg, transparent 0, rgb(0 0 0 / .35) 24px, #000 64px, #000 calc(100% - 20px), transparent 100%)">
        <div style="position:absolute; left:0; top:-370px; width:1280px">
-        <!-- Field #1: the animated profile background stays content; avatar pops +10 mm (in-place crop) -->
         <div class="idcard lgk-art" data-art="hero-clean:6:">
-          <div class="sm-ava" data-st="online" style="--av:112px; left:28px; top:24px" data-dz="10"><div class="lgk-art" data-art="avatar:5:NR"></div></div>
+          <div class="sm-ava" data-st="online" style="--av:112px; left:28px; top:24px"><div class="lgk-art" data-art="avatar:5:NR"></div></div>
           <div style="left:168px; top:38px; font:700 38px/1.15 var(--lg-font); letter-spacing:-.015em">Nova Reyes</div>
           <div style="left:168px; top:88px; font:500 20px/1.3 var(--lg-font); color:var(--lg-text-2)">Online</div>
-          <span class="lgk-btn capsule" style="right:28px; top:50px; position:absolute; background:rgb(255 255 255 / .18)">View Profile<i data-i="external" style="--is:22px"></i></span>
+          <span class="lgk-btn capsule sm-clear" style="right:28px; top:50px; position:absolute">View Profile<i data-i="external" style="--is:22px"></i></span>
         </div>
 
-        <!-- grouped platter: Your Status (dropdown) and Do Not Disturb (toggle at visionOS proportions) -->
         <div class="sm-platter" style="left:260px; top:276px; width:760px">
-          <div class="lgk-row sm-prow"><div><div class="lbl">Your Status</div><div class="sub">How you appear to other people</div></div>
-            <div class="end"><span class="lgk-btn capsule dd">Online<i data-i="chevron-down" style="--is:22px"></i></span></div></div>
-          <div class="lgk-row sm-prow"><div><div class="lbl">Do Not Disturb</div><div class="sub">Disables all chat notifications</div></div>
+          <div class="lgk-row sm-prow pill"><div><div class="lbl">Your Status</div><div class="sub">How you appear to other people</div></div>
+            <div class="end"><span class="lgk-btn sm-popup">Online<i data-i="chevron-down"></i></span></div></div>
+          <div class="sm-sep"></div>
+          <div class="lgk-row sm-prow pill"><div><div class="lbl">Do Not Disturb</div><div class="sub">Disables all chat notifications</div></div>
             <div class="end"><span class="lgk-toggle"></span></div></div>
         </div>
 
-        <!-- FatButtonRow stays a row of three (D-pad); tiles leave for web pages, so they carry an external glyph -->
         <div class="tile" style="left:260px"><span class="sm-chip" style="background:var(--lg-green)"><i data-i="wallet"></i></span><i data-i="external" class="ext"></i>
           <span class="lbl">Add Funds</span><span class="sub"></span></div>
         <div class="tile" style="left:520px"><span class="sm-chip" style="background:var(--lg-blue)"><i data-i="eye-slash"></i></span><i data-i="external" class="ext"></i>
@@ -52,27 +52,24 @@
           <span class="lbl">Account Details</span><span class="sub">Store, Security, Family, Devices</span></div>
         <!-- Friend Code field + Add Friends; the Account group last, 32 px apart, Sign Out red at rest -->
         <div class="sm-platter" style="left:260px; top:654px; width:760px">
-          <div class="lgk-row sm-prow"><div class="lbl">Friend Code: <span class="t-num" style="font-weight:600">27182818</span></div>
+          <div class="lgk-row sm-prow pill"><div class="lbl">Friend Code: <span class="t-num" style="font-weight:600">27182818</span></div>
             <div class="end"><span class="lgk-btn capsule"><i data-i="person-add" style="--is:24px"></i>Add Friends</span></div></div>
         </div>
-        <div class="sm-platter" style="left:260px; top:782px; width:760px">
-          <div class="lgk-row sm-prow"><div class="lbl">Account: <span style="font-weight:600">nova_reyes</span></div>
-            <div class="end" style="gap:24px"><span class="lgk-btn capsule danger-label"><i data-i="arrow-up" style="--is:22px; rotate:-90deg"></i>Sign Out</span>
-              <span class="lgk-btn capsule is-hover" style="--hx:42%; --hy:30%">Change Account</span></div></div>
+        <div class="sm-platter" style="left:260px; top:766px; width:760px" data-id="account-group">
+          <div class="lgk-row sm-prow pill"><div class="lbl">Account: <span style="font-weight:600">nova_reyes</span></div>
+            <div class="end"><span class="lgk-btn capsule" style="color:rgb(255 130 125)" data-id="signout"><i data-i="arrow-up" style="--is:22px; rotate:-90deg"></i>Sign Out</span>
+              <span class="lgk-btn capsule is-hover" style="--hx:74%; --hy:30%" data-id="changeaccount">Change Account</span></div></div>
         </div>
        </div>
       </div>
     </div>
 
-    <div class="sm-band" data-sm-legend="A:Select:quiet|B:Back:quiet"></div>
+    <div data-sm-orn="A:Select|B:Back" data-mode="laser"></div>
   </div>
-  <svg style="position:absolute; inset:0; width:1920px; height:1080px; pointer-events:none; z-index:40" viewBox="0 0 1920 1080">
-    <defs><linearGradient id="beam" x1="1" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".35" stop-color="#dbe8ff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity=".9"/></linearGradient></defs>
-    <polygon points="1640,1095 1652,1095 1197,620 1195,620" fill="url(#beam)" opacity=".5"/>
-  </svg>
-  <div class="lgk-laser-dot" style="left:1196px; top:620px"></div>
+  <div data-wn="laser" data-to="1252,612" data-from="1640,1100"></div>
 </div>
 <script src="kit.js"></script>
 <script src="social-media.js"></script>
+<script src="window-nav-shared.js"></script>
 </body>
 </html>

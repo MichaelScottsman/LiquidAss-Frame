@@ -2,23 +2,22 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Glass Shell P2 home-apps: Home without glassd (CSS-only path): tinted plates</title>
+<title>Glass Shell P2 home-apps: Home without glassd (CSS-only path): CSS plates</title>
 <link rel="stylesheet" href="kit.css">
 <link rel="stylesheet" href="window-nav-shared.css">
 <link rel="stylesheet" href="home-apps.css">
-<style>
-  /* CSS-only (no glassd): Steam's page cannot see the room, so a plate is tint + the D2 §6.2 edge recipe, never frost */
-  .lgk-overlay .lgk-glass[data-mat="liquid"] { -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
-    background: linear-gradient(180deg, rgb(255 255 255 / .16), rgb(255 255 255 / .04) 55%), rgb(28 30 38 / .58) !important; }
-</style>
+<!-- CSS-only (glassd off, native mode off): the plate recipe of PLAN §1.2 (black .58 + white .16 -> .04 + edge cues)
+     comes from home-apps.css under data-tier="t1"; the kit draws popups (tab bar, bar) as T1 tint. No frost, no pop,
+     no pointer proxy (native mode only). -->
 </head>
 <body>
-<div class="lgk-view" data-room="lounge">
+<div class="lgk-view" data-room="lounge" data-tier="t1">
 
   <!-- tab-bar ornament: Steam's VR main menu (window-nav §3.3), Home selected -->
   <div data-wn="tabbar" data-right="302" data-cy="426" data-sel="home"></div>
 
-  <!-- Steam's main overlay, 1280 x 720 at 1:1. Home is windowless: no window glass. -->
+  <!-- Steam's main overlay, 1280 x 720 at 1:1. Home is a windowless route (PLAN §1.2): no window glass;
+       every glass element is a CSS plate. Laser mode: no glyph badges (VP P-26). -->
   <div class="lgk-overlay" style="left:320px; top:66px">
 
     <!-- top row: Steam's Back (circle), our section control, our What's New button, Steam's search (circle variant) -->
@@ -95,8 +94,9 @@
     <!-- page indicator: Recent has 2 pages -->
     <div class="ha-dots" style="left:640px; top:690px"><i class="on"></i><i></i></div>
 
-    <!-- the focused game after 0.8 s: the disc has morphed into the card (glass plate; popped +15 mm in native mode) -->
-    <div class="lgk-glass ha-card" data-mat="liquid" data-lens style="left:592px; top:96px; --dz:15" data-dz="15" data-tier="T3 card · cover plate + T4 pop">
+    <!-- the attended game after 0.8 s of laser dwell: the disc has morphed into the card (a CSS plate; no depth without
+         glassd, so its shadow is the only lift cue). Top clamped 12 px under the top row (86 + 12). -->
+    <div class="lgk-glass ha-card" data-mat="liquid" data-lens style="left:592px; top:98px; --dz:15" data-dz="0" data-tier="T3 card · CSS plate (T1)">
       <span class="ha-hero" data-app="391220" data-name="Rise of the Tomb Raider" data-pos="50% 30%"></span>
       <span class="lgk-btn capsule play is-hover" style="--hx:40%; --hy:45%"><i data-i="play"></i>Play</span>
       <span class="lgk-btn circle more"><i data-i="more"></i></span>
@@ -105,10 +105,9 @@
     </div>
   </div>
 
-  <div data-wn="frame" data-cx="960" data-y="806" data-dim=".72"></div>
+  <div data-wn="winbar" data-cx="960" data-y="806" data-dim=".85"></div>
   <div data-wn="bar" data-cx="960" data-y="904"></div>
-  <div data-wn="pill" data-cx="960" data-y="1018"></div>
-  <div data-wn="laser" data-to="992,276"></div>
+  <div data-wn="laser" data-to="992,278"></div>
 </div>
 <script src="../../refs/library/library.js"></script>
 <script src="home-apps.js"></script>

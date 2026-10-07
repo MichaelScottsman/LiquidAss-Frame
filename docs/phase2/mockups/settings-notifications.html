@@ -13,7 +13,9 @@
   <div data-wn="tabbar" data-right="302" data-cy="426" data-sel="steam settings"></div>
 
   <div class="lgk-overlay" style="left:320px; top:66px">
-    <div class="lgk-glass st-win" data-mat="window" data-dz="0" data-tier="T5 window (T1: smoky tint)">
+    <div class="lgk-glass st-win" data-mat="window" data-dz="0" data-tier="T5 window cover (T1: smoky tint + edge cues)">
+      <!-- gamepad focus in the sidebar: Steam selects the focused page, so the row shows selection + focus (.18 + .28, the spot in
+           the upper third, the arc x1.5), the brightest row on screen (VP P-15) -->
       <div data-st="sidebar" data-sel="notifications" data-scroll="930" data-focus="notifications"></div>
       <div data-st="toolbar"></div>
 
@@ -36,19 +38,18 @@
             <div class="st-r last"><span class="lab">Developer / Game News</span><i data-si="chevr" class="chev"></i></div>
           </div>
           <!-- our rows come after all of Steam's root-visible content (D-pad order = DOM order), so Steam's last section is a
-               drill-down too; its trailing value is the state of its one switch -->
+               drill-down too; its trailing value is the state of its one switch (Steam's own On/Off string) -->
           <div class="st-gap20"></div>
           <div class="st-plat">
-            <div class="st-r"><span class="lab">Email Opt-out</span><span class="val">Off</span><i data-si="chevr" class="chev"></i></div>
+            <div class="st-r first last"><span class="lab">Email Opt-out</span><span class="val">Off</span><i data-si="chevr" class="chev"></i></div>
           </div>
         </div>
       </div>
     </div>
+    <div data-st="legend" data-mode="pad" data-legends="A:Select|B:Back"></div>
   </div>
 
-  <div data-wn="frame" data-cx="960" data-y="806" data-dim=".72"></div>
   <div data-wn="bar" data-cx="960" data-y="904"></div>
-  <div data-wn="pill" data-cx="960" data-y="1018"></div>
 </div>
 <script src="settings-shared.js"></script>
 <script src="settings-icons.js"></script>

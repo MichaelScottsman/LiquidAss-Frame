@@ -2,16 +2,19 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Glass Shell P2 — game page, title view (rest, Play focused, default depth)</title>
+<title>Glass Shell P2 — game page, title view (rest, Play focused, default profile)</title>
 <link rel="stylesheet" href="kit.css">
 <link rel="stylesheet" href="game-pages.css">
 </head>
 <body>
 <div class="lgk-view" data-room="lounge" data-tab="library" data-fc="steam" data-bar="idle">
-  <!-- Steam's main window, 1280 x 720 overlay at 1:1. The scene is built by game-pages.js (titleScene):
-       hero art = the window, text column over the dimmed corner, the play cluster at the eye line,
-       the tab row (segmented capsule + paired arrows), Steam Cloud chip at the trailing end.
-       Depth: the target once GQ8 lands (Play +15 mm, circles/capsules +10 mm, tab row +10 mm). -->
+  <!-- Steam's main window, 1280 x 720 overlay at 1:1, route glass mode `hero` (PLAN §1.2). The scene is built by
+       game-pages.js (titleScene): hero art = the window, the text column and the play cluster from x 104 (VP P-29:
+       Play's centre 244 is within 400 px of the window centre), the tab row (contiguous segments + paired arrows),
+       Steam Cloud chip at the trailing end. Default state: vrBindings off (S13), so no Controller Bindings capsule.
+       Depth: the default profile's target once G2 (hole treatment) is live and AT-HV-OFFAXIS passes: Play, circles,
+       capsules and the tab row +10 mm, non-interactive (PLAN §1.7); 0 until then.
+       Ornament: only A and B, so a quiet legend in the margin (PLAN §1.10). -->
   <div class="lgk-overlay" style="left:320px; top:66px" data-gp="title" data-state="installed" data-focus="play"
        data-private="1" data-cloud="1" data-dim=".46,.40,.35" data-foot="A:Select|B:Back"></div>
 </div>

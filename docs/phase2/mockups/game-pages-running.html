@@ -8,8 +8,9 @@
 </head>
 <body>
 <div class="lgk-view" data-room="lounge" data-tab="library" data-fc="steam" data-bar="running">
-  <!-- Running (Steam path): Resume in the same green capsule; Stop is the next circle, red only on focus;
-       its tooltip sits ABOVE it (under gamepad focus it shows at once), so the tab row stays visible. -->
+  <!-- Running (Steam path): Resume in the same green capsule; Stop takes Play-from's slot (400-480), red whole fill
+       only on focus or hover; its tooltip sits ABOVE it (P3's layer, data-lgs-tip="above"; under gamepad focus at once,
+       data-lgs-tip-pad="now"), so the tab row stays visible. Legend: only A and B, a quiet legend (PLAN §1.10). -->
   <div class="lgk-overlay" style="left:320px; top:66px" data-gp="title" data-state="running" data-focus="stop" data-tip="stop"
        data-private="1" data-cloud="1" data-dim=".46,.40,.35" data-foot="A:Stop|B:Back"></div>
 </div>

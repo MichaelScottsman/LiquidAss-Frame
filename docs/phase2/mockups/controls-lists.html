@@ -4,56 +4,60 @@
 <meta charset="utf-8">
 <title>Glass Shell P2 — controls: lists and grouped rows</title>
 <link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="window-nav-shared.css"><!-- the E3 edge without the linear top layer (PLAN §1.6, WN D-15) -->
 <link rel="stylesheet" href="controls.css">
 <style>
-  .pa { left: 40px; width: 420px; top: 136px; }
-  .pb { left: 40px; width: 420px; top: 428px; }
-  .pc { left: 40px; width: 420px; top: 630px; }
-  .pd { left: 490px; width: 430px; top: 136px; }
-  .pe { left: 490px; width: 430px; top: 488px; }
-  .c-row.info { height: 80px; }
+  /* the /zoo spec board inside `window` glass 1280 x 656; content runs y 108..632 */
+  .pa { left: 40px; width: 420px; top: 140px; }
+  .pb { left: 40px; width: 420px; top: 342px; }
+  .pc { left: 40px; width: 420px; top: 544px; }
+  .pd { left: 476px; width: 444px; top: 140px; }
+  .pe { left: 476px; width: 444px; top: 470px; }
   .c-row.info .trail { color: var(--lg-text-2); }
+  .c-row.ch96 { height: 96px; }
 </style>
 </head>
 <body>
 <div class="lgk-view" data-room="lounge">
-  <div class="lgk-overlay" style="left:320px; top:180px">
-    <div class="lgk-glass cg-win" data-mat="window" data-dz="0" data-tier="T5 window">
+  <div class="lgk-overlay" style="left:320px; top:66px">
+    <div class="lgk-glass cg-win" data-mat="window" data-dz="0" data-tier="T5 window cover; T1 smoky tint" data-id="window">
       <div class="cg-side" data-sel="Lists"></div>
       <div class="cg-main">
         <div class="cg-head"><span class="t-title2">Lists</span>
           <span class="lgk-btn circle" style="right:24px"><i data-i="more"></i></span></div>
 
-        <div class="cg-sec" style="top:104px">Navigation <span class="v3">· 80 px rows, pill inset 6</span></div>
+        <div class="cg-sec" style="top:112px">Rows in a Platter <span class="v3">· 80 px, pill inset 6</span></div>
         <div class="c-list pa">
-          <div class="c-row is-hover" id="hov" style="--hx:58%; --hy:50%"><span class="pill"></span><span class="chip" style="background:var(--lg-blue)"><i data-i="wifi"></i></span>Internet<span class="trail">Home<i data-i="chevron-right" class="chev"></i></span></div>
-          <div class="c-row is-focus"><span class="pill"></span><span class="chip" style="background:var(--lg-blue)"><i data-i="bluetooth"></i></span>Bluetooth<span class="trail">On<i data-i="chevron-right" class="chev"></i></span></div>
-          <div class="c-row"><span class="pill"></span><span class="chip" style="background:var(--lg-orange)"><i data-i="bolt"></i></span>Power<i data-i="chevron-right" class="chev" style="margin-left:auto; --is:20px; color:var(--lg-text-3); stroke-width:2.6"></i></div>
+          <div class="c-row is-hover" id="hov" style="--hx:58%; --hy:50%"><span class="pill"></span><span class="chip" style="background:var(--lg-blue)"><i data-i="wifi"></i></span><span class="lab">Internet</span><span class="trail">Home<i data-i="chevron-right" class="chev"></i></span></div>
+          <div class="c-row is-focus" data-id="row-focus"><span class="pill"></span><span class="chip" style="background:var(--lg-blue)"><i data-i="bluetooth"></i></span><span class="lab">Bluetooth</span><span class="trail">On<i data-i="chevron-right" class="chev"></i></span></div>
         </div>
 
-        <div class="cg-sec" style="top:396px">Information <span class="v3">· 80 px, still focusable</span></div>
+        <div class="cg-sec" style="top:314px">Information <span class="v3">· 80 px, still focusable</span></div>
         <div class="c-list pb">
-          <div class="c-row info"><span class="pill"></span>Version<span class="trail t-num">3.8.12</span></div>
+          <div class="c-row info"><span class="pill"></span><span class="lab">Version</span><span class="trail t-num">3.8.12</span></div>
           <div class="c-sep" style="left:26px; right:26px; top:79px"></div>
-          <div class="c-row info"><span class="pill"></span>Available<span class="trail t-num">214 GB</span></div>
+          <div class="c-row info"><span class="pill"></span><span class="lab">Available</span><span class="trail t-num">214 GB</span></div>
         </div>
 
-        <div class="cg-sec" style="top:600px">Destructive</div>
+        <div class="cg-sec" style="top:516px">Destructive <span class="v3">· red label; red fill on focus</span></div>
         <div class="c-list pc">
-          <div class="c-row danger"><span class="pill"></span><i data-i="restart" style="--is:24px"></i>Reset to Factory State</div>
+          <div class="c-row danger"><span class="pill"></span><i data-i="restart" style="--is:24px"></i><span class="lab">Factory Reset</span></div>
         </div>
 
-        <div class="cg-sec" style="top:104px; left:516px">Single Choice <span class="v3">· trailing check</span></div>
+        <div class="cg-sec" style="top:112px; left:502px">Single Choice <span class="v3">· trailing check</span></div>
         <div class="c-list pd">
-          <div class="c-row tall"><span class="pill"></span><span class="two">Off<span class="sub">Nothing is recorded</span></span></div>
-          <div class="c-row tall"><span class="pill"></span><span class="two">Record in Background<span class="sub">Keeps the last 2 hours</span></span><span class="trail"><i data-i="check" class="chk"></i></span></div>
-          <div class="c-row tall"><span class="pill"></span><span class="two">Record Manually<span class="sub">Start and stop yourself</span></span></div>
+          <div class="c-row ch96"><span class="pill"></span><span class="two"><span>Off</span><span class="sub">Nothing is recorded</span></span></div>
+          <div class="c-sep" style="left:26px; right:26px; top:95px"></div>
+          <div class="c-row ch96"><span class="pill"></span><span class="two"><span>Record in Background</span><span class="sub">Keeps the last 2 hours</span></span><span class="trail"><i data-i="check" class="chk"></i></span></div>
+          <div class="c-sep" style="left:26px; right:26px; top:191px"></div>
+          <div class="c-row ch96"><span class="pill"></span><span class="two"><span>Record Manually</span><span class="sub">Start and stop yourself</span></span></div>
         </div>
 
-        <div class="cg-sec" style="top:456px; left:516px">With Controls</div>
+        <div class="cg-sec" style="top:442px; left:502px">With Controls</div>
         <div class="c-list pe">
-          <div class="c-row"><span class="pill"></span>Spatialization<span class="trail"><span class="c-switch on"><span class="knob"></span></span></span></div>
-          <div class="c-row"><span class="pill"></span>Output<span class="trail"><span class="c-popup"><span class="val">Headset</span><i data-i="updown"></i></span></span></div>
+          <div class="c-row"><span class="pill"></span><span class="lab">Spatialization</span><span class="trail"><span class="c-switch on"><span class="knob"></span></span></span></div>
+          <div class="c-sep" style="left:26px; right:26px; top:79px"></div>
+          <div class="c-row"><span class="pill"></span><span class="lab">Output</span><span class="trail"><span class="c-popup"><span class="val">Headset</span><i data-i="updown"></i></span></span></div>
         </div>
       </div>
     </div>
@@ -64,6 +68,9 @@
     <polygon id="beamp" points="0,0" fill="url(#beam)" opacity=".5"/>
   </svg>
   <div class="lgk-laser-dot" id="dot"></div>
+
+  <div class="c-note" style="left:1622px; top:150px; width:270px"><b>Rows in a platter</b>: hover is the pill at white .08 plus the light (laser); focus is white .28, the spot and the row's arc (gamepad). Rows never scale or lift. A 2 px white .08 separator, inset 26, hides next to a lit row.</div>
+  <div class="c-note" style="left:1622px; top:400px; width:270px"><b>Navigation rows</b> (the sidebar here): hover is the light spot alone; the current page is white .18 with a top arc and a Semibold label.</div>
 </div>
 <script src="controls-gallery.js"></script>
 <script src="kit.js"></script>

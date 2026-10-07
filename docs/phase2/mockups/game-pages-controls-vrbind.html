@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — controller entry with flag vrBindings on: C5b's VR Controller Bindings link</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="game-pages.css">
+<style>
+  .empty { position: absolute; left: 0; right: 0; top: 176px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+  .empty .disc { display: grid; place-items: center; width: 128px; height: 128px; border-radius: 50%; background: var(--lg-fill-thin); --is: 64px; color: var(--lg-text-2); }
+  .empty h2 { margin: 28px 0 0; font: 700 28px/1.25 var(--lg-font); letter-spacing: -.01em; }
+  .empty .gp-btn { position: static; margin-top: 40px; height: 60px; font-size: 22px; padding: 0 22px 0 14px; }
+  .empty .gp-btn .lead { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--lg-indigo); color: #fff; --is: 24px; }
+</style>
+</head>
+<body>
+<div class="lgk-view" data-room="lounge" data-tab="library" data-fc="steam" data-bar="idle">
+  <div class="lgk-overlay" style="left:320px; top:66px">
+    <!-- Route glass mode window-full (PLAN §1.2: the Steam Input page): glass 1280 x 720, so the quiet legend (only
+         A and B) sits INSIDE the glass at white .70 (PLAN §1.10). Steam paints %{BasicHome}%{TrueBlackBackground} #000 on
+         this route; T1 makes it transparent, so the window glass shows. Title mode: Steam's own title, Title 2 centred. -->
+    <!-- Flag vrBindings ON (PLAN S13, off by default): C5b's link "VR Controller Bindings" (64 -> 60 px text button,
+         40 px indigo glyph disc, trailing arrow) under the empty state, gamepad focus on it. Its D-pad reachability is
+         AT-T3-ROUTE (C5b). -->
+    <div class="lgk-glass gp-win full" data-mat="window" data-dz="0" data-tier="window-full: T5 window cover 1280 x 720 (T1 tint); TrueBlackBackground cleared">
+      <span class="lgk-btn circle" style="position:absolute; left:24px; top:24px"><i data-i="chevron-left" class="bold"></i></span>
+      <div style="position:absolute; left:0; right:0; top:34px; text-align:center; font:700 30px/1.25 var(--lg-font); letter-spacing:-.01em">Starfall Drift Controller Settings</div>
+      <div class="empty">
+        <span class="disc"><i data-i="controller"></i></span>
+        <h2>No controller connected.</h2>
+        <span class="gp-btn is-focus" style="background:rgb(255 255 255 / .10)" data-dz="0" data-tier="C5b T3 route override of /app/:appid/controllerconfigurator, flag vrBindings; label SteamVR #VR_Controller_Bindings"><span class="lead"><i data-i="vrbind"></i></span>VR Controller Bindings<i data-i="arrow-up-right" class="trail"></i></span>
+      </div>
+    </div>
+    <div class="gp-foot quiet inglass" style="left:640px; translate:-50% 0; top:628px" data-dz="0" data-tier="quiet legend inside the glass (window-full, PLAN §1.10)">
+      <span class="lgk-btn capsule plain nav">Select<span class="lgk-glyph">A</span></span>
+      <span class="lgk-btn capsule plain nav">Back<span class="lgk-glyph">B</span></span>
+    </div>
+    <span class="gp-flag" style="left:904px; top:-34px">flag vrBindings on (C5b's link); default off</span>
+  </div>
+</div>
+<script src="kit.js"></script>
+<script src="game-pages.js"></script>
+</body>
+</html>

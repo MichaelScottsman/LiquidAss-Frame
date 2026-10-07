@@ -2,96 +2,115 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Glass Shell P2 home-apps: search summary (window-nav's route) with the Apps contribution</title>
+<title>Glass Shell P2 home-apps: search results sheet (window-nav's) with the Apps provider and X = Play</title>
 <link rel="stylesheet" href="kit.css">
 <link rel="stylesheet" href="window-nav-shared.css">
 <link rel="stylesheet" href="home-apps.css">
 <style>
-  /* window-nav §4.4 layout (copied from window-nav-results.html so both concepts render the same page) */
-  .scope { position: absolute; left: 50%; translate: -50% 0; top: 118px; }
+  /* window-nav §4.6 results sheet (same geometry as window-nav-results.html, C1b), over a snapshot of the Library */
+  .snaptitle { position: absolute; left: 100px; top: 25px; }
+  .grid { position: absolute; left: 0; top: 212px; right: 0; bottom: 0; }
+  .grid .ha-poster { width: 220px; height: 330px; }
+  .sheet { left: 120px; top: 100px; width: 1040px; height: 520px; overflow: hidden; }
+  .scope { position: absolute; left: 50%; translate: -50% 0; top: 22px; }
   .scope .n { font-weight: 500; color: var(--lg-text-2); margin-left: 2px; }
   .scope .is-selected .n { color: rgb(13 14 18 / .55); }
-  .arrow { position: absolute !important; top: 120px; background: transparent !important; color: var(--lg-text-2); }
-  .top { position: absolute; left: 40px; top: 214px; width: 470px; height: 400px; border-radius: 30px; background: var(--lg-fill-regular); }
-  .top .k { position: absolute; left: 24px; top: 20px; }
-  .top .art { position: absolute; left: 18px; top: 58px; width: 434px; height: 168px; border-radius: 20px; overflow: hidden; }
-  .top .art .ha-hero { position: absolute; inset: 0; }
-  .top .meta { position: absolute; left: 24px; top: 238px; right: 24px; }
-  .top .acts { position: absolute; left: 24px; bottom: 20px; display: flex; gap: 16px; }
-  .hd { position: absolute; display: flex; align-items: center; justify-content: space-between; }
+  .arrow { position: absolute !important; top: 24px; background: transparent !important; color: var(--lg-text-2); }
+  .body { position: absolute; left: 0; right: 0; top: 104px; bottom: 0;
+          -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 26px), transparent); mask-image: linear-gradient(180deg, #000 calc(100% - 26px), transparent); }
+  .hd { position: absolute; left: 32px; right: 32px; display: flex; align-items: center; justify-content: space-between; height: 40px; }
   .hd .lgk-btn { --s: 48px; font-size: 20px; padding: 0 14px 0 20px; gap: 4px; background: rgb(255 255 255 / .08); }
   .hd .lgk-btn .lgk-i { --is: 20px; color: var(--lg-text-2); }
-  .posters { position: absolute; left: 536px; top: 270px; display: flex; gap: 22px; }
-  .posters .p { position: relative; width: 150px; }
-  .posters .ha-poster { position: relative; display: block; width: 150px; height: 200px; }
-  .posters .lbl { margin-top: 10px; font: 500 20px/1.25 var(--lg-font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .posters .sub { font: 500 18px/1.3 var(--lg-font); color: var(--lg-text-2); }
-  /* the bottom row: home-apps' Apps cell (left) beside window-nav's Store hand-off (right), one 76 px slot */
-  .brow { position: absolute; left: 536px; top: 540px; width: 704px; display: flex; gap: 12px; }
-  .brow .lgk-platter { flex: 1; }
-  .brow .lgk-row { height: 76px; gap: 14px; }
-  .brow .chip { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; flex: none; background: rgb(255 255 255 / .11); }
-  .brow .chip.store { background: var(--lg-blue); }
-  .brow .chip .ha-prog { width: 36px; height: 36px; } .brow .chip .ha-prog img { width: 36px; max-height: 36px; }
-  .two { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-  .two > span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .contrib { outline: 2px dashed rgb(255 226 122 / .85); outline-offset: 4px; border-radius: 26px; }
+  .row1 { position: absolute; left: 32px; top: 48px; display: flex; gap: 16px; align-items: flex-start; }
+  .hit { position: relative; width: 300px; height: 170px; border-radius: 20px; overflow: hidden; flex: none; box-shadow: 0 6px 18px rgb(0 0 0 / .3); }
+  .hit .ha-hero { position: absolute; inset: 0; }
+  .hit .ha-hero img.logo { display: none; }        /* the card writes the name; the hero carries no logo (Steam's asset rule) */
+  .hit::after { content: ""; position: absolute; inset: 0; background: linear-gradient(0deg, rgb(0 0 0 / .62), transparent 62%); }
+  .hit.is-focus { scale: 1.05; z-index: 3; box-shadow: 0 6px 18px rgb(0 0 0 / .44), 0 0 30px 2px rgb(255 255 255 / .18); }
+  .hit .k { position: absolute; left: 16px; top: 12px; z-index: 2; height: 28px; padding: 0 12px; border-radius: 14px; display: grid; place-items: center;
+            background: rgb(0 0 0 / .42); font: 600 17px/1 var(--lg-font); }
+  /* the name keeps the full card width on its own line; status and Open share the bottom line (proposed to C1b) */
+  .hit .t { position: absolute; left: 18px; right: 18px; bottom: 70px; z-index: 2; font: 700 26px/1.1 var(--lg-font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hit .s { position: absolute; left: 18px; bottom: 24px; z-index: 2; font: 500 18px/1.2 var(--lg-font); color: rgb(255 255 255 / .8); }
+  .hit .o { position: absolute; right: 14px; bottom: 14px; z-index: 2; --s: 48px; padding: 0 22px; font-size: 21px; background: rgb(255 255 255 / .26); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+  .p { position: relative; width: 113px; flex: none; }
+  .p .ha-poster { position: relative; display: block; width: 113px; height: 170px; border-radius: 16px; }
+  .p .lbl { margin-top: 8px; font: 500 20px/1.25 var(--lg-font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .p .sub { font: 500 18px/1.3 var(--lg-font); color: var(--lg-text-2); white-space: nowrap; }
+  /* home-apps' contribution S-B: an Apps section of program capsules (64 visible, 80 hit), after Top Results */
+  .apps { position: absolute; left: 32px; top: 326px; display: flex; gap: 16px; }
+  .app { position: relative; display: flex; align-items: center; gap: 14px; height: 64px; padding: 0 26px 0 8px; border-radius: 32px; background: var(--lg-fill-thin);
+         font: 600 22px/1 var(--lg-font); white-space: nowrap; }
+  .app .disc { width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; flex: none;
+               background: radial-gradient(90% 60% at 40% 0%, rgb(255 255 255 / .22), rgb(255 255 255 / 0) 60%), rgb(255 255 255 / .11); }
+  .app .disc .ha-prog { width: 36px; height: 36px; } .app .disc .ha-prog img { width: 36px; max-height: 36px; }
+  .app .k2 { font: 500 20px/1 var(--lg-font); color: var(--lg-text-2); margin-left: 4px; }
 </style>
 </head>
 <body>
-<div class="lgk-view" data-room="lounge">
+<!-- Gamepad mode: focus on the Top Hit; X = Steam's primary action (S-C) shows in the ornament as "Play" with its badge. -->
+<div class="lgk-view" data-room="lounge" data-lgs-vr-mode="gamepad">
 
-  <div data-wn="tabbar" data-right="302" data-cy="426"></div>
+  <div data-wn="tabbar" data-right="302" data-cy="426" data-sel="library"></div>
 
   <div class="lgk-overlay" style="left:320px; top:66px">
+    <!-- search is a window route (PLAN §1.2): window glass, the snapshot of the page search started from (here the
+         Library), the .35 scrim, the toolbar row with the 640 capsule, then window-nav's results sheet (+10 mm) -->
     <div class="lgk-glass wn-win" data-mat="window" data-dz="0">
+      <div class="wn-snap">
+        <div class="grid wn-fade-bottom">
+          <span class="ha-poster" data-app="751630" style="left:42px; top:0"></span>
+          <span class="ha-poster" data-app="2320910" style="left:286px; top:0"></span>
+          <span class="ha-poster" data-app="629730" style="left:530px; top:0"></span>
+          <span class="ha-poster" data-app="963930" style="left:774px; top:0"></span>
+          <span class="ha-poster" data-app="1484280" style="left:1018px; top:0"></span>
+          <span class="ha-poster" data-app="611670" style="left:42px; top:354px"></span>
+          <span class="ha-poster" data-app="1575520" style="left:286px; top:354px"></span>
+          <span class="ha-poster" data-app="1910860" style="left:530px; top:354px"></span>
+          <span class="ha-poster" data-app="2177750" style="left:774px; top:354px"></span>
+          <span class="ha-poster" data-app="546560" style="left:1018px; top:354px"></span>
+        </div>
+        <div class="t-large snaptitle">Library</div>
+      </div>
+      <div class="lgk-scrim" style="z-index:3"></div>
       <div data-wn="toolbar" data-back="nested" data-search="filled:half" data-searchw="wide"></div>
+    </div>
 
-      <span class="lgk-btn circle arrow" style="left:24px"><i data-i="chevron-left"></i></span>
+    <div class="lgk-glass wn-ssheet sheet" data-mat="thick" data-lens style="--dz:10" data-dz="10" data-tier="C1b sheet (+10 mm, non-interactive); C2a provider: programs in the ranking, the Apps section, X = Play">
+      <span class="lgk-btn circle arrow" style="left:22px"><i data-i="chevron-left"></i></span>
       <div class="lgk-seg scope">
         <span class="is-selected">All</span><span>Library <span class="n t-num">9</span></span><span>Friends</span><span>Store</span><span>Tools</span>
       </div>
-      <span class="lgk-btn circle arrow" style="right:24px"><i data-i="chevron-right"></i></span>
+      <span class="lgk-btn circle arrow" style="right:22px"><i data-i="chevron-right"></i></span>
 
-      <!-- Top Hit: window-nav's card. home-apps adds programs to the ranking (a program can be the Top Hit). -->
-      <div class="top">
-        <div class="k t-headline v2">Top Hit</div>
-        <div class="art"><span class="ha-hero" data-app="546560" data-name="Half-Life: Alyx" data-pos="50% 30%"></span></div>
-        <div class="meta">
-          <div class="t-title2">Half-Life: Alyx</div>
-          <div class="t-callout v2" style="margin-top:4px">In Library · Installed · 6.3 hours played</div>
+      <div class="body">
+        <div class="hd" style="top:0"><span class="t-title3">Top Results</span><span class="lgk-btn capsule">See All 9<i data-i="chevron-right"></i></span></div>
+        <div class="row1">
+          <div class="hit is-focus" data-dz="15"><span class="ha-hero" data-app="546560" data-name="Half-Life: Alyx" data-pos="50% 30%"></span>
+            <span class="k">Top Hit</span><span class="t">Half-Life: Alyx</span><span class="s">Installed · 6.3 hours</span>
+            <span class="lgk-btn capsule o">Open</span></div>
+          <div class="p"><span class="ha-poster" data-app="2177750" data-name="Half-Life 2: VR Mod - Episode One"></span><div class="lbl">Half-Life 2: VR Mod - Episode One</div><div class="sub">Installed</div></div>
+          <div class="p"><span class="ha-poster" data-app="220" data-name="Half-Life 2"></span><div class="lbl">Half-Life 2</div><div class="sub">Not installed</div></div>
+          <div class="p"><span class="ha-poster" data-app="70" data-name="Half-Life"></span><div class="lbl">Half-Life</div><div class="sub">Not installed</div></div>
+          <div class="p"><span class="ha-poster" data-app="320" data-name="Half-Life 2: Deathmatch"></span><div class="lbl">Half-Life 2: Deathmatch</div><div class="sub">Not installed</div></div>
         </div>
-        <div class="acts">
-          <span class="lgk-btn capsule is-focus" style="--hx:30%;--hy:30%; padding:0 34px">Open</span>
-          <span class="lgk-btn circle"><i data-i="more"></i></span>
+        <!-- S-B: programs from Steam's launch list that match (Liquid Glass never listed); A launches with Steam's call -->
+        <div class="hd" style="top:280px"><span class="t-title3">Apps</span></div>
+        <div class="apps">
+          <span class="app" data-tier="C2a provider · LaunchNonSteamApp(strCmdline) (logged in tests)"><span class="disc"><span class="ha-prog" data-prog="Half SBS Toggle"></span></span>Half SBS Toggle<span class="k2">App</span></span>
         </div>
-      </div>
-
-      <div class="hd" style="left:536px; top:212px; width:704px"><span class="t-title3">In Your Library</span><span class="lgk-btn capsule">See All 9<i data-i="chevron-right"></i></span></div>
-      <div class="posters">
-        <div class="p"><span class="ha-poster" data-app="2177750" data-name="Half-Life 2: VR Mod - Episode One"></span><div class="lbl">Half-Life 2: VR Mod - Episode One</div><div class="sub">Installed</div></div>
-        <div class="p"><span class="ha-poster" data-app="220" data-name="Half-Life 2"></span><div class="lbl">Half-Life 2</div><div class="sub">Not installed</div></div>
-        <div class="p"><span class="ha-poster" data-app="70" data-name="Half-Life"></span><div class="lbl">Half-Life</div><div class="sub">Not installed</div></div>
-        <div class="p"><span class="ha-poster" data-app="320" data-name="Half-Life 2: Deathmatch"></span><div class="lbl">Half-Life 2: Deathmatch</div><div class="sub">Not installed</div></div>
-      </div>
-
-      <div class="brow">
-        <div class="lgk-platter contrib" data-tier="home-apps contribution: Apps (T3, same LaunchNonSteamApp)">
-          <div class="lgk-row"><span class="chip"><span class="ha-prog" data-prog="Half SBS Toggle"></span></span>
-            <span class="two"><span>Half SBS Toggle</span><span class="t-subhead v2">App</span></span></div>
-        </div>
-        <div class="lgk-platter">
-          <div class="lgk-row"><span class="chip store"><i data-i="store"></i></span><span class="two"><span>Search the Steam Store</span><span class="t-subhead v2">for &ldquo;half&rdquo;</span></span><span class="trail"><i data-i="chevron-right"></i></span></div>
-        </div>
+        <div class="hd" style="top:398px"><span class="t-title3">In the Store</span><span class="lgk-btn capsule">See All<i data-i="chevron-right"></i></span></div>
       </div>
     </div>
-    <div data-wn="ornament" data-legends="X:Play|menu:Options|A:Open|B:Back"></div>
+    <div data-wn="ornament" data-legends="X:Play|menu:Options@Half-Life: Alyx|A:Open|B:Close"></div>
   </div>
 
-
-  <div data-wn="frame" data-cx="960" data-y="806" data-dim=".72"></div>
   <div data-wn="bar" data-cx="960" data-y="904"></div>
-  <div data-wn="pill" data-cx="960" data-y="1018"></div>
+
+  <div class="wn-cap" style="left:1612px; top:150px; width:290px">window-nav's sheet (C1b). <span class="m">home-apps adds three things through the provider API:</span></div>
+  <div class="wn-cap" style="left:1612px; top:262px; width:290px">S-A: programs join the ranking; one can be the Top Hit <span class="m">(here a game wins: "half" is a title prefix of both)</span></div>
+  <div class="wn-cap" style="left:1612px; top:424px; width:290px">S-B: the Apps section, after Top Results <span class="m">(the real match: Half SBS Toggle)</span></div>
+  <div class="wn-cap" style="left:1612px; top:560px; width:290px">S-C: X = Steam's primary action on library items <span class="m">(A still opens the page)</span></div>
 </div>
 <script src="../../refs/library/library.js"></script>
 <script src="home-apps.js"></script>

@@ -5,7 +5,7 @@
  *
  *   <div data-cr="system" data-focus="switch|popup|disabled|open"></div>   Settings > System, scrolled to System Settings
  *   <div data-cr="notifications" data-focus="mobile"></div>                 Settings > Notifications, the check matrix
- *   <div data-cr="tzmenu"></div>                                             the Timezone value menu (64 options) beside its source
+ *   <div data-cr="tzmenu"></div>                                             a long value menu (64 options): one scrolling column, right-aligned over its source
  */
 (() => {
   'use strict';
@@ -16,7 +16,7 @@
     if (o.sub) cls.push('tall');
     if (o.cls) cls.push(o.cls);
     const lab = o.sub ? `<span class="two"><span>${label}</span><span class="sub">${o.sub}</span></span>` : `<span class="lab">${label}</span>`;
-    return `<div class="${cls.join(' ')}"${o.style ? ` style="${o.style}"` : ''}><span class="pill"></span>${lab}<span class="trail">${trail}</span></div>`;
+    return `<div class="${cls.join(' ')}"${o.style ? ` style="${o.style}"` : ''}${o.id ? ` data-id="${o.id}"` : ''}><span class="pill"></span>${lab}<span class="trail">${trail}</span></div>`;
   };
 
   function system(el) {
@@ -30,19 +30,21 @@
       <div class="cr-sh" style="margin-top:120px">System Settings</div>
       <div class="cr-plat">
         ${row('24-Hour Clock', sw(false), { sub: 'Show the time in 24-hour format' })}
-        ${row('Timezone', tz, { cls: (f === 'popup' ? 'is-within ' : '') + 'cr-r96' })}
-        ${row('Default to Desktop Mode on Startup', sw(false, f === 'switch' ? 'is-lifted' : ''), { cls: f === 'switch' ? 'is-within' : '' })}
-        ${row('Enable Developer Mode', sw(true))}
+        ${row('Timezone', tz, { cls: (f === 'popup' ? 'is-within ' : '') + 'cr-r96', id: f === 'popup' ? 'row-focus' : 'row-tz' })}
+        ${row('Default to Desktop Mode on Startup', sw(false, f === 'switch' ? 'is-lifted' : ''), { cls: f === 'switch' ? 'is-within' : '', id: f === 'switch' ? 'row-focus' : 'row-desktop' })}
+        ${row('Enable Developer Mode', sw(true), { id: 'row-rest' })}
       </div>
       <div class="cr-sh">SteamOS Crash Report</div>
       <div class="cr-plat">
         ${row('Enable SteamOS Crash Reports', sw(false), { sub: 'Help improve SteamOS by sharing crash reports.' })}
-        ${crash.map((c, i) => row(c, sw(false, 'is-disabled dis-soft'), { cls: 'is-disabled' + (f === 'disabled' && i === 2 ? ' is-focus' : '') })).join('')}
+        ${crash.map((c, i) => row(c, sw(false, 'is-disabled dis-soft'), { cls: 'is-disabled' + (f === 'disabled' && i === 2 ? ' is-focus' : ''),
+          id: f === 'disabled' && i === 2 ? 'row-focus' : (f === 'disabled' && i === 3 ? 'row-rest' : '') })).join('')}
       </div>
     </div>`));
   }
 
-  /* Timezone: 64 rich options; the value menu is one scrolling column of two-line rows (controls.md §8.2, long lists) */
+  /* Timezone: 64 rich options. On settings routes Steam's menu becomes the settings list page (PLAN §1.12); this slab is the form a
+   * list of 15 or more takes on other routes and the list page's fallback: one scrolling column of two-line rows (controls.md §8.2) */
   const TZ = [
     ['Mountain Standard Time', 'UTC −06:00 · Alberta, Denver, Salt Lake City'], ['Mountain Standard Time (Mexico)', 'UTC −06:00 · Baja California Sur, Chihuahua'],
     ['Central America', 'UTC −06:00 · Guatemala, Managua, San José'], ['Central Standard Time', 'UTC −06:00 · Saskatchewan'],
@@ -55,10 +57,10 @@
     const rows = TZ.map(([t, s], i) => `<div class="vr${i === cur ? ' is-focus' : ''}"><span class="two"><span class="t">${t}</span><span class="s">${s}</span></span>${i === cur ? '<i data-i="check" class="chk"></i>' : ''}</div>`).join('');
     // index of the first visible row = 20 of 64 (Steam's list from UTC -12): rail position and length from the real count
     const visible = 3.75, total = 64, top = 20;
-    el.replaceWith(h(`<div class="lgk-glass c-vmenu cr-tzmenu" data-mat="thick" data-dz="2" data-tier="T1 in-page thick glass; T5 thick slab at dz 2 mm (material only)">
+    el.replaceWith(h(`<div class="lgk-glass c-vmenu cr-tzmenu" id="tzmenu" data-id="menu" data-mat="thick" data-lens style="--dz:10" data-dz="10" data-tier="T1 in-page thick glass; T5 +10 mm non-interactive crop + thick slab (0 -> +10 on depth)">
       <div class="hdr">Timezone</div>
       <div class="scr"><div class="in" style="top:${200 - cur * 106}px">${rows}</div>
-        <span class="rail" style="top:${(top / total) * 100}%; height:${(visible / total) * 100}%"></span></div>
+        <span class="rail" style="top:${(top / total) * 100}%; height:${(visible / total) * 100}%; opacity:0" title="shown only while the list scrolls (VP P-72)"></span></div>
       <span class="cancel">Cancel</span>
     </div>`));
   }
@@ -87,7 +89,8 @@
       if (!c) return '<span class="cr-cell"></span>';
       const on = c === '1' || c === 'd', dis = c === 'd';
       const isF = foc && NCOLS[ci].toLowerCase() === f;
-      return `<span class="cr-cell"><span class="c-check${on ? ' on' : ''}${dis ? ' is-disabled' : ''}${isF ? ' is-focus' : ''}">${on ? '<i data-i="check"></i>' : ''}</span></span>`;
+      const id = isF ? ' data-id="check-focus"' : (foc && ci === 0 && on ? ' data-id="check-on"' : '');
+      return `<span class="cr-cell"><span class="c-check${on ? ' on' : ''}${dis ? ' is-disabled' : ''}${isF ? ' is-focus' : ''}"${id}>${on ? '<i data-i="check"></i>' : ''}</span></span>`;
     };
     el.replaceWith(h(`<div class="cr-col" style="top:${el.dataset.top || 150}px">${S.map(([sec, R], si) => `
       <div class="cr-sh"${si === 0 ? ' style="margin-top:0"' : ''}>${sec}</div>

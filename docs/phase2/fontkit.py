@@ -58,6 +58,27 @@ FACE = """/* Phase 2 UI font: Inter 4.1 (c) 2016 The Inter Project Authors, SIL 
 }}
 """
 
+# The --lgs-font sweep (DESIGN2 §5.2 step 4). Steam sets "Motiva Sans" explicitly on
+# many module classes and Arial on form controls (which do not inherit font-family in
+# Chromium), so a body rule alone is not enough: every element in body takes the token,
+# except monospace runs. Measured 2026-10-07 on main, bar, barpopup, keyboard,
+# notifications, tooltip, frame.menu and vr:systemui: the only families in use are
+# "Motiva Sans" stacks and Arial (inputs); no icon font is text-rendered.
+SWEEP = """
+/* --lgs-font sweep: one face everywhere, Steam's stack after it (tokens.md §4) */
+html.lgs-on body {
+  font-family: var(--lgs-font);
+  font-synthesis: none;
+  font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+/* (0,3,2): beats Steam's module rules, the strongest measured being
+   ".BasicUI .A .B" (0,3,0); areas never set another family */
+html.lgs-on.lgs-on.lgs-on body :where(:not(code, pre, kbd, samp, tt, code *, pre *, kbd *, samp *)) {
+  font-family: var(--lgs-font);
+}
+"""
+
 
 def subset():
     from fontTools import subset as fts
@@ -117,7 +138,7 @@ def main(argv):
     print(f"source {os.path.getsize(SRC):,} B -> subset {len(data):,} B -> base64 {len(b64):,} B")
     ok = check(OUT)
     if a.css:
-        css = FACE.format(b64=b64, ranges=UNICODES.replace(",", ", "))
+        css = FACE.format(b64=b64, ranges=UNICODES.replace(",", ", ")) + SWEEP
         with open(a.css, "w", encoding="utf-8", newline="\n") as f:
             f.write(css)
         print(f"wrote {a.css} ({len(css):,} bytes)")

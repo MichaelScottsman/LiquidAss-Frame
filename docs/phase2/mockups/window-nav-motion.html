@@ -2,42 +2,39 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Glass Shell P2 window-nav: motion storyboard (filmstrips)</title>
+<title>Glass Shell P2 window-nav (C1c): motion storyboard for menus, alerts, sheets and route changes</title>
 <link rel="stylesheet" href="kit.css">
 <link rel="stylesheet" href="window-nav-shared.css">
 <style>
   body { background: #101114; }
   .sb { position: relative; width: 1920px; height: 1080px; background: #15161a; color: #fff; font-family: var(--lg-font); overflow: hidden; }
-  .sb h1 { position: absolute; left: 40px; top: 22px; margin: 0; font: 700 30px/1 var(--lg-font); }
-  .sb .sub { position: absolute; left: 40px; top: 60px; font: 500 18px/1.3 var(--lg-font); color: rgb(255 255 255 / .62); }
-  .row { position: absolute; left: 40px; width: 1840px; height: 236px; }
-  .row .lab { position: absolute; left: 0; top: 4px; width: 210px; }
-  .row .lab b { display: block; font: 700 22px/1.2 var(--lg-font); }
-  .row .lab span { display: block; margin-top: 6px; font: 500 16px/1.35 var(--lg-font); color: rgb(255 255 255 / .66); }
-  .tile { position: absolute; top: 0; width: 310px; height: 196px; border-radius: 16px; overflow: hidden;
-          background: #333 url("assets/room-lounge.jpg") center / 1920px 1080px no-repeat; }
-  .tile .cap { position: absolute; left: 0; right: 0; top: 200px; text-align: center; font: 600 15px/1.3 var(--lg-font); color: rgb(255 255 255 / .75); }
-  .stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+  .sb h1 { position: absolute; left: 40px; top: 20px; margin: 0; font: 700 28px/1 var(--lg-font); }
+  .sb .sub { position: absolute; left: 40px; top: 56px; width: 1840px; font: 500 18px/1.3 var(--lg-font); color: rgb(255 255 255 / .66); }
+  .row { position: absolute; left: 40px; width: 1840px; height: 190px; }
+  .row .lab { position: absolute; left: 0; top: 0; width: 214px; }
+  .row .lab b { display: block; font: 700 21px/1.15 var(--lg-font); }
+  .row .lab span { display: block; margin-top: 5px; font: 500 15px/1.3 var(--lg-font); color: rgb(255 255 255 / .68); }
+  .tile { position: absolute; top: 0; width: 260px; height: 156px; border-radius: 14px; overflow: hidden; background: #333 no-repeat; }
+  .tile .cap { position: absolute; left: 0; right: 0; top: 160px; text-align: center; font: 600 14px/1.25 var(--lg-font); color: rgb(255 255 255 / .78); white-space: nowrap; }
+  .capw { position: absolute; top: 158px; width: 260px; text-align: center; font: 600 14px/1.25 var(--lg-font); color: rgb(255 255 255 / .78); white-space: nowrap; }
+  .stage { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; transform-origin: 0 0; }
   .g { position: absolute; box-sizing: border-box; }
   .g.win { border-radius: 54px; background: rgb(38 38 44 / .30); -webkit-backdrop-filter: blur(22px) saturate(1.4) brightness(.72); backdrop-filter: blur(22px) saturate(1.4) brightness(.72);
-           box-shadow: inset 0 0 16px -2px rgb(0 0 0 / .2), inset 0 2px 1px -1px rgb(255 255 255 / .35); }
-  .g.liq { border-radius: 999px; background: rgb(90 90 96 / .22); -webkit-backdrop-filter: blur(10px) saturate(1.6); backdrop-filter: blur(10px) saturate(1.6);
-           box-shadow: 0 10px 30px rgb(0 0 0 / .28), inset 0 2px 1px -1px rgb(255 255 255 / .55), inset 0 0 6px -1px rgb(0 0 0 / .12); }
-  .g.thick { background: rgb(36 37 42 / .55); -webkit-backdrop-filter: blur(30px) saturate(1.4); backdrop-filter: blur(30px) saturate(1.4);
-             box-shadow: 0 12px 36px rgb(0 0 0 / .34), inset 0 2px 1px -1px rgb(255 255 255 / .45), inset 0 0 12px -2px rgb(0 0 0 / .2); overflow: hidden; }
+           box-shadow: inset 0 0 16px -2px rgb(0 0 0 / .2), inset 0 2px 1px -1px rgb(255 255 255 / .35); overflow: hidden; }
+  .g.thick { background: rgb(36 37 42 / .55); -webkit-backdrop-filter: blur(30px) saturate(1.4); backdrop-filter: blur(30px) saturate(1.4); overflow: hidden; }
   .p { position: absolute; border-radius: 20px; }
   .bar { position: absolute; height: 22px; border-radius: 11px; background: rgb(255 255 255 / .85); }
-  .bar.dim { background: rgb(255 255 255 / .35); }
-  .txt { position: absolute; font: 600 24px/1 var(--lg-font); white-space: nowrap; }
-  .meter { position: absolute; left: 0; right: 0; bottom: 0; height: 6px; background: rgb(255 255 255 / .12); }
+  .bar.dim { background: rgb(255 255 255 / .38); }
+  .meter { position: absolute; left: 0; right: 0; bottom: 0; height: 5px; background: rgb(255 255 255 / .12); z-index: 5; }
   .meter > i { display: block; height: 100%; background: var(--lg-blue); }
-  .zlab { position: absolute; right: 8px; top: 8px; font: 700 14px/1 var(--lg-font); padding: 5px 8px; border-radius: 8px; background: rgb(0 0 0 / .5); }
+  .zlab { position: absolute; right: 7px; top: 7px; z-index: 5; font: 700 13px/1 var(--lg-font); padding: 4px 7px; border-radius: 7px; background: rgb(0 0 0 / .55); }
+  .flab { position: absolute; left: 7px; top: 7px; z-index: 5; font: 700 13px/1 var(--lg-font); padding: 4px 7px; border-radius: 7px; background: rgb(0 0 0 / .55); }
 </style>
 </head>
 <body>
 <div class="sb" id="sb">
-  <h1>Motion storyboard: system surfaces (window-nav, revision 2)</h1>
-  <div class="sub">Each strip samples the token's settle time at f = 0, .15, .35, .60, 1.0 (DESIGN2 §11.9 filmstrip points). Positions come from the SwiftUI spring x(t) with k = (2&pi;/d)&sup2;, &zeta; = 1 &minus; b. Not true size: each tile is a 0.25&ndash;0.5 scale crop.</div>
+  <h1>Motion storyboard: system presentations (C1c)</h1>
+  <div class="sub">Each strip samples one interaction at the G-MOTION filmstrip points f = 0, .15, .35, .5, .75, 1 (PLAN §2.3, D2 §11.9) over its longest channel: closed-form springs (k = (2&pi;/d)&sup2;, &zeta; = 1 &minus; b), D2 §11.2 tokens only. Glass leads on entry and content on exit; text never scales. Reduce Motion: a 150&ndash;200 ms cross-fade to the end state. Tiles are crops at 0.24&ndash;0.27 scale.</div>
 </div>
 <script>
 (() => {
@@ -48,97 +45,133 @@
     const wd = w0 * Math.sqrt(1 - z * z);
     return 1 - Math.exp(-z * w0 * t) * (Math.cos(wd * t) + (z * w0 / wd) * Math.sin(wd * t));
   };
+  const T = {                       // D2 §11.2 (d, bounce)
+    morphOpen: spring(0.45, 0.20), fade: spring(0.30, 0), depth: spring(0.30, 0), sheetIn: spring(0.50, 0),
+    sheetOut: spring(0.35, 0), page: spring(0.45, 0) };
   const lin = (a, b, t) => a + (b - a) * t;
-  const ramp = (t, a, b) => Math.max(0, Math.min(1, (t - a) / (b - a)));
-  const F = [0, .15, .35, .6, 1];
+  const ramp = (x, a, b) => Math.max(0, Math.min(1, (x - a) / (b - a)));
+  const F = [0, .15, .35, .5, .75, 1];
   const sb = document.getElementById('sb');
   const POST = ['#3b2a8f,#ff6f91', '#0f5e4f,#64d6a6', '#5b0f87,#ff3cac', '#0e4a6b,#2fb7e6', '#7a1e12,#ff7b39'];
-  const posters = (y, n = 5) => Array.from({ length: n }, (_, i) => `<div class="p" style="left:${42 + i * 244}px; top:${y}px; width:220px; height:330px; background:linear-gradient(160deg, ${POST[i % 5]})"></div>`).join('');
+  const posters = (y, dim = 1) => Array.from({ length: 5 }, (_, i) =>
+    `<div class="p" style="left:${42 + i * 244}px; top:${y}px; width:220px; height:330px; opacity:${dim}; background:linear-gradient(160deg, ${POST[i % 5]})"></div>`).join('');
+  const chrome = (dim = 1) => `<div style="position:absolute; left:24px; top:24px; width:60px; height:60px; border-radius:50%; background:rgb(255 255 255 / .12); opacity:${dim}"></div>
+    <div class="bar" style="left:100px; top:40px; width:150px; height:30px; border-radius:15px; opacity:${.9 * dim}"></div>
+    <div style="position:absolute; left:380px; top:22px; width:520px; height:64px; border-radius:32px; background:rgb(0 0 0 / .3); opacity:${dim}"></div>`;
+  const win = (inner, scrim = 0, hdrDim = 1) => `<div class="g win" style="left:0; top:0; width:1280px; height:656px">${posters(212)}${posters(566)}
+      ${scrim ? `<div style="position:absolute; inset:0; border-radius:54px; background:rgb(0 0 0 / ${scrim.toFixed(3)})"></div>` : ''}
+      ${chrome(hdrDim)}${inner || ''}</div>`;
+  // a thick slab with the edge cue and a depth shadow sized by dz (0.4 px y, 1.2 px blur per mm)
+  const thick = (x, y, w, h, r, dz, extra, inner) => `<div class="g thick" style="left:${x}px; top:${y}px; width:${w}px; height:${h}px; border-radius:${r}px;
+      box-shadow: 0 ${(0.4 * Math.max(dz, 6)).toFixed(1)}px ${(1.2 * Math.max(dz, 6)).toFixed(1)}px rgb(0 0 0 / .34), inset 0 2px 1px -1px rgb(255 255 255 / .45), inset 0 0 12px -2px rgb(0 0 0 / .2); ${extra || ''}">${inner || ''}</div>`;
 
-  function row(i, title, note, durMs, build) {
+  function row(i, title, note, durMs, crop, build) {
     const r = document.createElement('div');
-    r.className = 'row'; r.style.top = (110 + i * 240) + 'px';
+    r.className = 'row'; r.style.top = (124 + i * 190) + 'px';
     r.innerHTML = `<div class="lab"><b>${title}</b><span>${note}</span></div>`;
     F.forEach((f, k) => {
       const t = f * durMs / 1000;
-      const tile = document.createElement('div');
-      tile.className = 'tile'; tile.style.left = (240 + k * 324) + 'px';
       const o = build(t, f);
-      tile.style.backgroundPosition = o.bg || '-700px -300px';
-      tile.innerHTML = `<div class="stage" style="transform: scale(${o.s}) translate(${-o.x}px, ${-o.y}px)">${o.html}</div>` + (o.z ? `<div class="zlab">${o.z}</div>` : '') +
+      const x0 = 236 + k * 272;
+      const tile = document.createElement('div');
+      tile.className = 'tile'; tile.style.left = x0 + 'px';
+      const s = crop.s, vx = 320 + crop.x, vy = 66 + crop.y;
+      tile.style.backgroundImage = 'url("assets/room-lounge.jpg")';
+      tile.style.backgroundSize = `${1920 * s}px ${1080 * s}px`;
+      tile.style.backgroundPosition = `${-vx * s}px ${-vy * s}px`;
+      tile.innerHTML = `<div class="stage" style="transform: scale(${s}) translate(${-crop.x}px, ${-crop.y}px)">${o.html}</div>` +
+        (o.z !== undefined ? `<div class="zlab">${o.z}</div>` : '') + `<div class="flab">f ${f.toFixed(2)}</div>` +
         `<div class="meter"><i style="width:${(f * 100).toFixed(0)}%"></i></div>`;
-      const cap = document.createElement('div'); cap.className = 'cap';
-      cap.textContent = `f ${f.toFixed(2)} · ${Math.round(t * 1000)} ms` + (o.cap ? ' · ' + o.cap : '');
-      tile.appendChild(cap);
       r.appendChild(tile);
+      const cap = document.createElement('div'); cap.className = 'capw'; cap.style.left = x0 + 'px';
+      cap.textContent = `${Math.round(t * 1000)} ms` + (o.cap ? ' · ' + o.cap : '');
+      r.appendChild(cap);
     });
     sb.appendChild(r);
   }
 
-  /* 1. Menu morph-open: Sort menu grows out of the white Sort capsule in the bottom ornament (607 ms, b .20) */
-  const mo = spring(0.45, 0.20);
-  row(0, 'Menu: morph-open', '607 ms, bounce .20. clip-path from the white Sort capsule to the menu (&le; 600 &times; 600 px), anchored at the source corner; content 15&ndash;50 %; z 0 &rarr; +10 mm on depth', 607, (t, f) => {
-    const p = mo(t);
-    const src = { x: 204, y: 640, w: 220, h: 60, r: 30 }, dst = { x: 204, y: 300, w: 392, h: 324, r: 32 };
-    const bottom = lin(src.y + src.h, dst.y + dst.h, p) - 0;
-    const h = lin(src.h, dst.h, p), w = lin(src.w, dst.w, p), r = lin(src.r, dst.r, p);
-    const ys = src.y + src.h - 4 - h * 1;  // anchored: bottom edge rises from the source's bottom to the menu's
-    const yy = lin(src.y, dst.y, p), hh = lin(src.h, dst.h, p);
-    const c = ramp(f, .15, .5);
-    const z = Math.round(lin(0, 10, spring(0.30, 0)(t)));
-    const rows = [0, 1, 2, 3].map((k) => `<div class="bar ${k === 1 ? '' : 'dim'}" style="left:28px; top:${34 + k * 74}px; width:${k === 1 ? 230 : 190}px; opacity:${c}; filter:blur(${(1 - c) * 6}px)"></div>`).join('');
-    return { s: .45, x: 150, y: 270, bg: '-500px -340px', z: `+${z} mm`, cap: p > 1.001 ? `overshoot ${((p - 1) * 100).toFixed(1)} %` : '',
-      html: `<div class="g win" style="left:0; top:0; width:1280px; height:656px">${posters(212)}</div>
-             <div class="g liq" style="left:192px; top:628px; width:896px; height:84px"></div>
-             <div style="position:absolute; left:${src.x}px; top:${src.y}px; width:${src.w}px; height:${src.h}px; border-radius:30px; background:rgb(255 255 255 / .94)"></div>
-             <div class="g thick" style="left:${dst.x}px; top:${yy}px; width:${w}px; height:${hh}px; border-radius:${r}px">${rows}</div>` };
-  });
+  /* 1. Menu morph-open: the tile menu grows out of the More circle on its card (PLAN §1.5, §1.12; WN §5.1.3) */
+  {
+    const src = { x: 436, y: 222, w: 60, h: 60, r: 30 };       // the white More circle on the card
+    const dst = { x: 522, y: 124, w: 400, h: 502, r: 32 };     // the compact slab, 16 px right of the card
+    const start = { x: dst.x, y: src.y, w: 60, h: 60, r: 30 }; // the source rect carried to the slab's near edge (T2 --sx..--sr)
+    row(0, 'Menu: morph-open', '<b style="display:inline;font-size:15px">607 ms</b> morph-open (b .20). Clip-path from the source to the slab (&le; 600 &times; 600); content 15&ndash;50 %; z 0 &rarr; +10 mm on depth. Close: CSS instant; glassd dematerializes the slab in place', 607,
+      { x: 200, y: 90, s: 0.271 }, (t, f) => {
+        const p = T.morphOpen(t), c = ramp(f, .15, .5);
+        const L = lin(start.x, dst.x, p), Tt = lin(start.y, dst.y, p), W = lin(start.w, dst.w, p), H = lin(start.h, dst.h, p), R = lin(start.r, dst.r, p);
+        const ci = `inset(${(Tt - dst.y).toFixed(1)}px ${(dst.x + dst.w - L - W).toFixed(1)}px ${(dst.y + dst.h - Tt - H).toFixed(1)}px ${(L - dst.x).toFixed(1)}px round ${R.toFixed(1)}px)`;
+        const z = 10 * T.depth(t);
+        const rows = [0, 1, 2, 3, 4, 5].map((k) => `<div class="bar ${k === 0 ? '' : 'dim'}" style="left:20px; top:${54 + k * 64}px; width:${k === 0 ? 360 : 220}px; height:${k === 0 ? 56 : 22}px; border-radius:${k === 0 ? 22 : 11}px; ${k === 0 ? 'background:rgb(0 145 255 / .86); top:42px' : ''}; opacity:${c}"></div>`).join('');
+        return { z: `+${z.toFixed(0)} mm`, cap: p > 1.0005 ? `overshoot ${((p - 1) * 100).toFixed(1)} %` : `shape ${(p * 100).toFixed(0)} % · content ${(c * 100).toFixed(0)} %`,
+          html: win(`<div style="position:absolute; left:286px; top:212px; width:220px; height:330px; border-radius:20px; box-shadow:0 0 26px 3px rgb(255 255 255 / .2)"></div>
+                     <div style="position:absolute; left:${src.x}px; top:${src.y}px; width:60px; height:60px; border-radius:50%; background:rgb(255 255 255 / .94)"></div>`) +
+                thick(dst.x, dst.y, dst.w, dst.h, 32, z, `clip-path:${ci}`, rows + `<div class="bar dim" style="left:140px; top:440px; width:120px; height:48px; border-radius:24px; background:rgb(255 255 255 / .12); opacity:${c}"></div>`) };
+      });
+  }
 
-  /* 2. Search sheet present (735 ms, b 0): grows down out of the field; page underneath dims on fade; z 0 -> +10 */
-  const si = spring(0.50, 0), fade = spring(0.30, 0), dep = spring(0.30, 0);
-  row(1, 'Search sheet: present', '735 ms, bounce 0 (sheet-in). Glass grows down out of the field (scale .97 &rarr; 1, origin at the field); content 25&ndash;70 %; the page you were on dims 0 &rarr; .35 on fade; z 0 &rarr; +10 mm', 735, (t, f) => {
-    const p = si(t), sc = lin(.97, 1, p), c = ramp(f, .25, .70), sa = .35 * fade(t);
-    const z = Math.round(lin(0, 10, dep(t)));
-    const top = 100, h = 500 * Math.min(1, .55 + .45 * p);
-    const rows = [0, 1, 2, 3, 4].map((k) => `<div style="position:absolute; left:${40 + k * 160 + 24}px; top:76px; width:112px; height:112px; border-radius:56px; background:linear-gradient(160deg, ${POST[k % 5]}); opacity:${c}"></div>`).join('');
-    return { s: .23, x: -30, y: -70, bg: '-760px -330px', z: `+${z} mm`,
-      html: `<div class="g win" style="left:0; top:0; width:1280px; height:656px">${posters(212)}<div style="position:absolute; inset:0; border-radius:54px; background:rgb(0 0 0 / ${sa.toFixed(3)})"></div>
-               <div style="position:absolute; left:320px; top:22px; width:640px; height:64px; border-radius:32px; background:rgb(0 0 0 / .3); box-shadow:0 0 0 3px rgb(255 255 255 / ${(.55 * Math.min(1, t / .2)).toFixed(2)})"></div></div>
-             <div class="g liq" style="left:500px; top:628px; width:280px; height:84px"></div>
-             <div class="g thick" style="left:200px; top:${top}px; width:880px; height:${h.toFixed(1)}px; border-radius:44px; transform-origin:50% 0; scale:${sc.toFixed(4)}; opacity:${Math.min(1, p / .92).toFixed(3)}">
-               <div class="bar" style="left:40px; top:30px; width:200px; opacity:${c}"></div>${rows}</div>` };
-  });
+  /* 2. Alert present: materialize 250 ms (glass 0-92 %, content 35-100 %, swell 1.02 -> 1 rides the glass); scrim on fade; z on depth */
+  {
+    const a = { x: 320, y: 198, w: 640, h: 261 };
+    row(1, 'Alert: present', '<b style="display:inline;font-size:15px">441 ms</b>. Glass materializes in 250 (swell 1.02 &rarr; 1 rides it); content 35&ndash;100 %; scrim &rarr; .35 on fade; z &rarr; +10 on depth (0 if destructive)', 441,
+      { x: 93, y: 0, s: 0.238 }, (t, f) => {
+        const tm = t / .250, g = Math.min(1, tm / .92), c = ramp(tm, .35, 1), sc = lin(1.02, 1, g);
+        const scrim = .35 * T.fade(t), z = 10 * T.depth(t);
+        const focus = c > .5;
+        const inner = `<div style="opacity:${c.toFixed(3)}; filter:blur(${((1 - c) * 8).toFixed(1)}px)">
+            <div class="bar" style="left:36px; top:38px; width:300px; height:30px; border-radius:15px"></div>
+            <div class="bar dim" style="left:36px; top:86px; width:560px"></div><div class="bar dim" style="left:36px; top:118px; width:360px"></div>
+            <div style="position:absolute; left:36px; top:171px; width:276px; height:60px; border-radius:30px; background:rgb(0 145 255 / .86); ${focus ? 'box-shadow:0 0 18px 2px rgb(255 255 255 / .3)' : ''}"></div>
+            <div style="position:absolute; left:328px; top:171px; width:276px; height:60px; border-radius:30px; background:rgb(255 255 255 / .10)"></div></div>`;
+        return { z: `+${z.toFixed(0)} mm`, cap: `glass ${(g * 100).toFixed(0)} % · scrim ${scrim.toFixed(2)}`,
+          html: win('', scrim, lin(1, .45, T.fade(t))) + thick(a.x, a.y, a.w, a.h, 44, z,
+            `scale:${sc.toFixed(4)}; opacity:${Math.min(1, g * 1.3).toFixed(3)}; -webkit-backdrop-filter: blur(${(30 * g).toFixed(1)}px) saturate(${(1 + .4 * g).toFixed(2)}); backdrop-filter: blur(${(30 * g).toFixed(1)}px) saturate(${(1 + .4 * g).toFixed(2)}); background: rgb(36 37 42 / ${(.55 * g).toFixed(3)})`, inner) };
+      });
+  }
 
-  /* 3. Route change: old content out 150 ms linear; new content in on page (662 ms, b 0) after 40 ms, +16 px from the navigation side */
-  const pg = spring(0.45, 0);
-  row(2, 'Route change', 'Old page fades out in 150 ms; new page fades in with 16 px of parallax on page (662 ms) after a 40 ms delay. Toolbar, tab bar and ornament never move', 702, (t, f) => {
-    const old = 1 - Math.min(1, t / .150);
-    const tn = Math.max(0, t - .040), p = pg(tn);
-    return { s: .23, x: -30, y: -70, bg: '-300px -330px',
-      html: `<div class="g win" style="left:0; top:0; width:1280px; height:656px">
-               <div style="position:absolute; inset:0; opacity:${old.toFixed(3)}">${posters(212)}</div>
-               <div style="position:absolute; left:${(16 * (1 - p)).toFixed(1)}px; top:0; right:0; bottom:0; opacity:${p.toFixed(3)}">
-                 <div style="position:absolute; left:0; top:0; width:1280px; height:656px; border-radius:54px; background:linear-gradient(120deg, #0f5e4f, #64d6a6 60%, #03201c)"></div>
-                 <div class="bar" style="left:48px; top:300px; width:420px; height:110px; border-radius:20px"></div>
-                 <div style="position:absolute; left:48px; top:470px; width:280px; height:80px; border-radius:40px; background:var(--lg-tint-play)"></div></div>
-               <div style="position:absolute; left:24px; top:24px; width:60px; height:60px; border-radius:50%; background:rgb(255 255 255 / .16)"></div>
-               <div style="position:absolute; left:380px; top:22px; width:520px; height:64px; border-radius:32px; background:rgb(0 0 0 / .3)"></div></div>
-             <div class="g liq" style="left:420px; top:628px; width:440px; height:84px"></div>`, cap: `old ${old.toFixed(2)} · new ${p.toFixed(2)}` };
-  });
+  /* 3. Sheet present: sheet-in 735 (glass on the spring, scale .97 -> 1, content 25-70 %), scrim on fade, z on depth */
+  {
+    const sh = { x: 160, y: 108, w: 960, h: 472 };
+    const content = (c) => `<div style="opacity:${c.toFixed(3)}">
+        <div style="position:absolute; left:24px; top:24px; width:60px; height:60px; border-radius:50%; background:rgb(255 255 255 / .12)"></div>
+        <div class="bar" style="left:420px; top:42px; width:120px; height:28px; border-radius:14px"></div>
+        <div style="position:absolute; right:24px; top:24px; width:110px; height:60px; border-radius:30px; background:rgb(255 255 255 / .12)"></div>
+        <div class="bar dim" style="left:44px; top:122px; width:300px"></div>
+        <div style="position:absolute; left:40px; top:166px; width:520px; height:64px; border-radius:32px; background:rgb(0 0 0 / .3)"></div>
+        <div class="bar dim" style="left:44px; top:262px; width:180px"></div>
+        ${[0, 1, 2, 3, 4].map((k) => `<div style="position:absolute; left:${40 + k * 160}px; top:300px; width:${k ? 140 : 156}px; height:60px; border-radius:30px; background:${k === 0 ? 'rgb(255 255 255 / .94)' : k === 1 ? 'rgb(255 255 255 / .38)' : 'rgb(255 255 255 / .10)'}"></div>`).join('')}
+        <div class="bar dim" style="left:44px; top:412px; width:260px"></div>
+        <div style="position:absolute; right:24px; top:396px; width:356px; height:60px; border-radius:30px; background:rgb(255 255 255 / .12)"></div></div>`;
+    row(2, 'Sheet: present', '<b style="display:inline;font-size:15px">735 ms</b> sheet-in (b 0). Scale .97 &rarr; 1; content 25&ndash;70 %; scrim &rarr; .35 on fade; z 0 &rarr; +10 on depth. The window never moves', 735,
+      { x: 93, y: 0, s: 0.238 }, (t, f) => {
+        const p = T.sheetIn(t), sc = lin(.97, 1, p), c = ramp(f, .25, .70), scrim = .35 * T.fade(t), z = 10 * T.depth(t);
+        return { z: `+${z.toFixed(0)} mm`, cap: `glass ${(p * 100).toFixed(0)} % · content ${(c * 100).toFixed(0)} %`,
+          html: win('', scrim, lin(1, .45, T.fade(t))) + thick(sh.x, sh.y, sh.w, sh.h, 44, z,
+            `scale:${sc.toFixed(4)}; opacity:${Math.min(1, p * 1.25).toFixed(3)}; background: rgb(36 37 42 / ${(.55 * p).toFixed(3)}); -webkit-backdrop-filter: blur(${(30 * Math.min(1, p * 1.25)).toFixed(1)}px) saturate(1.4); backdrop-filter: blur(${(30 * Math.min(1, p * 1.25)).toFixed(1)}px) saturate(1.4)`, content(c)) };
+      });
 
-  /* 4. Toast materialize (250 ms linear; translate -8 -> 0 on snappy): glass 0-92 %, content 35-100 % with blur 8 -> 0 */
-  const sn = spring(0.35, 0.15);
-  row(3, 'Toast: materialize', '250 ms linear channels. Glass resolves by 92 % (scale 1.04 &rarr; 1 rides it); content 35&ndash;100 %, blur 8 &rarr; 0; 8 px drop on snappy. No slide-in', 250, (t, f) => {
-    const g = Math.min(1, f / .92), s0 = 1 + 12 / 320, sc = lin(s0, 1, g);
-    const c = ramp(f, .35, 1), dy = -8 * (1 - sn(t));
-    return { s: .82, x: -14, y: -40, bg: '-80px -380px',
-      html: `<div class="g liq" style="left:0; top:${dy.toFixed(2)}px; width:320px; height:76px; border-radius:30px; scale:${sc.toFixed(4)};
-                   background:rgb(52 54 62 / ${(.30 * g).toFixed(3)}); -webkit-backdrop-filter: blur(${(22 * g).toFixed(1)}px) saturate(${(1 + .45 * g).toFixed(2)}); backdrop-filter: blur(${(22 * g).toFixed(1)}px) saturate(${(1 + .45 * g).toFixed(2)}); box-shadow: inset 0 2px 1px -1px rgb(255 255 255 / ${(.55 * g).toFixed(2)}), 0 10px 30px rgb(0 0 0 / ${(.28 * g).toFixed(2)})">
-               <div style="position:absolute; left:14px; top:14px; width:48px; height:48px; border-radius:50%; background:linear-gradient(180deg,#34c759,#1f9d43); opacity:${c}; filter:blur(${((1 - c) * 8).toFixed(1)}px)"></div>
-               <div class="txt" style="left:76px; top:14px; font-size:20px; opacity:${c}; filter:blur(${((1 - c) * 8).toFixed(1)}px)">Neon Orchard</div>
-               <div class="txt" style="left:76px; top:42px; font-size:18px; font-weight:500; color:rgb(255 255 255 / .7); opacity:${c}; filter:blur(${((1 - c) * 8).toFixed(1)}px)">Download complete</div></div>`,
-      cap: `glass ${g.toFixed(2)} · content ${c.toFixed(2)}` };
-  });
+    /* 4. Sheet dismiss: sheet-out 514, content out first (0-40 %), glass dissolves, scale -> .98, scrim -> 0 */
+    row(3, 'Sheet: dismiss', '<b style="display:inline;font-size:15px">514 ms</b> sheet-out. Content out by 40 %, then the glass; scale &rarr; .98; scrim &rarr; 0. In CSS only while Steam keeps the node (R4); else glassd dematerializes it', 514,
+      { x: 93, y: 0, s: 0.238 }, (t, f) => {
+        const p = T.sheetOut(t), c = 1 - ramp(f, 0, .40), gl = 1 - ramp(p, .25, 1), sc = lin(1, .98, p), scrim = .35 * (1 - T.fade(t)), z = 10 * (1 - T.depth(t));
+        return { z: `+${Math.max(0, z).toFixed(0)} mm`, cap: `content ${(c * 100).toFixed(0)} % · glass ${(gl * 100).toFixed(0)} %`,
+          html: win('', scrim, lin(.45, 1, T.fade(t))) + thick(sh.x, sh.y, sh.w, sh.h, 44, Math.max(z, 0),
+            `scale:${sc.toFixed(4)}; opacity:${gl.toFixed(3)}; background: rgb(36 37 42 / ${(.55 * gl).toFixed(3)})`, content(c)) };
+      });
+  }
+
+  /* 5. Route change: old content out 150 ms linear; new content in on page (662) after 40 ms, 16 px from the navigation side */
+  row(4, 'Route change', '<b style="display:inline;font-size:15px">702 ms</b>. Old page out in 150 (linear); new page in on page (662) after 40, with 16 px parallax. Chrome never moves', 702,
+    { x: 93, y: 0, s: 0.238 }, (t, f) => {
+      const old = 1 - Math.min(1, t / .150);
+      const p = T.page(Math.max(0, t - .040));
+      const newPage = `<div style="position:absolute; left:${(16 * (1 - p)).toFixed(1)}px; top:0; width:1280px; height:656px; opacity:${p.toFixed(3)}">
+          <div style="position:absolute; left:0; top:0; width:1280px; height:656px; border-radius:54px; background:linear-gradient(120deg, #0f5e4f, #64d6a6 60%, #03201c)"></div>
+          <div class="bar" style="left:48px; top:330px; width:420px; height:100px; border-radius:20px"></div>
+          <div style="position:absolute; left:48px; top:470px; width:280px; height:80px; border-radius:40px; background:var(--lg-tint-play)"></div></div>`;
+      return { cap: `old ${old.toFixed(2)} · new ${p.toFixed(2)} · ${(16 * (1 - p)).toFixed(1)} px`,
+        html: `<div class="g win" style="left:0; top:0; width:1280px; height:656px">
+            <div style="position:absolute; inset:0; opacity:${old.toFixed(3)}">${posters(212)}${posters(566)}</div>${newPage}${chrome(1)}</div>` };
+    });
   document.documentElement.dataset.lgkReady = '1';
 })();
 </script>

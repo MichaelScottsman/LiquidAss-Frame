@@ -58,7 +58,19 @@ def helpers():
         idx = f.read()
     with open(os.path.join(HERE, "lab_helpers.js"), encoding="utf-8") as f:
         lab = f.read()
-    return idx + "\n" + lab
+    extra = ""
+    for name in ("lab_p2.js", "lab_gates.js", "lab_bfs.js"):
+        p = os.path.join(HERE, name)
+        if os.path.exists(p):
+            with open(p, encoding="utf-8") as f:
+                extra += "\n" + f.read()
+    # Reinstall the helpers whenever their source changes (they live on in the
+    # page between calls, guarded by version checks that an edit can forget).
+    import hashlib
+    h = hashlib.sha1((lab + extra).encode()).hexdigest()[:12]
+    head = f"if (window.__LGS_LAB && window.__LGS_LAB.hash !== '{h}') delete window.__LGS_LAB;\n"
+    tail = f"\nif (window.__LGS_LAB) window.__LGS_LAB.hash = '{h}';\n"
+    return idx + "\n" + head + lab + extra + tail
 
 
 def vr_target(surface):
@@ -105,37 +117,61 @@ def set_theme(mode, surface=None):
     lgs.op(mode, quiet=True)
 
 
+def flock_wait(path, seconds, what="lock"):
+    """Open and exclusively flock path, polling; returns the open file."""
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    f = open(path, "w")
+    deadline = time.time() + seconds
+    while True:
+        try:
+            fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return f
+        except BlockingIOError:
+            if time.time() > deadline:
+                f.close()
+                raise SystemExit(f"lab: {what} busy for {int(seconds)} s")
+            time.sleep(0.25)
+
+
 class Lock:
     """Device-wide lock for one atomic lab step. On exit it closes every menu,
-    dialog and bar popup the step opened (unless keep=True)."""
+    dialog and bar popup the step opened (unless keep=True). Step options
+    (--flags/--mode/--media) are applied inside it and undone on exit.
+    both=True takes lab.lock and then lab-vr.lock (steps that touch Steam and
+    systemui). Re-entrant within one process (nested steps reuse the lock)."""
 
-    def __init__(self, keep=False, surface=None):
+    depth = 0
+
+    def __init__(self, keep=False, surface=None, both=False):
         self.keep = keep
         # SteamVR pages don't share state with Steam's UI: their own lock, so
         # SteamVR work never waits on Steam route captures and vice versa.
-        self.vr = bool(surface and surface.startswith("vr:"))
-        self.path = LOCK.replace("lab.lock", "lab-vr.lock") if self.vr else LOCK
+        self.vr = bool(surface and surface.startswith("vr:")) and not both
+        self.paths = [LOCK, LOCK.replace("lab.lock", "lab-vr.lock")] if both else \
+            [LOCK.replace("lab.lock", "lab-vr.lock") if self.vr else LOCK]
+        self.files = []
+        self.step = None
+        self.surface = surface
 
     def __enter__(self):
-        os.makedirs(os.path.dirname(self.path), exist_ok=True)
-        self.f = open(self.path, "w")
-        deadline = time.time() + 240
-        while True:
+        Lock.depth += 1
+        if Lock.depth > 1:
+            return self
+        for p in self.paths:
+            self.files.append(flock_wait(p, 240, "lock"))
+        if not self.vr:
             try:
-                fcntl.flock(self.f, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                if self.vr:
-                    return self
-                try:
-                    lab_js("L.mark()")
-                except Exception:  # noqa: BLE001 - the step must still run
-                    pass
-                return self
-            except BlockingIOError:
-                if time.time() > deadline:
-                    raise SystemExit("lab: lock busy for 240 s")
-                time.sleep(0.25)
+                lab_js("L.mark()")
+            except Exception:  # noqa: BLE001 - the step must still run
+                pass
+        self.step = Step(STEP, vr=self.vr, surface=self.surface)
+        self.step.apply()
+        return self
 
     def __exit__(self, *a):
+        Lock.depth -= 1
+        if Lock.depth > 0:
+            return
         try:
             if not self.keep and not self.vr:
                 n = lab_js("L.restore()")
@@ -144,8 +180,317 @@ class Lock:
         except Exception:  # noqa: BLE001
             pass
         finally:
-            fcntl.flock(self.f, fcntl.LOCK_UN)
-            self.f.close()
+            try:
+                if self.step:
+                    self.step.undo()
+            finally:
+                for f in reversed(self.files):
+                    fcntl.flock(f, fcntl.LOCK_UN)
+                    f.close()
+                self.files = []
+
+
+# ---------------------------------------------------------------- step options
+
+FLAGS_FILE = "/tmp/lgs/flags.json"
+
+STEP_JS_FLAGS = r"""
+(async () => {
+  const F = %s, st = (window.__LGS_LAB_STEP = window.__LGS_LAB_STEP || {});
+  const rt = window.__LGS_RT;
+  if (!rt) return 'no runtime';
+  const t = rt.test && rt.test.flags;
+  try {
+    if (t && typeof t.push === 'function') {
+      st.flagsTok = t.push(F, { ttlMs: 600000 });
+      if (typeof rt.settled === 'function') await Promise.race([rt.settled(), new Promise((r) => setTimeout(r, 5000))]);
+      return 'rt.test.flags.push';
+    }
+  } catch (e) { return 'runtime error: ' + e.message; }
+  return 'runtime has no rt.test.flags';
+})()
+"""
+
+STEP_JS_FLAGS_UNDO = r"""
+(async () => {
+  const st = window.__LGS_LAB_STEP || {}, rt = window.__LGS_RT;
+  const t = rt && rt.test && rt.test.flags, tok = st.flagsTok;
+  delete st.flagsTok;
+  if (tok === undefined) return 'nothing to undo';
+  try {
+    if (t && typeof t.pop === 'function') {
+      t.pop(tok);
+      if (typeof rt.settled === 'function') await Promise.race([rt.settled(), new Promise((r) => setTimeout(r, 5000))]);
+      return 'popped';
+    }
+  } catch (e) { return 'runtime error: ' + e.message; }
+  return 'runtime gone';
+})()
+"""
+
+# Never-list safety net (P1 runtime.md 3.6): Steam actions are logged, not run,
+# for the whole locked step.
+STEP_JS_ACTIONS = r"""
+(() => {
+  const rt = window.__LGS_RT, a = rt && rt.test && rt.test.actions;
+  if (!a || typeof a.enable !== 'function') return 'no action logger';
+  a.enable(%s, { ttlMs: 600000 });
+  return 'action logger ' + (%s ? 'on' : 'off');
+})()
+"""
+
+STEP_JS_MODE = r"""
+(() => {
+  const mode = %s, vr = mode === 'pad' ? 'gamepad' : 'laser';
+  const st = (window.__LGS_LAB_STEP = window.__LGS_LAB_STEP || {});
+  const rt = window.__LGS_RT;
+  let via;
+  if (rt && rt.input && rt.test && rt.test.input && typeof rt.test.input.set === 'function') {
+    rt.test.input.set(mode, { vrMode: vr, ttlMs: 600000 });
+    st.modeUndo = () => rt.test.input.set(null);
+    via = 'rt.test.input.set';
+  } else if (rt && rt.input && typeof rt.input.stub === 'function') {
+    st.modeUndo = rt.input.stub(mode, { vrMode: vr, ttlMs: 600000 });
+    via = 'rt.input.stub';
+  } else {
+    st.modePrev = [];
+    for (const p of g_PopupManager.m_mapPopups.values()) {
+      let w = null; try { w = p.window; } catch (_) { /* closing */ }
+      if (!w || !w.document) continue;
+      const h = w.document.documentElement;
+      st.modePrev.push([h, h.classList.contains('lgs-input-pad'), h.classList.contains('lgs-input-laser'), h.getAttribute('data-lgs-vr-mode')]);
+      h.classList.toggle('lgs-input-pad', mode === 'pad');
+      h.classList.toggle('lgs-input-laser', mode === 'laser');
+      h.setAttribute('data-lgs-vr-mode', vr);
+    }
+    via = 'classes (no rt.input)';
+  }
+  if (mode === 'pad') { try { SteamUIStore.WindowStore.VRGamepadUIMainWindowInstance.FocusApplicationRoot(); } catch (_) { /* no main */ } }
+  st.mode = mode;
+  return via;
+})()
+"""
+
+STEP_JS_MODE_UNDO = r"""
+(() => {
+  const st = window.__LGS_LAB_STEP || {}, rt = window.__LGS_RT;
+  let out = 'nothing';
+  try {
+    if (typeof st.modeUndo === 'function') { st.modeUndo(); out = 'stub restored'; }
+    else if (rt && rt.input && typeof rt.input.stub === 'function' && st.modeUndo !== undefined) { rt.input.stub(null); out = 'stub cleared'; }
+  } catch (e) { out = 'runtime error: ' + e.message; }
+  for (const [h, pad, laser, attr] of st.modePrev || []) {
+    h.classList.toggle('lgs-input-pad', pad);
+    h.classList.toggle('lgs-input-laser', laser);
+    if (attr === null) h.removeAttribute('data-lgs-vr-mode'); else h.setAttribute('data-lgs-vr-mode', attr);
+    out = 'classes restored';
+  }
+  if (st.mode === 'laser') { try { window.__LGS_LAB.unhover && window.__LGS_LAB.unhover(); } catch (_) { /* fine */ } }
+  delete st.modeUndo; delete st.modePrev; delete st.mode;
+  return out;
+})()
+"""
+
+
+class MediaHold:
+    """Emulation.setEmulatedMedia on every Steam UI target (or the SteamVR
+    page), held by open CDP sessions in a background thread; new popups are
+    picked up once a second. Cleared explicitly, then the sessions close."""
+
+    def __init__(self, media, vr_surface=None):
+        feats = []
+        if "reduce" in media:
+            feats.append({"name": "prefers-reduced-motion", "value": "reduce"})
+        if "contrast" in media:
+            feats.append({"name": "prefers-contrast", "value": "more"})
+        self.features = feats
+        self.vr_surface = vr_surface
+        self.ready = None
+        self.stop_evt = None
+        self.thread = None
+        self.count = 0
+        self.error = None
+
+    def _targets(self):
+        if self.vr_surface:
+            return [vr_target(self.vr_surface)]
+        out = []
+        for t in lgs.targets():
+            k = lgs.overlay_key(t)
+            if t.get("type") == "page" and (k.startswith("valve.steam.gamepadui") or t["title"] == "SharedJSContext"):
+                out.append(t)
+        return out
+
+    async def _run(self):
+        sessions = {}
+        try:
+            while True:
+                for t in self._targets():
+                    u = t["webSocketDebuggerUrl"]
+                    if u in sessions:
+                        continue
+                    try:
+                        s = lgs.Session(u)
+                        await s.__aenter__()
+                        await s.send("Emulation.setEmulatedMedia", {"features": self.features}, 10)
+                        sessions[u] = s
+                    except Exception as e:  # noqa: BLE001 - a closing popup
+                        self.error = str(e)
+                self.count = len(sessions)
+                self.ready.set()
+                for _ in range(10):
+                    if self.stop_evt.is_set():
+                        return
+                    await asyncio.sleep(0.1)
+        finally:
+            for s in sessions.values():
+                try:
+                    await s.send("Emulation.setEmulatedMedia", {"features": []}, 5)
+                except Exception:  # noqa: BLE001
+                    pass
+                try:
+                    await s.__aexit__()
+                except Exception:  # noqa: BLE001
+                    pass
+            self.ready.set()
+
+    def start(self):
+        import threading
+        self.ready = threading.Event()
+        self.stop_evt = threading.Event()
+        self.thread = threading.Thread(target=lambda: asyncio.run(self._run()), daemon=True)
+        self.thread.start()
+        self.ready.wait(15)
+        time.sleep(0.2)  # let media-query listeners run
+        return self.count
+
+    def stop(self):
+        if self.thread:
+            self.stop_evt.set()
+            self.thread.join(15)
+            self.thread = None
+
+
+class Step:
+    """Applies one step's --flags/--mode/--media and undoes them."""
+
+    def __init__(self, opts, vr=False, surface=None):
+        self.surface = surface
+        self.flags = dict(opts.get("flags") or {})
+        self.mode = opts.get("mode")
+        self.media = list(opts.get("media") or [])
+        self.vr = vr
+        self.file_prev = None
+        self.file_written = False
+        self.hold = None
+        self.report = {}
+        self.actions = False
+
+    def apply(self):
+        if not self.vr:
+            try:
+                r = lgs.run_js("SharedJSContext", STEP_JS_ACTIONS % ("true", "true"), 10)
+                self.actions = r == "action logger on"
+            except Exception:  # noqa: BLE001 - never block a step on it
+                pass
+        if not (self.flags or self.mode or self.media):
+            return
+        if self.flags:
+            try:
+                with open(FLAGS_FILE, encoding="utf-8") as f:
+                    self.file_prev = f.read()
+            except OSError:
+                self.file_prev = None
+            merged = {}
+            if self.file_prev:
+                try:
+                    merged = json.loads(self.file_prev)
+                except ValueError:
+                    merged = {}
+            merged.update(self.flags)
+            tmp = FLAGS_FILE + f".{os.getpid()}"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(merged, f)
+            os.replace(tmp, FLAGS_FILE)
+            self.file_written = True
+            via = "file only (vr step)" if self.vr else lab_js(STEP_JS_FLAGS % json.dumps(self.flags))
+            self.report["flags"] = f"{json.dumps(self.flags)} via {via} + {FLAGS_FILE}"
+        if self.mode:
+            self.report["mode"] = f"{self.mode} via " + ("(not for vr: steps)" if self.vr else
+                                                        lab_js(STEP_JS_MODE % json.dumps(self.mode)))
+        if self.media:
+            self.hold = MediaHold(self.media, vr_surface=self.surface if self.vr else None)
+            n = self.hold.start()
+            self.report["media"] = f"{','.join(self.media)} on {n} targets"
+        print("step: " + "  ".join(f"{k}={v}" for k, v in self.report.items()), file=sys.stderr)
+
+    def undo(self):
+        errs = []
+        if self.hold:
+            try:
+                self.hold.stop()
+            except Exception as e:  # noqa: BLE001
+                errs.append(f"media: {e}")
+        if self.mode and not self.vr:
+            try:
+                lab_js(STEP_JS_MODE_UNDO)
+            except Exception as e:  # noqa: BLE001
+                errs.append(f"mode: {e}")
+        if self.flags:
+            if not self.vr:
+                try:
+                    lab_js(STEP_JS_FLAGS_UNDO)
+                except Exception as e:  # noqa: BLE001
+                    errs.append(f"flags: {e}")
+            if self.file_written:
+                try:
+                    if self.file_prev is None:
+                        os.remove(FLAGS_FILE)
+                    else:
+                        tmp = FLAGS_FILE + f".{os.getpid()}"
+                        with open(tmp, "w", encoding="utf-8") as f:
+                            f.write(self.file_prev)
+                        os.replace(tmp, FLAGS_FILE)
+                except OSError as e:
+                    errs.append(f"flags file: {e}")
+        if self.actions:
+            try:
+                lgs.run_js("SharedJSContext", STEP_JS_ACTIONS % ("false", "false"), 10)
+            except Exception as e:  # noqa: BLE001
+                errs.append(f"action logger: {e}")
+        if errs:
+            print("step undo: " + "; ".join(errs), file=sys.stderr)
+
+
+def steam_build():
+    """Steam client build id (the number Valve's own bundle carries, e.g.
+    11094443), cached per library.js mtime."""
+    import collections
+    import re
+    lib = os.path.expanduser("~/.steam/steam/steamui/library.js")
+    cache = "/tmp/lgs/steam-build.json"
+    try:
+        mt = os.path.getmtime(lib)
+    except OSError:
+        return "unknown"
+    try:
+        with open(cache, encoding="utf-8") as f:
+            c = json.load(f)
+        if c.get("mtime") == mt:
+            return c["build"]
+    except (OSError, ValueError, KeyError):
+        pass
+    with open(lib, "rb") as f:
+        data = f.read()
+    hits = collections.Counter(re.findall(rb'var [A-Za-z_$]{1,2}="(\d{7,9})"', data))
+    build = hits.most_common(1)[0][0].decode() if hits else "unknown"
+    try:
+        os.makedirs("/tmp/lgs", exist_ok=True)
+        with open(cache, "w", encoding="utf-8") as f:
+            json.dump({"mtime": mt, "build": build}, f)
+    except OSError:
+        pass
+    return build
 
 
 def target_for(surface):
@@ -186,12 +531,47 @@ def flag(args, name):
     return False
 
 
+STEP = {"flags": {}, "mode": None, "media": []}
+
+
+def parse_step(args):
+    """Step options (docs/phase2/contracts/lab.md section 1), valid on every
+    command: --flags a,b,c=v  --mode laser|pad  --media reduce|contrast.
+    Removed from args; applied inside the lock."""
+    raw = opt(args, "--flags")
+    if raw:
+        for part in raw.split(","):
+            part = part.strip()
+            if not part:
+                continue
+            k, _, v = part.partition("=")
+            if not v:
+                STEP["flags"][k] = True
+            else:
+                try:
+                    STEP["flags"][k] = json.loads(v)
+                except ValueError:
+                    STEP["flags"][k] = v
+    mode = opt(args, "--mode")
+    if mode:
+        if mode not in ("laser", "pad"):
+            raise SystemExit("lab: --mode laser|pad")
+        STEP["mode"] = mode
+    media = opt(args, "--media")
+    if media:
+        for m in media.split(","):
+            if m not in ("reduce", "contrast"):
+                raise SystemExit("lab: --media reduce|contrast")
+            STEP["media"].append(m)
+
+
 def main(argv):
     args = argv[1:]
     if not args or args[0] in ("-h", "--help"):
         print(__doc__)
         return
     cmd = args.pop(0)
+    parse_step(args)
     if cmd == "surfaces":
         print(json.dumps(lab_js("L.surfaces()"), indent=1))
         import lgs_vr
@@ -243,16 +623,23 @@ def main(argv):
         surface, out = args[0], args[1]
         os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
         with Lock(keep=keep, surface=surface):
-            set_theme(theme, surface)
-            if route:
-                lab_js(f"L.nav({json.dumps(route)})")
-                time.sleep(1.2)
-            if pre:
-                print("pre:", lab_js(pre, surface=surface if surface.startswith("vr:") else None))
-                time.sleep(0.6)
-            asyncio.run(capture(surface, out, settle))
-            if go_back:
-                lab_js("L.back()")
+            # A before-shot (--theme off) gives the theme back at the end of its step (P10:
+            # the shared device is left as found; the theme was left off in Phase 1).
+            restore_on = theme == "off" and not surface.startswith("vr:") and lgs.is_on()
+            try:
+                set_theme(theme, surface)
+                if route:
+                    lab_js(f"L.nav({json.dumps(route)})")
+                    time.sleep(1.2)
+                if pre:
+                    print("pre:", lab_js(pre, surface=surface if surface.startswith("vr:") else None))
+                    time.sleep(0.6)
+                asyncio.run(capture(surface, out, settle))
+                if go_back:
+                    lab_js("L.back()")
+            finally:
+                if restore_on:
+                    set_theme("on", surface)
         print(out)
     elif cmd == "perf":
         route = opt(args, "--route")
@@ -304,6 +691,11 @@ def main(argv):
                 print("  " + i)
             for m in res["moved"][:15]:
                 print("  moved " + m)
+    elif cmd in ("native-session", "hv-grab", "gates", "pad-bfs", "focus", "motion", "sgcheck", "conformance",
+                 "cmp-rects"):
+        sys.modules.setdefault("lab", sys.modules[__name__])   # one module state (STEP, Lock) when run as a script
+        import lab_p2cmd
+        lab_p2cmd.run(cmd, args)
     else:
         print(__doc__)
         sys.exit(2)

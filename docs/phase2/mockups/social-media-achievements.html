@@ -4,41 +4,43 @@
 <meta charset="utf-8">
 <title>Glass Shell P2 — Achievements</title>
 <link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="window-nav-shared.css">
 <link rel="stylesheet" href="social-media.css">
 <style>
-  .por { position: absolute; left: 40px; top: 108px; width: 112px; height: 168px; border-radius: 20px; background-size: cover; background-position: center; box-shadow: 0 6px 18px rgb(0 0 0 / .35); }
+  .por { position: absolute; left: 72px; top: 108px; width: 112px; height: 168px; border-radius: 20px; background-size: cover; background-position: center; box-shadow: 0 6px 18px rgb(0 0 0 / .35); }
 </style>
 </head>
 <body>
-<!-- Concept: docs/phase2/concepts/social-media.md §3.11 (the page is owned by game-pages C.9; this is the social share of it).
-     Route /library/app/:appid/achievements/my/individual. Game, art and achievement names are invented. Revision 2: nested route, so the
-     global search is the collapsed magnifier circle; the legend only holds A/B hints, so the glass runs to 720 with the quiet legend inside
-     (recommended to game-pages, which owns this page). -->
+<!-- Concept: docs/phase2/concepts/social-media.md §3.11 (revision 3, PLAN §1.2, §1.10). The page is owned by game-pages (C5a); this is
+     SM's fallback layout for it on the shared system. Route /library/app/:appid/achievements/my/individual, glass mode window (656):
+     the legend only holds A/B, so it is the quiet legend, sitting in the 64 px margin below the glass (labels with the on-room shadow).
+     Gamepad mode: focus on the first row (+ .28, spot, arc), glyph badges shown. Nested route: Back is a thin circle, the global
+     search the collapsed magnifier. Content column x 72-1208 (VP P-81). Game, art and achievement names are invented. -->
 <div class="lgk-view" data-room="studio" data-tab="library" data-chrome="bar">
   <div class="lgk-overlay" style="left:320px; top:66px">
-    <div class="lgk-glass sm-win full" data-mat="window" data-dz="0" data-tier="T5 window (1280 x 720) / T1 tint">
-      <span class="lgk-btn circle sm-back"><i data-i="chevron-left"></i></span>
-      <span class="lgk-btn circle sm-mag"><i data-i="search"></i></span>
+    <div class="lgk-glass sm-win" data-mat="window" data-dz="0" data-id="window" data-tier="glass mode window (656): T5 window cover / T1 smoky tint">
+      <span class="lgk-btn circle sm-back" data-id="back"><i data-i="chevron-left"></i></span>
+      <span class="lgk-btn circle sm-mag" data-id="search"><i data-i="search"></i></span>
 
       <!-- header: portrait (content), title, the stats block as a progress capsule with title-case metadata (focusable block) -->
       <div class="por lgk-art" data-art="poster:0:Starfall Drift"></div>
-      <div style="position:absolute; left:180px; top:112px; font:500 20px/1 var(--lg-font); color:var(--lg-text-2)">Achievements</div>
-      <div class="t-title1" style="position:absolute; left:180px; top:138px">Starfall Drift</div>
-      <div class="sm-track" style="position:absolute; left:180px; top:204px; width:640px; --v:15%"><i></i></div>
-      <div class="t-num" style="position:absolute; left:180px; top:232px; font:500 20px/1.3 var(--lg-font); color:var(--lg-text-2)">4 of 26 earned · 10.2 hrs played · 53 min in the last two weeks</div>
-      <span class="lgk-btn capsule" style="position:absolute; right:40px; top:120px; gap:12px"><i data-i="trophy" style="--is:24px"></i>Leaderboards<i data-i="chevron-down" style="--is:22px"></i></span>
+      <div style="position:absolute; left:212px; top:112px; font:500 20px/1 var(--lg-font); color:var(--lg-text-2)">Achievements</div>
+      <div class="t-title1" style="position:absolute; left:212px; top:138px">Starfall Drift</div>
+      <div class="sm-track" style="position:absolute; left:212px; top:204px; width:640px; --v:15%" data-id="stats"><i></i></div>
+      <div class="t-num" style="position:absolute; left:212px; top:232px; font:500 20px/1.3 var(--lg-font); color:var(--lg-text-2)">4 of 26 earned · 10.2 hrs played · 53 min in the last two weeks</div>
+      <span class="lgk-btn capsule" style="position:absolute; right:72px; top:120px; gap:12px" data-id="leaderboards"><i data-i="trophy" style="--is:24px"></i>Leaderboards<i data-i="chevron-down" style="--is:22px"></i></span>
 
       <!-- My / Global as a segmented control (a tab strip with explicit Left/Right handlers: stays horizontal), search as a 64 px capsule -->
-      <div class="sm-seg fit" style="left:40px; top:290px"><span class="is-selected">My Achievements</span><span>Global Achievements</span></div>
-      <div class="lgk-search" style="position:absolute; right:40px; top:292px; width:380px"><i data-i="search"></i><span class="ph">Search</span></div>
+      <div class="sm-seg fit" style="left:72px; top:290px" data-id="tabs"><span class="is-selected">My Achievements</span><span>Global Achievements</span></div>
+      <div class="lgk-search" style="position:absolute; right:72px; top:290px; width:380px" data-id="achsearch"><i data-i="search"></i><span class="ph">Search</span></div>
 
-      <div class="sm-scroll bottom-only" style="left:0; top:372px; width:1280px; height:256px; -webkit-mask-image:linear-gradient(180deg, #000 calc(100% - 24px), transparent 100%)">
-        <div class="lgk-row sm-arow is-focus" style="top:8px; --hx:30%; --hy:40%">
+      <div class="sm-scroll bottom-only" style="left:0; top:370px; width:1280px; height:286px">
+        <div class="lgk-row sm-arow is-focus" style="top:8px; --hx:30%; --hy:26%" data-id="row-focus">
           <div class="ic lgk-art" data-art="program:4:star"></div>
           <div><div class="nm">Night Owl</div><div class="ds">Finish a race between midnight and dawn.</div></div>
           <div class="end"><span>Unlocked Sep 2, 2026</span><span style="display:flex; align-items:center; gap:10px; color:var(--lg-text-3)">22.4% of players<span class="sm-rare" style="--v:22%"><i></i></span></span></div>
         </div>
-        <div style="position:absolute; left:40px; top:120px; font:600 22px/1 var(--lg-font); color:var(--lg-text-2)">Locked <span style="color:var(--lg-text-3); font-weight:500">22</span></div>
+        <div style="position:absolute; left:88px; top:122px; font:600 22px/1 var(--lg-font); color:var(--lg-text-2)">Locked <span style="color:var(--lg-text-3); font-weight:500">22</span></div>
         <div class="lgk-row sm-arow locked" style="top:156px">
           <div class="ic lgk-art" data-art="program:6:sparkle"></div>
           <div><div class="nm">Perfect Drift</div><div class="ds">Complete a lap without touching a wall.</div></div>
@@ -47,10 +49,12 @@
       </div>
     </div>
 
-    <div class="sm-band" data-sm-legend="A:Select:quiet|B:Back:quiet"></div>
+    <!-- quiet legend in the margin below the 656 px glass (glass mode window, PLAN §1.10) -->
+    <div data-sm-orn="A:Select|B:Back" data-mode="pad" data-onroom></div>
   </div>
 </div>
 <script src="kit.js"></script>
 <script src="social-media.js"></script>
+<script src="window-nav-shared.js"></script>
 </body>
 </html>

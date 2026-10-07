@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — keyboard (C4b): key states by input mode, echo variants, the two layouts</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="window-nav-shared.css">
+<link rel="stylesheet" href="controls.css">
+<style>
+  /* A spec board, drawn at 1 view px = 1 kb px (the real keyboard is x1.355 / x1.19 in the headset views). Every strip is
+     a piece of the keyboard's glassd thick platter; cells are Steam's 47 px hit areas with the visible key inset. */
+  .col { position: absolute; width: 854px; }
+  .hd { position: absolute; font: 600 20px/1 var(--lg-font); color: #fff; white-space: nowrap; padding: 7px 12px; border-radius: 10px; background: rgb(12 13 16 / .74); left: -4px; }
+  .hd .m { font-weight: 500; color: rgb(255 255 255 / .72); margin-left: 8px; }
+  
+  .strip { position: absolute; left: 0; width: 854px; --r: 20px; }
+  .cells { position: absolute; left: 8px; top: 8px; display: flex; gap: 0; z-index: 2; }
+  .cell { position: relative; height: 47px; flex: none; }
+  .gap { width: 22px; flex: none; }
+  .caps { position: absolute; left: 0; padding: 6px 8px; display: flex; border-radius: 10px; background: rgb(12 13 16 / .74); }
+  .cap { flex: none; text-align: center; font: 500 13px/1.15 var(--lg-font); color: rgb(255 255 255 / .86); white-space: normal; }
+  .ec { position: absolute; left: 0; width: 854px; height: 43px; }
+  .ec + .ec { }
+  .ec .vkb-echo { top: 5px; }
+  .eclbl { position: absolute; left: 870px; width: 120px; font: 500 14px/1.2 var(--lg-font); color: rgb(255 255 255 / .86); }
+</style>
+</head>
+<body>
+<div class="lgk-view" data-room="lounge">
+
+  <!-- ============================================================ left: key states, laser vs gamepad (PLAN §1.4) -->
+  <div class="col" style="left:40px; top:36px">
+    <div class="hd" style="top:0">Laser <span class="m">html.lgs-input-laser · %{KeyboardKeyHitArea}:hover · no glyph badges</span></div>
+    <div class="lgk-glass strip" data-mat="thick" data-lens data-lens-bezel="14" style="top:30px; height:63px" data-id="strip-laser">
+      <div class="cells">
+        <div class="cell" style="width:64px"><div class="vkb-key" data-id="L-rest">g</div></div>
+        <div class="cell" style="width:64px"><div class="vkb-key is-hover" style="--hx:62%; --hy:62%" data-id="L-hover">g</div></div>
+        <div class="cell" style="width:64px"><div class="vkb-key is-pressed" data-id="L-pressed">g</div></div>
+        <div class="gap"></div>
+        <div class="cell" style="width:100px"><div class="vkb-key enter" data-id="L-enter"><span class="in">Search</span></div></div>
+        <div class="gap"></div>
+        <div class="cell" style="width:100px"><div class="vkb-key enter is-hover" style="--hx:60%; --hy:60%" data-id="L-enter-hover"><span class="in">Search</span></div></div>
+        <div class="gap"></div>
+        <div class="cell" style="width:119px"><div class="vkb-key mod is-on" data-id="L-shift-on"><span class="in">Shift</span></div></div>
+        <div class="gap"></div>
+        <div class="cell" style="width:119px"><div class="vkb-key mod is-on is-hover" data-id="L-shift-on-hover"><span class="in">Shift</span></div></div>
+        <div class="gap"></div>
+        <div class="cell" style="width:76px"><div class="vkb-key mod" data-id="L-mod">Tab</div></div>
+      </div>
+    </div>
+    <div class="caps" style="top:100px">
+      <span class="cap" style="width:64px">Rest</span><span class="cap" style="width:64px">Hover</span><span class="cap" style="width:64px">Pressed</span><span class="gap"></span>
+      <span class="cap" style="width:100px">Enter</span><span class="gap"></span><span class="cap" style="width:100px">Enter hover: glow</span><span class="gap"></span>
+      <span class="cap" style="width:119px">Shift on</span><span class="gap"></span><span class="cap" style="width:119px">On + hover: glow</span><span class="gap"></span>
+      <span class="cap" style="width:76px">Modifier</span>
+    </div>
+
+    <div class="hd" style="top:150px">Gamepad <span class="m">html.lgs-input-pad · %{Modal>Focused} (virtual focus) · glyph badges</span></div>
+    <div class="lgk-glass strip" data-mat="thick" data-lens data-lens-bezel="14" style="top:180px; height:63px" data-id="strip-pad">
+      <div class="cells">
+        <div class="cell" style="width:64px"><div class="vkb-key" data-id="P-rest">g</div></div>
+        <div class="cell" style="width:64px"><div class="vkb-key is-focus f60" data-id="P-focus-t0">g</div></div>
+        <div class="cell" style="width:64px"><div class="vkb-key is-focus" data-id="P-focus">g</div></div>
+        <div class="cell" style="width:64px"><div class="vkb-key is-pressed" data-id="P-pressed">g</div></div>
+        <div class="gap"></div>
+        <div class="cell" style="width:100px"><div class="vkb-key enter" data-id="P-enter"><span class="in">Send<span class="vkb-bdg two">RT</span></span></div></div>
+        <div class="gap"></div>
+        <div class="cell" style="width:100px"><div class="vkb-key enter is-focus" data-id="P-enter-focus"><span class="in">Send<span class="vkb-bdg two">RT</span></span></div></div>
+        <div class="gap"></div>
+        <div class="cell" style="width:119px"><div class="vkb-key mod is-on" data-id="P-shift-on"><span class="in">Shift<span class="vkb-bdg two">LT</span></span></div></div>
+        <div class="gap"></div>
+        <div class="cell" style="width:119px"><div class="vkb-key mod is-on is-focus" data-id="P-shift-on-focus"><span class="in">Shift<span class="vkb-bdg two">LT</span></span></div></div>
+      </div>
+    </div>
+    <div class="caps" style="top:250px">
+      <span class="cap" style="width:64px">Rest</span><span class="cap" style="width:64px">Focus at t0 (60 %)</span><span class="cap" style="width:64px">Focus</span><span class="cap" style="width:64px">Pressed (A)</span><span class="gap"></span>
+      <span class="cap" style="width:100px">Enter (RT)</span><span class="gap"></span><span class="cap" style="width:100px">Enter focus: glow</span><span class="gap"></span>
+      <span class="cap" style="width:119px">Shift on (LT)</span><span class="gap"></span><span class="cap" style="width:119px">On + focus: glow</span>
+    </div>
+
+    <div class="hd" style="top:318px">Keys unmoved, echo in the bottom band <span class="m">an IME, emoji or Steam's own text row is present (C-D18)</span></div>
+    <div style="position:absolute; left:0; top:348px">
+      <div data-vkb='{"tier":"t5","mode":"laser","pos":"bottom","echo":{"icon":"message","label":"Message to Aster Vale","text":"See you at 8"}}'></div>
+    </div>
+  </div>
+
+  <!-- ============================================================ right: the echo row (T2) and Steam's buffered mode -->
+  <div class="col" style="left:1026px; top:36px">
+    <div class="hd" style="top:0">Echo row <span class="m">empty · typing · secret · long text · short-map name · IME composition</span></div>
+    <div class="lgk-glass strip" data-mat="thick" data-lens data-lens-bezel="14" style="top:30px; height:268px" data-id="strip-echo">
+      <div class="ec" style="top:0"><div data-echo='{"icon":"search","label":"Search","ph":"Search for games or profiles…"}'></div></div>
+      <div class="ec" style="top:43px"><div data-echo='{"icon":"search","label":"Search","text":"hollow pe"}'></div></div>
+      <div class="ec" style="top:86px"><div data-echo='{"icon":"lock","label":"New Password","masked":true,"dots":9}'></div></div>
+      <div class="ec" style="top:129px"><div data-echo='{"icon":"message","label":"Message to Aster Vale","text":"…bring the extra controller and the charging cable for the headset, I think we","long":true}'></div></div>
+      <div class="ec" style="top:172px"><div data-echo='{"icon":"person","label":"Friend Code","text":"4821","caret":true}'></div></div>
+      <div class="ec" style="top:215px"><div data-echo='{"icon":"message","label":"Message to Aster Vale","text":"See you at ","comp":"かふぇ"}'></div></div>
+    </div>
+
+    <div class="hd" style="top:318px">Buffered mode <span class="m">Steam's own text row restyled; no echo of ours; keys unmoved</span></div>
+    <div style="position:absolute; left:0; top:348px">
+      <div data-vkb='{"tier":"t5","mode":"pad","buffer":"Liquid Glass","focus":"s","enter":"Enter"}'></div>
+    </div>
+  </div>
+
+  <!-- annotations (not product UI) -->
+  <div class="c-note" style="left:40px; top:690px; width:420px"><b>Laser: lit, never white.</b> Hover adds white .08 and a .12 light at the pointer, drawn under the label, at once (no dwell needed: keys never lift). Pressed (%{Modal>Touched}) is white .94 with a dark label, a glow and a 1 px “goes down” shadow. Keys never scale.</div>
+  <div class="c-note" style="left:490px; top:690px; width:420px"><b>Gamepad: lit from within.</b> Steam's virtual focus adds white .28, a .16 light in the upper third and a brighter top highlight (.55). It enters at 60 % on the first frame (P5 <span class="k">lgs-focus-in</span>, keyed on %{Modal>Focused} itself). On white or blue keys focus is the outer glow (P-16), never a fill.</div>
+  <div class="c-note" style="left:1026px; top:690px; width:420px"><b>Glyph badges only in gamepad mode</b> (<span class="k">html[data-lgs-vr-mode="gamepad"]</span>): Steam's own %{Modal>ActionButtonGlyph} restyled as 22 kb px badges (30 px × .74). In laser mode they are hidden by opacity, never <span class="k">display: none</span>.</div>
+  <div class="c-note" style="left:1476px; top:690px; width:404px"><b>Strings.</b> Field names and Enter labels (Search, Send, Add, Go, Done) come from Steam's localization, found by source text (PLAN §1.15). With no string: English only when the UI language starts with <span class="k">en</span>, else the glyph alone.</div>
+</div>
+<script src="controls-keyboard.js"></script>
+<script>
+  /* echo strips: reuse the builder's echo markup on a bare host (no keys) */
+  document.querySelectorAll('[data-echo]').forEach(h => {
+    const tmp = document.createElement('div');
+    tmp.dataset.vkb = JSON.stringify({ tier: 't5', echo: JSON.parse(h.dataset.echo) });
+    window.VKB.build(tmp);
+    const e = tmp.querySelector('.vkb-echo'); h.replaceWith(e);
+  });
+</script>
+<script src="window-nav-shared.js"></script>
+<script src="kit.js"></script>
+</body>
+</html>

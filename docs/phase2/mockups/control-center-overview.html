@@ -2,51 +2,39 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Glass Shell P2 — Control Center (CC-M, glassd): the window becomes three glass tiles over the room</title>
+<title>Glass Shell P2 — Control Center (CC-M, native): the window becomes three glass plates over the room</title>
 <link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="window-nav-shared.css">
 <link rel="stylesheet" href="control-center.css">
 </head>
 <body>
-<!-- CC-M, tier T5 (glassd running). While Control Center is open, Steam's route content and the window's own glass fade out;
-     glassd's main-surface cover shapes become the three tiles and the close circle, so every tile frosts the ROOM (honest:
-     there is no window behind them any more). Tiles are main-window px at 1:1 (the overlay is Steam's 1280 x 720 texture). -->
+<!-- CC-M, native mode (glassd running). While Control Center is open the main window's route is `windowless` (PLAN §1.2):
+     Steam's page layers fade out, the window cover's phase goes to 0, and the three tiles and the close circle are glassd
+     PLATES (PLAN §1.6, G1) drawn at the window plane, so every tile frosts the ROOM (there is no window behind them any more).
+     Depth 0 (PLAN §1.7); the plates' contact shadow and the room seen between them carry the separation.
+     Steam's footer legend stays (PLAN §1.10): only A and B -> a quiet legend; laser mode -> no glyph badges.
+     Tiles are main-window px at 1:1 (the overlay is Steam's 1280 x 720 texture at view (320, 66)). -->
 <div class="lgk-view" data-room="lounge">
 
-  <!-- VR main menu as the tab-bar ornament (frame.menu popup, shown while the laser is active; owned by the shell concept) -->
-  <div class="lgk-pop" style="left:212px; top:28px; --pop-scale:1.10" data-dz="25">
-    <div class="lgk-glass lgk-tabbar" data-mat="liquid" data-lens style="position:relative; --r:40px; --dz:25; gap:16px; padding:12px; width:80px; --lg-btn:56px">
-      <div class="lgk-tab"><i data-i="home"></i></div>
-      <div class="lgk-tab is-nav-selected" style="background:var(--lg-fill-nav)"><i data-i="library"></i></div>
-      <div class="lgk-tab"><i data-i="store"></i></div>
-      <div class="lgk-tab"><i data-i="friends"></i></div>
-      <div class="lgk-tab"><i data-i="media"></i></div>
-      <div class="lgk-tab"><i data-i="download"></i></div>
-    </div>
-    <div class="lgk-glass lgk-tabbar" data-mat="liquid" data-lens style="position:relative; margin-top:16px; --r:40px; --dz:25; gap:16px; padding:12px; width:80px; --lg-btn:56px">
-      <div class="lgk-tab"><i data-i="gear"></i></div>
-      <div class="lgk-tab"><i data-i="vr"></i></div>
-      <div class="lgk-tab"><i data-i="power"></i></div>
-    </div>
-  </div>
+  <!-- tab-bar ornament (frame.menu, C1a): darkened while a modal is up, still clickable; navigating closes Control Center -->
+  <div data-wn="tabbar" data-right="302" data-cy="426" data-sel="library" data-pitch="58" data-badge data-dim=".5"></div>
 
   <!-- Steam's main window texture: route content hidden, Control Center rendered by our T3 view (Steam modal) -->
   <div class="lgk-overlay" style="left:320px; top:66px">
-    <div class="ccm" data-cc='{"hover":"vol","hx":"64%","hy":"50%","vol":0.55}'></div>
+    <div class="ccm" data-cc='{"hover":"vol","hx":"63%","hy":"50%","vol":0.55}'></div>
+    <div class="cc-legend" data-legend='{"mode":"laser","items":[["A","Select"],["B","Close"]]}'></div>
   </div>
 
-  <!-- the dashboard bar (Steam's bar popup, 13 cm nearer than the window): Home circle, apps capsule, system capsule -->
-  <div class="lgk-pop" style="left:0; top:878px; width:1600px; display:flex; justify-content:center; --pop-scale:1.2">
+  <!-- SteamVR's window-bar row (shown with the laser) and the dashboard bar (13 cm nearer): the status pill is white while CC is open -->
+  <div data-wn="winbar" data-cx="960" data-y="806" data-dim=".85"></div>
+  <div class="lgk-pop" style="left:0; top:904px; width:1600px; display:flex; justify-content:center; --pop-scale:1.2">
     <div class="bar2" data-bar='{"pill":{"state":"open","batt":{"mode":"num","v":82},"badge":3}}'></div>
   </div>
-  <div class="lgk-windowbar" style="left:870px; top:996px"></div>
 
-  <!-- laser on the Volume slider: the knob appears under the pointer, the value follows it -->
-  <svg style="position:absolute; inset:0; width:1920px; height:1080px; pointer-events:none; z-index:40" viewBox="0 0 1920 1080">
-    <defs><linearGradient id="beam" x1="1" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".35" stop-color="#dbe8ff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity=".9"/></linearGradient></defs>
-    <polygon points="1660,1095 1672,1095 978,488 976,488" fill="url(#beam)" opacity=".5"/>
-  </svg>
-  <div class="lgk-laser-dot" style="left:977px; top:488px"></div>
+  <!-- laser on the Volume slider: the knob appears under the pointer, the value follows it; the pointer proxy is native-only (S16) -->
+  <div data-wn="laser" data-to="1001,470" data-from="1560,1100"></div>
 </div>
+<script src="window-nav-shared.js"></script>
 <script src="control-center-build.js"></script>
 <script src="kit.js"></script>
 <script src="control-center-icons.js"></script>

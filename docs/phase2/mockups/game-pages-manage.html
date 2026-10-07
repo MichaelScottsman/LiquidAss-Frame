@@ -9,10 +9,14 @@
 <body>
 <div class="lgk-view" data-room="lounge" data-tab="library" data-fc="steam" data-bar="idle">
   <div class="lgk-overlay" style="left:320px; top:66px" data-gp="title" data-state="installed" data-focus="none" data-open="manage"
-       data-private="1" data-cloud="1" data-dim=".46,.40,.35" data-foot="A:Select|B:Cancel">
-    <!-- rule 3: the gear ends at x 993, so the slab does not fit on its right (993 + 16 + 360 > 1256); it opens on
-         its LEFT, 16 px from the gear (x 537-897), clamped to y 108-628. The gear stays visible and white. -->
-    <div class="lgk-glass lgk-menu gp-menu" data-mat="thick" data-lens style="left:537px; top:108px; width:360px; --dz:30; z-index:5" data-dz="30" data-tier="T1+T2 anchor (beside, left)">
+       data-private="1" data-cloud="1" data-dim=".46,.40,.35" data-foot="A:Select|B:Cancel" data-mode="laser">
+    <!-- PLAN §1.12 placement for a source in a page row. Rule 1 (above) fails: 520 px do not fit between y 108 and 436.
+         Rule 2: the gear ends at x 818 (vrBindings off, the default), and 818 + 16 + 360 = 1194 <= 1256, so the slab
+         opens on its RIGHT, 16 px from the gear (x 834-1194), vertically centred on it and clamped to y 108-628.
+         (With vrBindings on, the gear is at 1058-1138, 1138 + 16 + 360 > 1256, and rule 3 puts the slab on its left, x 682-1042.)
+         5 actions: one column of 72 px rows, 6 apart, 40 px header; Cancel 56 px quiet. The gear is white while open.
+         +10 mm, non-interactive (PLAN §1.7). Laser mode: no glyph badges. -->
+    <div class="lgk-glass lgk-menu gp-menu" data-mat="thick" data-lens style="left:834px; top:108px; width:360px; --dz:10; z-index:5" data-dz="10" data-tier="C1c slab + T2 anchor (beside, right: GP rule 2); +10 mm crop">
       <div class="hdr">Starfall Drift</div>
       <div class="lgk-row"><span class="lead"><i data-i="star2"></i></span>Add to Favorites</div>
       <div class="lgk-row"><span class="lead"><i data-i="folder-plus"></i></span>Add to<i data-i="chevron-right" class="chev"></i></div>
@@ -25,9 +29,9 @@
   </div>
   <svg style="position:absolute; inset:0; width:1920px; height:1080px; pointer-events:none; z-index:40" viewBox="0 0 1920 1080">
     <defs><linearGradient id="beam" x1="1" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".35" stop-color="#dbe8ff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity=".9"/></linearGradient></defs>
-    <polygon points="1700,1095 1712,1095 1066,416 1064,416" fill="url(#beam)" opacity=".5"/>
+    <polygon points="1760,1095 1772,1095 1364,420 1362,420" fill="url(#beam)" opacity=".5"/>
   </svg>
-  <div class="lgk-laser-dot" style="left:1065px; top:416px"></div>
+  <div class="lgk-laser-dot" style="left:1363px; top:420px"></div>
 </div>
 <script src="kit.js"></script>
 <script src="game-pages.js"></script>

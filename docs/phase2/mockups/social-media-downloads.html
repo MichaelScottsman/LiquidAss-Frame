@@ -4,65 +4,68 @@
 <meta charset="utf-8">
 <title>Glass Shell P2 — Downloads</title>
 <link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="window-nav-shared.css">
 <link rel="stylesheet" href="social-media.css">
 <style>
-  .now { position: absolute; left: 24px; top: 108px; width: 1232px; height: 208px; border-radius: 30px; background: var(--lg-fill-regular); }
+  .now { position: absolute; left: 72px; top: 108px; width: 1136px; height: 208px; border-radius: 30px; background: var(--lg-fill-regular); }
   .now > * { position: absolute; }
   .now .art { left: 16px; top: 16px; width: 316px; height: 176px; border-radius: 20px; background-size: cover; background-position: center; box-shadow: 0 6px 18px rgb(0 0 0 / .35); }
-  .dev { gap: 10px; padding: 0 18px 0 16px; font-size: 22px; }
+  .dev { gap: 10px; padding: 0 16px 0 20px; font-size: 22px; }
+  .sm-drow .btns .sm-more { visibility: visible; }
 </style>
 </head>
 <body>
-<!-- Concept: docs/phase2/concepts/social-media.md §3.9 (revision 2). Route /library/downloads with an active download (state to be verified
-     on Steam's own DownloadSectionActiveItem rendered in the T3 lab route with fake props; no real download is allowed). Steam's 240 px hero
-     becomes a 208 px "Now Downloading" platter; idle, it collapses to 96 px. Section root: borderless Back, Large Title at x 100, the
-     520 px search capsule centred on x 640 (same geometry as every section root). Pause pops +10 mm (click-safe for a 60 px circle). -->
+<!-- Concept: docs/phase2/concepts/social-media.md §3.9 (revision 3, PLAN §1). Route /library/downloads, glass mode window (656), gamepad
+     mode, with an active download (state verified on Steam's own DownloadSectionActiveItem in P2's lab route with fake props; no real
+     download is allowed). Steam's 240 px hero becomes a 208 px "Now Downloading" platter (96 px idle). Content column x 72-1208
+     (1136 px: no full-width band, VP P-81). Pause/Resume, the screen's primary, sits right of the progress (centre x 994: within
+     |x - 640| <= 400, VP P-29) and pops +10 mm (non-interactive crop; click-safe for a 60 px circle). Row circles keep 24 px clear;
+     the focused row carries the focus (+ .28) and C1a's More circle in the slot every row reserves (trailing, inset 24). -->
 <div class="lgk-view" data-room="studio" data-tab="downloads" data-chrome="bar">
   <div class="lgk-overlay" style="left:320px; top:66px">
-    <div class="lgk-glass sm-win" data-mat="window" data-dz="0" data-tier="T5 window / T1 tint">
-      <span class="lgk-btn circle sm-back root"><i data-i="chevron-left"></i></span>
-      <div class="sm-ltitle t-large">Downloads</div>
-      <div class="lgk-search sm-searchbar"><i data-i="search"></i><span class="ph">Search for games or profiles</span></div>
+    <div class="lgk-glass sm-win" data-mat="window" data-dz="0" data-id="window" data-tier="glass mode window (656): T5 window cover / T1 smoky tint">
+      <span class="lgk-btn circle sm-back root" data-id="back"><i data-i="chevron-left"></i></span>
+      <div class="sm-ltitle t-large" data-id="title">Downloads</div>
+      <div class="lgk-search sm-searchbar" data-id="search"><i data-i="search"></i><span class="ph">Search for games or profiles</span></div>
 
       <!-- %{DownloadsPage>TopSection}: art, name, progress capsule, rate, Pause/Resume as the primary circle (+10 mm, non-interactive crop) -->
-      <div class="now">
+      <div class="now" data-id="now">
         <div class="art lgk-art" data-art="hero:2:Neon Orchard"></div>
         <div style="left:360px; top:26px; font:500 18px/1 var(--lg-font); color:var(--lg-text-2)">Downloading update</div>
         <div style="left:360px; top:52px" class="t-title2">Neon Orchard</div>
-        <div class="sm-track" style="left:360px; top:116px; width:480px; --v:39%"><i></i></div>
-        <div class="t-num" style="left:860px; top:106px; font:600 22px/1 var(--lg-font)">39%</div>
+        <div class="sm-track" style="left:360px; top:116px; width:440px; --v:39%" data-id="progress"><i></i></div>
+        <div class="t-num" style="left:816px; top:111px; font:600 22px/1 var(--lg-font)">39%</div>
         <div class="t-num" style="left:360px; top:146px; font:500 18px/1.3 var(--lg-font); color:var(--lg-text-2)">1.8 GB of 4.6 GB · 42.6 MB/s · 1 min left</div>
-        <span class="lgk-btn circle" style="right:16px; top:24px; --s:60px; background:rgb(255 255 255 / .18)" data-dz="10" data-tier="T4 crop +10 (click-safe)"><i data-i="pause"></i></span>
-        <!-- RemoteClientManagementRow: "Managing downloads for This Device" as a 60 px capsule -->
-        <span class="lgk-btn capsule dev" style="right:16px; top:132px"><i data-i="display" style="--is:24px"></i>This Device<i data-i="chevron-down" style="--is:20px"></i><span class="lgk-glyph">Y</span></span>
+        <span class="lgk-btn circle" style="left:892px; top:92px; --s:60px; background:rgb(255 255 255 / .18); box-shadow:0 4px 12px rgb(0 0 0 / .28)" data-dz="10" data-id="pause"
+              data-tier="crop +10 (primary 60 px circle), interactive:false"><i data-i="pause"></i></span>
+        <!-- RemoteClientManagementRow: "Managing downloads for This Device" as a 60 px capsule with its Y badge (gamepad mode) -->
+        <span class="lgk-btn capsule dev" style="right:16px; top:16px" data-id="device"><i data-i="display" style="--is:24px"></i>This Device<i data-i="chevron-down" style="--is:20px"></i><span class="lgk-glyph">Y</span></span>
       </div>
 
       <div class="sm-scroll bottom-only" style="left:0; top:332px; width:1280px; height:324px">
         <div class="sm-sec" style="top:4px"><span class="t-title2">Up Next</span><span class="ct">2</span><span class="aux"><i data-i="clock"></i>Auto-updates enabled</span></div>
-        <div class="lgk-row sm-drow is-focus" style="top:56px; --hx:20%; --hy:40%">
+        <div class="lgk-row sm-drow is-focus" style="top:56px; --hx:20%; --hy:26%" data-id="row-focus">
           <div class="art lgk-art" data-art="hero:3:Tidebreaker"></div>
           <div><div class="nm">Tidebreaker</div><div class="dt">Update · 820 MB</div></div>
           <span class="st">Queued</span>
-          <span class="lgk-btn circle"><i data-i="play"></i></span>
-          <span class="lgk-btn circle"><i data-i="xmark"></i></span>
-          <span class="lgk-btn circle"><i data-i="more"></i></span>
+          <div class="btns"><span class="lgk-btn circle" data-id="play"><i data-i="play"></i></span><span class="lgk-btn circle" data-id="remove"><i data-i="xmark"></i></span>
+            <span class="lgk-btn circle sm-more" data-id="more" data-tier="C1a More helper"><i data-i="more"></i></span></div>
         </div>
         <div class="lgk-row sm-drow" style="top:160px">
           <div class="art lgk-art" data-art="hero:4:Lumen Vale"></div>
           <div><div class="nm">Lumen Vale</div><div class="dt">Download · 12.4 GB</div></div>
           <span class="st">Queued</span>
-          <span class="lgk-btn circle" style="visibility:hidden"></span>
-          <span class="lgk-btn circle"><i data-i="xmark"></i></span>
-          <span class="lgk-btn circle" style="visibility:hidden"></span>
+          <div class="btns"><span class="lgk-btn circle"><i data-i="xmark"></i></span><span class="lgk-btn circle" style="visibility:hidden"></span></div>
         </div>
         <div class="sm-sec" style="top:276px"><span class="t-title2">Scheduled</span><span class="ct">1</span></div>
       </div>
     </div>
 
-    <div class="lgk-glass lgk-toolbar sm-orn" data-mat="liquid" data-lens data-dz="0" data-tier="#Footer T1 + T5 slab (inset), no crop" data-sm-legend="Y:Change Device|@menu3:Options|A:Go To Game Page:quiet split|B:Back:quiet"></div>
+    <div data-sm-orn="Y:Change Device|@menu3:Options|A:Go To Game Page|B:Back" data-mode="pad"></div>
   </div>
 </div>
 <script src="kit.js"></script>
 <script src="social-media.js"></script>
+<script src="window-nav-shared.js"></script>
 </body>
 </html>

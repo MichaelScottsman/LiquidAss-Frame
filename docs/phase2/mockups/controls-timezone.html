@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Glass Shell P2 — controls: the Timezone value menu (64 options) beside its open pop-up button</title>
+<title>Glass Shell P2 — controls: a long value menu (64 options): one scrolling column over its open pop-up button</title>
 <link rel="stylesheet" href="kit.css">
 <link rel="stylesheet" href="window-nav-shared.css">
 <link rel="stylesheet" href="settings.css">
@@ -28,16 +28,18 @@
       </div>
 
     </div>
-    <!-- the value menu: a sibling of the window glass in the main overlay (Steam's modal inside the main texture) -->
-    <div class="lgk-overlay" style="left:288px; top:108px; width:560px; height:520px"><div data-cr="tzmenu"></div></div>
+    <!-- the value menu: a sibling of the window glass in the main overlay (Steam's modal inside the main texture). It fits neither
+         below nor above its capsule inside the modal box (y 108..628), so it goes over it: right-aligned to the capsule (slab right =
+         capsule right + 8), clamped to the box (PLAN §1.12; SET §4.5 order: below, above, over). Positioned by the script below, as T2 does. -->
+    <div class="lgk-overlay" id="tzwrap" style="left:0; top:108px; width:560px; height:520px"><div data-cr="tzmenu"></div></div>
   </div>
 
   <div data-wn="frame" data-cx="960" data-y="806" data-dim=".72"></div>
   <div data-wn="bar" data-cx="960" data-y="904"></div>
   <div data-wn="pill" data-cx="960" data-y="1018"></div>
-  <div class="c-note" style="left:1622px; top:150px; width:270px"><b>Long value list.</b> 64 timezones: a menu cannot show them without scrolling, so this is the one menu that scrolls (window-nav §5.1 keeps every shorter menu unscrolled). Two-line rows, 100 px; Steam's scroller inside a 560 × 520 slab with 24 px fades; the rail shows the position (row 20 of 64).</div>
-  <div class="c-note" style="left:1622px; top:452px; width:270px"><b>Placement.</b> It fits neither below nor above the source inside the modal box (y 108–628), so it opens <b>beside</b> it, 16 px to its left, clamped. The source turns white while open. Steam opens it on the current value: <b>check + focus</b>.</div>
-  <div class="c-note" style="left:28px; top:800px; width:300px"><b>Flat until a wearer checks crops.</b> The slab stays on the window plane (T1 thick glass; T5 a glassd slab 2 mm forward for the material only: 2.6 px parallax at 45°). +30 mm waits for the SP §12 check.</div>
+  <div class="c-note" style="left:1622px; top:150px; width:270px"><b>A long value list</b> (64 timezones). On a settings route Steam's menu becomes the settings list page (<span class="k">p2_settings_timezone</span>); this slab is the form a list of 15 or more takes on every other route, and the list page's fallback here. One scrolling column of two-line rows (100 px), Steam's scroller inside a 560 × 520 slab with 24 px fades; a ≤ 8 px position rail shows only while it scrolls.</div>
+  <div class="c-note" style="left:1622px; top:540px; width:270px"><b>Placement.</b> It fits neither below nor above its capsule inside the modal box (y 108–628), so it goes <b>over</b> it, right-aligned to it. The source is white while open (covered here). Steam opens on the current value: <b>check + focus</b>.</div>
+  <div class="c-note" style="left:28px; top:800px; width:300px"><b>Depth.</b> T1: in-page thick glass on the window plane. Native: a non-interactive crop at <b>+10 mm</b> over a thick slab, rising 0 → +10 with the materialize; the laser still clicks Steam's own rows (PLAN §1.7).</div>
 </div>
 <script src="controls-real.js"></script>
 <script src="settings-shared.js"></script>
@@ -45,6 +47,12 @@
 <script src="window-nav-shared.js"></script>
 <script src="kit.js"></script>
 <script src="controls-icons.js"></script>
-
+<script>
+  // T2's anchor: right edge = the open capsule's right edge + 8, top clamped to the modal box (y 108)
+  addEventListener('DOMContentLoaded', () => {
+    const ov = document.querySelector('.lgk-overlay').getBoundingClientRect(), s = document.getElementById('tzsrc').getBoundingClientRect();
+    document.getElementById('tzwrap').style.left = (s.right + 8 - ov.left - 560) + 'px';
+  });
+</script>
 </body>
 </html>

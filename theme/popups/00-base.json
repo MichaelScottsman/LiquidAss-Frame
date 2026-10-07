@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "about": [
+    "Phase 2 popup fragment 00 (P6): the pooled popup hosts device/rt/08-popups.js may change (SP 3.1, 3.3).",
+    "Contract: docs/phase2/contracts/reporter.md section 5. Entries here change nothing: no zMm, z, scale or set.",
+    "An area changes a host only from its own fragment (theme/popups/NN-name.json) that lists the host in \"owns\".",
+    "type = Steam's pooled host type; space = units for zMm: bar (x S) or main (x S x r)."
+  ],
+  "hosts": {
+    "bar": {
+      "type": 0,
+      "keyPrefix": "valve.steam.gamepadui.bar",
+      "space": "bar"
+    },
+    "barpopup": {
+      "type": 1,
+      "keyPrefix": "valve.steam.gamepadui.barpopup",
+      "space": "bar"
+    },
+    "tooltip": {
+      "type": 2,
+      "keyPrefix": "valve.steam.gamepadui.tooltip",
+      "space": "bar"
+    },
+    "frame.menu": {
+      "type": 3,
+      "keyPrefix": "valve.steam.gamepadui.frame.menu",
+      "space": "main"
+    },
+    "volumelevel": {
+      "type": 5,
+      "keyPrefix": "valve.steam.gamepadui.volumelevel",
+      "space": "bar"
+    },
+    "floatingfooter": {
+      "type": 8,
+      "keyPrefix": "valve.steam.gamepadui.floatingfooter",
+      "space": "main"
+    }
+  }
+}

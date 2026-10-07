@@ -1,0 +1,55 @@
+{
+ "seq": 1,
+ "dial": 0.5,
+ "unitM": 0.369,
+ "surfaces": [
+  {
+   "name": "main",
+   "overlayKey": "valve.steam.gamepadui.main",
+   "texW": 1920,
+   "texH": 1080,
+   "radius": 81,
+   "material": "window",
+   "visible": true,
+   "shapes": [],
+   "plates": [
+    {
+     "id": "t-left",
+     "x": 60,
+     "y": 144,
+     "w": 570,
+     "h": 792,
+     "r": 66,
+     "material": "panel"
+    },
+    {
+     "id": "t-centre",
+     "x": 675,
+     "y": 144,
+     "w": 570,
+     "h": 792,
+     "r": 66,
+     "material": "panel"
+    },
+    {
+     "id": "t-right",
+     "x": 1290,
+     "y": 144,
+     "w": 570,
+     "h": 792,
+     "r": 66,
+     "material": "panel"
+    },
+    {
+     "id": "close",
+     "x": 915,
+     "y": 960,
+     "w": 90,
+     "h": 90,
+     "material": "liquid"
+    }
+   ],
+   "slabs": []
+  }
+ ]
+}

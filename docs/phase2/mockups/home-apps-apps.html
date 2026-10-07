@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Glass Shell P2 home-apps: Home, Apps (the real launch list, A to Z)</title>
+<title>Glass Shell P2 home-apps: Home, Apps (the real launch list, A to Z), laser mode</title>
 <link rel="stylesheet" href="kit.css">
 <link rel="stylesheet" href="window-nav-shared.css">
 <link rel="stylesheet" href="home-apps.css">
@@ -51,7 +51,7 @@
       <div class="ha-label">Firewall</div>
     </div>
     <div class="ha-cell is-focus" style="--x:864px; --y:384px">
-      <div class="lgk-glass ha-disc" data-mat="liquid" data-lens style="--dz:15" data-dz="15" data-tier="T3 cell · cover plate + T4 pop"><span class="ha-prog" data-prog="Frametop Display Settings"></span></div>
+      <div class="lgk-glass ha-disc" data-mat="liquid" data-lens style="--dz:15" data-dz="15" data-tier="T3 cell · plate (occluder while popped) + T4 crop +15 mm, non-interactive"><span class="ha-prog" data-prog="Frametop Display Settings"></span></div>
     </div>
     <div class="ha-cell is-under" style="--x:1088px; --y:384px">
       <div class="lgk-glass ha-disc" data-mat="liquid" data-lens><span class="ha-prog" data-prog="Frametop Input Settings"></span></div>
@@ -74,8 +74,9 @@
       <div class="ha-label">Half SBS Toggle</div>
     </div>
 
-    <!-- the focused program's full name after 0.4 s: a liquid name plate in place of its label -->
-    <div class="lgk-glass ha-plate" data-mat="liquid" data-lens style="left:864px; top:458px; translate:-50% 0; --dz:15" data-dz="15">
+    <!-- the attended program's full name after 0.4 s (laser dwell here; gamepad focus does the same): a liquid
+         name plate in place of its label; in native mode its own +15 mm crop over its own occluder plate -->
+    <div class="lgk-glass ha-plate" data-mat="liquid" data-lens style="left:864px; top:458px; translate:-50% 0; --dz:15" data-dz="15" data-tier="T3 name plate · plate + T4 crop +15 mm">
       <span class="n">Frametop Display Settings</span>
     </div>
 
@@ -86,9 +87,8 @@
     <div class="ha-dots" style="left:640px; top:690px"><i class="on"></i><i></i></div>
   </div>
 
-  <div data-wn="frame" data-cx="960" data-y="806" data-dim=".72"></div>
+  <div data-wn="winbar" data-cx="960" data-y="806" data-dim=".85"></div>
   <div data-wn="bar" data-cx="960" data-y="904"></div>
-  <div data-wn="pill" data-cx="960" data-y="1018"></div>
   <div data-wn="laser" data-to="1196,470" data-from="1700,1100"></div>
 </div>
 <script src="../../refs/library/library.js"></script>

@@ -109,9 +109,10 @@ class Room {
         glGenerateMipmap(GL_TEXTURE_2D);
     }
 
+    static constexpr int kMaxQuads = 24;  // uQO[] etc. in room_update.frag and testroom.frag
     static void setMasks(Program &p, const std::vector<MaskQuad> &masks) {
-        const int n = int(std::min<size_t>(masks.size(), 16));
-        std::vector<float> qo(48), qu(48), qv(48), qe(64);
+        const int n = int(std::min<size_t>(masks.size(), kMaxQuads));
+        std::vector<float> qo(3 * kMaxQuads), qu(3 * kMaxQuads), qv(3 * kMaxQuads), qe(4 * kMaxQuads);
         for (int i = 0; i < n; i++) {
             const MaskQuad &m = masks[size_t(i)];
             qo[i * 3] = m.O.x; qo[i * 3 + 1] = m.O.y; qo[i * 3 + 2] = m.O.z;

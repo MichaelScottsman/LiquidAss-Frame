@@ -10,26 +10,48 @@
   .hero::after { content: ""; position: absolute; inset: 0; background:
       linear-gradient(90deg, rgb(0 0 0 / .55), rgb(0 0 0 / .1) 55%, transparent),
       linear-gradient(0deg, rgb(0 0 0 / .45), transparent 45%); }
+  /* the game's logo art (content, not chrome) */
   .logo { position: absolute; left: 48px; top: 250px; font: 800 64px/1.0 var(--lg-font); letter-spacing: -.02em; text-transform: uppercase; text-shadow: 0 4px 18px rgb(0 0 0 / .5); }
   .meta { position: absolute; left: 50px; top: 392px; }
   .acts { position: absolute; left: 48px; top: 462px; display: flex; gap: 20px; align-items: center; }
   .acts .play { --s: 80px; width: 280px; font-size: 28px; gap: 12px; }
   .acts .play .lgk-i { --is: 30px; }
   .clearbtn { background: rgb(0 0 0 / .32) !important; -webkit-backdrop-filter: blur(10px) saturate(1.4); backdrop-filter: blur(10px) saturate(1.4); }
-  .ff { position: relative !important; height: 44px; padding: 0 18px; gap: 20px; display: flex; align-items: center; --r: 22px; }
-  .ff span { display: inline-flex; align-items: center; gap: 10px; font: 600 20px/1 var(--lg-font); }
-  .ff .lgk-glyph { width: auto; min-width: 30px; padding: 0 7px; border-radius: 15px; font-size: 15px; height: 28px; }
-  .var { position: absolute; left: 1572px; display: flex; flex-direction: column; gap: 22px; }
+
+  /* toast card (C3a look, PLAN §1.1: WN §5.5 size). Steam's %{GamepadToastPopup} keeps its inset 0 0 0 20px, so the
+     320 x 76 card sits at x 20, y 2 of the 340 x 80 quad. Icon discs: dark glyphs on green and orange, white on blue and red. */
+  .tquad { position: relative; width: 340px; height: 80px; }
+  .tquad > .wn-toast { position: absolute !important; left: 20px; top: 2px; }
+  .tquad.two > .wn-toast { top: 0; height: 80px; }
+  .wn-toast .ic.dk { color: #0d0e12; }
+  .wn-toast .ic.sq { border-radius: 12px; }                         /* achievement art: a rounded square (SM C.6) */
+  .wn-toast .ic.online::after { content: ""; position: absolute; inset: -5px; border-radius: 50%; box-shadow: inset 0 0 0 3px rgb(76 180 255); }
+  .wn-toast .ic { position: relative; background-size: cover; }
+  .wn-toast .bd.two { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.25; }
+  /* incoming call: Steam's green whole fill stays as the card's tint; text on it is dark (white on green is 2:1) */
+  .wn-toast.call { background: linear-gradient(180deg, rgb(255 255 255 / .16), rgb(255 255 255 / 0) 60%), rgb(48 209 88 / .90); color: #0d0e12; }
+  .wn-toast.call .bd { color: rgb(13 14 18 / .72); }
+
+  /* floating hint (floatingfooter host, 600 x 40): the capsule is %{FloatingVRFooter} filling the 40 px content box (the
+     clip rect), so nothing is drawn outside it. Steam's brightness(.6) filter goes; labels mixed case, no tracking. */
+  .ff { position: relative !important; height: 40px; padding: 0 16px; gap: 18px; display: flex; align-items: center; --r: 20px; }
+  .ff span { display: inline-flex; align-items: center; gap: 9px; font: 600 20px/1 var(--lg-font); }
+  .ff .gl { display: inline-grid; place-items: center; height: 28px; min-width: 28px; padding: 0 8px; box-sizing: border-box; border-radius: 14px;
+            background: rgb(255 255 255 / .86); color: #0d0e12; font: 700 14px/1 var(--lg-font); }
+  .var { position: absolute; left: 1560px; display: flex; flex-direction: column; gap: 14px; }
+  .var .lgk-pop { position: relative; transform: none; }
 </style>
 </head>
 <body>
 <div class="lgk-view" data-room="lounge">
 
-  <!-- a Steam toast: the notifications quad (340 x 80 popup px, x1.10), placed by SteamVR -->
-  <div class="lgk-pop" style="left:773px; top:44px; --pop-scale:1.10" data-tier="notifications quad: T1 card + T5 panel">
-    <div class="lgk-glass wn-toast" data-mat="panel" data-lens style="--dz:0">
-      <span class="ic" style="background:linear-gradient(180deg, #34c759, #1f9d43)"><i data-i="download"></i></span>
-      <span style="min-width:0"><div class="tt">Neon Orchard</div><div class="bd">Download complete</div></span>
+  <!-- a Steam toast: the notifications quad (340 x 80 popup px, x1.107), placed by SteamVR -->
+  <div class="lgk-pop" style="left:752px; top:42px; --pop-scale:1.107" data-tier="notifications quad: T1 card + T5 panel cover">
+    <div class="tquad">
+      <div class="lgk-glass wn-toast" data-mat="panel" data-lens style="--dz:0" data-id="toast">
+        <span class="ic lgk-art" data-art="poster:2:" data-id="toast-icon"></span>
+        <span style="min-width:0"><div class="tt" data-id="toast-title">Neon Orchard</div><div class="bd" data-id="toast-body">Download complete</div></span>
+      </div>
     </div>
   </div>
 
@@ -41,48 +63,57 @@
       <div class="logo">Hollow<br>Peaks</div>
       <div class="meta t-callout v2">Adventure · VR supported · 24 h played</div>
       <div class="acts">
-        <span class="lgk-btn capsule play" data-dz="15"><i data-i="play"></i>Play</span>
+        <!-- PLAN §1.7: the cluster over art stays at 0 mm until G2 (hole treatment) and GP AT-HV-OFFAXIS pass -->
+        <span class="lgk-btn capsule play" data-dz="0" data-tier="0 mm until G2 + AT-HV-OFFAXIS"><i data-i="play"></i>Play</span>
         <span class="lgk-btn circle clearbtn"><i data-i="controller"></i></span>
         <span class="lgk-btn circle clearbtn"><i data-i="gear"></i></span>
       </div>
-      <!-- hero routes: the toolbar row floats over the art; search collapses to a circle -->
+      <!-- hero routes: the toolbar row floats over the art; search collapses to a 60 px circle in an 80 x 80 box (PLAN §1.9) -->
       <span class="lgk-btn circle wn-back clearbtn"><i data-i="chevron-left"></i></span>
       <span class="lgk-btn circle wn-icon-circle clearbtn"><i data-i="search"></i></span>
     </div>
+    <!-- PLAN §1.10: a non-A/B action (Options) makes the ornament a capsule; A and B stay as quiet trailing members -->
     <div data-wn="ornament" data-legends="menu:Options|A:Select|B:Back"></div>
   </div>
 
-  <!-- the floating footer (Steam's non-interactive hint quad under the window), full brightness -->
-  <div class="lgk-pop" style="left:766px; top:900px; --pop-scale:1.10" data-tier="floatingfooter: T1">
-    <div class="lgk-glass ff" data-mat="panel">
-      <span><b class="lgk-glyph">View</b>Jump to Dashboard Bar</span>
-      <span><b class="lgk-glyph">L5</b><b class="lgk-glyph">R5</b>Laser Mouse</span>
+  <!-- the floating hint (Steam's non-interactive floatingfooter quad under the window), full brightness -->
+  <div class="lgk-pop" style="left:772px; top:904px; --pop-scale:1.107" data-tier="floatingfooter: T1 + T5 panel cover">
+    <div class="lgk-glass ff" data-mat="panel" data-id="hint">
+      <span><b class="gl">View</b>Jump to Dashboard Bar</span>
+      <span><b class="gl">L5</b><b class="gl">R5</b>Laser Mouse</span>
     </div>
   </div>
 
-  <!-- variants of the same toast card (one shows at a time) -->
-  <div class="var" style="top:150px">
-    <div class="lgk-pop" style="position:relative; --pop-scale:1; transform:none">
+  <!-- variants of the same card (one toast shows at a time) -->
+  <div class="var" style="top:146px">
+    <div class="lgk-pop" style="--pop-scale:1"><div class="tquad">
       <div class="lgk-glass wn-toast" data-mat="panel">
-        <span class="ic lgk-art" data-art="avatar:4:MK" style="background-size:cover"></span>
+        <span class="ic lgk-art online" data-art="avatar:4:MK"></span>
         <span style="min-width:0"><div class="tt">Mika is online</div><div class="bd">Playing Tidebreaker</div></span>
-      </div>
+      </div></div>
     </div>
-    <div class="lgk-pop" style="position:relative; --pop-scale:1; transform:none">
-      <div class="lgk-glass wn-toast" data-mat="panel" style="height:80px">
-        <span class="ic" style="background:linear-gradient(180deg, #ffb340, #ff8a00)"><i data-i="star"></i></span>
-        <span style="min-width:0"><div class="tt">Achievement Unlocked</div><div class="bd" style="white-space:normal; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical">Summit Seeker: reach the top of every peak</div></span>
-      </div>
-    </div>
-    <div class="lgk-pop" style="position:relative; --pop-scale:1; transform:none">
+    <div class="lgk-pop" style="--pop-scale:1"><div class="tquad two">
       <div class="lgk-glass wn-toast" data-mat="panel">
-        <span class="ic" style="background:linear-gradient(180deg, #ff5a5f, #e0262c)"><svg class="lgk-i" viewBox="0 0 24 24"><path d="M4 9.5h11.5a1.5 1.5 0 0 1 1.5 1.5v2a1.5 1.5 0 0 1-1.5 1.5H4A1.5 1.5 0 0 1 2.5 13v-2A1.5 1.5 0 0 1 4 9.5z M19 11v2" fill="none" stroke="currentColor"/><path d="M4.6 11.6h3" stroke="currentColor"/></svg></span>
+        <span class="ic sq lgk-art" data-art="square:7:"></span>
+        <span style="min-width:0"><div class="tt">Achievement Unlocked</div><div class="bd two">Summit Seeker: reach the top of every peak</div></span>
+      </div></div>
+    </div>
+    <div class="lgk-pop" style="--pop-scale:1"><div class="tquad">
+      <div class="lgk-glass wn-toast" data-mat="panel">
+        <span class="ic dk" style="background:var(--lg-orange)"><i data-i="controller"></i></span>
         <span style="min-width:0"><div class="tt">Controller Battery Low</div><div class="bd">Right controller · 9 %</div></span>
-      </div>
+      </div></div>
+    </div>
+    <div class="lgk-pop" style="--pop-scale:1"><div class="tquad">
+      <div class="lgk-glass wn-toast call" data-mat="panel">
+        <span class="ic lgk-art" data-art="avatar:2:J"></span>
+        <span style="min-width:0"><div class="tt">Incoming Voice Call</div><div class="bd">Jules</div></span>
+      </div></div>
     </div>
   </div>
-  <div class="wn-cap" style="left:1572px; top:96px">Toast variants (same quad)</div>
-  <div class="wn-cap" style="left:1150px; top:44px; width:270px">Materializes in place: no slide. Card 320 &times; 76, radius 30, icon 48 circle.</div>
+  <div class="wn-cap" style="left:1560px; top:96px">Toast variants (same quad)</div>
+  <div class="wn-cap" style="left:1160px; top:40px; width:340px">Card 320 × 76 at Steam's x 20 in its 340 × 80 quad: panel glass, radius 30, no outline. Materializes in place (no slide); Steam's exit kept.</div>
+  <div class="wn-cap" style="left:1400px; top:898px; width:300px">Floating hint: 40 tall (its host's height), panel glass, full brightness, mixed case.</div>
 </div>
 <script src="window-nav-shared.js"></script>
 <script src="kit.js"></script>

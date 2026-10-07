@@ -4,54 +4,57 @@
 <meta charset="utf-8">
 <title>Glass Shell P2 — controls: buttons</title>
 <link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="window-nav-shared.css"><!-- the E3 edge without the linear top layer (PLAN §1.6, WN D-15) -->
 <link rel="stylesheet" href="controls.css">
 <style>
-  .p1 { top: 136px; height: 164px; }
-  .p2 { top: 352px; height: 140px; }
-  .p3 { top: 544px; height: 140px; }
-  .specs { position: absolute; left: 0; right: 0; top: 0; bottom: 0; display: flex; align-items: stretch; justify-content: space-evenly; padding: 0 12px; }
-  .specs > div { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 14px; padding-bottom: 22px; }
+  /* the /zoo spec board inside `window` glass 1280 x 656; content runs y 108..632 */
+  .p1 { top: 146px; height: 144px; }
+  .p2 { top: 336px; height: 128px; }
+  .p3 { top: 510px; height: 120px; }
+  .specs { position: absolute; left: 0; right: 0; top: 0; bottom: 0; display: flex; align-items: stretch; justify-content: space-evenly; padding: 0 10px; }
+  .specs > div { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 12px; padding-bottom: 16px; }
   .specs .stage { display: flex; align-items: center; justify-content: center; }
   .p1 .stage { height: 86px; }
-  .p2 .stage, .p3 .stage { height: 80px; }
+  .p2 .stage { height: 80px; }
+  .p3 .stage { height: 64px; }
 </style>
 </head>
 <body>
 <div class="lgk-view" data-room="lounge">
-  <div class="lgk-overlay" style="left:320px; top:180px">
-    <div class="lgk-glass cg-win" data-mat="window" data-dz="0" data-tier="T5 window">
+  <div class="lgk-overlay" style="left:320px; top:66px">
+    <div class="lgk-glass cg-win" data-mat="window" data-dz="0" data-tier="T5 window cover; T1 smoky tint" data-id="window">
 
-      <!-- sidebar: the list vocabulary at work (40 px colour chips, nav selection = white .18 pill) -->
+      <!-- sidebar: the list vocabulary at work (40 px colour chips, navigation selection = white .18 pill + arc + Semibold) -->
       <div class="cg-side" data-sel="Buttons"></div>
 
       <div class="cg-main">
         <div class="cg-head"><span class="t-title2">Buttons</span>
           <span class="lgk-btn circle" style="right:24px"><i data-i="more"></i></span></div>
 
-        <div class="cg-sec" style="top:104px">Shapes and Sizes <span class="v3">· icon only = circle, text = capsule</span></div>
+        <div class="cg-sec" style="top:116px">Shapes and Sizes <span class="v3">· icon only = circle, text = capsule</span></div>
         <div class="cg-platter p1">
           <div class="specs">
             <div><div class="stage"><span class="lgk-btn circle mini"><i data-i="xmark"></i></span></div><div class="cg-cap"><b>Mini</b> 38</div></div>
             <div><div class="stage"><span class="lgk-btn circle sm"><i data-i="plus"></i></span></div><div class="cg-cap"><b>Small</b> 44</div></div>
-            <div><div class="stage"><span class="lgk-btn circle"><i data-i="share"></i></span></div><div class="cg-cap"><b>Regular</b> 60</div></div>
+            <div><div class="stage"><span class="lgk-btn circle" data-id="circle60"><i data-i="share"></i></span></div><div class="cg-cap"><b>Regular</b> 60</div></div>
             <div><div class="stage"><span class="lgk-btn circle lg"><i data-i="trash"></i></span></div><div class="cg-cap"><b>Large</b> 70</div></div>
             <div><div class="stage"><span class="lgk-btn circle xl"><i data-i="play"></i></span></div><div class="cg-cap"><b>Hero</b> 86</div></div>
-            <div><div class="stage"><span class="lgk-btn capsule">Details</span></div><div class="cg-cap"><b>Capsule</b> 60</div></div>
+            <div><div class="stage"><span class="lgk-btn capsule" data-id="capsule60">Details</span></div><div class="cg-cap"><b>Capsule</b> 60</div></div>
             <div><div class="stage"><span class="lgk-btn capsule lg"><i data-i="download"></i>Install</span></div><div class="cg-cap"><b>Large</b> 70</div></div>
           </div>
         </div>
 
-        <div class="cg-sec" style="top:320px">Roles <span class="v3">· one tinted action per screen</span></div>
+        <div class="cg-sec" style="top:306px">Roles <span class="v3">· one tinted action per screen</span></div>
         <div class="cg-platter p2">
           <div class="specs">
-            <div><div class="stage"><span class="lgk-btn capsule lg primary">Apply Update</span></div><div class="cg-cap"><b>Primary</b> blue fill</div></div>
-            <div><div class="stage"><span class="lgk-btn capsule play play-80"><i data-i="play"></i>Play</span></div><div class="cg-cap"><b>Play</b> 80</div></div>
-            <div><div class="stage"><span class="lgk-btn capsule danger-label">Factory Reset</span></div><div class="cg-cap"><b>Destructive</b> red label</div></div>
-            <div><div class="stage"><span class="lgk-btn capsule"><i data-i="filter"></i>Filter<span class="lgk-glyph">X</span></span></div><div class="cg-cap"><b>Shortcut</b> glyph</div></div>
+            <div><div class="stage"><span class="lgk-btn capsule lg primary">Apply</span></div><div class="cg-cap"><b>Primary</b> 70</div></div>
+            <div><div class="stage"><span class="lgk-btn capsule play play-80"><i data-i="play"></i>Play</span></div><div class="cg-cap"><b>Play</b> 280 × 80</div></div>
+            <div><div class="stage"><span class="lgk-btn capsule danger-label">Uninstall</span></div><div class="cg-cap"><b>Destructive</b></div></div>
+            <div><div class="stage"><span class="lgk-btn capsule"><i data-i="filter"></i>Filter<span class="lgk-glyph">X</span></span></div><div class="cg-cap"><b>Glyph</b> · gamepad</div></div>
           </div>
         </div>
 
-        <div class="cg-sec" style="top:512px">States <span class="v3">· light, not rings</span></div>
+        <div class="cg-sec" style="top:480px">States <span class="v3">· light, not rings</span></div>
         <div class="cg-platter p3">
           <div class="specs">
             <div><div class="stage"><span class="lgk-btn capsule">Open</span></div><div class="cg-cap"><b>Rest</b></div></div>
@@ -72,6 +75,9 @@
     <polygon id="beamp" points="1700,1095 1712,1095 0,0 0,0" fill="url(#beam)" opacity=".5"/>
   </svg>
   <div class="lgk-laser-dot" id="dot"></div>
+
+  <div class="c-note" style="left:1622px; top:150px; width:270px"><b>Spacing is the hit rule.</b> 60 px targets with ≥ 24 px clear between them, so every centre is ≥ 84 px from the next (P-08). Inside a platter row, where the next row's control is only 20 px away, a 60 px button takes Steam's free <span class="k">::before</span> as an 80 px extender.</div>
+  <div class="c-note" style="left:1622px; top:420px; width:270px"><b>Gamepad focus</b> adds white .28, a spot in the upper third and the button's own arc ×1.5: ≥ 40 L over rest (P-14). <b>Laser hover</b> adds .08 and a light at the pointer, under the label (P-10). Glyph badges show only while the controller drives (P-26).</div>
 </div>
 <script src="controls-gallery.js"></script>
 <script src="kit.js"></script>

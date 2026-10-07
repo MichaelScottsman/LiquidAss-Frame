@@ -10,19 +10,21 @@
 <body>
 <div class="lgk-view" data-room="lounge">
 
-  <!-- tab-bar ornament (window-nav §3.3): Steam's frame menu, Settings selected -->
+  <!-- tab-bar ornament (window-nav §3.3): Steam's frame menu, Settings selected; +25 mm (popup z, PLAN §1.7) -->
   <div data-wn="tabbar" data-right="302" data-cy="426" data-sel="steam settings"></div>
 
-  <!-- ============ Steam's main window, /settings/system, root view -->
+  <!-- ============ Steam's main window, /settings/system, root view. Route glass mode "window": 1280 x 656 (PLAN §1.2) -->
   <div class="lgk-overlay" style="left:320px; top:66px">
-    <div class="lgk-glass st-win" data-mat="window" data-dz="0" data-tier="T5 window (T1: smoky tint)">
+    <div class="lgk-glass st-win" data-mat="window" data-dz="0" data-tier="T5 window cover (T1: smoky tint + edge cues)">
 
-      <div data-st="sidebar" data-sel="system" data-hover="internet" data-hx="74%" data-hy="44%"></div>
+      <!-- laser mode: the hovered Internet row gets only the light spot; System keeps the brighter selection pill (T-SEL) -->
+      <div data-st="sidebar" data-sel="system" data-hover="internet" data-hx="72%" data-hy="44%"></div>
       <!-- detail toolbar: no title at scroll 0 (the hero is the title); Steam's search collapsed to the magnifier circle -->
       <div data-st="toolbar"></div>
 
       <div class="st-scroll top">
         <div class="st-col" style="top:116px">
+          <!-- compact hero: the 60 px circle is the page's one decorative pop (+10 mm, non-interactive crop, PLAN §1.7) -->
           <div class="st-hero"><span data-chip="system" data-cls="md"></span><div class="t-title1">System</div></div>
 
           <!-- drill-down rows (T3, P-S1 + P-S4): each opens one or more of Steam's own sections as a sub-view -->
@@ -33,12 +35,12 @@
           <div class="st-gap20"></div>
           <!-- Steam's own rows, shown inline at the root -->
           <div class="st-plat">
-            <div class="st-r"><span class="lab">Select preferred language</span><span class="st-pop">English<i data-si="updown"></i></span></div>
+            <div class="st-r first last"><span class="lab">Select preferred language</span><span class="st-pop">English<i data-si="updown"></i></span></div>
           </div>
           <div class="st-sh">System Settings</div>
           <div class="st-plat">
             <div class="st-r first two"><span class="lab">24-hour clock<span class="desc">Show the time in 24-hour format</span></span><span class="lgk-toggle"></span></div>
-            <div class="st-r"><span class="lab">Timezone</span><span class="st-pop" style="height:72px; min-width:300px"><span style="display:grid; gap:4px"><span>Europe/London</span><span style="font-size:18px; color:var(--lg-text-2)">UTC+01:00</span></span><i data-si="updown"></i></span></div>
+            <div class="st-r" style="min-height:96px"><span class="lab">Timezone</span><span class="st-pop rich"><span style="display:grid; gap:5px"><span>Europe/London</span><span class="sub">UTC+01:00</span></span><i data-si="updown"></i></span></div>
             <div class="st-r"><span class="lab">Default to Desktop Mode on startup</span><span class="lgk-toggle"></span></div>
             <div class="st-r last"><span class="lab">Enable Developer Mode</span><span class="lgk-toggle on"></span></div>
           </div>
@@ -50,15 +52,16 @@
         </div>
       </div>
     </div>
-    <!-- no bottom ornament: Steam's legend holds only Select (A) and Back (B) here, so it stays hidden (settings.md §4.11) -->
+    <!-- Steam's legend holds only Select (A) and Back (B): the quiet legend in the 64 px margin, never hidden (PLAN §1.10).
+         Laser mode: labels only, no glyph badges (VP P-26) -->
+    <div data-st="legend" data-mode="laser" data-legends="A:Select|B:Back"></div>
   </div>
 
-  <!-- SteamVR frame controls, dashboard bar, window pill (window-nav shared chrome) -->
-  <div data-wn="frame" data-cx="960" data-y="806" data-dim=".72"></div>
+  <!-- the window-bar row (window-nav §3.5; shown while the laser is on the dashboard) and the dashboard bar -->
+  <div data-wn="winbar" data-cx="960" data-y="806" data-dim=".85"></div>
   <div data-wn="bar" data-cx="960" data-y="904"></div>
-  <div data-wn="pill" data-cx="960" data-y="1018"></div>
 
-  <!-- laser on the Internet row (SteamVR draws beam and dot) -->
+  <!-- laser on the Internet row (SteamVR draws beam and dot; the shell's pointer proxy marks the hit in native mode) -->
   <div data-wn="laser" data-to="602,286" data-from="1460,1100"></div>
 </div>
 <script src="settings-shared.js"></script>

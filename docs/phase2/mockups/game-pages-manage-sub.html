@@ -10,9 +10,12 @@
 <div class="lgk-view" data-room="lounge" data-tab="library" data-fc="steam" data-bar="idle">
   <div class="lgk-overlay" style="left:320px; top:66px" data-gp="title" data-state="installed" data-focus="none" data-open="manage"
        data-private="1" data-cloud="1" data-dim=".46,.40,.35" data-foot="A:Select|B:Back">
-    <!-- rule 4: the submenu adjoins the root on its right (8 px); the pair is clamped to x <= 1256, so the root
-         moves 9 px left (528) and the submenu covers the gear while it is open -->
-    <div class="lgk-glass lgk-menu gp-menu" data-mat="thick" data-lens style="left:528px; top:108px; width:360px; --dz:30; z-index:5" data-dz="30" data-tier="T1+T2, T4, T5">
+    <!-- rule 4: the submenu adjoins the root on its right (8 px gap). The pair (728 px) does not fit right of the gear
+         (834 + 728 > 1256), so the pair moves left until it ends at x 1256: root (528, 108), submenu (896, 108); the
+         root covers the white gear while the submenu is open. Manage › has 1 destructive row (Uninstall; 2 with
+         "Remove non-Steam game"): red label at rest, red whole fill on focus (PLAN §1.12, <= 2 destructive rows).
+         Both slabs +10 mm (a modal pops; every other in-page pop drops to 0). Gamepad mode: Uninstall focused (never pressed). -->
+    <div class="lgk-glass lgk-menu gp-menu" data-mat="thick" data-lens style="left:528px; top:108px; width:360px; --dz:10; z-index:5" data-dz="10" data-tier="C1c slab, T2 anchor (GP rule 4); +10 mm crop">
       <div class="hdr">Starfall Drift</div>
       <div class="lgk-row"><span class="lead"><i data-i="star2"></i></span>Add to Favorites</div>
       <div class="lgk-row"><span class="lead"><i data-i="folder-plus"></i></span>Add to<i data-i="chevron-right" class="chev"></i></div>
@@ -22,7 +25,7 @@
       <div class="lgk-row"><span class="lead"><i data-i="sliders"></i></span>Properties…</div>
       <span class="cancel">Cancel</span>
     </div>
-    <div class="lgk-glass lgk-menu gp-menu" data-mat="thick" data-lens style="left:896px; top:108px; width:360px; --dz:30; z-index:5" data-dz="30" data-tier="submenu slab">
+    <div class="lgk-glass lgk-menu gp-menu" data-mat="thick" data-lens style="left:896px; top:108px; width:360px; --dz:10; z-index:5" data-dz="10" data-tier="submenu slab, +10 mm">
       <div class="hdr">Manage</div>
       <div class="lgk-row"><span class="lead"><i data-i="eye-slash"></i></span>Hide this game</div>
       <div class="lgk-row"><span class="lead"><i data-i="eye"></i></span>Unmark as Private</div>

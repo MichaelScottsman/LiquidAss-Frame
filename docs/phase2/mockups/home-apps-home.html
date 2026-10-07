@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Glass Shell P2 home-apps: Home, Recent (real library), card open</title>
+<title>Glass Shell P2 home-apps: Home, Recent (real library), laser mode, card open</title>
 <link rel="stylesheet" href="kit.css">
 <link rel="stylesheet" href="window-nav-shared.css">
 <link rel="stylesheet" href="home-apps.css">
@@ -13,7 +13,8 @@
   <!-- tab-bar ornament: Steam's VR main menu (window-nav §3.3), Home selected -->
   <div data-wn="tabbar" data-right="302" data-cy="426" data-sel="home"></div>
 
-  <!-- Steam's main overlay, 1280 x 720 at 1:1. Home is windowless: no window glass. -->
+  <!-- Steam's main overlay, 1280 x 720 at 1:1. Home is a windowless route (PLAN §1.2): no window glass;
+       every glass element is a plate (PLAN §1.6). Laser mode: no glyph badges (VP P-26). -->
   <div class="lgk-overlay" style="left:320px; top:66px">
 
     <!-- top row: Steam's Back (circle), our section control, our What's New button, Steam's search (circle variant) -->
@@ -90,8 +91,9 @@
     <!-- page indicator: Recent has 2 pages -->
     <div class="ha-dots" style="left:640px; top:690px"><i class="on"></i><i></i></div>
 
-    <!-- the focused game after 0.8 s: the disc has morphed into the card (glass plate; popped +15 mm in native mode) -->
-    <div class="lgk-glass ha-card" data-mat="liquid" data-lens style="left:592px; top:96px; --dz:15" data-dz="15" data-tier="T3 card · cover plate + T4 pop">
+    <!-- the attended game after 0.8 s of laser dwell: the disc has morphed into the card (a plate; in native mode
+         a +15 mm non-interactive crop over its occluder plate). Top clamped 12 px under the top row (86 + 12). -->
+    <div class="lgk-glass ha-card" data-mat="liquid" data-lens style="left:592px; top:98px; --dz:15" data-dz="15" data-tier="T3 card · plate + T4 crop +15 mm (non-interactive)">
       <span class="ha-hero" data-app="391220" data-name="Rise of the Tomb Raider" data-pos="50% 30%"></span>
       <span class="lgk-btn capsule play is-hover" style="--hx:40%; --hy:45%"><i data-i="play"></i>Play</span>
       <span class="lgk-btn circle more"><i data-i="more"></i></span>
@@ -100,10 +102,10 @@
     </div>
   </div>
 
-  <div data-wn="frame" data-cx="960" data-y="806" data-dim=".72"></div>
+  <!-- window-nav's window-bar row (laser on the dashboard), the dashboard bar, the laser and its pointer proxy (native mode) -->
+  <div data-wn="winbar" data-cx="960" data-y="806" data-dim=".85"></div>
   <div data-wn="bar" data-cx="960" data-y="904"></div>
-  <div data-wn="pill" data-cx="960" data-y="1018"></div>
-  <div data-wn="laser" data-to="992,276"></div>
+  <div data-wn="laser" data-to="992,278"></div>
 </div>
 <script src="../../refs/library/library.js"></script>
 <script src="home-apps.js"></script>

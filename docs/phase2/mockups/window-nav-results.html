@@ -2,119 +2,212 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Glass Shell P2 window-nav: search results in the sheet (All, every category present)</title>
+<title>Glass Shell P2 window-nav (C1b): results for "half" in the search sheet (All, gamepad mode, focus on the Top Hit)</title>
 <link rel="stylesheet" href="kit.css">
 <link rel="stylesheet" href="window-nav-shared.css">
+<style id="c1b-recipe">
+  /* C1b search recipe, conformed to PLAN §1.3, §1.4, §1.6, §1.9, §1.10, §1.11 (M0, 2026-10-07).
+     The same block sits in window-nav-search.html and window-nav-results.html. State values are the ones
+     C1c's recipe uses, so every Phase 2 mockup shows one illumination model; the shared chrome is asked to
+     adopt them (REQ C1b->C1a in docs/phase2/wp/C1b.md). */
+  /* states (PLAN §1.4): laser hover = +.08 and a .12 spot at the pointer; gamepad focus = +.28 uniform,
+     a static .16 spot in the upper third, the control's own arc x1.5; focus on a white fill = outer glow */
+  .c1b :is(.lgk-row, .lgk-btn, .lgk-seg > *).is-hover::after { opacity: 1; --lift: .08; --spot: .12; }
+  .c1b :is(.lgk-row, .lgk-btn, .lgk-seg > *).is-focus::after { opacity: 1; --lift: .28; --spot: .16; --hx: 50%; --hy: 16%; }
+  .c1b .is-focus:is(.is-selected, .primary) { box-shadow: 0 0 18px 2px rgb(255 255 255 / .30); }
+  /* the search sheet: thick glass, radius 44, grows down out of the field (WN §4.4) */
+  .c1b .wn-ssheet { --r: 44px; }
+  .c1b .sx-h { position: absolute; font: 600 28px/1.25 var(--lg-font); letter-spacing: -.01em; white-space: nowrap; }   /* Title 3 */
+  /* content art: opaque, rounded, never glass (D2 §7.8). Real art from docs/refs/library (fetch-library-refs.py);
+     without it each element keeps a neutral title card with the real name (nothing is invented) */
+  .c1b .sx-art { position: absolute; overflow: hidden; background: linear-gradient(160deg, #3b4a63, #1a2232); }
+  .c1b .sx-art img { position: absolute; display: block; }
+  .c1b .sx-art img.hero, .c1b .sx-art img.port { inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .c1b .sx-art img.logo { left: 50%; top: 52%; translate: -50% -50%; max-width: 76%; max-height: 46%; object-fit: contain;
+    filter: drop-shadow(0 2px 3px rgb(0 0 0 / .6)) drop-shadow(0 0 10px rgb(0 0 0 / .35)); }
+  .c1b .sx-art.mono { display: grid; place-items: center; text-align: center; padding: 10px; box-sizing: border-box;
+    font: 700 20px/1.2 var(--lg-font); color: rgb(255 255 255 / .92); }
+  /* a game disc as content inside the sheet (D2 §9.2): art circle, logo at 70 %, specular arc from above and a
+     contact shadow; no glass bezel, because the sheet is already glass (VP P-45) */
+  .c1b .sx-disc { border-radius: 50%; box-shadow: 0 6px 18px rgb(0 0 0 / .35); }
+  .c1b .sx-disc::after { content: ""; position: absolute; inset: 0; border-radius: 50%; pointer-events: none; z-index: 3;
+    background: radial-gradient(120% 70% at 38% 0%, rgb(255 255 255 / .22), rgb(255 255 255 / 0) 52%),
+                linear-gradient(180deg, rgb(0 0 0 / 0) 58%, rgb(0 0 0 / .22));
+    box-shadow: inset 0 2px 2px rgb(255 255 255 / .40), inset 0 -10px 18px rgb(0 0 0 / .22); }
+  /* quiet legend (PLAN §1.10): only A and B, so no capsule material; 60 px items, Medium white .70, in the margin */
+  .c1b .wn-quiet { position: absolute; left: 50%; translate: -50% 0; top: 658px; height: 60px; display: flex; align-items: center; gap: 8px; z-index: 6; }
+  .c1b .wn-quiet .wn-leg { font-weight: 500; color: var(--lg-text-2); padding: 0 18px; text-shadow: 0 1px 3px rgb(0 0 0 / .55), 0 0 12px rgb(0 0 0 / .35); }
+  .c1b .wn-quiet .lgk-glyph { width: 30px; height: 30px; font-size: 15px; background: rgb(255 255 255 / .14); color: var(--lg-text-2); }
+  /* laser mode: no controller glyph badges anywhere (PLAN §1.4, VP P-26) */
+  .c1b.laser .lgk-glyph { display: none !important; }
+</style>
 <style>
-  .tabs { position: absolute; left: 40px; top: 120px; }
-  .grid { position: absolute; left: 0; top: 212px; right: 0; bottom: 0; }
-  .grid .lgk-poster { width: 220px; height: 330px; }
-  .snaptitle { position: absolute; left: 100px; top: 25px; }
-  .sheet { left: 120px; top: 100px; width: 1040px; height: 520px; overflow: hidden; }
-  .scope { position: absolute; left: 50%; translate: -50% 0; top: 22px; }
+  /* ---- the context snapshot under the scrim (as in window-nav-search.html) */
+  .snaptitle { position: absolute; left: 100px; top: 25px; white-space: nowrap; }
+  .snaptabs { position: absolute; left: 108px; right: 108px; top: 116px; height: 64px; overflow: hidden; }
+  .snaptabs .lgk-seg { position: absolute; left: 0; top: 0; }
+  .snaptabs .n { font-weight: 500; color: var(--lg-text-2); margin-left: 2px; }
+  .snaptabs .is-selected .n { color: rgb(13 14 18 / .55); }
+  .snaparrow { position: absolute !important; top: 118px; background: transparent !important; color: var(--lg-text-2); }
+  .snapsub { position: absolute; left: 50%; translate: -50% 0; top: 192px; height: 60px; }
+  .snapsub > * { padding: 0 24px; }
+  .snapgrid { position: absolute; inset: 0; }
+  .snapgrid .sx-art { width: 172px; height: 258px; border-radius: 20px; box-shadow: 0 6px 18px rgb(0 0 0 / .30); }
+
+  /* ---- the results sheet: 960 x 500 at (160, 100) (PLAN §1.12: sheets <= 960; centred on the glass, VP P-35);
+     the width grows 880 -> 960 on snappy from the zero state, the height never jumps (WN §7) */
+  .sheet { left: 160px; top: 100px; width: 960px; height: 500px; overflow: hidden; }
+  /* the scope bar: Steam's search categories as one segmented control (64 px track, segments 56 tall and >= 120 wide,
+     E-SEG compact), Steam's counts; Steam's own paging arrows as 60 px plain circles at the ends */
+  .scope { position: absolute; left: 50%; translate: -50% 0; top: 16px; }
+  .scope > * { min-width: 120px; padding: 0 18px; box-sizing: border-box; }
   .scope .n { font-weight: 500; color: var(--lg-text-2); margin-left: 2px; }
   .scope .is-selected .n { color: rgb(13 14 18 / .55); }
-  .arrow { position: absolute !important; top: 24px; background: transparent !important; color: var(--lg-text-2); }
-  .body { position: absolute; left: 0; right: 0; top: 104px; bottom: 0;
+  .arrow { position: absolute !important; top: 18px; background: transparent !important; color: var(--lg-text-2); }
+  .body { position: absolute; left: 0; right: 0; top: 0; bottom: 0;
           -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 26px), transparent); mask-image: linear-gradient(180deg, #000 calc(100% - 26px), transparent); }
-  .hd { position: absolute; left: 32px; right: 32px; display: flex; align-items: center; justify-content: space-between; height: 40px; }
-  .hd .lgk-btn { --s: 48px; font-size: 20px; padding: 0 14px 0 20px; gap: 4px; background: rgb(255 255 255 / .08); }
-  .hd .lgk-btn .lgk-i { --is: 20px; color: var(--lg-text-2); }
-  .row1 { position: absolute; left: 32px; top: 48px; display: flex; gap: 16px; align-items: flex-start; }
-  .hit { position: relative; width: 300px; height: 170px; border-radius: 20px; overflow: hidden; flex: none; box-shadow: 0 6px 18px rgb(0 0 0 / .3); }
-  .hit .lgk-art { position: absolute; inset: 0; background-position: 50% 70%; }
-  .hit::after { content: ""; position: absolute; inset: 0; background: linear-gradient(0deg, rgb(0 0 0 / .62), transparent 62%); }
-  .hit .k { position: absolute; left: 16px; top: 12px; z-index: 2; height: 28px; padding: 0 12px; border-radius: 14px; display: grid; place-items: center;
-            background: rgb(0 0 0 / .42); font: 600 17px/1 var(--lg-font); }
-  .hit .t { position: absolute; left: 18px; bottom: 40px; z-index: 2; font: 700 26px/1.1 var(--lg-font); }
-  .hit .s { position: absolute; left: 18px; bottom: 14px; z-index: 2; font: 500 18px/1.2 var(--lg-font); color: rgb(255 255 255 / .8); }
-  .hit .o { position: absolute; right: 14px; bottom: 14px; z-index: 2; --s: 48px; padding: 0 22px; font-size: 21px; background: rgb(255 255 255 / .26); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
-  .p { position: relative; width: 113px; flex: none; }
-  .p .lgk-poster { position: relative; display: block; width: 113px; height: 170px; border-radius: 16px; }
-  .p .lbl { margin-top: 8px; font: 500 20px/1.25 var(--lg-font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .p .sub { font: 500 18px/1.3 var(--lg-font); color: var(--lg-text-2); white-space: nowrap; }
-  .also { display: flex; flex-direction: column; gap: 4px; width: 148px; flex: none; }   /* 54 visible on a contiguous 58 px pitch (the tab bar's) */
-  .also .lgk-btn { --s: 54px; font-size: 20px; font-weight: 500; padding: 0 14px 0 9px; gap: 9px; justify-content: flex-start; }
-  .also .lgk-btn .ct { margin-left: auto; color: var(--lg-text-2); }
-  .also .lgk-btn .chipi { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; --is: 18px; color: #fff; flex: none; }
-  .store { position: absolute; left: 32px; top: 318px; display: flex; gap: 18px; }
-  .store .lgk-poster { position: relative; display: block; width: 230px; height: 96px; border-radius: 16px; }</style>
+  /* row 1: the Top Hit (Steam's best library match, or a program through the provider API) and Steam's next
+     library matches as posters; content cards lift x1.05 and +15 mm on focus (PLAN §1.4, §1.7) */
+  .hit { left: 32px; top: 96px; width: 372px; height: 170px; border-radius: 20px; box-shadow: 0 6px 18px rgb(0 0 0 / .3); }
+  .hit::before { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none; background: linear-gradient(0deg, rgb(0 0 0 / .66), rgb(0 0 0 / .05) 62%); }
+  .hit.is-focus { scale: 1.05; z-index: 4; box-shadow: 0 18px 44px rgb(0 0 0 / .48), 0 0 30px 2px rgb(255 255 255 / .22); }
+  .hit.is-focus::after { content: ""; position: absolute; inset: 0; z-index: 2; border-radius: inherit; pointer-events: none; mix-blend-mode: plus-lighter;
+    background: linear-gradient(155deg, rgb(255 255 255 / .22) 0, rgb(255 255 255 / .05) 30%, transparent 55%); }
+  .hit .tag { position: absolute; left: 14px; top: 14px; z-index: 3; height: 30px; padding: 0 12px; border-radius: 15px; display: grid; place-items: center;
+    background: rgb(0 0 0 / .45); font: 600 18px/1 var(--lg-font); color: var(--lg-text-1); }
+  .hit .t { position: absolute; left: 18px; bottom: 40px; z-index: 3; max-width: 210px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    font: 600 28px/1.15 var(--lg-font); letter-spacing: -.01em; }
+  .hit .s { position: absolute; left: 18px; bottom: 14px; z-index: 3; font: 500 18px/1.3 var(--lg-font); color: rgb(255 255 255 / .82); }
+  /* "Open": the card's primary action drawn as a 60 px capsule; part of the card's one target (A or a click on the
+     card opens), so no second focusable sits inside the card. A fill, not glass: no glass inside the sheet (P-45) */
+  .hit .open { position: absolute !important; right: 12px; bottom: 12px; z-index: 3; background: rgb(255 255 255 / .24); }
+  /* the More circle (C1a helper, PLAN §1.11): 60 visible, 80 hit, inside the card's top right, inset 10;
+     black .38 with no blur here, because its host sits inside the sheet's glass (P-45) */
+  .hit .more { position: absolute; right: 10px; top: 10px; z-index: 3; width: 60px; height: 60px; border-radius: 50%; display: grid; place-items: center;
+    background: rgb(0 0 0 / .38); color: #fff; }
+  .hit .more .lgk-i { --is: 28px; }
+  .poster { top: 96px; width: 113px; height: 170px; border-radius: 16px; box-shadow: 0 6px 18px rgb(0 0 0 / .3); }
+  /* row 2: Steam's own section headers with counts; the Software cell (S-B, home-apps' provider) beside the Store
+     row; Steam's first store results; See All opens Steam's Store tab, where "View more in the Store" stays */
+  .row2h { top: 318px; }
+  .apps { position: absolute; left: 32px; top: 362px; width: 300px; height: 84px; border-radius: 20px; box-sizing: border-box; padding: 0 18px 0 16px;
+          display: flex; align-items: center; gap: 14px; background: var(--lg-fill-regular); }
+  .apps .chip { width: 56px; height: 56px; border-radius: 50%; flex: none; display: grid; place-items: center; background: rgb(255 255 255 / .11); }
+  .apps .chip img { width: 48px; height: 48px; display: block; }
+  .apps .nm { font: 600 24px/1.25 var(--lg-font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* store cards: Steam's store capsules as they show on its own /search/tab/All page (cropped from
+     shots/p2_audit_search_on.png, row 2, columns 3-4, Steam's first two store results; the store's art is not in the local library refs) */
+  .st { position: absolute; top: 362px; width: 180px; height: 84px; border-radius: 16px; box-shadow: 0 6px 18px rgb(0 0 0 / .3);
+        --s: .646; background: #1b1e25 url("../../../shots/p2_audit_search_on.png") no-repeat;
+        background-size: calc(1920px * var(--s)) calc(1080px * var(--s));
+        background-position: calc(var(--x) * var(--s) * -1px) calc(var(--y) * var(--s) * -1px); }
+  .seeall { position: absolute !important; left: 752px; top: 374px; }
+  .seeall .lgk-i { --is: 22px; color: var(--lg-text-2); margin-left: -2px; }
+</style>
 </head>
 <body>
-<div class="lgk-view" data-room="lounge">
+<div class="lgk-view c1b pad" data-room="lounge">
 
   <div data-wn="tabbar" data-right="302" data-cy="426" data-pitch="58" data-badge></div>
 
   <div class="lgk-overlay" style="left:320px; top:66px">
-    <div class="lgk-glass wn-win" data-mat="window" data-dz="0">
-      <div class="wn-snap">
-        <div class="grid wn-fade-bottom">
-          <div class="lgk-poster lgk-art" data-art="poster:0:Starfall Drift" style="left:42px; top:0"></div>
-          <div class="lgk-poster lgk-art" data-art="poster:1:Hollow Peaks" style="left:286px; top:0"></div>
-          <div class="lgk-poster lgk-art" data-art="poster:2:Neon Orchard" style="left:530px; top:0"></div>
-          <div class="lgk-poster lgk-art" data-art="poster:3:Tidebreaker" style="left:774px; top:0"></div>
-          <div class="lgk-poster lgk-art" data-art="poster:4:Lumen Vale" style="left:1018px; top:0"></div>
-          <div class="lgk-poster lgk-art" data-art="poster:8:Echo Station" style="left:42px; top:354px"></div>
-          <div class="lgk-poster lgk-art" data-art="poster:6:Ironwood" style="left:286px; top:354px"></div>
-          <div class="lgk-poster lgk-art" data-art="poster:7:Paper Comets" style="left:530px; top:354px"></div>
-          <div class="lgk-poster lgk-art" data-art="poster:5:Glasswing" style="left:774px; top:354px"></div>
-          <div class="lgk-poster lgk-art" data-art="poster:9:Deep Field" style="left:1018px; top:354px"></div>
-        </div>
+    <div class="lgk-glass wn-win" data-id="window" data-mat="window" data-dz="0" data-tier="window glass, route mode window (656)">
+      <div class="wn-snap" data-id="snapshot" data-tier="T2 context snapshot: inert clone, no ids">
         <div class="t-large snaptitle">Library</div>
+        <span class="lgk-btn circle snaparrow" style="left:24px"><i data-i="chevron-left"></i></span>
+        <div class="snaptabs"><div class="lgk-seg"><span class="is-selected">All Games <span class="n t-num">350</span></span><span>Great On Frame <span class="n t-num">21</span></span><span>Ready To Play <span class="n t-num">68</span></span><span>Collections <span class="n t-num">9</span></span><span>Non-Steam <span class="n t-num">54</span></span><span>Soundtracks <span class="n t-num">18</span></span></div></div>
+        <span class="lgk-btn circle snaparrow" style="right:24px"><i data-i="chevron-right"></i></span>
+        <div class="lgk-seg compact snapsub"><span class="is-selected">All</span><span>VR</span><span>Non-VR</span></div>
+        <div class="snapgrid wn-fade-bottom">
+          <span class="sx-art" data-c1b-art="poster:735580" data-name="11-11 Memories Retold" style="left:40px; top:270px"></span>
+          <span class="sx-art" data-c1b-art="poster:793460" data-name="112 Operator" style="left:236px; top:270px"></span>
+          <span class="sx-art" data-c1b-art="poster:410110" data-name="12 is Better Than 6" style="left:432px; top:270px"></span>
+          <span class="sx-art" data-c1b-art="poster:242820" data-name="140" style="left:628px; top:270px"></span>
+          <span class="sx-art" data-c1b-art="poster:1147940" data-name="3dSen" style="left:824px; top:270px"></span>
+          <span class="sx-art" data-c1b-art="poster:954280" data-name="3dSenVR" style="left:1020px; top:270px"></span>
+          <span class="sx-art" data-c1b-art="poster:503560" data-name="911 Operator" style="left:40px; top:570px"></span>
+          <span class="sx-art" data-c1b-art="poster:15560" data-name="AaaaaAAaaaAAAaaAAAAaAAAAA!!!" style="left:236px; top:570px"></span>
+          <span class="sx-art" data-c1b-art="poster:473690" data-name="Absolver" style="left:432px; top:570px"></span>
+          <span class="sx-art" data-c1b-art="poster:228400" data-name="Ace Combat Assault Horizon" style="left:628px; top:570px"></span>
+          <span class="sx-art" data-c1b-art="poster:300060" data-name="ADR1FT" style="left:824px; top:570px"></span>
+          <span class="sx-art" data-c1b-art="poster:371140" data-name="Aegis Defenders" style="left:1020px; top:570px"></span>
+        </div>
       </div>
-      <div class="lgk-scrim" style="z-index:3"></div>
+      <div class="lgk-scrim" style="z-index:3" data-id="scrim"></div>
+      <!-- the field keeps the query; focus is in the sheet now, so the field shows no ring; the clear circle is the
+           44 px mini circle alone at the trailing end (E-MINI) -->
       <div data-wn="toolbar" data-back="nested" data-search="filled:half" data-searchw="wide"></div>
     </div>
 
-    <!-- the sheet now holds results: one segmented control for Steam's categories, the summary for All -->
-    <div class="lgk-glass wn-ssheet sheet" data-mat="thick" data-lens style="--dz:10" data-dz="10" data-tier="T3 summary from Steam's own search hook (Q6 gate)">
-      <span class="lgk-btn circle arrow" style="left:22px"><i data-i="chevron-left"></i></span>
-      <div class="lgk-seg scope">
-        <span class="is-selected">All <span class="n t-num">171</span></span>
+    <!-- the sheet holds results: one scope bar for Steam's categories; on All, the summary built from Steam's own
+         results (Q6), in Steam's order and with Steam's counts -->
+    <div class="lgk-glass wn-ssheet sheet" data-id="sheet" data-mat="thick" data-lens style="--dz:10" data-dz="10" data-tier="T3 LgsSearch: All summary from Steam's search results (Q6); T4 +10 mm crop, interactive: false">
+      <span class="lgk-btn circle arrow" style="left:12px" data-id="scope-prev"><i data-i="chevron-left"></i></span>
+      <div class="lgk-seg scope" data-id="scope">
+        <span class="is-selected">All <span class="n t-num">162</span></span>
         <span>Library <span class="n t-num">8</span></span>
-        <span>Friends <span class="n t-num">2</span></span>
+        <span>Friends <span class="n t-num">0</span></span>
         <span>Store <span class="n t-num">158</span></span>
-        <span>Tools <span class="n t-num">2</span></span>
-        <span>Hidden <span class="n t-num">1</span></span>
+        <span>Tools <span class="n t-num">3</span></span>
+        <span>Hidden <span class="n t-num">4</span></span>
       </div>
-      <span class="lgk-btn circle arrow" style="right:22px"><i data-i="chevron-right"></i></span>
+      <span class="lgk-btn circle arrow" style="right:12px" data-id="scope-next"><i data-i="chevron-right"></i></span>
 
       <div class="body">
-        <div class="hd" style="top:0"><span class="t-title3">Top Results</span></div>
-        <div class="row1">
-          <div class="hit"><span class="lgk-art" data-art="hero-clean:1:"></span><span class="k">Top Hit</span><span class="t">Hollow Peaks</span><span class="s">Installed · 24 h</span>
-            <span class="lgk-btn capsule o is-hover" style="--hx:40%;--hy:30%">Open</span></div>
-          <div class="p"><span class="lgk-poster lgk-art" data-art="poster:4:Hollow Peaks II"></span><div class="lbl">Hollow Peaks II</div><div class="sub">Not installed</div></div>
-          <div class="p"><span class="lgk-poster lgk-art" data-art="poster:8:Half Light"></span><div class="lbl">Half Light</div><div class="sub">Installed</div></div>
-          <div class="p"><span class="lgk-poster lgk-art" data-art="poster:5:Halftone"></span><div class="lbl">Halftone</div><div class="sub">Update</div></div>
-          <div class="p"><span class="lgk-poster lgk-art" data-art="poster:2:Halfway"></span><div class="lbl">Halfway</div><div class="sub">Installed</div></div>
-          <!-- every other category Steam's All tab shows has a visible entry; each opens Steam's own grid -->
-          <div class="also">
-            <span class="lgk-btn capsule"><span class="chipi" style="background:var(--lg-blue)"><i data-i="friends"></i></span>Friends<span class="ct t-num">2</span></span>
-            <span class="lgk-btn capsule"><span class="chipi" style="background:var(--lg-gray)"><i data-i="terminal"></i></span>Tools<span class="ct t-num">2</span></span>
-            <span class="lgk-btn capsule"><span class="chipi" style="background:rgb(99 99 106)"><svg class="lgk-i" viewBox="0 0 24 24"><path d="M3.5 12s3.2-5.5 8.5-5.5S20.5 12 20.5 12s-3.2 5.5-8.5 5.5S3.5 12 3.5 12z" fill="none" stroke="currentColor"/><path d="M5 19 19 5" fill="none" stroke="currentColor"/></svg></span>Hidden<span class="ct t-num">1</span></span>
-          </div>
+        <div class="sx-art hit is-focus" data-id="tophit" data-c1b-art="hero:546560" data-name="Half-Life: Alyx" data-dz="15" data-tier="focused content card: x1.05, +15 mm crop (s = 80 for the More circle's hit: click-safe)">
+          <span class="tag">Top Hit</span>
+          <span class="more" data-id="more"><i data-i="more"></i></span>
+          <span class="t">Half-Life: Alyx</span><span class="s">Playtime: 6.3 hrs</span>
+          <span class="lgk-btn capsule open" data-id="open">Open</span>
         </div>
-        <div class="hd" style="top:268px"><span class="t-title3">In the Store</span><span class="lgk-btn capsule">See All 158<i data-i="chevron-right"></i></span></div>
-        <div class="store">
-          <span class="lgk-poster lgk-art" data-art="hero-clean:6:"></span>
-          <span class="lgk-poster lgk-art" data-art="hero-clean:9:"></span>
-          <span class="lgk-poster lgk-art" data-art="hero-clean:3:"></span>
-          <span class="lgk-poster lgk-art" data-art="hero-clean:7:"></span>
+        <span class="sx-art poster" data-id="poster-0" data-c1b-art="poster:70" data-name="Half-Life" style="left:428px"></span>
+        <span class="sx-art poster" data-id="poster-1" data-c1b-art="poster:220" data-name="Half-Life 2" style="left:557px"></span>
+        <span class="sx-art poster" data-id="poster-2" data-c1b-art="poster:130" data-name="Half-Life: Blue Shift" style="left:686px"></span>
+        <span class="sx-art poster" data-id="poster-3" data-c1b-art="poster:50" data-name="Half-Life: Opposing Force" style="left:815px"></span>
+
+        <div class="sx-h row2h" style="left:32px" data-id="apps-h">Software</div>
+        <div class="sx-h row2h" style="left:348px" data-id="store-h">Store (158)</div>
+        <div class="apps" data-id="apps" data-tier="S-B: home-apps' provider (programs from + > Launch Program, Liquid Glass excluded)">
+          <span class="chip"><img src="../../refs/library/icons/half-sbs-toggle.png" alt="" onerror="this.replaceWith(Object.assign(document.createElement('i'),{dataset:{i:'window'}}))"></span>
+          <span class="nm">Half SBS Toggle</span>
         </div>
+        <span class="st" data-id="store-0" style="left:348px; --x:666; --y:368"></span>
+        <span class="st" data-id="store-1" style="left:544px; --x:971; --y:368"></span>
+        <span class="lgk-btn capsule seeall" data-id="seeall">See All<i data-i="chevron-right"></i></span>
+        <div class="sx-h" style="left:32px; top:476px" data-id="tools-h">Tools (3)</div>
       </div>
     </div>
-    <div data-wn="ornament" data-mode="laser" data-legends="menu:Options@Hollow Peaks|A:Open|B:Close"></div>
+
+    <!-- the bottom ornament (C1a contract, PLAN §1.10): actions besides A and B, so a capsule; gamepad mode shows
+         Steam's glyphs trailing each label. X = Steam's primary action on library items (S-C) -->
+    <div data-wn="ornament" data-legends="X:Play|menu:Options|A:Open|B:Back"></div>
   </div>
 
   <div data-wn="winbar" data-cx="960" data-y="806" data-dim=".85"></div>
   <div data-wn="bar" data-cx="960" data-y="904"></div>
-  <div data-wn="laser" data-to="716,452" data-from="1600,1100"></div>
 
-  <div class="wn-cap" style="left:1612px; top:150px; width:290px">One control for Steam's categories. All = the summary; every category with matches has an entry; each opens Steam's own grid in the sheet.</div>
-  <div class="wn-cap" style="left:1612px; top:400px; width:290px">Counts and items come from Steam's own search hook (Q6). Without it, All shows Steam's All grid here instead.</div>
+  <div class="wn-cap" style="left:1612px; top:150px; width:290px">One scope bar for Steam's categories, with Steam's counts. All is a summary in Steam's order; every other category opens Steam's own grid in the sheet.</div>
+  <div class="wn-cap" style="left:1612px; top:392px; width:290px">Gamepad: Down from the field lands on the Top Hit. A opens the game page, X plays, &#9776; or the More circle opens its menu, B closes search.</div>
+  <div class="wn-cap" style="left:1612px; top:600px; width:290px">Without Steam's search results (Q6), All shows Steam's All grid here instead.</div>
 </div>
 <script src="window-nav-shared.js"></script>
+<script>
+  /* C1b art helper (runs after the shared chrome, before kit.js): real art from docs/refs/library, else a title card */
+  (() => {
+    const base = '../../refs/library/art/';
+    const fallback = (el) => { if (!el.querySelector('img.hero, img.port')) { el.classList.add('mono'); if (!el.children.length) el.textContent = el.dataset.name || ''; } };
+    document.querySelectorAll('[data-c1b-art]').forEach((el) => {
+      const [kind, id] = el.dataset.c1bArt.split(':');
+      const add = (file, cls) => { const i = new Image(); i.className = cls; i.alt = ''; i.onerror = () => { i.remove(); fallback(el); }; i.src = base + file; el.prepend(i); };
+      if (kind === 'poster') add(id + '_port.jpg', 'port');
+      else if (kind === 'disc') { add(id + '_logo.png', 'logo'); add(id + '_hero.jpg', 'hero'); }
+      else if (kind === 'hero') { if (el.dataset.logo !== undefined) add(id + '_logo.png', 'logo'); add(id + '_hero.jpg', 'hero'); }
+      else if (kind === 'header') add(id + '_header.jpg', 'hero');
+    });
+    const tag = (sel, id) => { const n = document.querySelector(sel); if (n) n.dataset.id = id; };
+    tag('.wn-toolbar .wn-search', 'field'); tag('.wn-toolbar .wn-back', 'back'); tag('.wn-orn', 'ornament');
+  })();
+</script>
 <script src="kit.js"></script>
 </body>
 </html>

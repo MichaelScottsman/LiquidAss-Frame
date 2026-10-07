@@ -2,28 +2,34 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Glass Shell P2 — controls: Quick Access at m 0.83 (Steam's own popup, T1 restyle)</title>
+<title>Glass Shell P2 — controls: Quick Access at m 0.83 (Steam's own popup, CC-C, T1 restyle)</title>
 <link rel="stylesheet" href="kit.css">
 <link rel="stylesheet" href="window-nav-shared.css">
 <link rel="stylesheet" href="settings.css">
 <link rel="stylesheet" href="controls.css">
 <link rel="stylesheet" href="controls-real.css">
+<style>
+  .dt-win { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; border-radius: 12px; overflow: hidden; background: #1e2026;
+    box-shadow: 0 10px 40px rgb(0 0 0 / .45); }
+  .dt-bar { height: 44px; display: flex; align-items: center; gap: 8px; padding: 0 16px; background: #2a2d35; font: 500 18px/1 var(--lg-font); color: rgb(255 255 255 / .62); }
+  .dt-bar > span { width: 12px; height: 12px; border-radius: 50%; background: rgb(255 255 255 / .22); }
+  .dt-bar > b { margin-left: 16px; font-weight: 500; }
+  .dt-txt { padding: 40px 56px; display: flex; flex-direction: column; gap: 22px; }
+  .dt-txt > i { display: block; height: 14px; border-radius: 7px; background: rgb(255 255 255 / .16); }
+  /* the selected Quick Access tab: navigation selection (white .18 + a top arc) */
+  .qp .qtabs > span.sel { position: relative; }
+  .qp .qtabs > span.sel::before { content: ""; position: absolute; inset: 0; border-radius: 50%; padding: 1.5px; pointer-events: none;
+    background: var(--c-arc-sel); -webkit-mask: var(--c-ring-mask); -webkit-mask-composite: xor; mask-composite: exclude; }
+</style>
 </head>
 <body>
 <div class="lgk-view" data-room="lounge">
-  <div data-wn="tabbar" data-right="302" data-cy="426" data-sel="library"></div>
-
-  <!-- the main window behind: Quick Access is a separate quad 13 cm nearer -->
+  <!-- the page behind: a desktop window (content, opaque: never glass). Steam's Quick Access popup (CC-C) is what the status
+       pill opens on pages other than Steam's own; on Steam's page it opens Control Center (control-center concept) -->
   <div class="lgk-overlay" style="left:320px; top:66px">
-    <div class="lgk-glass st-win" data-mat="window" data-dz="0" style="height:656px">
-      <div style="position:absolute; left:40px; top:40px" class="t-large">Library</div>
-      <div style="position:absolute; left:40px; top:130px; display:flex; gap:24px">
-        <div class="lgk-poster lgk-art" data-art="poster:1:Hollow Peaks" style="position:relative; width:180px; height:270px"></div>
-        <div class="lgk-poster lgk-art" data-art="poster:6:Starfall Drift" style="position:relative; width:180px; height:270px"></div>
-        <div class="lgk-poster lgk-art" data-art="poster:3:Neon Tide" style="position:relative; width:180px; height:270px"></div>
-        <div class="lgk-poster lgk-art" data-art="poster:8:Ember Road" style="position:relative; width:180px; height:270px"></div>
-        <div class="lgk-poster lgk-art" data-art="poster:4:Quiet Orbit" style="position:relative; width:180px; height:270px"></div>
-      </div>
+    <div class="dt-win" data-tier="desktop window page (content)">
+      <div class="dt-bar"><span></span><span></span><span></span><b>notes.txt — Kate</b></div>
+      <div class="dt-txt"><i style="width:62%"></i><i style="width:78%"></i><i style="width:44%"></i><i style="width:70%"></i><i style="width:58%"></i><i style="width:36%"></i></div>
     </div>
   </div>
   <div data-wn="frame" data-cx="960" data-y="806" data-dim=".72"></div>
@@ -31,8 +37,8 @@
   <div data-wn="pill" data-cx="960" data-y="1018"></div>
 
   <!-- Quick Access, Quick Settings tab, at its real place above the bar's status capsule (popup px x1.2) -->
-  <div class="lgk-pop" style="left:1018px; top:332px; --pop-scale:1.2" data-tier="barpopup quad: T1 restyle; T5 panel cover">
-    <div class="lgk-glass qp" data-mat="panel" data-dz="0" style="position:relative">
+  <div class="lgk-pop" style="left:1018px; top:332px; --pop-scale:1.2" data-tier="barpopup quad (CC-C): T1 restyle; popup z +25 mm (bar popups, PLAN §1.7); T5 panel cover">
+    <div class="lgk-glass qp" data-mat="panel" data-dz="25" style="position:relative; --dz:6" data-id="qa">
       <div class="qhd">Quick Settings</div>
       <div class="qsc"><div class="qin">
         <div class="qsh">Brightness</div>
@@ -49,8 +55,8 @@
   </div>
 
   <!-- the same popup on its Performance tab, beside it for comparison (one popup exists at a time) -->
-  <div class="lgk-pop" style="left:570px; top:332px; --pop-scale:1.2" data-tier="barpopup quad: T1 restyle">
-    <div class="lgk-glass qp" data-mat="panel" data-dz="0" style="position:relative">
+  <div class="lgk-pop" style="left:570px; top:332px; --pop-scale:1.2" data-tier="barpopup quad (CC-C): T1 restyle; popup z +25 mm">
+    <div class="lgk-glass qp" data-mat="panel" data-dz="25" style="position:relative; --dz:6" data-id="qa-perf">
       <div class="qhd">Performance</div>
       <div class="qsc"><div class="qin" id="perf" style="top:-336px">
         <div class="qlab">System Profile</div>
@@ -74,8 +80,8 @@
     </div>
   </div>
 
-  <div class="c-note" style="left:28px; top:110px; width:240px"><b>Quick Access, true size.</b> 300 popup px = 360 view px (m 0.83). Capsules 54 popup px = 65 main px; switches 55 &times; 32; notch labels <b>15 popup px = 18 main px</b>, title case.</div>
-  <div class="c-note" id="lblnote" style="left:28px; top:310px; width:240px"><b>Labels fit.</b></div>
+  <div class="c-note" style="left:28px; top:110px; width:240px"><b>Quick Access, true size</b> (Steam's popup, CC-C: on pages other than Steam's own). 300 popup px = 360 view px (m 0.83). Capsules 54 popup px = 65 main px; switches 55 &times; 32; notch labels <b>15 popup px = 18 main px</b>, title case.</div>
+  <div class="c-note" id="lblnote" style="left:28px; top:350px; width:240px"><b>Labels fit.</b></div>
   <div class="c-note" style="left:1468px; top:60px; width:420px"><b>Glyphs.</b> Brightness: the sun is inert (<span class="k">pointer-events: none</span>), so the low-value knob is dragged over it. Volume and Microphone, when Steam renders its clickable mute icon: a separate 54 px glyph zone before the track, never under the knob. The zone is a toggle: white (on) while muted, the level dimmed; at level 0 the white disappears entirely. Environment Brightness keeps Steam's default-value marker (&#9662;).</div>
   <div data-wn="laser" data-to="1085,482" data-from="1500,1100"></div>
 </div>

@@ -16,10 +16,10 @@ uniform float uRadius;
 uniform float uEma;
 uniform float uFeedLod;
 uniform int uNQ;
-uniform vec3 uQO[16];      // quad origin (top-left of the Steam texture)
-uniform vec3 uQU[16];      // unit axis right
-uniform vec3 uQV[16];      // unit axis down
-uniform vec4 uQE[16];      // extents along U (min, max) and V (min, max), margins included
+uniform vec3 uQO[24];      // quad origin (top-left of the Steam texture)
+uniform vec3 uQU[24];      // unit axis right
+uniform vec3 uQV[24];      // unit axis down
+uniform vec4 uQE[24];      // extents along U (min, max) and V (min, max), margins included
 out vec4 oColor;
 
 void main() {
@@ -36,7 +36,7 @@ void main() {
     w = smoothstep(0.0, 0.04, min(e.x, e.y));
     if (w > 0.0) {
       vec3 rd = X - uFeedPos;
-      for (int i = 0; i < 16; i++) {
+      for (int i = 0; i < 24; i++) {
         if (i >= uNQ) break;
         vec3 n = cross(uQU[i], uQV[i]);
         float dn = dot(rd, n);

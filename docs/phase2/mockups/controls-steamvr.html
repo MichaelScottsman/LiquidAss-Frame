@@ -18,7 +18,7 @@
   .c-row.stack { flex-direction: column; align-items: flex-start; justify-content: center; gap: 14px; height: auto; padding-top: 18px; padding-bottom: 18px; }
   /* SteamVR's slider draws its value inside the handle: the knob is always shown, 64 px, with the value in it */
   .vr-sl { width: 340px; flex: none; }
-  .vr-sl > .knob { display: grid !important; place-items: center; font: 700 17px/1 var(--lg-font); color: #1b1c20; font-variant-numeric: tabular-nums; }
+  .vr-sl > .knob { display: grid !important; place-items: center; font: 700 18px/1 var(--lg-font); color: #1b1c20; font-variant-numeric: tabular-nums; }   /* >= 18 main px (G-TYPE) */
   .vr-menu { position: absolute; width: 300px; padding: 8px; display: flex; flex-direction: column; gap: 6px; --r: 32px; }
   .vr-menu .lgk-row { height: 72px; padding: 0 20px; font-size: 24px; }
   .vr-menu .lgk-row .trail { margin-left: auto; }
@@ -56,7 +56,7 @@
     </div>
   </div>
   <!-- SteamVR's own popover for the dropdown (inside its panel): thick glass, 72 px rows, current value checked, grown from the source -->
-  <div class="lgk-glass vr-menu" id="menu" data-mat="thick" data-dz="2" data-tier="T1 theme/vr (SteamVR popover)">
+  <div class="lgk-glass vr-menu" id="menu" data-mat="thick" data-dz="0" data-tier="T1 theme/vr (SteamVR's own popover, inside its panel: no pop)">
     <div class="lgk-row is-hover" style="--hx:58%; --hy:48%">Left</div>
     <div class="lgk-row">Right<span class="trail"><i data-i="check" style="--is:24px; stroke-width:3"></i></span></div>
   </div>
@@ -64,7 +64,7 @@
   <div data-wn="frame" data-cx="860" data-y="806" data-dim=".72"></div>
   <div class="lgk-pop" style="left:1068px; top:818px; --pop-scale:.75" data-tier="T1 vr:systemui %{ButtonPill}">
     <div class="lgk-glass lgk-toolbar" data-mat="panel" style="position:relative; height:64px; padding:0 14px 0 26px; gap:14px; --r:32px">
-      <span style="font:500 26px/1 var(--lg-font); color:var(--lg-text-2)">Use Laser Mouse to Interact</span><span class="lgk-glyph">A</span>
+      <span style="font:500 26px/1 var(--lg-font); color:var(--lg-text-2)">Use Laser Mouse to Interact</span><span class="lgk-glyph keep">A</span>
     </div>
   </div>
   <div data-wn="bar" data-cx="960" data-y="904"></div>
@@ -73,7 +73,7 @@
 
   <div class="c-note" style="left:1622px; top:110px; width:270px"><b>Same vocabulary at m 1.44.</b> Written in main px under <span class="k">zoom: 1.44</span>: switches 95 × 58 SteamVR px, rows 115, sliders 92, menu rows 104.</div>
   <div class="c-note" style="left:1622px; top:290px; width:270px"><b>Option circles</b> (refresh rate): <b>60 main px at an 84 px pitch</b> = 86 SteamVR px at 121: a 24 px gap, so they pass the target rule without an exemption. Selected = white; laser on 96.</div>
-  <div class="c-note" style="left:1622px; top:494px; width:270px"><b>SteamVR's slider</b> keeps its value inside the handle, so its knob is always shown. <b>Dropdown</b>: SteamVR's popover grows out of its white source, upward here (no room below); laser only (this page has no gamepad focus, as today).</div>
+  <div class="c-note" style="left:1622px; top:494px; width:270px"><b>SteamVR's slider</b> keeps its value inside the handle, so its knob is always shown. <b>Dropdown</b>: SteamVR's popover grows out of its white source, upward here (no room below), and stays on the panel's plane (it is inside SteamVR's own page). Laser only: this page has no gamepad focus, as today; its own pill offers the laser.</div>
 </div>
 <script>
   // place the popover under the Dominant Eye source and the laser on "Left" once layout exists (all view px)

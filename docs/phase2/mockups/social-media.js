@@ -1,14 +1,23 @@
 /* Glass Shell Phase 2 — concept "People, Photos, Downloads, Store": mockup helpers.
- * Load AFTER kit.js (synchronously, at the end of <body>): kit.js boots on DOMContentLoaded, so
- * everything this file adds (icons, the shared chrome, keyboard keys) is in place before the kit
- * renders icons, paints art, adapts the glass to the room and builds the lens filters.
+ * Script order at the end of <body>: kit.js, social-media.js, window-nav-shared.js.
+ *   kit.js defines window.LGK at once and boots on DOMContentLoaded, so everything added here (icons,
+ *   the People window, ornaments, keyboard keys, the data-wn chrome placeholders) is in place before the
+ *   kit renders icons, paints art, adapts the glass to the room and builds the lens filters.
+ *   window-nav-shared.js (owned by C1a) then builds the shared chrome placeholders this file emits.
  *
  *  - more icons in the kit's 24-unit SF-like sprite (LGK.ICONS)
  *  - <i data-sm="back10"> raw icons the sprite format cannot express (digits)
- *  - data-tab="friends|media|downloads|store|library|none" on the chrome host: the tab-bar ornament
- *    (Steam's VR main menu, frame.menu popup at 1.10x) with that section selected
+ *  - data-tab="friends|media|downloads|store|library" on the chrome host: the device's tab-bar ornament
+ *    (window-nav-shared "tabbar", Steam's frame.menu popup) with that section selected
  *  - data-chrome="bar" on the chrome host: SteamVR frame controls, the dashboard bar, the grab pill
- *  - .sm-kb[data-kb]: Steam's VR keyboard keys (854 x 280 popup px), built from a row table
+ *    (window-nav-shared "frame", "bar", "pill"; SteamVR's own positions until WN AT-17 passes, PLAN S10)
+ *  - [data-sm-orn="spec"]: the bottom ornament (PLAN §1.10), see orn() below
+ *  - [data-sm-people="hover|menu|compose"]: the People window (concept §3.1)
+ *  - .sm-kb[data-kb]: Steam's VR keyboard keys (854 x 280 keyboard px, CTL §12), built from a row table
+ *
+ * Revision 3 (PLAN §1 conformance, M0): focus add .28 (§1.4), navigation selection = white .18 + top arc +
+ * Semibold, the More circle helper look (§1.11), the ornament by content (§1.10), glyph badges in gamepad
+ * mode only (§1.4, VP P-26), 24 px clear between 60 px targets (§1.3), menus by count (§1.12), depth §1.7.
  */
 (() => {
   'use strict';
@@ -46,54 +55,87 @@
     'xmark-circle': { s: ['M9.2 9.2l5.6 5.6', 'M14.8 9.2l-5.6 5.6'], c: ['12 12 8.4'] },
   });
 
-  /* ------------------------------------------------------------------ builders (revision 2)
-   * [data-sm-legend="g:Label:cls|…"] fills a bottom ornament (Steam's #Footer) with legend buttons;
-   *   g = a glyph letter or an icon name prefixed with "@" (e.g. "@menu3"); cls = extra classes (nav, split, danger).
-   * [data-sm-people="hover|menu|compose"] builds the People window (concept §3.1) inside the overlay. */
+  /* ------------------------------------------------------------------ the bottom ornament (PLAN §1.10, WN §3.4)
+   * [data-sm-orn="g:Label[:cls]|…"] with data-mode="laser|pad" (default laser) and optional data-top.
+   *   g     = a controller letter (A, B, X, Y, LB …) or an icon name prefixed with "@" (e.g. "@menu3" for ≡)
+   *   Label = Steam's legend text; label first, the glyph badge trailing (WN §3.4.1)
+   *   cls   = extra classes: danger (red label), open (white: its menu is open), hover, focus
+   * A and B are the navigation members: always present, quiet, trailing, in both input modes.
+   * Material by content: a capsule (liquid, 84 px, ≤ 960 wide) when any member is not A or B; otherwise the
+   * quiet legend (no capsule, no slab: the same 84 px box, items 60 tall, Medium white .70). data-onroom: the legend's labels
+ * sit over the room (glass mode window: the margin below 656), so they carry the on-room text shadow (VP P-41).
+   * Glyph badges show only in gamepad mode (§1.4, VP P-26); in laser mode members are labels only. */
   const glyph = g => g.startsWith('@') ? `<span class="lgk-glyph"><i data-i="${g.slice(1)}" style="--is:16px"></i></span>` : `<span class="lgk-glyph">${g}</span>`;
-  const legend = spec => spec.split('|').map(it => {
-    const [g, label, cls = ''] = it.split(':');
-    return `<span class="lgk-btn capsule sm-leg ${cls}">${glyph(g)}${label}</span>`;
-  }).join('');
-  K.smLegend = legend;
-  document.querySelectorAll('[data-sm-legend]').forEach(el => { el.innerHTML = legend(el.dataset.smLegend); });
+  function orn(spec, mode = 'laser', top = 628, extra = '', onRoom = false) {
+    const pad = mode === 'pad';
+    const items = spec.split('|').filter(Boolean).map(it => {
+      const [g, label, cls = ''] = it.split(':');
+      return { g, label, cls, nav: g === 'A' || g === 'B' };
+    });
+    const capsule = items.some(it => !it.nav);
+    let html = '', prev = null;
+    for (const it of items) {
+      if (prev !== null && prev !== it.nav) html += '<span class="gsep"></span>';
+      prev = it.nav;
+      const cls = ['wn-leg', 'sm-leg'];
+      if (it.nav) cls.push('nav');
+      it.cls.split(' ').filter(Boolean).forEach(c => cls.push(c === 'open' ? 'is-open' : c === 'hover' ? 'is-hover' : c === 'focus' ? 'is-focus' : c));
+      html += `<span class="${cls.join(' ')}" style="--hx:40%;--hy:35%">${it.label}${pad ? glyph(it.g) : ''}</span>`;
+    }
+    const tier = capsule
+      ? 'ornament: capsule (an action other than A/B); T1 #Footer + T5 liquid slab behind (inset), 0 mm, never a crop'
+      : 'ornament: quiet legend (A/B only); no capsule, no slab; same box, 0 mm';
+    return capsule
+      ? `<div class="lgk-glass lgk-toolbar wn-orn sm-orn" data-mat="liquid" data-lens data-id="ornament" style="--dz:18; top:${top}px${extra}" data-dz="0" data-tier="${tier}">${html}</div>`
+      : `<div class="sm-quiet${onRoom ? ' room' : ''}" data-id="ornament" style="top:${top}px${extra}" data-dz="0" data-tier="${tier}">${html}</div>`;
+  }
+  K.smOrn = orn;
+  document.querySelectorAll('[data-sm-orn]').forEach(el => {
+    let html = orn(el.dataset.smOrn, el.dataset.mode || 'laser', el.dataset.top || 628, el.dataset.style ? '; ' + el.dataset.style : '', el.dataset.onroom !== undefined);
+    if (el.dataset.mat) html = html.replace('data-mat="liquid"', `data-mat="${el.dataset.mat}"`);   /* e.g. clear over media (PLAN §1.6) */
+    el.outerHTML = html;
+  });
 
+  /* ------------------------------------------------------------------ People (concept §3.1, revision 3)
+   * Sidebar 512 (four equal segments of 121 x 60 in a 488 x 64 track, E-SEG compact), conversation pane x 512-1280. */
   const ava = (st, art, size) => `<div class="sm-ava" data-st="${st}"${size ? ` style="--av:${size}px"` : ''}><div class="lgk-art" data-art="${art}"></div></div>`;
   function people(state) {
     const hover = state === 'hover', menu = state === 'menu', compose = state === 'compose';
-    const rinCls = hover ? ' is-spot' : (menu ? ' is-hover' : '');
-    const more = hover ? '<span class="lgk-btn circle more"><i data-i="more"></i></span>'
-      : menu ? '<span class="lgk-btn circle more is-selected"><i data-i="more"></i></span>' : '';
+    const rinCls = hover ? ' is-spot' : '';
+    const more = (hover || menu)
+      ? `<span class="lgk-btn circle sm-more${menu ? ' is-selected' : ''}" style="position:absolute; right:24px; top:6px" data-id="more" data-tier="C1a More helper (PLAN §1.11): 60 visible / 80 hit, row trailing inset 24; calls the row's own onMenuButton"><i data-i="more"></i></span>`
+      : '';
     const typed = compose
-      ? '<div class="lgk-search sm-compose is-focus"><span class="typed">See you at 8, bringing snacks<span style="display:inline-block; width:2px; height:28px; background:var(--lg-blue); vertical-align:-6px; margin-left:3px"></span></span><span class="lgk-btn circle sm-send"><i data-i="arrow-up" class="bold"></i></span></div>'
-      : '<div class="lgk-search sm-compose"><span class="typed ph">Message</span><span class="lgk-btn circle sm-send off"><i data-i="arrow-up" class="bold"></i></span></div>';
-    const leg = menu ? 'A:Select:quiet|B:Back:quiet' : compose ? 'Y:Start Voice Chat|A:Select:quiet split|B:Back:quiet' : '@menu3:Options|A:Send Message:quiet split|B:Back:quiet';
+      ? '<div class="lgk-search sm-compose is-focus" data-id="compose"><span class="typed">See you at 8, bringing snacks<span style="display:inline-block; width:2px; height:28px; background:var(--lg-blue); vertical-align:-6px; margin-left:3px"></span></span><span class="lgk-btn circle sm-send" data-id="send"><i data-i="arrow-up" class="bold"></i></span></div>'
+      : '<div class="lgk-search sm-compose" data-id="compose"><span class="typed ph">Message</span><span class="lgk-btn circle sm-send off" data-id="send"><i data-i="arrow-up" class="bold"></i></span></div>';
+    const leg = menu ? 'A:Select|B:Back' : compose ? 'Y:Start Voice Chat|A:Select|B:Back' : '@menu3:Options|A:Send Message|B:Back';
     return `
-    <div class="lgk-glass sm-win" data-mat="window" data-dz="0" data-tier="T5 window / T1 tint">
-      <div class="lgk-sidebar sm-side"></div>
+    <div class="lgk-glass sm-win" data-mat="window" data-dz="0" data-id="window" data-tier="glass mode window (PLAN §1.2): T5 window cover / T1 smoky tint">
+      <div class="lgk-sidebar sm-side" data-id="sidebar"></div>
 
-      <!-- sidebar toolbar row: Steam's header nodes laid out here on /chat. Back (laser only; B is the gamepad path) and the
-           global search collapsed to a magnifier circle (it opens Steam's search route; it never pretends to filter friends) -->
-      <span class="lgk-btn circle sm-back root"><i data-i="chevron-left"></i></span>
-      <span class="lgk-btn circle" style="position:absolute; left:372px; top:24px"><i data-i="search"></i></span>
+      <!-- sidebar toolbar row: Steam's header nodes laid out here on /chat (route-scoped position rules).
+           Back (laser only; B is the gamepad path), section root = borderless. The global search collapsed to a
+           60 px magnifier circle in its 80 x 80 box at the sidebar's trailing end (418, 14): it opens Steam's search. -->
+      <span class="lgk-btn circle sm-back root" data-id="back"><i data-i="chevron-left"></i></span>
+      <span class="lgk-btn circle" style="position:absolute; left:428px; top:24px" data-id="search"><i data-i="search"></i></span>
 
-      <!-- title row: Steam's TabPanelHeader (names the tab) with its FriendActionsContainer circles trailing -->
+      <!-- title row: Steam's TabPanelHeader (names the tab) with its FriendActionsContainer circles trailing,
+           centres 84 apart (24 px clear, PLAN §1.3); Add a Friend sits directly under the search circle -->
       <div class="sm-stitle t-title1">Friends</div>
-      <span class="lgk-btn circle" style="position:absolute; left:292px; top:104px"><i data-i="envelope"></i><span class="lgk-badge" style="right:-6px; top:-4px">2</span></span>
-      <span class="lgk-btn circle" style="position:absolute; left:372px; top:104px"><i data-i="person-add"></i></span>
+      <span class="lgk-btn circle" style="position:absolute; left:344px; top:104px" data-id="invites"><i data-i="envelope"></i><span class="lgk-badge" style="right:-6px; top:-4px">2</span></span>
+      <span class="lgk-btn circle" style="position:absolute; left:428px; top:104px" data-id="addfriend"><i data-i="person-add"></i></span>
 
-      <!-- FriendsListSteamDeckTabs: four equal labelled segments (T2 labels), Steam's bumper glyphs as badges on the track ends -->
-      <div class="sm-seg" style="left:12px; top:180px; width:432px"><span>Favorites</span><span class="is-selected">Friends</span><span>Groups</span><span>Recent</span></div>
-      <span class="sm-bump" style="left:0; top:166px">L1</span>
-      <span class="sm-bump" style="left:420px; top:166px">R1</span>
+      <!-- FriendsListSteamDeckTabs: four equal contiguous labelled segments (T2 labels) in a 64 px track, padding 2.
+           Steam's bumper glyphs (L1/R1) show as badges on the track's ends in gamepad mode only (VP P-26). -->
+      <div class="sm-seg" style="left:12px; top:180px; width:488px" data-id="tabs"><span>Favorites</span><span class="is-selected">Friends</span><span>Groups</span><span>Recent</span></div>
 
       <!-- friend list (not virtualized: module 20447) -->
-      <div class="sm-scroll" style="left:0; top:260px; width:456px; height:396px; -webkit-mask-image:linear-gradient(180deg, transparent 0, #000 10px, #000 calc(100% - 56px), transparent 100%)">
+      <div class="sm-scroll" style="left:0; top:260px; width:512px; height:396px; -webkit-mask-image:linear-gradient(180deg, transparent 0, #000 10px, #000 calc(100% - 56px), transparent 100%)">
         <div class="sm-grp" style="top:6px"><span class="gicon lgk-art" data-art="poster:1:"></span>Hollow Peaks <span class="count">1</span><i data-i="chevron-down" class="chev"></i></div>
-        <div class="lgk-row sm-frow${rinCls}" style="top:86px; --hx:84%; --hy:50%">${ava('game', 'avatar:4:RS')}
+        <div class="lgk-row sm-frow${rinCls}" style="top:86px; --hx:89%; --hy:50%" data-id="row-hover">${ava('game', 'avatar:4:RS')}
           <div class="lines"><span class="nm">Rin Sato</span><span class="pr">Hollow Peaks · In a party of 3</span></div>${more}</div>
         <div class="sm-grp" style="top:166px">Online <span class="count">3</span><i data-i="chevron-down" class="chev"></i></div>
-        <div class="lgk-row sm-frow cur is-nav-selected" style="top:246px">${ava('online', 'avatar:6:AV')}
+        <div class="lgk-row sm-frow cur is-nav-selected" style="top:246px" data-id="row-current">${ava('online', 'avatar:6:AV')}
           <div class="lines"><span class="nm">Aster Vale</span><span class="pr">Online</span></div></div>
         <div class="lgk-row sm-frow" style="top:326px">${ava('away', 'avatar:8:JP')}
           <div class="lines"><span class="nm">Juno Park<span class="zz">zZ</span></span><span class="pr">Away</span></div></div>
@@ -101,11 +143,12 @@
           <div class="lines"><span class="nm">Mika Oduya</span><span class="pr">Online</span></div></div>
       </div>
 
-      <!-- conversation header: Steam's %{ChatTab} (role=button) as a centred lockup; voice + invite as corner circles -->
-      <div class="sm-chattab">${ava('online', 'avatar:6:AV', 52)}
+      <!-- conversation header: Steam's %{ChatTab} (role=button) as a lockup centred on the pane (x 896);
+           voice + invite as corner circles, centres 84 apart -->
+      <div class="sm-chattab" data-id="chattab">${ava('online', 'avatar:6:AV', 52)}
         <div style="display:flex; flex-direction:column"><span class="nm">Aster Vale</span><span class="pr">Online</span></div></div>
-      <span class="lgk-btn circle" style="position:absolute; left:1116px; top:24px"><i data-i="headset"></i></span>
-      <span class="lgk-btn circle" style="position:absolute; left:1196px; top:24px"><i data-i="friends-plus"></i></span>
+      <span class="lgk-btn circle" style="position:absolute; left:1112px; top:24px" data-id="voice"><i data-i="headset"></i></span>
+      <span class="lgk-btn circle" style="position:absolute; left:1196px; top:24px" data-id="invite"><i data-i="friends-plus"></i></span>
 
       <!-- history as bubbles (T1 on .ChatMessageBlock/.msg/.isCurrentUser) -->
       <div class="sm-scroll sm-hist top-only">
@@ -123,13 +166,14 @@
         </div>
       </div>
 
-      <!-- RadialMenuExplainerText as a caption, then the compose capsule (recessed) with the 60 px send circle -->
+      <!-- RadialMenuExplainerText as a caption (its inline glyph is Steam's text content, not a button badge, so it stays in
+           both input modes), then the compose capsule (recessed) with the 60 px send circle -->
       <div class="sm-hint">Hold <span class="lgk-glyph"><i data-i="menu3" style="--is:16px"></i></span> to send a quick message</div>
       ${typed}
     </div>
 
-    <!-- bottom ornament: Steam's #Footer legend as buttons (window-nav §3.4): y 628-712, centred, 0 mm, liquid slab behind, no crop -->
-    <div class="lgk-glass lgk-toolbar sm-orn" data-mat="liquid" data-lens data-dz="0" data-tier="#Footer T1 + T5 slab (inset), no crop">${legend(leg)}</div>`;
+    <!-- bottom ornament: Steam's #Footer legend (PLAN §1.10): y 628-712, centred, 0 mm, never a crop -->
+    ${orn(leg, 'laser', 628, '', menu)}`;
   }
   document.querySelectorAll('[data-sm-people]').forEach(el => { el.outerHTML = people(el.dataset.smPeople); });
 
@@ -144,55 +188,35 @@
     const svg = t.firstChild; if (el.style.cssText) svg.style.cssText = el.style.cssText; el.replaceWith(svg);
   });
 
-  /* shared chrome */
+  /* ------------------------------------------------------------------ shared chrome: emitted as window-nav-shared placeholders
+   * (the device's tab bar with Console, live pitch 58 at r = 1; SteamVR frame controls; the dashboard bar; the grab pill) */
   const host = document.querySelector('[data-chrome-host]') || document.querySelector('.lgk-view');
-  if (!host) return;
-  const tab = host.dataset.tab;
-  if (tab) {
-    const main = ['home', 'library', 'store', 'friends', 'media', 'download'];
-    const icon = { download: 'download' };
-    const sel = { friends: 'friends', media: 'media', downloads: 'download', store: 'store', library: 'library', home: 'home' }[tab];
-    const item = n => `<div class="lgk-tab"${n === sel ? ' style="background:var(--lg-fill-nav)"' : ''}><i data-i="${icon[n] || n}"></i></div>`;
-    host.insertAdjacentHTML('afterbegin', `
-      <div class="lgk-pop" style="left:212px; top:${28 + (+host.dataset.shift || 0)}px; --pop-scale:1.10" data-dz="25" data-tier="T1 + T3/T4 frame.menu">
-        <div class="lgk-glass lgk-tabbar" data-mat="liquid" data-lens style="position:relative; --r:40px; --dz:25; gap:16px; padding:12px; width:80px; --lg-btn:56px">${main.map(item).join('')}</div>
-        <div class="lgk-glass lgk-tabbar" data-mat="liquid" data-lens style="position:relative; margin-top:16px; --r:40px; --dz:25; gap:16px; padding:12px; width:80px; --lg-btn:56px">
-          <div class="lgk-tab"><i data-i="gear"></i></div><div class="lgk-tab"><i data-i="vr"></i></div><div class="lgk-tab"><i data-i="power"></i></div></div>
-      </div>`);
-  }
-  if ((host.dataset.chrome || '').includes('bar')) {
+  if (host) {
+    const tab = host.dataset.tab;
     const dy = +host.dataset.shift || 0;
-    host.insertAdjacentHTML('beforeend', `
-      <div class="lgk-pop" style="left:849px; top:${802 + dy}px; --pop-scale:.75; opacity:.72" data-tier="T1 vr:systemui">
-        <div class="lgk-glass lgk-toolbar" data-mat="panel" style="position:relative; height:80px; gap:8px; padding:0 8px; --r:40px">
-          <span class="lgk-btn circle plain" style="--s:64px"><i data-i="keyboard"></i></span>
-          <span class="lgk-btn circle plain" style="--s:64px"><i data-i="float"></i></span>
-          <span class="lgk-btn circle plain" style="--s:64px"><i data-i="theater"></i></span>
-          <span class="lgk-btn circle plain" style="--s:64px"><i data-i="more"></i></span></div></div>
-      <div class="lgk-pop" style="left:578px; top:${878 + dy}px; --pop-scale:1.20; display:flex; gap:16px" data-tier="bar quad (T1 + T5 slabs)">
-        <div class="lgk-glass lgk-toolbar" data-mat="liquid" data-lens style="position:relative; height:80px; gap:8px; padding:0 8px; --r:40px">
-          <span class="lgk-btn circle" style="--s:64px; background:rgb(255 255 255 / .16)"><i data-i="controller"></i></span>
-          <span class="lgk-btn circle lgk-art" data-art="poster:0:" style="--s:64px; background-size:cover; background-position:50% 35%"></span>
-          <span class="lgk-btn circle lgk-art" data-art="poster:3:" style="--s:64px; background-size:cover; background-position:50% 35%"></span>
-          <span class="lgk-btn circle plain" style="--s:64px"><i data-i="plus"></i></span></div>
-        <div class="lgk-glass lgk-toolbar" data-mat="liquid" data-lens style="position:relative; height:80px; gap:8px; padding:0 8px 0 20px; --r:40px">
-          <span class="t-headline t-num" style="font-size:24px">6:24</span>
-          <span style="display:inline-flex; align-items:center; gap:6px; height:36px; padding:0 12px; border-radius:18px; background:rgb(255 255 255 / .14); font:600 18px/1 var(--lg-font)" class="t-num">
-            <span style="width:22px; height:11px; border-radius:3px; box-shadow:inset 0 0 0 2px rgb(255 255 255 / .8); position:relative; display:inline-block"><span style="position:absolute; left:3px; top:3px; bottom:3px; width:12px; border-radius:1px; background:var(--lg-green)"></span></span>76%</span>
-          <span class="lgk-btn circle plain" style="--s:64px"><i data-i="bell"></i></span>
-          <span class="lgk-btn circle plain" style="--s:64px"><i data-i="grid"></i></span></div></div>
-      <div class="lgk-windowbar" style="left:870px; top:${996 + dy}px"></div>`);
+    if (tab) {
+      const sel = { friends: 'friends', media: 'media', downloads: 'downloads', store: 'store', library: 'library', home: 'home' }[tab] || '';
+      host.insertAdjacentHTML('afterbegin', `<div data-wn="tabbar" data-right="302" data-cy="${426 + dy}" data-sel="${sel}"></div>`);
+    }
+    if ((host.dataset.chrome || '').includes('bar')) {
+      host.insertAdjacentHTML('beforeend', `
+        <div data-wn="frame" data-cx="960" data-y="${806 + dy}" data-dim=".72"></div>
+        <div data-wn="bar" data-cx="960" data-y="${904 + dy}"></div>
+        <div data-wn="pill" data-cx="960" data-y="${1018 + dy}"></div>`);
+    }
   }
 
-  /* Steam's VR keyboard: 854 x 280 popup px; echo row 0-40 (T2), keys from y 46 at a 47 px row pitch */
+  /* ------------------------------------------------------------------ Steam's VR keyboard (CTL §12; owner C4b)
+   * 854 x 280 keyboard px; echo row 33 px at y 5-38 (T2), the key block moved down 41 px; keys from y 46 at a 47 px pitch.
+   * data-go = the context Enter label (CTL §12.5); data-hot = the key under the laser (Focused: white .32 + spot + arc). */
   document.querySelectorAll('.sm-kb[data-kb]').forEach(kb => {
     const go = kb.dataset.go || 'Enter', hot = kb.dataset.hot || '';
     const rows = [
-      [['`', '~'], ['1', '!'], ['2', '@'], ['3', '#'], ['4', '$'], ['5', '%'], ['6', '^'], ['7', '&'], ['8', '*'], ['9', '('], ['0', ')'], ['-', '_'], ['=', '+'], ['⌫', '', 1.6, 'mod']],
+      [['`', '~'], ['1', '!'], ['2', '@'], ['3', '#'], ['4', '$'], ['5', '%'], ['6', '^'], ['7', '&'], ['8', '*'], ['9', '('], ['0', ')'], ['-', '_'], ['=', '+'], ['@delete', '', 1.6, 'mod']],
       [['Tab', '', 1.5, 'mod'], ['q'], ['w'], ['e'], ['r'], ['t'], ['y'], ['u'], ['i'], ['o'], ['p'], ['[', '{'], [']', '}'], ['\\', '|', 1.1]],
       [['Caps', '', 1.8, 'mod'], ['a'], ['s'], ['d'], ['f'], ['g'], ['h'], ['j'], ['k'], ['l'], [';', ':'], ["'", '"'], [go, '', 1.8, 'go']],
       [['Shift', '', 2.3, 'mod'], ['z'], ['x'], ['c'], ['v'], ['b'], ['n'], ['m'], [',', '<'], ['.', '>'], ['/', '?'], ['Shift', '', 2.3, 'mod']],
-      [['@steam', '', 1.5, 'mod'], ['', '', 9.6], ['@left', '', 1, 'mod'], ['@right', '', 1, 'mod'], ['@close', '', 1.5, 'mod']],
+      [['@steam', '', 1.5, 'mod'], ['', '', 9.6, 'space'], ['@left', '', 1, 'mod'], ['@right', '', 1, 'mod'], ['@close', '', 1.5, 'mod']],
     ];
     const W = 826, X0 = 14, Y0 = 46, P = 47;
     let html = '';
@@ -206,6 +230,7 @@
         else if (label === '@left') label = '<i data-i="chevron-left"></i>';
         else if (label === '@right') label = '<i data-i="chevron-right"></i>';
         else if (label === '@close') label = '<i data-i="keyboard"></i>';
+        else if (label === '@delete') label = 'Delete';
         const cls = ['sm-key', k[3] || '', (k[0] === hot ? 'hot' : '')].join(' ');
         html += `<div class="${cls}" style="left:${x.toFixed(1)}px; top:${Y0 + ri * P}px; width:${(w - 3).toFixed(1)}px">${k[1] ? `<span class="sh">${k[1]}</span>` : ''}${label}</div>`;
         x += w;

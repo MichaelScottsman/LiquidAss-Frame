@@ -1,0 +1,54 @@
+/* Glass Shell foundation: shared values for SteamVR's own pages (package P4).
+   Contract: docs/phase2/contracts/tokens.md §5. Moved here from
+   theme/vr/10-systemui.css §0 (PLAN §6, two-step move: C1a deletes its copy
+   after this file lands; until then the later copy wins with the same values).
+   Bundled for every SteamVR page after the shared theme/*.nowrap.css tokens,
+   wrapped as html.lgs-on { ... } ("&" is html.lgs-on). */
+
+& {
+  /* SteamVR draws the dashboard window's own pages (Now Playing, SteamVR
+     settings) 1858 px wide where Steam draws main 1280 CSS px wide for the
+     same window: window-level radii and rings scale by this so the corners
+     match Steam's window glass exactly. The binding page (2400 px) sets its
+     own value in 40-bindings.css. */
+  --lgs-vr-scale: 1.45;
+  --lgs-vr-r-window: calc(var(--lgs-r-window) * var(--lgs-vr-scale));
+  --lgs-vr-r-card: calc(var(--lgs-r-card) * var(--lgs-vr-scale));
+  --lgs-vr-r-row: calc(var(--lgs-r-row) * var(--lgs-vr-scale));
+  --lgs-vr-ring-w: calc(2px * var(--lgs-vr-scale));
+  /* focus ring and glow for window-level controls at this scale */
+  --lgs-vr-focus-ring:
+      inset 0 0 0 var(--lgs-vr-ring-w) rgba(255, 255, 255, 0.90),
+      0 0 0 1px rgba(255, 255, 255, 0.25),
+      0 0 32px rgba(255, 255, 255, 0.30);
+  /* the window grabber: a translucent white Liquid Glass capsule with a
+     two-tone edge: the white body reads over a dark room, the dark inner
+     and outer rings over a bright one (the white alone vanishes there).
+     The 60px hit padding around the bar leaves room for the outer ring. */
+  --lgs-vr-grabber: rgba(255, 255, 255, 0.62);
+  --lgs-vr-grabber-sheen: linear-gradient(rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0) 70%);
+  --lgs-vr-grabber-edge:
+      inset 0 0 0 1.5px rgba(0, 0, 0, 0.55),
+      inset 0 2.5px 0 rgba(255, 255, 255, 0.55),
+      0 0 0 1px rgba(0, 0, 0, 0.32);
+  --lgs-vr-grabber-rim:
+      var(--lgs-vr-grabber-edge),
+      0 1px 6px rgba(0, 0, 0, 0.34);
+  --lgs-vr-grabber-glow:
+      var(--lgs-vr-grabber-edge),
+      0 0 16px rgba(255, 255, 255, 0.45);
+  /* inner pill / row highlight used by the frame controls and menus */
+  --lgs-vr-hit-inset: 3px;
+  /* laser hover on SteamVR's laser-only pages (settings, bindings, keyboard,
+     message overlays, room setup, Now Playing in laser mode). There is no
+     gamepad focus there, so pointing must read at a glance: the focus fill
+     plus a thin inner rim (Steam's own pages light a pointed control with
+     .gpfocus; this is the same fill without the glow). Pages with their own
+     scale restate the rim (40-bindings.css, 50-keyboard.css). */
+  --lgs-vr-hover-fill: var(--lgs-focus-fill);
+  --lgs-vr-hover-rim: inset 0 0 0 calc(1.5px * var(--lgs-vr-scale)) var(--lgs-control-outline);
+  /* the panel tint (--lgs-panel-bg's colour), opaque: for small capsules
+     SteamVR itself fades (the frame controls' .6 idle opacity) and chips it
+     lays over text (the unbound-actions count) */
+  --lgs-vr-solid-bg: rgb(28, 30, 40);
+}

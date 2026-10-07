@@ -2,54 +2,57 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Glass Shell P2 — Control Center states: at rest, laser hover, gamepad focus (D-CC6)</title>
+<title>Glass Shell P2 — Control Center states: at rest, laser hover, gamepad focus (PLAN §1.4)</title>
 <link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="window-nav-shared.css">
 <link rel="stylesheet" href="control-center.css">
 <style>
-  .colhdr { position: absolute; top: 58px; width: 344px; text-align: center; font: 700 26px/1.2 var(--lg-font); color: #fff;
+  .colhdr { position: absolute; top: 34px; width: 360px; text-align: center; font: 700 26px/1.2 var(--lg-font); color: #fff;
             text-shadow: 0 1px 3px rgb(0 0 0 / .65), 0 0 14px rgb(0 0 0 / .45); }
-  .colhdr small { display: block; font: 500 17px/1.3 var(--lg-font); color: rgb(255 255 255 / .82); margin-top: 4px; }
+  .colhdr small { display: block; font: 500 17px/1.3 var(--lg-font); color: rgb(255 255 255 / .86); margin-top: 4px; }
+  .ccm .tile.st { top: 0; height: 648px; }
 </style>
 </head>
 <body>
-<!-- Spec sheet at true size (main px). Same control, three states. Laser hover stays visionOS-subtle (+.08 and a light spot at the
-     pointer). Gamepad focus must be FOUND without eye tracking: x1.10 on circles, +.26 white (+.12 on coloured fills so the glyph keeps
-     its contrast), a doubled specular arc, a contact shadow and a soft white bloom on coloured or white fills. Rows never scale. -->
+<!-- Spec sheet at true size (main px). The same controls in three states (PLAN §1.4):
+     laser hover = + .08 and a .12 light spot at the pointer (navigation rows: the spot only);
+     gamepad focus = + .28 uniform, a .16 spot in the upper third and the control's own arc x1.5, no scale, no shadow;
+     on white or coloured fills an outer glow 0 0 18px 2px white .30 (VP P-16).
+     The last tile also shows P-15: a focused, unselected sidebar row next to the selected one.
+     control-center-mockaudit.py --focus re-renders this page with every state removed and prints the luma steps (A25). -->
 <div class="lgk-view" data-room="studio">
   <div class="colhdr" style="left:416px">At rest</div>
-  <div class="colhdr" style="left:788px">Laser hover<small>+.08 and a light spot at the pointer</small></div>
-  <div class="colhdr" style="left:1160px">Gamepad focus<small>D-CC6: scale, +.26, arc ×2, bloom</small></div>
+  <div class="colhdr" style="left:800px">Laser hover<small>+ .08 and a light spot at the pointer</small></div>
+  <div class="colhdr" style="left:1184px">Gamepad focus<small>+ .28, spot .16, arc ×1.5; glow on fills</small></div>
   <div class="lgk-overlay" style="left:320px; top:110px">
-    <div class="ccm">
-<div class="lgk-glass tile now" data-mat="panel" data-lens>
-  <span class="lgk-btn circle c-tg on " style="left:70px; top:24px"><i data-i="wifi"></i></span>
-  <span class="lgk-btn circle c-tg " style="left:206px; top:24px"><i data-i="airplane"></i></span>
-  <div class="c-platter" style="top:116px; height:84px"><div class="c-row " ><span class="lead"><i data-i="gauge"></i></span>Refresh Rate<span class="trail">120 Hz<i data-i="chevron-right"></i></span></div></div>
-  <div class="c-cap " style="left:18px; right:18px; top:224px; "><span class="c-stack"><i class="lgk-art" data-art="avatar:6:M"></i></span>3 Notifications<span class="trail"><i data-i="chevron-right"></i></span></div>
-  <div class="c-slider " style="top:308px; --v:.55; "><span class="fill"><i data-i="speaker"></i></span><span class="zone"></span><span class="knob"></span></div>
-  <div class="c-seg" style="left:18px; width:308px; top:404px"><span>Off</span><span class="is-selected"><i data-i="eye"></i>On</span></div>
-</div>
-<div class="lgk-glass tile ctl" data-mat="panel" data-lens>
-  <span class="lgk-btn circle c-tg on is-hover" style="left:70px; top:24px; --hx:58%; --hy:46%"><i data-i="wifi"></i></span>
-  <span class="lgk-btn circle c-tg is-hover" style="left:206px; top:24px; --hx:58%; --hy:46%"><i data-i="airplane"></i></span>
-  <div class="c-platter" style="top:116px; height:84px"><div class="c-row is-hover" style="--hx:58%; --hy:46%"><span class="lead"><i data-i="gauge"></i></span>Refresh Rate<span class="trail">120 Hz<i data-i="chevron-right"></i></span></div></div>
-  <div class="c-cap is-hover" style="left:18px; right:18px; top:224px; --hx:58%; --hy:46%"><span class="c-stack"><i class="lgk-art" data-art="avatar:6:M"></i></span>3 Notifications<span class="trail"><i data-i="chevron-right"></i></span></div>
-  <div class="c-slider is-hover" style="top:308px; --v:.55; --hx:64%; --hy:50%"><span class="fill"><i data-i="speaker"></i></span><span class="zone"></span><span class="knob"></span></div>
-  <div class="c-seg" style="left:18px; width:308px; top:404px"><span class="is-hover">Off</span><span class="is-selected"><i data-i="eye"></i>On</span></div>
-</div>
-<div class="lgk-glass tile room" data-mat="panel" data-lens>
-  <span class="lgk-btn circle c-tg on gp" style="left:70px; top:24px"><i data-i="wifi"></i></span>
-  <span class="lgk-btn circle c-tg gp" style="left:206px; top:24px"><i data-i="airplane"></i></span>
-  <div class="c-platter" style="top:116px; height:84px"><div class="c-row gp" ><span class="lead"><i data-i="gauge"></i></span>Refresh Rate<span class="trail">120 Hz<i data-i="chevron-right"></i></span></div></div>
-  <div class="c-cap gp" style="left:18px; right:18px; top:224px; "><span class="c-stack"><i class="lgk-art" data-art="avatar:6:M"></i></span>3 Notifications<span class="trail"><i data-i="chevron-right"></i></span></div>
-  <div class="c-slider gp" style="top:308px; --v:.55; "><span class="fill"><i data-i="speaker"></i></span><span class="zone"></span><span class="knob"></span></div>
-  <div class="c-seg" style="left:18px; width:308px; top:404px"><span class="gp">Off</span><span class="is-selected"><i data-i="eye"></i>On</span></div>
-</div>
-
-    </div>
+    <div class="ccm" id="st"></div>
   </div>
-  <div class="lab plate" style="left:24px; top:700px; width:372px">Measured in this render<small>Mean luma of the focused target minus its at-rest twin (A25): see the concept, §4.9. Target ≥ 25; ≥ 15 plus the scale on coloured fills.</small></div>
+  <div class="lab plate" id="meas" style="left:24px; top:640px; width:368px">Measured on this render<small>Mean luma of each target minus the same target with every state removed (control-center-mockaudit.py --focus): see the concept, §4.9.</small></div>
 </div>
+<script>
+(() => {
+  const S = (st, id) => st[id] || '';
+  const hv = (st, id, hx = '58%', hy = '46%') => (st[id] || '').includes('is-hover') ? `--hx:${hx}; --hy:${hy};` : '';
+  function tile(x, st, tag) {
+    const m = (id) => `data-m="${tag}-${id}"`;
+    let h = `<div class="lgk-glass tile st" data-mat="panel" data-lens style="left:${x}px">`;
+    h += `<span ${m('wifi')} class="lgk-btn circle c-tg on ${S(st, 'wifi')}" style="left:24px; top:24px; ${hv(st, 'wifi')}"><i data-i="wifi"></i></span>`;
+    h += `<span ${m('air')} class="lgk-btn circle c-tg ${S(st, 'air')}" style="left:108px; top:24px; ${hv(st, 'air')}"><i data-i="airplane"></i></span>`;
+    h += `<span ${m('gear')} class="lgk-btn circle c-corner ${S(st, 'gear')}" style="left:276px; top:24px; ${hv(st, 'gear')}"><i data-i="gear"></i></span>`;
+    h += `<div class="c-platter" style="top:108px; height:80px"><div ${m('row')} class="c-row ${S(st, 'row')}${st.row ? ' lit' : ''}" style="${hv(st, 'row')}"><span class="lead"><i data-i="gauge"></i></span><span class="lbl">Refresh Rate</span><span class="trail">120<i data-i="chevron-right"></i></span></div></div>`;
+    h += `<div ${m('cap')} class="c-cap ${S(st, 'cap')}" style="left:24px; right:24px; top:212px; ${hv(st, 'cap')}"><span class="c-stack"><i class="lgk-art" data-art="avatar:6:M"></i></span><span>3 Notifications</span><span class="trail"><i data-i="chevron-right"></i></span></div>`;
+    h += `<div ${m('vol')} class="c-slider mute ${S(st, 'vol')}" style="top:296px; --v:.55; ${hv(st, 'vol', '63%', '50%')}"><span class="mz"><i data-i="speaker"></i></span><span class="trk"><span class="fill"></span><span class="knob"></span></span></div>`;
+    h += `<div class="c-seg" style="left:24px; width:312px; top:384px"><span ${m('off')} class="${S(st, 'off')}" style="${hv(st, 'off')}"><span>Off</span></span><span ${m('on')} class="is-selected ${S(st, 'on')}"><i data-i="eye"></i><span>On</span></span></div>`;
+    h += `<div ${m('nsel')} class="c-row nav is-nav" style="left:24px; width:312px; top:472px"><span class="chip" style="background:var(--lg-blue)"><i data-i="sliders"></i></span><span class="lbl">Quick Settings</span></div>`;
+    h += `<div ${m('nav')} class="c-row nav ${S(st, 'nav')}" style="left:24px; width:312px; top:552px; ${hv(st, 'nav', '40%', '50%')}"><span class="chip" style="background:var(--lg-orange); color:var(--cc-dark)"><i data-i="bolt"></i></span><span class="lbl">Performance</span></div>`;
+    return h + `</div>`;
+  }
+  const H = 'is-hover', F = 'gp';
+  const hover = { wifi: H, air: H, gear: H, row: H, cap: H, vol: H, off: H, nav: H };
+  const focus = { wifi: F, air: F, gear: F, row: F, cap: F, vol: F, on: F, nav: F };
+  document.getElementById('st').innerHTML = tile(96, {}, 'r') + tile(480, hover, 'h') + tile(864, focus, 'f');
+})();
+</script>
 <script src="kit.js"></script>
 <script src="control-center-icons.js"></script>
 </body>

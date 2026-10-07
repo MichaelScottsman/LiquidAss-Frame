@@ -10,10 +10,25 @@
   const ROOT_CLASS = 'lgs-on';
   const STYLE_ID = 'lgs-theme';
 
-  if (payload.op === 'status') return JSON.stringify(W.__LGS_VR ? W.__LGS_VR.status() : { enabled: false });
+  if (payload.op === 'status') {
+    const st = W.__LGS_VR ? W.__LGS_VR.status() : { enabled: false };
+    st.scripts = W.__LGS_VRX ? Object.keys(W.__LGS_VRX) : [];
+    return JSON.stringify(st);
+  }
   if (payload.op === 'off') {
     if (W.__LGS_VR) W.__LGS_VR.disable();
-    return JSON.stringify({ enabled: false });
+    // The daemon's page scripts (device/vr/<page>.<name>.js) go with the theme.
+    const R = W.__LGS_VRX;
+    let scripts = 0;
+    if (R) {
+      for (const k of Object.keys(R)) {
+        try { if (R[k].api && typeof R[k].api.remove === 'function') R[k].api.remove(); } catch (_) { /* its bug */ }
+        delete R[k];
+        scripts++;
+      }
+      delete W.__LGS_VRX;
+    }
+    return JSON.stringify({ enabled: false, scriptsRemoved: scripts });
   }
   // Same theme already applied: just make sure it is still in place and last.
   if (W.__LGS_VR && W.__LGS_VR.version === payload.version) return W.__LGS_VR.apply() ? 'ok' : 'retry';

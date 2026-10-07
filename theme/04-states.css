@@ -1,0 +1,219 @@
+/* Glass Shell foundation: interaction states (package P4).
+   Contract: docs/phase2/contracts/tokens.md §3. Sources: PLAN §1.4, CTL §4,
+   VP P-01 to P-17, IM §2-§4, DESIGN2 §8.2, §10, §13.
+   Wrapped as html.lgs-on { ... } by the bundler ("&" is html.lgs-on).
+
+   1. State numbers: every interaction state, keyed on P3's input mode, is
+      published as a registered non-inherited number on the element itself
+      (--lgs-hover, --lgs-focus, --lgs-within, --lgs-press, --lgs-lift,
+      --lgs-dis; @property in 00-tokens.nowrap.css). Nothing paints here.
+   2. The illumination hook: an element that sets --lgs-ill: <kind> gets the
+      light layer on its ::after (style queries; the pseudo-element queries
+      its originating element). Opt-in, so inert until an area asks.
+   3. Steam's floating FocusRing as a light plate (CTL §4.5).
+   4. Reduce Motion and High Contrast variants. */
+
+/* ------------------------------------------------------------------ */
+/* 1. State numbers                                                     */
+/* ------------------------------------------------------------------ */
+
+/* laser hover: :hover only, never .gpfocus under the laser (VP P-01, P-02).
+   Not in pad mode: a parked pointer leaves a stale :hover (VP P-09). */
+&:not(.lgs-input-pad) :hover { --lgs-hover: 1; }
+/* gamepad focus: .gpfocus, never under the laser (a stale .gpfocus can
+   survive there, IM §3.3). With the runtime off neither class is set and
+   .gpfocus paints as in Phase 1. */
+&:not(.lgs-input-laser) .gpfocus { --lgs-focus: 1; --lgs-lift: 1; }
+&:not(.lgs-input-laser) .gpfocuswithin { --lgs-within: 1; }
+/* press: the laser's :active, gamepad A through P3's lgs-pressed */
+& :active, & .lgs-pressed { --lgs-press: 1; }
+/* lift (scale, depth): laser only after 80 ms of dwell (VP P-06); with the
+   runtime off, plain hover lifts as in Phase 1 */
+&.lgs-input-laser .lgs-dwell:hover { --lgs-lift: 1; }
+&:not(.lgs-input-laser):not(.lgs-input-pad) :hover { --lgs-lift: 1; }
+/* disabled: Steam keeps disabled controls focusable (CTL §4.7) */
+& :is(:disabled, [aria-disabled="true"], .Disabled, %{*GamepadDialogContent>Disabled}, .lgs-focus-disabled) { --lgs-dis: 1; }
+
+/* markup equivalents for elements we create (T2/T3) */
+& [data-lgs-ill="raised"] { --lgs-ill: raised; }
+& [data-lgs-ill="recessed"] { --lgs-ill: recessed; }
+& [data-lgs-ill="row"] { --lgs-ill: row; }
+& [data-lgs-ill="nav"] { --lgs-ill: nav; }
+& [data-lgs-ill="white"] { --lgs-ill: white; }
+& [data-lgs-ill="card"] { --lgs-ill: card; }
+
+/* durations of the light, in one place so Reduce Motion can shorten them */
+& {
+  --lgs-ill-d-in: var(--lgs-d-hover-in, 294ms);
+  --lgs-ill-d-out: var(--lgs-d-fade, 441ms);
+  --lgs-ill-d-press: var(--lgs-d-interactive, 210ms);
+  --lgs-ill-ease: var(--lgs-ease-b0, cubic-bezier(.327, .692, .114, 1));
+  --lgs-ill-ease-press: var(--lgs-ease-b15, cubic-bezier(.311, .589, .077, 1.118));
+}
+
+/* ------------------------------------------------------------------ */
+/* 2. The illumination hook (--lgs-ill on the element → its ::after)     */
+/* ------------------------------------------------------------------ */
+
+@container style(--lgs-ill: raised) or style(--lgs-ill: recessed) or style(--lgs-ill: row) or style(--lgs-ill: nav) or style(--lgs-ill: white) or style(--lgs-ill: card) {
+  *::after {
+    content: "";
+    position: absolute;
+    inset: var(--lgs-ill-inset, 0);
+    border-radius: var(--lgs-ill-r, inherit);
+    pointer-events: none;
+    z-index: var(--lgs-ill-z, auto);
+    /* the element's state numbers (they do not inherit by themselves) */
+    --lgs-hover: inherit;
+    --lgs-focus: inherit;
+    --lgs-within: inherit;
+    --lgs-press: inherit;
+    --lgs-dis: inherit;
+    /* per-kind multipliers (overridden below) */
+    --_lgs-hadd: 1;
+    --_lgs-spot: 1;
+    --_lgs-fadd: 1;
+    --_lgs-win: 0;
+    --_lgs-sheen: 0;
+    --_lgs-glow: 0;
+    --_lgs-on: calc(1 - var(--lgs-dis));
+    /* uniform light: hover add, focus add, press add, row warmth, disabled focus */
+    --_lgs-u: rgb(255 255 255 / calc(
+        var(--lgs-hover-add) * var(--lgs-hover) * var(--_lgs-on) * var(--_lgs-hadd)
+      + var(--lgs-focus-add) * var(--lgs-focus) * var(--_lgs-on) * var(--_lgs-fadd)
+      + var(--lgs-dis-focus-add) * var(--lgs-focus) * var(--lgs-dis) * var(--_lgs-fadd)
+      + var(--lgs-press-add) * var(--lgs-press) * var(--_lgs-on) * var(--_lgs-fadd)
+      + var(--lgs-within-add) * var(--lgs-within) * (1 - var(--lgs-focus)) * var(--_lgs-win)));
+    background:
+      /* press: a glow spreading from the hit point (laser) or the centre (A) */
+      radial-gradient(circle at var(--hx, 50%) var(--hy, 50%),
+        rgb(255 255 255 / calc(var(--lgs-press-spot) * var(--lgs-press) * var(--_lgs-on) * var(--_lgs-spot))) 0,
+        rgb(255 255 255 / 0) calc(40% + 80% * var(--lgs-press))),
+      /* hover: the light spot at the pointer (static without P3's --hx/--hy) */
+      radial-gradient(circle at var(--hx, 50%) var(--hy, 30%),
+        rgb(255 255 255 / calc(var(--lgs-hover-spot) * var(--lgs-hover) * var(--_lgs-on) * var(--_lgs-spot))) 0,
+        rgb(255 255 255 / 0) 75%),
+      /* focus: a static spot in the upper third */
+      radial-gradient(circle at 50% 30%,
+        rgb(255 255 255 / calc(var(--lgs-focus-spot) * var(--lgs-focus) * var(--_lgs-on) * var(--_lgs-spot))) 0,
+        rgb(255 255 255 / 0) 75%),
+      /* content cards: a diagonal specular sheen (tvOS) */
+      linear-gradient(155deg,
+        rgb(255 255 255 / calc(.22 * max(var(--lgs-hover), var(--lgs-focus)) * var(--_lgs-sheen))) 0,
+        rgb(255 255 255 / calc(.05 * max(var(--lgs-hover), var(--lgs-focus)) * var(--_lgs-sheen))) 30%,
+        rgb(255 255 255 / 0) 55%),
+      /* the uniform layer (flat: the same colour at both ends) */
+      linear-gradient(var(--_lgs-u), var(--_lgs-u));
+    box-shadow:
+      /* the control's own specular arc, lit under focus (60 % when disabled) */
+      inset 0 1.5px 1.5px -1px rgb(255 255 255 / calc(var(--lgs-focus-arc) * var(--lgs-focus) * (1 - .4 * var(--lgs-dis)) * var(--_lgs-fadd))),
+      /* white and coloured fills: a blurred outer glow, never a ring (VP P-16) */
+      0 0 18px 2px rgb(255 255 255 / calc(.30 * max(var(--lgs-focus), .5 * var(--lgs-hover)) * var(--_lgs-glow)));
+    /* out: fade (441 ms); press out 90 ms linear */
+    transition:
+      --lgs-hover var(--lgs-ill-d-out) var(--lgs-ill-ease),
+      --lgs-focus var(--lgs-ill-d-out) var(--lgs-ill-ease),
+      --lgs-within var(--lgs-ill-d-out) var(--lgs-ill-ease),
+      --lgs-press 90ms linear;
+  }
+  /* in: hover-in (294 ms), press on interactive (210 ms); focus jumps in and
+     enters through P5's lgs-focus-in (.6 → 1), so the first frame already
+     shows --lgs-focus-first of the look (CTL P-C11) */
+  :is(:hover, .gpfocus, .gpfocuswithin, :active, .lgs-pressed)::after {
+    transition:
+      --lgs-hover var(--lgs-ill-d-in) var(--lgs-ill-ease),
+      --lgs-focus 0s,
+      --lgs-within var(--lgs-ill-d-in) var(--lgs-ill-ease),
+      --lgs-press var(--lgs-ill-d-press) var(--lgs-ill-ease-press);
+  }
+  &:not(.lgs-input-laser) .gpfocus::after {
+    animation: lgs-focus-in var(--lgs-ill-d-in) var(--lgs-ill-ease) backwards;
+  }
+}
+
+/* kinds */
+@container style(--lgs-ill: row) {
+  *::after {
+    inset: var(--lgs-ill-inset, var(--lgs-row-inset));
+    border-radius: var(--lgs-ill-r, var(--lgs-r-row));
+    --_lgs-win: 1;
+  }
+}
+/* navigation rows (sidebar, list, tab bar): hover is the light spot only */
+@container style(--lgs-ill: nav) {
+  *::after { --_lgs-hadd: 0; }
+}
+/* white / coloured fills: additive light cannot brighten white; a glow does */
+@container style(--lgs-ill: white) {
+  *::after { --_lgs-hadd: 0; --_lgs-fadd: 0; --_lgs-spot: 0; --_lgs-glow: 1; }
+}
+/* content: no fill on art, a sheen; the lift is the area's (--lgs-lift) */
+@container style(--lgs-ill: card) {
+  *::after { --_lgs-hadd: 0; --_lgs-fadd: 0; --_lgs-spot: 0; --_lgs-sheen: 1; }
+}
+
+/* ------------------------------------------------------------------ */
+/* 3. Steam's floating FocusRing becomes a light plate (CTL §4.5)        */
+/* ------------------------------------------------------------------ */
+
+/* The only focus cue for radio segments, check boxes, recording-mode cards,
+   links and scroll panels. Geometry stays inline (Steam's); only paint and
+   its flash / grow / 20x pulse change: nothing runs at rest. */
+& %{FocusRing}, & %{FocusRing}::before, & %{FocusRing}::after {
+  animation: none !important;
+}
+& %{FocusRing} {
+  outline-color: transparent !important;
+  border-radius: min(var(--lgs-r-row), 50%) !important;
+  background:
+    radial-gradient(circle at 50% 30%, rgb(255 255 255 / var(--lgs-focus-spot)), rgb(255 255 255 / 0) 75%),
+    rgb(255 255 255 / .12) !important;
+  box-shadow: 0 0 18px 2px rgb(255 255 255 / .22);
+  opacity: 1 !important;
+}
+/* never in laser mode: a stale ring must not paint a focus look (VP P-02) */
+&.lgs-input-laser %{FocusRing} {
+  background: transparent !important;
+  box-shadow: none;
+}
+/* check circles (P3 tags the ring): a bloom 12 px larger than the circle */
+& %{FocusRing}.lgs-ring-check {
+  background: transparent !important;
+  box-shadow: none;
+}
+& %{FocusRing}.lgs-ring-check::before {
+  content: "";
+  position: absolute;
+  inset: -12px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle, rgb(255 255 255 / .34) 0, rgb(255 255 255 / .22) 42%, rgb(255 255 255 / 0) 72%);
+}
+
+/* ------------------------------------------------------------------ */
+/* 4. Reduce Motion, High Contrast (DESIGN2 §13, CTL §4.6)               */
+/* ------------------------------------------------------------------ */
+
+@media (prefers-reduced-motion: reduce) {
+  & {
+    --lgs-ill-d-in: 150ms;
+    --lgs-ill-d-out: 150ms;
+    --lgs-ill-d-press: 150ms;
+    --lgs-ill-ease: linear;
+    --lgs-ill-ease-press: linear;
+  }
+}
+
+@media (prefers-contrast: more) {
+  /* opaque fills, no spot (tokens), focus = white .30 + the allowed 2 px stroke */
+  & { --lgs-focus-add: .30; --lgs-dis-focus-add: .18; }
+  @container style(--lgs-ill: raised) or style(--lgs-ill: recessed) or style(--lgs-ill: row) or style(--lgs-ill: nav) or style(--lgs-ill: white) or style(--lgs-ill: card) {
+    *::after {
+      box-shadow: inset 0 0 0 2px rgb(255 255 255 / calc(.70 * var(--lgs-focus) * (1 - .43 * var(--lgs-dis))));
+    }
+  }
+  & %{FocusRing} {
+    background: rgb(255 255 255 / .30) !important;
+    box-shadow: inset 0 0 0 2px rgb(255 255 255 / .70);
+  }
+}

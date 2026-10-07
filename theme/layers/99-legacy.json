@@ -1,0 +1,117 @@
+{
+  "version": 2,
+  "about": [
+    "Phase 1's layer rules (formerly theme/layers.json), kept until every area supersedes them (PLAN 6). P6, temporary.",
+    "admission: false keeps Phase 1 behaviour exactly (RP-1): no click-safe cap, no profile, no modal rule.",
+    "An area retires a rule here by listing its id in its own fragment's \"supersedes\". Deleted when empty."
+  ],
+  "admission": false,
+  "defaults": {
+    "material": "liquid"
+  },
+  "surfaces": {
+    "main": {
+      "layers": [
+        {
+          "id": "menu",
+          "sel": "%{*BasicContextMenuModal>contextMenuContents}",
+          "dz": 0.03,
+          "material": "thick",
+          "max": 3
+        },
+        {
+          "id": "sheet",
+          "sel": "%{*GamepadDialogContent>ModalPosition} > %{*GamepadDialogContent_InnerWidth>GamepadDialogContent}",
+          "dz": 0.03,
+          "material": "thick"
+        },
+        {
+          "id": "sheet-panel",
+          "sel": "%{*GamepadDialogContent>ModalPosition} > div.Panel:not(%{*GamepadDialogContent>ModalClickToDismiss}):has(> %{ScrollPanel})",
+          "dz": 0.03,
+          "material": "thick"
+        },
+        {
+          "id": "filters",
+          "sel": "%{DialogWrapper>CompatFilterDialog}",
+          "dz": 0.03,
+          "material": "thick"
+        },
+        {
+          "id": "hdr-back",
+          "sel": "#header %{BackContainer}",
+          "pseudo": "::before",
+          "dz": 0.015,
+          "r": "capsule"
+        },
+        {
+          "id": "hdr-search",
+          "sel": "#header%{Profile>Header}",
+          "pseudo": "::after",
+          "dz": 0.015,
+          "r": "capsule"
+        },
+        {
+          "id": "footer",
+          "sel": "#Footer%{BasicFooter}",
+          "pseudo": "::after",
+          "dz": 0.012,
+          "r": "capsule"
+        },
+        {
+          "id": "tabs",
+          "sel": "%{TabHeaderRowWrapper}",
+          "pseudo": "::after",
+          "dz": 0.012,
+          "r": "capsule",
+          "max": 2
+        },
+        {
+          "id": "tab-arrow",
+          "sel": ":is(%{GamepadLibrary}, %{RecentSection} ~ %{TabbedContent}) %{TabHeaderRowWrapper} %{Arrows}",
+          "dz": 0.012,
+          "r": "capsule",
+          "max": 4
+        },
+        {
+          "id": "sort-filter",
+          "sel": "%{SortAndFilterContainer}",
+          "dz": 0.015,
+          "r": "capsule"
+        },
+        {
+          "id": "play",
+          "sel": "%{PlayButtonContainer}",
+          "dz": 0.015,
+          "lift": 0.005,
+          "outset": 3,
+          "r": "capsule"
+        },
+        {
+          "id": "app-button",
+          "sel": "%{PartnerEventOverlayContainer>AppDetailsMain} %{Container>MenuButton}",
+          "dz": 0.01,
+          "lift": 0.004,
+          "outset": 3,
+          "r": "capsule",
+          "max": 3
+        },
+        {
+          "id": "card",
+          "focus": "always",
+          "lift": 0.008,
+          "outset": 4,
+          "sel": "%{LibraryItemBox}:is(.gpfocus, .Focusable:focus), %{GamepadSearch} %{ResultTemplate}.gpfocuswithin %{ResultTemplateImage}, %{GamepadLibrary} %{Collection}:is(.gpfocus, :focus), %{RecentlyCompletedItem}.gpfocus, %{RecentSection} ~ %{TabbedContent} %{GameCapsule}.gpfocus, %{InGameGame}.gpfocus, %{Seen>MarketingMessage}.gpfocus, %{SeasonalSale}.gpfocus, %{BasicGameCarouselItem} %{TextBoxCarouselContents}.gpfocus"
+        },
+        {
+          "id": "button",
+          "focus": "always",
+          "lift": 0.005,
+          "outset": 3,
+          "r": "capsule",
+          "sel": "button.DialogButton.gpfocus"
+        }
+      ]
+    }
+  }
+}

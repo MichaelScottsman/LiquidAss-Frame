@@ -4,11 +4,13 @@
 <meta charset="utf-8">
 <title>Glass Shell P2 — controls: text fields</title>
 <link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="window-nav-shared.css"><!-- the E3 edge without the linear top layer (PLAN §1.6, WN D-15) -->
 <link rel="stylesheet" href="controls.css">
 <style>
-  .pa { left: 40px; width: 420px; right: auto; top: 136px; height: 256px; }
-  .pb { left: 490px; width: 430px; right: auto; top: 136px; height: 256px; }
-  .pc { top: 444px; height: 240px; }
+  /* the /zoo spec board inside `window` glass 1280 x 656; content runs y 108..632 */
+  .pa { left: 40px; width: 420px; right: auto; top: 140px; height: 256px; }
+  .pb { left: 476px; width: 444px; right: auto; top: 140px; height: 256px; }
+  .pc { top: 440px; height: 190px; }
   .pa .c-field, .pb .c-field { position: absolute; left: 20px; right: 20px; }
   .pb .c-fieldlabel, .pb .c-fieldnote { position: absolute; left: 44px; }
   .eye { position: relative; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; color: var(--lg-text-2); --is: 24px; flex: none; }
@@ -16,49 +18,54 @@
 </head>
 <body>
 <div class="lgk-view" data-room="lounge">
-  <div class="lgk-overlay" style="left:320px; top:180px">
-    <div class="lgk-glass cg-win" data-mat="window" data-dz="0" data-tier="T5 window">
+  <div class="lgk-overlay" style="left:320px; top:66px">
+    <div class="lgk-glass cg-win" data-mat="window" data-dz="0" data-tier="T5 window cover; T1 smoky tint" data-id="window">
       <div class="cg-side" data-sel="Text Fields"></div>
       <div class="cg-main">
         <div class="cg-head"><span class="t-title2">Text Fields</span>
           <span class="lgk-btn circle" style="right:24px"><i data-i="more"></i></span></div>
 
-        <div class="cg-sec" style="top:104px">Search <span class="v3">· 64 px recessed capsule</span></div>
+        <div class="cg-sec" style="top:112px">Search <span class="v3">· 64 px capsule, no microphone</span></div>
         <div class="cg-platter pa">
           <div class="c-field" style="top:24px"><i data-i="search" class="lead"></i><span class="txt ph">Search for games or profiles</span></div>
-          <div class="c-field is-focus" style="top:104px"><i data-i="search" class="lead"></i><span class="txt">hollow pe<span class="caret"></span></span><span class="clear"><i data-i="xmark"></i></span></div>
+          <div class="c-field is-focus" style="top:104px" data-id="field-focus"><i data-i="search" class="lead"></i><span class="txt">hollow pe<span class="caret"></span></span><span class="clear" id="clr"><i data-i="xmark"></i></span></div>
           <div class="c-field is-hover" id="hov" style="top:184px; --hx:86%; --hy:70%"><i data-i="search" class="lead"></i><span class="txt ph">Search achievements</span></div>
         </div>
 
-        <div class="cg-sec" style="top:104px; left:516px">Labelled <span class="v3">· label above, note below</span></div>
+        <div class="cg-sec" style="top:112px; left:502px">Labelled <span class="v3">· label above, note below</span></div>
         <div class="cg-platter pb">
           <div class="c-fieldlabel" style="top:22px">Computer Name</div>
           <div class="c-field" style="top:52px"><span class="txt">steamframe</span><span class="clear"><i data-i="xmark"></i></span></div>
           <div class="c-fieldnote" style="top:126px">Restarts the device when changed.</div>
           <div class="c-fieldlabel" style="top:164px">Wi-Fi Password</div>
-          <div class="c-field" style="top:192px; letter-spacing:.12em"><span class="txt">••••••••••</span><span class="eye"><i data-i="eye"></i></span></div>
+          <div class="c-field" style="top:192px; letter-spacing:.12em"><i data-i="lock" class="lead" style="--is:22px"></i><span class="txt">••••••••••</span><span class="eye"><i data-i="eye"></i></span></div>
         </div>
 
         <div class="cg-sec" style="top:412px">Multi-line and Errors</div>
         <div class="cg-platter pc">
-          <div class="c-field multi" style="position:absolute; left:20px; top:24px; width:300px"><span class="txt" style="display:block">See you at 8. I'll bring the spare controller<span class="caret" style="vertical-align:-6px"></span></span></div>
-          <span class="lgk-btn circle primary" style="position:absolute; left:336px; top:62px"><i data-i="arrowright" style="rotate:-90deg"></i></span>
-          <div class="cg-cap" style="position:absolute; left:20px; top:164px; text-align:left; white-space:normal; width:380px">Grows with the text, corner radius 30; Enter sends (the key reads Send)</div>
+          <div class="c-field multi" style="position:absolute; left:20px; top:22px; width:300px"><span class="txt" style="display:block">See you at 8. I'll bring the spare controller<span class="caret" style="vertical-align:-6px"></span></span></div>
+          <span class="lgk-btn circle primary" style="position:absolute; left:340px; top:41px"><i data-i="arrowright" style="rotate:-90deg"></i></span>
+          <div class="cg-cap" style="position:absolute; left:22px; top:140px; text-align:left; white-space:normal; width:400px">Grows with the text; send is a 60 px circle</div>
 
-          <div class="c-fieldlabel" style="position:absolute; left:476px; top:22px">Enter a Friend Code</div>
-          <div class="c-field is-error" style="position:absolute; left:452px; right:20px; top:52px"><i data-i="exclaim" class="lead" style="color:var(--lg-red)"></i><span class="txt t-num">12345678</span><span class="clear"><i data-i="xmark"></i></span></div>
-          <div class="c-fieldnote err" style="position:absolute; left:472px; top:126px"><i data-i="exclaim"></i>That friend code was not found.</div>
-          <div class="cg-cap" style="position:absolute; left:476px; top:164px; text-align:left; white-space:normal; width:390px">Error: red-tinted well, red glyph, white note; never a red outline or thin red text</div>
+          <div class="c-fieldlabel" style="position:absolute; left:476px; top:20px">Enter a Friend Code</div>
+          <div class="c-field is-error" style="position:absolute; left:452px; right:20px; top:48px"><i data-i="exclaim" class="lead" style="color:var(--lg-red)"></i><span class="txt t-num">12345678</span><span class="clear"><i data-i="xmark"></i></span></div>
+          <div class="c-fieldnote err" style="position:absolute; left:472px; top:120px"><i data-i="exclaim"></i>That friend code was not found.</div>
+          <div class="cg-cap" style="position:absolute; left:476px; top:152px; text-align:left; white-space:normal; width:390px">A red-tinted well and glyph, no red outline</div>
         </div>
       </div>
     </div>
   </div>
+  <!-- annotation (not product UI): the clear circle's hit box, 80 x 80 around its 38 px circle (E-MINI) -->
+  <div class="c-hit" id="hit"></div>
 
   <svg style="position:absolute; inset:0; width:1920px; height:1080px; pointer-events:none; z-index:40" viewBox="0 0 1920 1080">
     <defs><linearGradient id="beam" x1="1" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".35" stop-color="#dbe8ff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity=".9"/></linearGradient></defs>
     <polygon id="beamp" points="0,0" fill="url(#beam)" opacity=".5"/>
   </svg>
   <div class="lgk-laser-dot" id="dot"></div>
+
+  <div class="c-note" style="left:1622px; top:150px; width:270px"><b>The one ring.</b> A focused field gets a 3 px soft white ring and a 16 px glow (VP P-17); its fill adds only .08, so the typed text keeps its contrast. The placeholder is upright. The keyboard opens on activation, never on focus.</div>
+  <div class="c-note" style="left:1622px; top:400px; width:270px"><b>In the toolbar</b> the same field is a 520 px capsule on section roots, 640 on nested routes, or a 60 px magnifier circle (window-nav). The clear circle is alone in an 80 × 80 hit box (hatched).</div>
 </div>
 <script src="controls-gallery.js"></script>
 <script src="kit.js"></script>
@@ -69,6 +76,8 @@
     const x = h.left + h.width * .86, y = h.top + h.height * .7;
     const d = document.getElementById('dot'); d.style.left = x + 'px'; d.style.top = y + 'px';
     document.getElementById('beamp').setAttribute('points', `1700,1095 1712,1095 ${x + 1},${y} ${x - 1},${y}`);
+    const c = document.getElementById('clr').getBoundingClientRect(), cx = c.left + c.width / 2, cy = c.top + c.height / 2;
+    const hb = document.getElementById('hit'); Object.assign(hb.style, { left: (cx - 40) + 'px', top: (cy - 40) + 'px', width: '80px', height: '80px' });
   }));
 </script>
 </body>

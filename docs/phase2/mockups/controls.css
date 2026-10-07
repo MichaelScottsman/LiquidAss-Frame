@@ -1,29 +1,52 @@
-/* Shared control vocabulary v2 (docs/phase2/concepts/controls.md), rendered on top of kit.css.
+/* Shared control vocabulary v3 (docs/phase2/concepts/controls.md), rendered on top of kit.css.
  *
  * Every size is a main-window CSS px (1 pt = 4/3 px, DESIGN2 §2.1) unless a block says otherwise.
- * Nothing in this file draws an outline on glass. The only ring is the text-field focus ring (§F of the concept).
+ * Nothing in this file draws an outline on glass. The only ring is the text-field focus ring (VP P-17).
  * State classes follow the kit: is-hover (with --hx/--hy), is-focus, is-pressed, is-selected, is-disabled,
- * plus is-drag (slider), is-open (pop-up button), is-lift (selection pill while travelling).
+ * plus is-drag (slider), is-open (pop-up button), is-lift (selection pill while travelling), is-within
+ * (focus inside a single-control row), is-within-multi (a multi-control row), is-lifted (the control in such a row).
+ * Revision 3 (PLAN §1 conformance, M0): gamepad focus add .28 (§1.4), the light layer drawn under the label
+ * (VP P-10), navigation rows hover with the spot only, navigation selection = .18 + arc + Semibold, glyph
+ * badges only in gamepad mode (VP P-26), 656 px window glass for /zoo boards (§1.2), 48 px thick-glass
+ * tooltips (§1.13), contiguous segments (E-SEG), 40 px menu header and a 56 px quiet Cancel (§1.12).
+ * The keyboard block (kb-*, c-key) is C4b's look and is kept as it was.
  */
 
 :root {
+  /* state recipe (PLAN §1.4). P4 sets the final focus add once, between .28 and .32, from the G-FOCUS measurement */
+  --c-focus: .28;
+  --c-hover: .08;
+  --c-spot-hover: .12;
+  --c-spot-focus: .16;
+  --c-nav: .18;
+  /* focus on a white or coloured fill: a blurred glow, not a ring. PLAN §1.4 starts from 0 0 18px 2px white .30, which measures
+     +4..6 L in the P-16 band (8-16 px outside) on the state board; this value gives +22..33 L (G-FOCUS needs +20). REQ C4a->P4 */
+  --c-glow-on: 0 0 24px 10px rgb(255 255 255 / .50);
   /* recessed: darker than the glass, lit on its lower inner lip (light from above), never a ring */
   --c-recess: inset 0 2px 5px rgb(0 0 0 / .30), inset 0 -2px 3px -1px rgb(255 255 255 / .10);
   /* raised: lighter than the glass, a soft top sheen and a faint contact shadow */
   --c-raised-bg: linear-gradient(180deg, rgb(255 255 255 / .07), rgb(255 255 255 / 0) 55%), rgb(255 255 255 / .10);
   --c-raised-sh: inset 0 1.5px 1.5px -1px rgb(255 255 255 / .22), 0 1px 2px rgb(0 0 0 / .10);
+  /* the control's own specular arc, x1.5 under focus: a conic arc from the key light with gaps on both sides */
   --c-arc: conic-gradient(from var(--lg-light), rgb(255 255 255 / .75) 0deg, rgb(255 255 255 / .2) 40deg, transparent 75deg,
            transparent 145deg, rgb(255 255 255 / .22) 180deg, transparent 215deg, transparent 285deg, rgb(255 255 255 / .2) 320deg,
            rgb(255 255 255 / .75) 360deg);
+  /* the navigation selection's top arc: the same light, weaker (selection is quieter than focus, VP P-15) */
+  --c-arc-sel: conic-gradient(from var(--lg-light), rgb(255 255 255 / .46) 0deg, rgb(255 255 255 / .12) 40deg, transparent 75deg,
+           transparent 285deg, rgb(255 255 255 / .12) 320deg, rgb(255 255 255 / .46) 360deg);
+  --c-ring-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
 }
 
-/* ===================================================================== gallery window (spec board) */
-.cg-win { left: 0; top: 0; width: 1280px; height: 720px; }
+/* ===================================================================== gallery window (spec board drawn as the /zoo route, `window` glass 1280 x 656) */
+.cg-win { left: 0; top: 0; width: 1280px; height: 656px; }
 .cg-side { position: absolute; left: 0; top: 0; bottom: 0; width: 320px; background: var(--lg-fill-regular);
-  border-radius: var(--lg-r-window) 0 0 var(--lg-r-window); }
-.cg-side > .t-large { position: absolute; left: 32px; top: 26px; }
-.cg-nav { position: absolute; left: 12px; right: 12px; top: 106px; display: flex; flex-direction: column; gap: 8px; }
+  border-radius: var(--lg-r-window) 0 0 var(--lg-r-window); overflow: hidden; }
+.cg-side > .cg-back { position: absolute; left: 24px; top: 24px; }
+.cg-side > .t-large { position: absolute; left: 100px; top: 54px; translate: 0 -50%; white-space: nowrap; }
+.cg-nav { position: absolute; left: 12px; right: 12px; top: 108px; display: flex; flex-direction: column; gap: 8px; }
 .cg-nav .lgk-row { height: 72px; padding: 0 14px; gap: 16px; font-size: 24px; }
+.cg-side::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 72px; pointer-events: none;   /* scroll edge: the list scrolls under it */
+  background: linear-gradient(180deg, rgb(0 0 0 / 0), rgb(0 0 0 / .22)); -webkit-mask: linear-gradient(180deg, transparent, #000); }
 .cg-main { position: absolute; left: 320px; top: 0; right: 0; bottom: 0; }
 .cg-head { position: absolute; left: 0; right: 0; top: 0; height: 108px; display: flex; align-items: center; justify-content: center; }
 .cg-head > .lgk-btn { position: absolute; top: 24px; }
@@ -34,12 +57,14 @@
 .cg-cap { font: 500 18px/1.2 var(--lg-font); color: var(--lg-text-2); white-space: nowrap; text-align: center; }
 .cg-cap b { font-weight: 600; color: var(--lg-text-1); }
 .cg-row { position: absolute; display: flex; align-items: center; }
+.cg-mode { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 13px; background: rgb(255 255 255 / .10);
+  font: 600 15px/1 var(--lg-font); color: var(--lg-text-2); white-space: nowrap; }   /* annotation chip: which input mode a specimen shows */
 
 /* ===================================================================== buttons (raised fill on glass) */
 .lgk-btn:not(.plain):not(.primary):not(.play):not(.danger):not(.is-selected):not(.c-glassbtn) { background: var(--c-raised-bg); box-shadow: var(--c-raised-sh); }
 .lgk-btn.primary, .lgk-btn.play, .lgk-btn.danger { box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / .35), 0 3px 8px rgb(0 0 0 / .22); color: #fff; }
 .lgk-btn.danger { background: linear-gradient(180deg, rgb(255 255 255 / .18), rgb(255 255 255 / 0) 55%), var(--lg-tint-danger); }
-.lgk-btn.danger-label { color: rgb(255 130 125); }   /* >= 3:1 (large text) on text-bearing glass L 70-90 */
+.lgk-btn.danger-label { color: rgb(255 130 125); }   /* >= 3:1 (large text) on text-bearing glass L 70-90; VP P-40 exception (>= 22 px Semibold) */
 .lgk-btn.is-selected { box-shadow: 0 2px 6px rgb(0 0 0 / .22); }
 .lgk-btn.is-disabled { opacity: .4; }
 .lgk-btn.mini { --s: 38px; --is: 18px; }
@@ -48,27 +73,60 @@
 .lgk-btn.xl.circle { --is: 36px; }
 .lgk-btn.capsule.lg { padding: 0 28px; }
 .lgk-btn.capsule.xl { padding: 0 34px; }
-.lgk-btn.play-80 { --s: 80px; font-size: 28px; padding: 0 40px; gap: 12px; }
+.lgk-btn.play-80 { --s: 80px; width: 280px; font-size: 28px; padding: 0 40px; gap: 12px; }   /* Play: 280 x 80 on game pages (PLAN §1.3) */
 .lgk-btn .lgk-glyph { margin-right: -8px; }
-/* a button floating in space (no glass behind it) is its own small glass */
+/* a button floating in space (no glass behind it) is its own small glass: liquid, in-page blur 12 + saturate 1.7 (PLAN §1.6) */
 .c-glassbtn { background: linear-gradient(180deg, rgb(255 255 255 / .16), rgb(255 255 255 / .04) 60%), rgb(90 92 100 / .22);
-  -webkit-backdrop-filter: blur(14px) saturate(1.7) brightness(.86); backdrop-filter: blur(14px) saturate(1.7) brightness(.86);
+  -webkit-backdrop-filter: blur(12px) saturate(1.7) brightness(.86); backdrop-filter: blur(12px) saturate(1.7) brightness(.86);
   box-shadow: inset 0 0 6px -1px rgb(0 0 0 / .14), inset 0 -2px 4px -1px rgb(0 0 0 / .12), 0 8px 22px rgb(0 0 0 / .30); }
 .c-glassbtn::before { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; padding: 1.5px;
-  background: var(--c-arc); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; opacity: .8; }
+  background: var(--c-arc); -webkit-mask: var(--c-ring-mask); -webkit-mask-composite: xor; mask-composite: exclude; opacity: .8; }
 
-/* illumination on every control class below (hover light, focus glow, press glow; DESIGN2 §10) */
-.c-switch::after, .c-check::after, .c-popup::after, .c-field::after, .c-row::after, .c-key::after, .c-opt::after, .c-slider::after {
-  content: ""; position: absolute; inset: var(--lit-inset, 0); border-radius: inherit; pointer-events: none; mix-blend-mode: plus-lighter; opacity: 0;
+/* controller glyph badges: gamepad mode only (VP P-26). A view in laser mode carries data-lgs-vr-mode="laser", as the live root does */
+.lgk-view[data-lgs-vr-mode="laser"] .lgk-glyph:not(.keep) { display: none; }
+
+/* ===================================================================== the light layer (hover, focus, press): PLAN §1.4
+   One pseudo-element per control (normally ::after), drawn ABOVE the control's fill and BELOW its label (VP P-10):
+   the host is its own stacking context and the layer sits at z-index -1. Values are composited as written
+   ("+ white .28" = .28 white over the rest look), which is how VP D-2 computes the luma steps. */
+:is(.lgk-btn, .lgk-row, .lgk-seg > *, .c-popup, .c-field, .c-opt, .c-seg2 > span) { isolation: isolate; }
+:is(.lgk-btn, .lgk-row, .lgk-seg > *)::after { z-index: -1; mix-blend-mode: normal; }
+.c-switch::after, .c-check::after, .c-popup::after, .c-field::after, .c-row::after, .c-key::after, .c-opt::after, .c-slider::after, .c-seg2 > span::after {
+  content: ""; position: absolute; inset: var(--lit-inset, 0); border-radius: inherit; pointer-events: none; opacity: 0;
   background: radial-gradient(circle at var(--hx, 50%) var(--hy, 30%), rgb(255 255 255 / var(--spot, .12)) 0, rgb(255 255 255 / 0) var(--spot-r, 75%)),
               rgb(255 255 255 / var(--lift, 0)); z-index: 2; }
-:is(.c-switch, .c-check, .c-popup, .c-field, .c-row, .c-key, .c-opt, .c-slider).is-hover::after { opacity: 1; --lift: .08; }
-:is(.c-switch, .c-check, .c-popup, .c-field, .c-row, .c-key, .c-opt, .c-slider).is-focus::after { opacity: 1; --lift: .14; --spot: .16; }
-:is(.c-switch, .c-check, .c-popup, .c-field, .c-row, .c-key, .c-opt, .c-slider).is-pressed::after { opacity: 1; --lift: .06; --spot: .22; --spot-r: 120%; }
-/* focus: the control lifts into glass, i.e. it gets its own specular arc (never a ring) */
-:is(.c-switch, .c-popup, .c-row, .c-key, .c-opt, .c-slider).is-focus::before {
+:is(.c-popup, .c-field, .c-opt, .c-seg2 > span)::after { z-index: -1; }
+.c-row::after { z-index: 0; }                         /* above the row's pill (tree order), below its content (z 1) */
+.c-key::after { mix-blend-mode: plus-lighter; }        /* keys: unchanged (C4b) */
+
+/* generic state rules use :where() (low specificity), so every control-specific rule below overrides them.
+   laser hover: + white .08 and a light spot of .12 at the pointer, at once */
+:where(.lgk-btn, .lgk-row, .lgk-seg > *, .c-switch, .c-check, .c-popup, .c-field, .c-row, .c-key, .c-opt, .c-slider, .c-seg2 > span).is-hover::after { opacity: 1; --lift: var(--c-hover); --spot: var(--c-spot-hover); }
+/* navigation rows (rows that can carry the navigation selection: sidebars, selection lists, tab bars): the spot only (SM-D13, SET T-SEL) */
+:is(.cg-nav .lgk-row, .lgk-row.nav, .c-row.nav).is-hover::after { --lift: 0; }
+/* a check circle is small and dark: its hover spot is softer, so hover stays inside VP P-03 (+10..25 L) */
+.c-check.is-hover::after { --spot: .07; }
+/* gamepad focus: + white .28 uniform, a spot of .16 static in the upper third (VP P-09), the control's own arc x1.5 */
+:where(.lgk-btn, .lgk-row, .lgk-seg > *, .c-switch, .c-check, .c-popup, .c-row, .c-opt, .c-slider, .c-seg2 > span).is-focus::after { opacity: 1; --lift: var(--c-focus); --spot: var(--c-spot-focus); --hx: 50%; --hy: 30%; }
+/* text fields: the ring is the focus look (VP P-17); the fill adds only .08 so typed text keeps its contrast */
+.c-field.is-focus::after { opacity: 1; --lift: .08; --spot: 0; }
+.c-key.is-focus::after { opacity: 1; --lift: .14; --spot: .16; }   /* keys: C4b's values (white .32 key + this layer) */
+/* press: a glow from the hit point on `interactive`; glass controls also swell (kit: scale min(1.06, 1 + 6 / maxSide)) */
+:where(.lgk-btn, .lgk-row, .c-switch, .c-check, .c-popup, .c-field, .c-row, .c-key, .c-opt, .c-slider, .c-seg2 > span).is-pressed::after { opacity: 1; --lift: .06; --spot: .22; --spot-r: 120%; }
+/* focus arc: the control lifts into glass (its own specular arc, never a ring) */
+:where(.c-switch, .c-popup, .c-row, .c-key, .c-opt, .c-slider, .c-seg2 > span).is-focus::before {
   content: ""; position: absolute; inset: var(--lit-inset, 0); border-radius: inherit; pointer-events: none; padding: 1.5px; z-index: 3;
-  background: var(--c-arc); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+  background: var(--c-arc); -webkit-mask: var(--c-ring-mask); -webkit-mask-composite: xor; mask-composite: exclude; }
+/* focus on a white or coloured fill: white cannot get brighter, so an outer glow; the inner light is capped (+.04) */
+:is(.lgk-btn.is-selected, .lgk-btn.primary, .lgk-btn.play, .lgk-btn.danger, .c-opt.is-selected).is-focus,
+.c-popup.is-open.is-focus { box-shadow: 0 2px 6px rgb(0 0 0 / .22), var(--c-glow-on); }
+:is(.lgk-btn.is-selected, .lgk-btn.primary, .lgk-btn.play, .lgk-btn.danger, .c-opt.is-selected).is-focus::after { --lift: .04; --spot: .04; }
+:is(.lgk-btn.is-selected, .c-opt.is-selected).is-focus::after, :is(.lgk-btn.is-selected, .c-opt.is-selected).is-focus::before { opacity: 0; }
+
+/* navigation selection: white .18 pill + a specular top arc + a Semibold label (PLAN §1.4) */
+.lgk-row.is-nav-selected { background: rgb(255 255 255 / var(--c-nav)); font-weight: 600; }
+.lgk-row.is-nav-selected:not(.is-focus)::before { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; padding: 1.5px;
+  background: var(--c-arc-sel); -webkit-mask: var(--c-ring-mask); -webkit-mask-composite: xor; mask-composite: exclude; }
 
 /* ===================================================================== switch (visionOS 51 x 31 pt ~ 66 x 40 px) */
 .c-switch { position: relative; width: 66px; height: 40px; border-radius: 20px; flex: none; background: rgb(255 255 255 / .16);
@@ -77,12 +135,14 @@
 .c-switch > .knob { position: absolute; top: 3px; left: 3px; width: 34px; height: 34px; border-radius: 50%; background: #fff; z-index: 4;
   box-shadow: 0 2px 5px rgb(0 0 0 / .30), 0 0 1px rgb(0 0 0 / .25); }
 .c-switch.on > .knob { left: 29px; }
+.c-switch.on.is-focus { box-shadow: inset 0 1px 2px rgb(0 0 0 / .12), var(--c-glow-on); }
+.c-switch.on.is-focus::after { --lift: .04; --spot: .04; }
 /* press: the knob lifts into clear glass (x1.3 wide, x1.2 high) on `interactive`, MO §4.15 */
 .c-switch.is-pressed > .knob { width: 44px; height: 41px; top: -.5px; left: 22px; border-radius: 21px;
   background: linear-gradient(180deg, rgb(255 255 255 / .45), rgb(255 255 255 / .18)); -webkit-backdrop-filter: blur(1.5px) saturate(1.8); backdrop-filter: blur(1.5px) saturate(1.8);
   box-shadow: 0 3px 8px rgb(0 0 0 / .30), inset 0 0 4px rgb(255 255 255 / .35), inset 0 -2px 3px rgb(0 0 0 / .10); }
 .c-switch.is-pressed > .knob::before { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1.5px; background: var(--c-arc);
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+  -webkit-mask: var(--c-ring-mask); -webkit-mask-composite: xor; mask-composite: exclude; }
 .c-switch.is-disabled { opacity: .4; }
 
 /* ===================================================================== check circle (40 px, 80 px hit cell) */
@@ -98,7 +158,7 @@
 .c-slider > .fill { position: absolute; left: 0; top: 0; bottom: 0; width: calc(64px + var(--v) * (100% - 64px)); border-radius: 32px;
   background: linear-gradient(180deg, rgb(255 255 255 / .92), rgb(255 255 255 / .84)); box-shadow: 0 1px 3px rgb(0 0 0 / .18); }
 .c-slider > .glyph { position: absolute; left: 19px; top: 19px; --is: 26px; color: #1b1c20; z-index: 3; }
-/* the knob appears only on hover, focus or drag, at the fill's end (Steam's SliderHandle, 64 via --slider-handle-width) */
+/* the knob (Steam's SliderHandle, 64 via --slider-handle-width) shows on hover, focus or drag; its white disc is 58, inset 3 */
 .c-slider > .knob { position: absolute; top: 3px; width: 58px; height: 58px; left: calc(3px + var(--v) * (100% - 64px)); border-radius: 50%; z-index: 4;
   background: #fff; box-shadow: 0 2px 8px rgb(0 0 0 / .32), 0 0 0 .5px rgb(0 0 0 / .10); display: none; }
 .c-slider:is(.is-hover, .is-focus, .is-drag, .stepped) > .knob { display: block; }
@@ -108,7 +168,7 @@
   -webkit-backdrop-filter: blur(2px) saturate(1.8) brightness(.86); backdrop-filter: blur(2px) saturate(1.8) brightness(.86);
   box-shadow: 0 6px 16px rgb(0 0 0 / .30), inset 0 0 8px rgb(0 0 0 / .16), inset 0 -3px 5px rgb(0 0 0 / .08); }
 .c-slider.is-drag > .knob::before { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1.5px; background: var(--c-arc);
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+  -webkit-mask: var(--c-ring-mask); -webkit-mask-composite: xor; mask-composite: exclude; }
 .c-slider > .notches { position: absolute; left: 32px; right: 32px; top: 28px; height: 8px; z-index: 3; }
 .c-slider > .notches > i { position: absolute; width: 8px; height: 8px; margin-left: -4px; border-radius: 50%; background: rgb(255 255 255 / .42); }
 .c-slider > .notches > i.under { background: rgb(13 14 18 / .28); }
@@ -128,16 +188,16 @@
 .c-popup.rich .t2 { display: block; font: 500 18px/1.2 var(--lg-font); color: var(--lg-text-2); margin-top: 4px; }
 .c-popup.rich.is-open .t2 { color: rgb(13 14 18 / .62); }
 
-/* ===================================================================== segmented: the lifted pill while it travels */
+/* ===================================================================== segmented (legacy kit form; boards use .c-seg2 below) */
 .lgk-seg > .is-lift { background: linear-gradient(180deg, rgb(255 255 255 / .42), rgb(255 255 255 / .18)) !important; color: var(--lg-text-1) !important;
   scale: 1.06 1.12; -webkit-backdrop-filter: blur(1.5px) saturate(1.8); backdrop-filter: blur(1.5px) saturate(1.8);
   box-shadow: 0 4px 12px rgb(0 0 0 / .28), inset 0 0 6px rgb(255 255 255 / .30); }
 .lgk-seg > .is-lift::before { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1.5px; background: var(--c-arc);
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+  -webkit-mask: var(--c-ring-mask); -webkit-mask-composite: xor; mask-composite: exclude; }
 .lgk-seg > .ghost { color: var(--lg-text-on-selected); }
 .lgk-seg.c-seg { height: 64px; }
 .lgk-seg.c-seg > * { min-width: 140px; box-sizing: border-box; }
-.lgk-seg > .is-selected.is-focus { box-shadow: 0 2px 6px rgb(0 0 0 / .22), 0 0 18px 2px rgb(255 255 255 / .30); }
+.lgk-seg > .is-selected.is-focus { box-shadow: 0 2px 6px rgb(0 0 0 / .22), var(--c-glow-on); }
 
 /* option circles (SteamVR refresh rate: circular segments, selected = white) */
 .c-opt { position: relative; display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; flex: none;
@@ -177,20 +237,25 @@
 .c-row .trail { margin-left: auto; display: flex; align-items: center; gap: 10px; color: var(--lg-text-2); font: 500 22px/1 var(--lg-font); --is: 22px; white-space: nowrap; }
 .c-row .trail .lgk-i.chev { --is: 20px; color: var(--lg-text-3); stroke-width: 2.6; }
 .c-row .trail .chk { color: var(--lg-blue); --is: 26px; stroke-width: 3; }
-.c-row.nav-sel { --lift-bg: rgb(255 255 255 / .18); }
-.c-row.nav-sel > .pill, .c-row > .pill { position: absolute; inset: 6px; border-radius: 24px; background: var(--lift-bg, transparent); z-index: 0; }
+.c-row > .pill { position: absolute; inset: 6px; border-radius: 24px; background: var(--lift-bg, transparent); z-index: 0; }
 .c-row > :not(.pill) { position: relative; z-index: 1; }
+/* navigation selection on a row: .18 pill + top arc + Semibold */
+.c-row.nav-sel { font-weight: 600; }
+.c-row.nav-sel > .pill { background: rgb(255 255 255 / var(--c-nav)); }
+.c-row.nav-sel:not(.is-focus)::before { content: ""; position: absolute; inset: var(--lit-inset, 0); pointer-events: none; padding: 1.5px; z-index: 0;
+  background: var(--c-arc-sel); -webkit-mask: var(--c-ring-mask); -webkit-mask-composite: xor; mask-composite: exclude; }
 .c-row.danger { color: rgb(255 130 125); font-weight: 600; }
-.c-row.danger.is-focus > .pill { background: var(--lg-tint-danger); }
+.c-row.danger.is-focus > .pill { background: var(--lg-tint-danger); box-shadow: var(--c-glow-on); }
 .c-row.danger.is-focus { color: #fff; }
-.c-row.danger.is-focus::after { --lift: 0; --spot: .14; }
+.c-row.danger.is-focus::after { --lift: .04; --spot: .04; }
 .c-row.is-disabled { opacity: .4; }
 .c-sep { position: absolute; height: 2px; background: rgb(255 255 255 / .08); border-radius: 1px; }
 
-/* ===================================================================== tooltips */
-.c-tip { display: inline-flex; align-items: center; height: 44px; padding: 0 18px; box-sizing: border-box; font: 600 20px/1 var(--lg-font); white-space: nowrap; }
+/* ===================================================================== tooltips: a thick-glass capsule 48 px, 20 px Semibold (PLAN §1.13; the layer is P3's) */
+.c-tip { display: inline-flex; align-items: center; height: 48px; padding: 0 20px; box-sizing: border-box; font: 600 20px/1 var(--lg-font); white-space: nowrap; --r: 24px; }
 
-/* ===================================================================== keyboard (Steam keyboard quad 854 x 280 kb px; authored in kb px)
+/* ===================================================================== keyboard (C4b's look; kept unchanged)
+   Steam keyboard quad 854 x 280 kb px; authored in kb px.
    Geometry is Steam's: 5 rows of 47.6 px hit areas from y 41 (the key block moved down into the 41 px band, SQ4),
    visible key = hit area inset ~2 px, radius 11 (concentric with the 30 px platter at a 6 px inset + gaps). */
 .kb { position: relative; width: 854px; height: 280px; }
@@ -228,14 +293,17 @@
   background: linear-gradient(180deg, rgb(255 255 255 / .10), rgb(255 255 255 / 0) 50%), rgb(44 46 54 / .96); box-shadow: 0 6px 18px rgb(0 0 0 / .45); }
 .kb-accents .c-key { flex: none; width: 48px; }
 
-/* ===================================================================== storyboard frames (states page) */
+/* ===================================================================== storyboard frames (motion page) */
 .sb-frame { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 14px; }
 .sb-time { font: 600 18px/1 var(--lg-font); color: var(--lg-text-2); font-variant-numeric: tabular-nums; }
 .sb-time b { color: var(--lg-text-1); font-weight: 600; }
 .sb-arrow { position: absolute; color: var(--lg-text-3); --is: 22px; }
 
-/* partial states for storyboards: the illumination layer at a fraction of its final contrast */
+/* partial states for storyboards: the light layer at a fraction of its final contrast (eased values from D2 §11.3) */
+.f93::after, .f93::before { opacity: .93 !important; }
 .f60::after, .f60::before { opacity: .6 !important; }
+.f36::after, .f36::before { opacity: .36 !important; }
+.f35::after, .f35::before { opacity: .35 !important; }
 .f30::after, .f30::before { opacity: .3 !important; }
 .lgk-glass.c-tip.mat50 { scale: 1.12; background: rgb(60 62 70 / .06) !important; -webkit-backdrop-filter: blur(6px) saturate(1.2) !important; backdrop-filter: blur(6px) saturate(1.2) !important; box-shadow: none; }
 .lgk-glass.c-tip.mat50::before { opacity: .45; }
@@ -249,34 +317,34 @@
 .c-note b { color: #fff; font-weight: 600; }
 .c-note .k { color: #ffd65c; font-weight: 600; }
 
-/* ===================================================================== revision 2 (critique responses: controls.md §4.3, §4.7, §7, §8.2, §12.3) */
-
-/* Gamepad focus INSIDE a row: the common case. Steam focuses the control; the row gets .gpfocuswithin.
-   Single-control row: the row pill carries the focus (white .14 + spot + arc) and the control shows "lifted".
-   Multi-control row (check matrix, toggle pairs): the row pill is white .06; the focused control carries a light bloom. */
-.c-row.is-within > .pill { background: rgb(255 255 255 / .14); }
-.c-row.is-within::after { opacity: 1; --lift: 0; --spot: .16; --hx: 50%; --hy: 30%; }
+/* ===================================================================== focus inside rows (controls.md §4.3, C-D14)
+   Steam focuses the control; the row gets .gpfocuswithin.
+   Single-control row: the row carries the focus (pill + white .28 + spot + arc) and the control is "lifted".
+   Multi-control row (check matrix, toggle pairs): the row warms (white .06); the focused control carries the focus. */
+.c-row.is-within::after { opacity: 1; --lift: var(--c-focus); --spot: var(--c-spot-focus); --hx: 50%; --hy: 30%; }
 .c-row.is-within::before { content: ""; position: absolute; inset: var(--lit-inset, 0); border-radius: 24px; pointer-events: none; padding: 1.5px; z-index: 3;
-  background: var(--c-arc); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+  background: var(--c-arc); -webkit-mask: var(--c-ring-mask); -webkit-mask-composite: xor; mask-composite: exclude; }
 .c-row.is-within-multi > .pill { background: rgb(255 255 255 / .06); }
-/* the control inside a focused single-control row: lifted (its own arc) plus a soft glow on its white knob */
+/* the control inside a focused single-control row: lifted (its own arc) plus a soft glow on its white knob, + .10 light on the track */
 .c-switch.is-lifted > .knob { box-shadow: 0 2px 5px rgb(0 0 0 / .30), 0 0 14px 3px rgb(255 255 255 / .42); }
+.c-switch.is-lifted::after { opacity: 1; --lift: .10; --spot: 0; }
 .c-switch.is-lifted::before, .c-popup.is-lifted::before { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; padding: 1.5px; z-index: 3;
-  background: var(--c-arc); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+  background: var(--c-arc); -webkit-mask: var(--c-ring-mask); -webkit-mask-composite: xor; mask-composite: exclude; }
 .c-popup.is-lifted::after { opacity: 1; --lift: .10; --spot: .12; }
-/* focus on a check circle in a multi-control row: Steam's FocusRing as a light plate 12 px larger than the circle, additive */
+/* focus on a check circle in a multi-control row: Steam's FocusRing as a light plate 12 px larger than the circle */
 .c-check.is-focus::after { inset: -12px; border-radius: 50%; opacity: 1; --lift: 0;
-  background: radial-gradient(circle, rgb(255 255 255 / .34) 0, rgb(255 255 255 / .22) 42%, rgb(255 255 255 / 0) 72%); }
-.c-check.on.is-focus { box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / .35), 0 0 16px 3px rgb(255 255 255 / .38); }
+  background: radial-gradient(circle, rgb(255 255 255 / .40) 0, rgb(255 255 255 / .26) 42%, rgb(255 255 255 / 0) 72%); }
+.c-check.on.is-focus { box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / .35), var(--c-glow-on); }
+.c-check.on.is-focus::after { opacity: 0; }   /* a blue (on) fill: the glow carries the focus; no light washes the blue */
 
-/* disabled + focused: never opacity on the element (it would dim the focus light too). Content 40 %, fill white .10, arc at 60 % */
+/* disabled + focused: never opacity on the element (it would dim the focus light too). Content 40 %, fill white .10, arc at 60 %, no spot */
 .c-row.is-disabled { opacity: 1; }
 .c-row.is-disabled > :not(.pill) { opacity: .4; }
 .c-row.is-disabled.is-focus > .pill { background: rgb(255 255 255 / .10); }
 .c-row.is-disabled.is-focus::after { opacity: 0; }
 .c-row.is-disabled.is-focus::before { content: ""; position: absolute; inset: var(--lit-inset, 0); border-radius: 24px; pointer-events: none; padding: 1.5px; z-index: 3; opacity: .6;
-  background: var(--c-arc); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
-.lgk-btn.is-disabled.is-focus { opacity: 1; color: rgb(255 255 255 / .40); background: rgb(255 255 255 / .10) !important; }
+  background: var(--c-arc); -webkit-mask: var(--c-ring-mask); -webkit-mask-composite: xor; mask-composite: exclude; }
+.lgk-btn.is-disabled.is-focus { opacity: 1; color: rgb(255 255 255 / .40); background: linear-gradient(180deg, rgb(255 255 255 / .07), rgb(255 255 255 / 0) 55%), rgb(255 255 255 / .10) !important; }
 .lgk-btn.is-disabled.is-focus::after { opacity: 0; }
 .lgk-btn.is-disabled.is-focus::before { opacity: .6; }
 .c-switch.dis-soft { opacity: 1; background: rgb(255 255 255 / .07); box-shadow: none; }
@@ -311,36 +379,55 @@
 .qp .c-slider.mz > .fill { left: 54px; width: calc(54px + var(--v) * (100% - 108px)); }
 .qp .c-slider.mz > .knob { left: calc(57px + var(--v) * (100% - 108px)); }
 
-/* the keyboard echo for secret fields: dots, never characters */
+/* the keyboard echo for secret fields: dots, never characters (C4b) */
 .kb-echo .dots { letter-spacing: .18em; font: 700 19px/1 var(--lg-font); color: var(--lg-text-1); }
 
-/* long value lists (> 14 options): one scrolling column of two-line rows in a slab capped at the modal box (520 tall) */
+/* ===================================================================== value menus (the slab is C1c's; these boards show the vocabulary's rules)
+   Header row 40 px (22 px Bold text-2), rows 72 px 6 px apart, Steam's Cancel as a 56 px quiet capsule (PLAN §1.12). */
+.lgk-menu.c-menu .hdr { height: 40px; padding: 0 20px; }
+.c-cancel { align-self: center; flex: none; height: 56px; padding: 0 30px; border-radius: 28px; display: inline-flex; align-items: center; box-sizing: border-box;
+  background: rgb(255 255 255 / .08); font: 500 22px/1 var(--lg-font); color: var(--lg-text-2); }
+/* long value lists (>= 15 options off settings routes; the fallback of the settings list page): one scrolling column of two-line rows
+   in a slab capped at the modal box (520 tall) */
 .c-vmenu { padding: 8px; box-sizing: border-box; display: flex; flex-direction: column; gap: 6px; }
 .c-vmenu .hdr { height: 40px; display: flex; align-items: center; padding: 0 18px; font: 700 22px/1 var(--lg-font); color: var(--lg-text-2); flex: none; }
 .c-vmenu .scr { position: relative; flex: 1; overflow: hidden;
   -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%);
           mask-image: linear-gradient(180deg, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%); }
 .c-vmenu .scr > .in { position: absolute; left: 0; right: 0; display: flex; flex-direction: column; gap: 6px; }
-.c-vmenu .vr { position: relative; display: flex; align-items: center; gap: 14px; height: 100px; padding: 0 18px 0 20px; border-radius: 24px; flex: none; box-sizing: border-box; }
+.c-vmenu .vr { position: relative; display: flex; align-items: center; gap: 14px; height: 100px; padding: 0 18px 0 20px; border-radius: 24px; flex: none; box-sizing: border-box; isolation: isolate; }
 .c-vmenu .vr .two { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1; }
 .c-vmenu .vr .t { font: 500 24px/1.15 var(--lg-font); color: var(--lg-text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .c-vmenu .vr .s { font: 500 20px/1.2 var(--lg-font); color: var(--lg-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
 .c-vmenu .vr .chk { --is: 26px; color: var(--lg-text-1); stroke-width: 3; flex: none; }
-.c-vmenu .vr.is-focus { background: rgb(255 255 255 / .30); }
-.c-vmenu .vr.is-focus::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; mix-blend-mode: plus-lighter;
-  background: radial-gradient(circle at 50% 30%, rgb(255 255 255 / .18) 0, rgb(255 255 255 / 0) 75%); }
+.c-vmenu .vr.is-focus { background: rgb(255 255 255 / var(--c-focus)); }
+.c-vmenu .vr.is-focus::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: -1;
+  background: radial-gradient(circle at 50% 30%, rgb(255 255 255 / .16) 0, rgb(255 255 255 / 0) 75%); }
 .c-vmenu .vr.is-focus::before { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; padding: 1.5px;
-  background: var(--c-arc); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+  background: var(--c-arc); -webkit-mask: var(--c-ring-mask); -webkit-mask-composite: xor; mask-composite: exclude; }
 .c-vmenu .cancel { align-self: center; flex: none; height: 56px; padding: 0 30px; border-radius: 28px; display: inline-flex; align-items: center;
   background: rgb(255 255 255 / .08); font: 500 22px/1 var(--lg-font); color: var(--lg-text-2); }
+/* the position rail: a <= 8 px capsule on the trailing edge, shown only while the list scrolls (VP P-72) */
 .c-vmenu .rail { position: absolute; right: 3px; width: 5px; border-radius: 3px; background: rgb(255 255 255 / .30); }
 
-/* segmented with contiguous hit areas: each segment is its full share of the track; the visible pill is inset 2 px */
+/* ===================================================================== segmented control: contiguous hit areas (E-SEG)
+   Track 64, padding 2: each segment is its full share of the track (60 tall, >= 140 wide, 120 compact), no dead gap;
+   the visible fill is inset 2 px, so 4 px of track show between fills. The selected pill is white and travels on `snappy`. */
 .c-seg2 { display: inline-flex; padding: 2px; height: 64px; box-sizing: border-box; border-radius: 32px; background: var(--lg-fill-thick); box-shadow: var(--c-recess); }
 .c-seg2 > span { position: relative; display: grid; place-items: center; min-width: 140px; padding: 0 24px; box-sizing: border-box; border-radius: 30px;
-  font: 600 22px/1 var(--lg-font); color: var(--lg-text-1); }
-.c-seg2 > span > b { position: absolute; inset: 2px; border-radius: 28px; font-weight: 600; display: grid; place-items: center; }
+  font: 600 22px/1 var(--lg-font); color: var(--lg-text-1); --lit-inset: 2px; }
+.c-seg2.compact > span { min-width: 120px; padding: 0 18px; }
+.c-seg2 > span > b { position: absolute; inset: 2px; border-radius: 28px; font-weight: 600; display: grid; place-items: center; z-index: 1; }
+.c-seg2 > span::after, .c-seg2 > span::before { border-radius: 28px; }
 .c-seg2 > span.on > b { background: var(--lg-fill-selected); color: var(--lg-text-on-selected); box-shadow: 0 2px 6px rgb(0 0 0 / .22); }
+.c-seg2 > span.on.is-focus > b { box-shadow: 0 2px 6px rgb(0 0 0 / .22), var(--c-glow-on); }
+.c-seg2 > span.on.is-focus::after, .c-seg2 > span.on.is-focus::before { opacity: 0; }
+/* the pill while it travels: lifted into clear glass for its first 180 ms, label colours swap at t90 (MO §4.5) */
+.c-seg2 > span.lift > b { background: linear-gradient(180deg, rgb(255 255 255 / .42), rgb(255 255 255 / .18)); color: var(--lg-text-1);
+  scale: 1.06 1.12; -webkit-backdrop-filter: blur(1.5px) saturate(1.8); backdrop-filter: blur(1.5px) saturate(1.8);
+  box-shadow: 0 4px 12px rgb(0 0 0 / .28), inset 0 0 6px rgb(255 255 255 / .30); }
+.c-seg2 > span.lift > b::before { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1.5px; background: var(--c-arc);
+  -webkit-mask: var(--c-ring-mask); -webkit-mask-composite: xor; mask-composite: exclude; }
 
 /* annotation overlays (not product UI): hit regions and dimension labels */
 .c-dim { position: absolute; z-index: 61; font: 600 15px/1 ui-monospace, Consolas, monospace; color: #ffd65c; white-space: nowrap; text-shadow: 0 1px 2px #000; }

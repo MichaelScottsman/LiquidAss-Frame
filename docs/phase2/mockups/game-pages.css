@@ -31,14 +31,15 @@
 /* hero: content, never glass. Fills the window at rest (TV page, ref 5) */
 .gp-hero { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; }
 .gp-hero .art { position: absolute; inset: 0; background-size: cover; background-position: 62% 40%; }
-/* Dimming (revision 2): the text column (x 0-620 = 0-48 %) gets the FULL left alpha, which T2 sets per hero
-   from the art's measured luminance (--dimL, .40-.70; T1 fallback .65); it fades out by 72 %. The bottom layer
-   is the dimming that clear glass needs under the cluster and the tab row (--dimB, .35-.70, full strength over the
-   bottom 34 % = both rows); the top layer darkens the toolbar row (--dimT, .25-.70). T2 samples the hero once per page. */
+/* Dimming (revision 3): the text column (x 104-684, PLAN P-29 moved the hero column from 40 to 104) gets the
+   FULL left alpha up to 51 % (x 653), which T2 sets per hero from the art's measured luminance (--dimL, .40-.70;
+   T1 fallback .65); .45 of it at 63 %, none at 77 %. The bottom layer is the dimming that clear glass needs under
+   the cluster and the tab row (--dimB, .35-.70, never under the 35 % of PLAN §1.6; full strength over the bottom
+   34 % = both rows); the top layer darkens the toolbar row (--dimT, .25-.70). T2 samples the hero once per page. */
 .gp-hero .dim { position: absolute; inset: 0;
   background:
     linear-gradient(180deg, rgb(0 0 0 / var(--dimT, .35)) 0, rgb(0 0 0 / 0) 150px),       /* toolbar row (Steam's TopGradient, restyled) */
-    linear-gradient(90deg, rgb(0 0 0 / var(--dimL, .50)) 0, rgb(0 0 0 / var(--dimL, .50)) 46%, rgb(0 0 0 / calc(var(--dimL, .50) * .45)) 58%, rgb(0 0 0 / 0) 72%),
+    linear-gradient(90deg, rgb(0 0 0 / var(--dimL, .50)) 0, rgb(0 0 0 / var(--dimL, .50)) 51%, rgb(0 0 0 / calc(var(--dimL, .50) * .45)) 63%, rgb(0 0 0 / 0) 77%),
     linear-gradient(0deg, rgb(0 0 0 / var(--dimB, .45)) 0, rgb(0 0 0 / var(--dimB, .45)) 34%, rgb(0 0 0 / calc(var(--dimB, .45) * .4)) 46%, rgb(0 0 0 / 0) 58%); }
 .gp-onart { text-shadow: 0 1px 2px rgb(0 0 0 / .35), 0 0 18px rgb(0 0 0 / .25); }
 /* on-art secondary text is .80, not .70: it sits on art, not on glass (AT-LEGIBLE) */
@@ -83,13 +84,16 @@
 .gp-two { display: flex; flex-direction: column; gap: 4px; text-align: left; }
 .gp-two small { font: 500 18px/1 var(--lg-font); color: rgb(255 255 255 / .86); }
 
-/* revision 2: one flex row in Steam's DOM order; every control is an 80 px glass shape in its own slot */
+/* revision 2: one flex row in Steam's DOM order; every control is an 80 px glass shape in its own slot.
+   Revision 3: the cluster's circles and capsules keep Play's 80 px height (PLAN §1.3 Primary row, GP §3.2; the
+   circle beside the primary capsule matches its height in the TV reference, ref 5); labels follow §1.3's text
+   button (24 px Semibold, 24 px side padding). */
 .gp-cluster { position: absolute; display: flex; align-items: center; gap: 16px; z-index: 2; }
 .gp-slot { position: relative; display: block; flex: none; height: 80px; }
 .gp-slot > .lgk-glass.gp-ctl { position: relative; }
-/* labelled capsules for the two controller paths (Steam Input, SteamVR Controller Bindings) */
-.gp-cap { height: 80px; --r: 40px; padding: 0 28px 0 22px; gap: 12px; font: 600 24px/1 var(--lg-font); }
-.gp-cap > .lgk-i { --is: 30px; }
+/* labelled capsules for the two controller paths (Steam Input; C5b's Controller Bindings behind vrBindings) */
+.gp-cap { height: 80px; --r: 40px; padding: 0 28px 0 24px; gap: 12px; font: 600 24px/1 var(--lg-font); }
+.gp-cap > .lgk-i { --is: 28px; }
 /* Play-from: a display glyph (where the game runs) + Steam's caret as a small chevron badge */
 .gp-pf > .lgk-i { --is: 34px; margin: -4px 0 0 -2px; }
 .gp-pfbadge { position: absolute; right: 4px; bottom: 4px; z-index: 4; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%;
@@ -114,19 +118,39 @@
   letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--lg-text-1); }
 
 /* ------------------------------------------------------------ section tabs: one Liquid Glass capsule, white selected segment */
-.gp-tabs { display: flex; gap: 4px; padding: 4px; height: 64px; --r: 32px; }
-.gp-seg { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-width: 140px; height: 56px; padding: 0 26px;
-  box-sizing: border-box; border-radius: 28px; font: 600 22px/1 var(--lg-font); color: var(--lg-text-1); white-space: nowrap; }
-.gp-seg.is-selected { background: var(--lg-fill-selected); color: var(--lg-text-on-selected); box-shadow: 0 2px 6px rgb(0 0 0 / .22); }
+/* Revision 3 (PLAN §1.3, E-SEG, CTL §8.3): segments are CONTIGUOUS. Each segment box is 60 px tall and >= 140 wide
+   inside the 64 px track (2 px track padding), so every x across the track hits a segment; the visible fill is
+   inset 2 px (content-box), so 4 px of track show between fills and the selected pill is 56 px tall. */
+.gp-tabs { display: flex; gap: 0; padding: 2px; height: 64px; --r: 32px; }
+.gp-seg { position: relative; isolation: isolate; display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-width: 140px; height: 60px; padding: 0 26px;
+  box-sizing: border-box; border-radius: 30px; font: 600 22px/1 var(--lg-font); color: var(--lg-text-1); white-space: nowrap; }
+/* the selected pill: white .94 drawn 2 px inside the segment box (a pseudo-element, so the hit box stays the whole segment) */
+.gp-seg.is-selected { background: transparent !important; color: var(--lg-text-on-selected); }
+.gp-seg.is-selected::before { content: ""; position: absolute; inset: 2px; z-index: -1; border-radius: 28px; background: var(--lg-fill-selected); box-shadow: 0 2px 6px rgb(0 0 0 / .22); pointer-events: none; }
 .gp-seg .ok { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--lg-green); color: #fff; --is: 17px; }
-.gp-seg.is-focus::after { content: ""; position: absolute; inset: 0; border-radius: inherit; mix-blend-mode: plus-lighter; pointer-events: none;
-  background: radial-gradient(circle at 50% 28%, rgb(255 255 255 / .18) 0, transparent 80%), rgb(255 255 255 / .14); }
+/* gamepad focus on a segment: + white .28 and the spot (PLAN §1.4); on the white selected segment: the outer glow */
+.gp-seg.is-focus::after { content: ""; position: absolute; inset: 2px; border-radius: 28px; mix-blend-mode: plus-lighter; pointer-events: none;
+  background: radial-gradient(circle at 50% 28%, rgb(255 255 255 / .16) 0, transparent 80%), rgb(255 255 255 / .28); }
+.gp-seg.is-selected.is-focus::after { background: none; box-shadow: 0 0 18px 2px rgb(255 255 255 / .30); mix-blend-mode: normal; }
 
-/* ------------------------------------------------------------ bottom ornament (Steam's footer legend as real buttons) */
-.gp-foot { height: 84px; display: flex; align-items: center; gap: 8px; padding: 0 12px; box-sizing: border-box; }
-.gp-foot .lgk-btn { font-size: 22px; gap: 12px; padding: 0 22px 0 14px; }
-.gp-foot .lgk-btn .lgk-glyph { width: 28px; height: 28px; font-size: 15px; }
+/* ------------------------------------------------------------ bottom ornament: Steam's #Footer (PLAN §1.10, WN §3.4)
+   Capsule when the legend holds any action other than A and B; quiet legend (no material) when it holds only A and B.
+   A and B are always present as quiet trailing members, in both input modes. Label first, glyph badge after it,
+   and glyph badges only in gamepad mode (VP P-26). Members 60 px; capsule 84 px at y 628-712, <= 960 wide. */
+.gp-foot { height: 84px; display: flex; align-items: center; gap: 4px; padding: 0 12px; box-sizing: border-box; }
+.gp-foot .lgk-btn { height: 60px; font-size: 22px; gap: 12px; padding: 0 20px 0 22px; }
+.gp-foot .lgk-btn .lgk-glyph { width: 30px; height: 30px; font-size: 16px; background: rgb(255 255 255 / .16); color: rgb(255 255 255 / .70); }
 .gp-foot .lgk-btn.nav { font-weight: 500; color: var(--lg-text-2); }
+.gp-foot .gsep { width: 14px; flex: none; }
+.gp-foot.quiet { position: absolute; background: none !important; box-shadow: none !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+.gp-foot.quiet::before { display: none; }
+/* in the margin under the glass the quiet legend is text directly on the room: D2 §8.3 on-room text (white .92,
+   Medium, the on-room shadow; VP P-39, P-41). White .70 stays for a quiet legend inside the glass (window-full). */
+.gp-foot.quiet .lgk-btn.nav { color: rgb(255 255 255 / .92); text-shadow: 0 1px 3px rgb(0 0 0 / .55), 0 0 12px rgb(0 0 0 / .35); }
+.gp-foot.quiet .lgk-glyph { background: rgb(0 0 0 / .34); color: rgb(255 255 255 / .92); box-shadow: 0 1px 4px rgb(0 0 0 / .30); }
+.gp-foot.quiet.inglass .lgk-btn.nav { color: var(--lg-text-2); text-shadow: none; }
+.gp-foot.quiet.inglass .lgk-glyph { background: rgb(255 255 255 / .16); color: rgb(255 255 255 / .70); box-shadow: none; }
+.gp-foot.laser .lgk-glyph { display: none; }
 
 /* ------------------------------------------------------------ content on the glass (scrolled pages) */
 .gp-scroll { position: absolute; left: 0; right: 0; top: 0; bottom: 0; overflow: hidden; border-radius: inherit;
@@ -134,7 +158,8 @@
           mask-image: linear-gradient(180deg, transparent 0, transparent 120px, rgb(0 0 0 / .35) 168px, #000 212px, #000 calc(100% - 110px), rgb(0 0 0 / .25) calc(100% - 34px), transparent 100%); }
 .gp-h2 { position: absolute; left: 40px; font: 700 30px/1.25 var(--lg-font); letter-spacing: -.01em; color: var(--lg-text-1); }
 .gp-h2 .trail { margin-left: 16px; font: 500 22px/1 var(--lg-font); color: var(--lg-text-2); letter-spacing: 0; }
-.gp-cap { font: 600 18px/1.35 var(--lg-font); color: var(--lg-text-2); }
+/* caption text (was a second `.gp-cap` rule that silently shrank the cluster capsules' labels to 18 px .70) */
+.gp-caption { font: 600 18px/1.35 var(--lg-font); color: var(--lg-text-2); }
 .gp-prog { position: relative; height: 12px; border-radius: 6px; background: var(--lg-fill-thick); box-shadow: inset 0 1px 3px rgb(0 0 0 / .3); overflow: hidden; }
 .gp-prog > i { position: absolute; inset: 0 auto 0 0; width: var(--v, 50%); border-radius: 6px; background: rgb(255 255 255 / .86); }
 
@@ -171,10 +196,21 @@
 .gp-note { position: absolute; z-index: 60; font: 600 15px/20px ui-monospace, Consolas, monospace; color: #111; background: #ffe27a;
   padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
 
-/* menus as window-nav §5.1: 40 px header inside the slab, Cancel as a 60 px capsule centred under the rows */
+/* menus as window-nav §5.1 / PLAN §1.12: 40 px header inside the slab, Steam's Cancel as a 56 px quiet capsule
+   (white .08, Medium white .70) centred under the rows (HA-11) */
 .gp-menu .hdr { height: 40px; }
-.gp-menu .cancel { align-self: center; display: inline-flex; align-items: center; justify-content: center; height: 60px; padding: 0 32px; margin-top: 2px;
-  border-radius: 30px; background: rgb(255 255 255 / .08); font: 500 22px/1 var(--lg-font); color: var(--lg-text-2); }
+.gp-menu .cancel { align-self: center; display: inline-flex; align-items: center; justify-content: center; height: 56px; padding: 0 32px; margin-top: 2px;
+  border-radius: 28px; background: rgb(255 255 255 / .08); font: 500 22px/1 var(--lg-font); color: var(--lg-text-2); }
+.gp-menu .lgk-row.danger { font-weight: 600; }
+/* focused destructive row (as C1c's window-nav-menu.html): red .92 whole fill, dark label and glyph (CC §7), the outer
+   glow for focus on a coloured fill (P-16), no white wash */
+.gp-menu .lgk-row.danger.is-focus { background: linear-gradient(180deg, rgb(255 255 255 / .14), rgb(255 255 255 / 0) 60%), rgb(255 66 69 / .92); color: #0d0e12;
+  box-shadow: 0 0 18px 2px rgb(255 255 255 / .30); }
+.gp-menu .lgk-row.danger.is-focus .lead { color: #0d0e12; }
+.gp-menu .lgk-row.danger.is-focus::after { --lift: .04; --spot: .10; }
+/* > 2 destructive rows in one menu: red glyph, white label at rest (PLAN §1.12); red whole fill on focus either way */
+.gp-menu.many-danger .lgk-row.danger { color: var(--lg-text-1); font-weight: 500; }
+.gp-menu.many-danger .lgk-row.danger .lead { color: var(--lg-red); }
 
 /* ------------------------------------------------------------ SteamVR Now Playing (authored in NP px = main px x 1.44) */
 /* revision 2: rows and Exit are 116 NP px (>= the 115 NP px target of DESIGN2 §2.5); Exit is red ONLY when T2 has
@@ -232,3 +268,63 @@
 .b-row .tx .b-name, .b-row .tx .b-desc { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .b-row .ac { flex: none; display: flex; gap: 40px; }
 .b-row .ac .b-cap { position: relative; }
+
+/* ============================================================ PLAN §1 conformance layer (revision 3, M0)
+   Mockup-side values of PLAN §1.4 and §1.6 that kit.css (P4) does not carry yet. Every rule here mirrors a P4 token
+   (contracts/tokens.md) and becomes redundant once the kit reaches token parity (REQ C5a->P4 in wp/C5a.md). */
+
+/* E3 without the linear top layer: conic arc with gaps on both sides + the radial lobe at 26 % of the width
+   (PLAN §1.6, WN D-15; the same recipe as window-nav-shared.css). No border, outline or ring anywhere. */
+.lgk-view .lgk-glass::before {
+  background:
+    conic-gradient(from var(--lg-light),
+      rgb(255 255 255 / calc(.62 * var(--rim, 1))) 0deg,
+      rgb(255 255 255 / calc(.20 * var(--rim, 1))) 38deg,
+      transparent 72deg, transparent 148deg,
+      rgb(255 255 255 / calc(.16 * var(--rim, 1))) 180deg,
+      transparent 214deg, transparent 288deg,
+      rgb(255 255 255 / calc(.22 * var(--rim, 1))) 322deg,
+      rgb(255 255 255 / calc(.62 * var(--rim, 1))) 360deg),
+    radial-gradient(70% 120% at 26% 0%, rgb(255 255 255 / calc(.18 * var(--rim, 1))) 0, rgb(255 255 255 / calc(.06 * var(--rim, 1))) 46%, transparent 75%);
+}
+
+/* gamepad focus: + white .28 uniform (--lgs-focus-add), spot .16 in the upper third, the control's arc x1.5 */
+.is-focus::after, .gp-ctl.is-focus::after { --lift: .28; --spot: .16; }
+/* focus on a coloured or white fill (Play, Resume, Install, a selected or open-menu source): the blurred outer glow
+   `0 0 18px 2px` white .30 (--lgs-white-glow, VP P-16), never a wash of the colour */
+.gp-ctl[data-tint].is-focus::after, .gp-ctl.is-selected.is-focus::after, .gp-ctl.is-danger-focus.is-focus::after { --lift: 0; --spot: .10; }
+.gp-ctl[data-tint].is-focus, .gp-ctl.is-selected.is-focus, .gp-ctl.is-danger-focus.is-focus, .lgk-btn[data-tint].is-focus, .np-resume.is-focus {
+  box-shadow: 0 0 18px 2px rgb(255 255 255 / .30), 0 calc(var(--dz, 0) * .4px) calc(var(--dz, 0) * 1.2px) rgb(0 0 0 / calc(.28 * min(1, var(--dz, 0)))) !important; }
+/* navigation selection (sidebar rows, PLAN §1.4): white .18 pill + specular top arc + Semibold label;
+   laser hover on navigation rows is the light spot only (no fill) */
+.is-nav-selected { background: rgb(255 255 255 / .18) !important; box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / .45); font-weight: 600 !important; }
+.gp-navrow.is-hover::after { --lift: 0; --spot: .12; }
+
+/* the More circle (C1a's helper, PLAN §1.11): 60 px visible with an 80 px hit, black .38 + 10 px blur, inside its
+   host (cards: top right, inset 10); white .94 while its menu is open */
+.gp-more { position: absolute; display: grid; place-items: center; width: 60px; height: 60px; border-radius: 50%; z-index: 4;
+  background: rgb(0 0 0 / .38); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); color: var(--lg-text-1); --is: 28px; }
+.gp-more::before { content: ""; position: absolute; inset: -10px; border-radius: 50%; }   /* the 80 px hit (transparent) */
+.gp-more.is-open { background: var(--lg-fill-selected); color: var(--lg-text-on-selected); }
+
+/* tooltips: default profile = CSS shadow only, no depth (PLAN §1.7) */
+.gp-slot > .lgk-glass.gp-tip { box-shadow: inset 0 0 12px -2px rgb(0 0 0 / .20), 0 6px 18px rgb(0 0 0 / .30); }
+
+/* the alert / sheet scrim: Steam's .ModalOverlayBackground restyled to black .35 (PLAN §1.8) */
+.gp-scrim.modal { --a: .35; }
+
+/* alerts drawn as C1c's (WN §5.3, window-nav-shared.css .wn-alert): 640 px, radius 44, thick, title and body left */
+.gp-alert { padding: 36px 36px 28px; box-sizing: border-box; }
+.gp-alert .t { font: 700 28px/1.25 var(--lg-font); letter-spacing: -.01em; }
+.gp-alert .b { margin-top: 12px; font: 500 22px/1.36 var(--lg-font); color: var(--lg-text-2); }
+.gp-alert .btns { display: flex; gap: 16px; margin-top: 30px; }
+.gp-alert .btns .lgk-btn { flex: 1; }
+/* destructive confirm: red whole fill with a dark label (S19, CC §7); primary: blue whole fill, white label */
+.lgk-btn.gp-danger { background: linear-gradient(180deg, rgb(255 255 255 / .16), rgb(255 255 255 / 0) 55%), rgb(255 66 69 / .92); color: #0d0e12; }
+.lgk-btn.gp-primary { background: linear-gradient(180deg, rgb(255 255 255 / .16), rgb(255 255 255 / 0) 55%), var(--lg-tint-primary); }
+.lgk-btn.gp-danger.is-focus, .lgk-btn.gp-primary.is-focus { box-shadow: 0 0 18px 2px rgb(255 255 255 / .30); }
+.lgk-btn.gp-danger.is-focus::after, .lgk-btn.gp-primary.is-focus::after { --lift: 0; --spot: .10; }
+
+/* annotation tags for flag-gated additions in review renders */
+.gp-flag { position: absolute; z-index: 60; font: 600 14px/18px ui-monospace, Consolas, monospace; color: #111; background: #9fe0ff;
+  padding: 2px 8px; border-radius: 4px; white-space: nowrap; }

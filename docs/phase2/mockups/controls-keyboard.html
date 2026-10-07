@@ -2,99 +2,111 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Glass Shell P2 — controls: the visionOS keyboard (typing a search)</title>
+<title>Glass Shell P2 — keyboard (C4b): typing a search with the laser, native glass</title>
 <link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="window-nav-shared.css">
 <link rel="stylesheet" href="controls.css">
 <style>
-  /* View pitched ~14 deg down: the window centre sits 456 px above the view centre, the keyboard 17-27 deg below
-     the window centre (social-media audit §0.3): top edge at y 636, 1157 x 333 view px (854 x 280 kb px x 1.355 / 1.19). */
-  .win { left: 0; top: 0; width: 1280px; height: 664px; }
-  .res { position: absolute; top: 336px; left: 40px; right: 40px; display: flex; gap: 24px; }
-  .res .lgk-poster { position: relative; width: 168px; height: 252px; flex: none; }
-  .res-t { position: absolute; left: 40px; top: 290px; }
-  .scopes { left: 252px; top: 636px; width: 776px; }
+  /* View pitched about 14 deg down: the window centre sits 456 px above the view centre and the keyboard 17-27 deg
+     below the window centre (social-media audit §0.3): its top edge at y 636, 854 x 280 kb px drawn x1.355 across and
+     x1.19 down (0.0416 / 0.0366 deg per kb px over 0.0307 deg per view px). The window's upper half, with the search
+     field and its focus ring, is above the view. */
   .kbpop { left: 382px; top: 636px; transform-origin: 0 0; transform: scale(1.355, 1.19); }
+  /* the search route (WN §4, PLAN §1.9): Steam's /search presented as a sheet over a snapshot of the Library */
+  .snap .lgk-poster { position: absolute; width: 220px; height: 330px; }
+  .sheet { left: 120px; top: 100px; width: 1040px; height: 520px; overflow: hidden; }
+  .body { position: absolute; left: 0; right: 0; top: 104px; bottom: 0;
+          -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 26px), transparent); mask-image: linear-gradient(180deg, #000 calc(100% - 26px), transparent); }
+  .hd { position: absolute; left: 32px; right: 32px; display: flex; align-items: center; justify-content: space-between; height: 40px; }
+  .hd .lgk-btn { --s: 48px; font-size: 20px; padding: 0 14px 0 20px; gap: 4px; background: rgb(255 255 255 / .08); }
+  .hd .lgk-btn .lgk-i { --is: 20px; color: var(--lg-text-2); }
+  .row1 { position: absolute; left: 32px; top: 48px; display: flex; gap: 16px; align-items: flex-start; }
+  .hit { position: relative; width: 300px; height: 170px; border-radius: 20px; overflow: hidden; flex: none; box-shadow: 0 6px 18px rgb(0 0 0 / .3); }
+  .hit .lgk-art { position: absolute; inset: 0; background-position: 50% 70%; }
+  .hit::after { content: ""; position: absolute; inset: 0; background: linear-gradient(0deg, rgb(0 0 0 / .62), transparent 62%); }
+  .hit .t { position: absolute; left: 18px; bottom: 40px; z-index: 2; font: 700 26px/1.1 var(--lg-font); }
+  .hit .s { position: absolute; left: 18px; bottom: 14px; z-index: 2; font: 500 18px/1.2 var(--lg-font); color: rgb(255 255 255 / .8); }
+  .hit .o { position: absolute; right: 14px; bottom: 14px; z-index: 2; --s: 48px; padding: 0 22px; font-size: 21px; background: rgb(255 255 255 / .26); }
+  .p { position: relative; width: 113px; flex: none; }
+  .p .lgk-poster { position: relative; display: block; width: 113px; height: 170px; border-radius: 16px; }
+  .p .lbl { margin-top: 8px; font: 500 20px/1.25 var(--lg-font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .p .sub { font: 500 18px/1.3 var(--lg-font); color: var(--lg-text-2); white-space: nowrap; }
+  .also { display: flex; flex-direction: column; gap: 4px; width: 160px; flex: none; margin-left: auto; }
+  .also .lgk-btn { --s: 54px; font-size: 20px; font-weight: 500; padding: 0 14px 0 9px; gap: 9px; justify-content: flex-start; }
+  .also .lgk-btn .ct { margin-left: auto; color: var(--lg-text-2); }
+  .also .lgk-btn .chipi { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; --is: 18px; color: #fff; flex: none; }
+  .store { position: absolute; left: 32px; top: 318px; display: flex; gap: 18px; }
+  .store .lgk-poster { position: relative; display: block; width: 230px; height: 96px; border-radius: 16px; }
+  /* Steam's legend on the search route holds only A and B: the quiet legend in the margin (PLAN §1.10), labels only in laser mode */
+  .quiet { position: absolute; left: 0; right: 0; top: 628px; height: 84px; display: flex; justify-content: center; align-items: center; gap: 4px;
+           font: 500 22px/1 var(--lg-font); color: var(--lg-text-2); }
+  .quiet span { height: 60px; display: inline-flex; align-items: center; padding: 0 18px; }
 </style>
 </head>
 <body>
 <div class="lgk-view" data-room="lounge">
 
-  <!-- Steam's main window (its upper half, with the search field, is above the view) -->
+  <!-- Steam's main window on /search: glass mode "window" (1280 x 656, PLAN §1.2), the snapshot of the Library under the
+       .35 scrim, the results sheet (thick, +10 mm non-interactive pop in native mode) for the query "hollow pe" -->
   <div class="lgk-overlay" style="left:320px; top:-276px">
-    <div class="lgk-glass win" data-mat="window" data-dz="0">
-      <div class="res-t t-title2">Library</div>
-      <div class="res">
-        <div class="lgk-poster lgk-art" data-art="poster:1:Hollow Peaks"></div>
-        <div class="lgk-poster lgk-art" data-art="poster:6:Hollow Earth"></div>
-        <div class="lgk-poster lgk-art" data-art="poster:3:Peak Hollow"></div>
-        <div class="lgk-poster lgk-art" data-art="poster:8:Hollowmere"></div>
-        <div class="lgk-poster lgk-art" data-art="poster:4:Hollow Lights"></div>
-        <div class="lgk-poster lgk-art" data-art="poster:9:Peaks of Ash"></div>
+    <div class="lgk-glass wn-win" data-mat="window" data-dz="0" data-id="window">
+      <div class="wn-snap snap wn-fade-bottom">
+        <div class="lgk-poster lgk-art" data-art="poster:0:Starfall Drift" style="left:42px; top:124px"></div>
+        <div class="lgk-poster lgk-art" data-art="poster:1:Hollow Peaks" style="left:286px; top:124px"></div>
+        <div class="lgk-poster lgk-art" data-art="poster:2:Neon Orchard" style="left:530px; top:124px"></div>
+        <div class="lgk-poster lgk-art" data-art="poster:3:Tidebreaker" style="left:774px; top:124px"></div>
+        <div class="lgk-poster lgk-art" data-art="poster:4:Lumen Vale" style="left:1018px; top:124px"></div>
+        <div class="lgk-poster lgk-art" data-art="poster:8:Echo Station" style="left:42px; top:478px"></div>
+        <div class="lgk-poster lgk-art" data-art="poster:6:Ironwood" style="left:286px; top:478px"></div>
+        <div class="lgk-poster lgk-art" data-art="poster:7:Paper Comets" style="left:530px; top:478px"></div>
+        <div class="lgk-poster lgk-art" data-art="poster:5:Glasswing" style="left:774px; top:478px"></div>
+        <div class="lgk-poster lgk-art" data-art="poster:9:Deep Field" style="left:1018px; top:478px"></div>
+      </div>
+      <div class="lgk-scrim" style="z-index:3"></div>
+    </div>
+
+    <div class="lgk-glass wn-ssheet sheet" data-mat="thick" data-lens style="--dz:10" data-dz="10" data-id="search-sheet" data-tier="C1b search sheet (context)">
+      <div class="body">
+        <div class="hd" style="top:0"><span class="t-title3">Top Results</span></div>
+        <div class="row1">
+          <div class="hit"><span class="lgk-art" data-art="hero-clean:1:"></span><span class="t">Hollow Peaks</span><span class="s">Installed · 24 h</span>
+            <span class="lgk-btn capsule o">Open</span></div>
+          <div class="p"><span class="lgk-poster lgk-art" data-art="poster:4:Hollow Peaks II"></span><div class="lbl">Hollow Peaks II</div><div class="sub">Not installed</div></div>
+          <div class="also">
+            <span class="lgk-btn capsule"><span class="chipi" style="background:var(--lg-blue)"><i data-i="store"></i></span>Store<span class="ct t-num">6</span></span>
+            <span class="lgk-btn capsule"><span class="chipi" style="background:var(--lg-gray)"><i data-i="terminal"></i></span>Tools<span class="ct t-num">1</span></span>
+          </div>
+        </div>
+        <div class="hd" style="top:268px"><span class="t-title3">In the Store</span><span class="lgk-btn capsule">See All 6<i data-i="chevron-right"></i></span></div>
+        <div class="store">
+          <span class="lgk-poster lgk-art" data-art="hero-clean:1:"></span>
+          <span class="lgk-poster lgk-art" data-art="hero-clean:4:"></span>
+          <span class="lgk-poster lgk-art" data-art="hero-clean:9:"></span>
+          <span class="lgk-poster lgk-art" data-art="hero-clean:3:"></span>
+        </div>
       </div>
     </div>
-    <div class="lgk-glass lgk-toolbar scopes" data-mat="liquid" data-lens style="--dz:25" data-dz="25">
-      <span class="lgk-seg compact" style="height:60px; background:rgb(0 0 0 / .22)"><span class="is-selected">All</span><span>Library</span><span>Friends</span><span>Store</span><span>Tools</span></span>
-      <span class="lgk-btn circle plain" style="margin-left:auto"><i data-i="more"></i></span>
-    </div>
+    <div class="quiet lgk-label-on-room" data-id="ornament" data-tier="quiet legend (A/B only) in the margin, laser mode: labels only (PLAN §1.10)"><span>Select</span><span>Back</span></div>
   </div>
 
-  <!-- SteamVR frame controls: the keyboard button is white (on) while the keyboard is shown -->
-  <div class="lgk-pop" style="left:810px; top:454px; --pop-scale:.75">
-    <div class="lgk-glass lgk-toolbar" data-mat="panel" style="position:relative; height:80px; gap:12px; padding:0 10px; --r:40px">
-      <span class="lgk-btn circle is-selected" style="--s:64px"><i data-i="keyboard"></i></span>
-      <span class="lgk-btn circle plain" style="--s:64px"><i data-i="float"></i></span>
-      <span class="lgk-btn circle plain" style="--s:64px"><i data-i="theater"></i></span>
-      <span class="lgk-btn circle plain" style="--s:64px"><i data-i="more"></i></span>
-    </div>
-  </div>
-
+  <!-- SteamVR's window-bar row (shown while the laser is on the dashboard): the keyboard circle is white while the keyboard shows -->
+  <div data-wn="winbar" data-cx="960" data-y="444" data-on="1" data-dim=".9"></div>
   <!-- the dashboard bar (13 cm nearer than the window) -->
-  <div class="lgk-pop" style="left:578px; top:525px; --pop-scale:1.20; display:flex; gap:16px">
-    <div class="lgk-glass lgk-toolbar" data-mat="liquid" data-lens style="position:relative; height:80px; gap:8px; padding:0 8px; --r:40px">
-      <span class="lgk-btn circle" style="--s:64px; background:rgb(255 255 255 / .16)"><i data-i="controller"></i></span>
-      <span class="lgk-btn circle lgk-art" data-art="poster:0:" style="--s:64px; background-size:cover; background-position:50% 35%"></span>
-      <span class="lgk-btn circle lgk-art" data-art="poster:3:" style="--s:64px; background-size:cover; background-position:50% 35%"></span>
-      <span class="lgk-btn circle plain" style="--s:64px"><i data-i="plus"></i></span>
-    </div>
-    <div class="lgk-glass lgk-toolbar" data-mat="liquid" data-lens style="position:relative; height:80px; gap:8px; padding:0 8px 0 20px; --r:40px">
-      <span class="t-headline t-num" style="font-size:24px">4:56</span>
-      <span style="display:inline-flex; align-items:center; gap:6px; height:36px; padding:0 12px; border-radius:18px; background:rgb(255 255 255 / .14); font:600 18px/1 var(--lg-font)" class="t-num">
-        <span style="width:22px; height:11px; border-radius:3px; box-shadow:inset 0 0 0 2px rgb(255 255 255 / .8); position:relative; display:inline-block"><span style="position:absolute; left:3px; top:3px; bottom:3px; width:13px; border-radius:1px; background:var(--lg-green)"></span></span>82%</span>
-      <span class="lgk-btn circle plain" style="--s:64px"><i data-i="bell"></i></span>
-      <span class="lgk-btn circle plain" style="--s:64px"><i data-i="grid"></i></span>
-    </div>
-  </div>
+  <div data-wn="bar" data-cx="960" data-y="528"></div>
 
-  <!-- the keyboard: Steam's 854 x 280 quad, keys at its plane, a glassd thick platter (cover at the quad plane first; 10 mm behind once K-G6 exists) -->
+  <!-- the keyboard: Steam's quad, keys at its plane over a glassd thick cover (T5); echo on top, key block moved 41 kb px;
+       laser mode: no glyph badges; the key under the laser is lit (not white) with the light at the pointer -->
   <div class="lgk-pop kbpop">
-    <div class="kb">
-      <div class="lgk-glass kb-plat" data-mat="thick" data-lens data-lens-bezel="14" data-dz="0" style="--dz:12"></div>
-      <div class="kb-echo"><span class="lbl"><i data-i="search"></i>Search</span><span class="txt">hollow pe<span class="caret"></span></span></div>
-      <div class="kb-keys" data-state='{"pressed":"a","enter":"Search","badges":true}'></div>
-    </div>
+    <div data-vkb='{"tier":"t5","mode":"laser","echo":{"icon":"search","label":"Search","text":"hollow pe"},"enter":"Search","hover":"a","hx":"78%","hy":"70%","laser":{"key":"a","x":"78","y":"70","from":[1196,1100]}}'></div>
   </div>
 
   <!-- annotations (not product UI) -->
-  <div class="c-note" style="left:28px; top:640px; width:300px"><b>Echo row.</b> The search field is about 30° above, out of view. The keyboard repeats it on its own slab: the field's name, the text, the caret.</div>
-  <div class="c-note" style="right:24px; top:640px; width:300px"><b>Enter reads “Search”</b> through Steam's own <span class="k">strEnterKeyLabel</span>. With a controller active, keys show Steam's bindings: X delete, Y space, LT shift, RT enter.</div>
-  <div class="c-note" style="left:28px; top:858px; width:300px"><b>Pressed key = white</b> (the one “on” colour). Hover = the key brightens under the laser. Keys sit on a frosted glassd platter (T5, after K-G1…G5 in §12.8); the 1 cm stereo gap behind them comes later, with a slab behind the quad (K-G6).</div>
-
-  <svg style="position:absolute; inset:0; width:1920px; height:1080px; pointer-events:none; z-index:40" viewBox="0 0 1920 1080">
-    <defs><linearGradient id="beam" x1="1" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".35" stop-color="#dbe8ff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity=".9"/></linearGradient></defs>
-    <polygon id="beamp" points="0,0" fill="url(#beam)" opacity=".55"/>
-  </svg>
-  <div class="lgk-laser-dot" id="dot"></div>
+  <div class="c-note" style="left:28px; top:640px; width:300px"><b>Echo row (T2, display only).</b> The search field is about 30° above, out of view. The keyboard repeats it on its own glass: the field's name, the text, the caret. It never writes to the field.</div>
+  <div class="c-note" style="right:24px; top:640px; width:300px"><b>Enter reads “Search”</b> through Steam's own <span class="k">strEnterKeyLabel</span>, with Steam's localized string (PLAN §1.15); otherwise Steam's “Enter”. Glyph badges (X, Y, LT, RT) appear only with a controller (gamepad mode, PLAN §1.4).</div>
+  <div class="c-note" style="left:28px; top:858px; width:300px"><b>Laser: the key lights, it does not turn white.</b> + white .08 and a light at the pointer; white is only pressed or Shift on. Glass: glassd <span class="k">thick</span> at the keys' plane (0 mm; −10 mm after K-G6). The ring is the shell's pointer proxy (native mode only).</div>
 </div>
 <script src="controls-keyboard.js"></script>
+<script src="window-nav-shared.js"></script>
 <script src="kit.js"></script>
-<script src="controls-icons.js"></script>
-<script>
-  addEventListener('DOMContentLoaded', () => requestAnimationFrame(() => {
-    const k = document.querySelector('.c-key[data-key="a"]').getBoundingClientRect();
-    const x = k.left + k.width * .78, y = k.top + k.height * .62;
-    const d = document.getElementById('dot'); d.style.left = x + 'px'; d.style.top = y + 'px';
-    document.getElementById('beamp').setAttribute('points', `1180,1095 1196,1095 ${x + 1},${y} ${x - 1},${y}`);
-  }));
-</script>
 </body>
 </html>

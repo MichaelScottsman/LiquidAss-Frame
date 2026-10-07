@@ -8,12 +8,18 @@
  * for quads outside the window, and main-window px for parts inside .lgk-overlay.
  * Revision 2 (critique pass): device-accurate tab bar (Console on, live pitch), ornament
  * contract with gamepad / laser modes and the frozen Options target, window-bar row.
+ * Revision 3 (PLAN §1): A and B stay as quiet members in laser mode; glyph badges only in
+ * gamepad mode; an ornament holding only A and B is the quiet legend; members turn compact
+ * above 960 px; the laser-mode Options member is the shell's T2 node; the More circle is 60 px
+ * inside its host (data-corner = the host's top-right corner, or data-row = its trailing edge).
  */
 (() => {
   'use strict';
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
   const h = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content; };
   const flag = (el, k) => el.dataset[k] !== undefined;
+  /* data-id hooks for glass.py cmp (PLAN-1a-3): named rects; data-idp on a placeholder prefixes them */
+  const did = (el, id) => ` data-id="${(el.dataset.idp || '') + id}"`;
 
   /* ---------------- tab-bar ornament: Steam's VR main menu (frame.menu popup, x1.10 view px per popup px)
    * Items as on this device (inventory bar.md §3, audit shell-nav A.3): six sections, then Console
@@ -32,7 +38,7 @@
     if (is(el.dataset.open)) cls.push('is-open');
     if (extra) cls.push(extra);
     const badge = (k === 'steam settings' && flag(el, 'badge')) ? '<b class="wn-badge"></b>' : '';
-    return `<div class="${cls.join(' ')}"><span class="ic"><i data-i="${icon}"></i></span><span class="lbl">${label}</span>${badge}</div>`;
+    return `<div class="${cls.join(' ')}"${did(el, 'tab-' + k.split(' ')[0])}><span class="ic"><i data-i="${icon}"></i></span><span class="lbl">${label}</span>${badge}</div>`;
   }
   function buildTabbar(el) {
     const exp = flag(el, 'expanded');
@@ -45,7 +51,7 @@
     sys.push(['vr', 'VR Settings']);
     const cap = (items) => `<div class="lgk-glass wn-tabcap" data-mat="liquid" data-lens style="--dz:25">${items}</div>`;
     const S = parseFloat(el.dataset.scale || '1.10');
-    const frag = h(`<div class="lgk-pop wn-tabbar${exp ? ' expanded' : ''}" style="--pop-scale:${S}; --p:${p}px; --d:${d}px" data-dz="25" data-tier="frame.menu: T1 Steam vars + T2 live pitch + T4 popup z (no crop) + T5 liquid">
+    const frag = h(`<div class="lgk-pop wn-tabbar${exp ? ' expanded' : ''}"${did(el, 'tabbar')} style="--pop-scale:${S}; --p:${p}px; --d:${d}px" data-dz="25" data-tier="frame.menu: T1 Steam vars + T2 live pitch + T4 popup z (no crop) + T5 liquid">
       ${cap(PRIMARY.map(([i, l]) => tab(i, l, el)).join(''))}
       ${cap(sys.map(([i, l]) => tab(i, l, el)).join('') + tab('power', 'Power', el, 'secgap'))}
     </div>`);
@@ -69,25 +75,28 @@
     const sw = el.dataset.searchw === 'wide' ? ' wide' : '';
     const dim = flag(el, 'dim') ? ' dim' : '';
     let out = '';
-    if (back.startsWith('grown:')) out += `<span class="lgk-btn circle wn-back grown is-hover${dim}" style="--hx:22%;--hy:40%"><i data-i="chevron-left"></i>${back.slice(6)}</span>`;
-    else if (back !== 'none') out += `<span class="lgk-btn circle wn-back${back === 'root' ? ' root' : ''}${dim}"><i data-i="chevron-left"></i></span>`;
-    if (title) out += `<div class="wn-title ${flag(el, 'center') ? 'centered t-title2' : 't-large'}${dim}">${title}</div>`;
+    if (back.startsWith('grown:')) out += `<span class="lgk-btn circle wn-back grown is-hover${dim}"${did(el, 'back')} style="--hx:22%;--hy:40%"><i data-i="chevron-left"></i>${back.slice(6)}</span>`;
+    else if (back !== 'none') out += `<span class="lgk-btn circle wn-back${back === 'root' ? ' root' : ''}${dim}"${did(el, 'back')}><i data-i="chevron-left"></i></span>`;
+    if (title) out += `<div class="wn-title ${flag(el, 'center') ? 'centered t-title2' : 't-large'}${dim}"${did(el, 'title')}>${title}</div>`;
     const ph = el.dataset.ph || 'Search for games or profiles...';
-    if (search === 'idle') out += `<div class="lgk-search wn-search${sw}${dim}"><i data-i="search"></i><span class="ph">${ph}</span></div>`;
-    else if (search === 'focus') out += `<div class="lgk-search wn-search${sw} is-focus${dim}"><i data-i="search"></i><span class="typed"><span class="caret"></span><span class="ph" style="margin-left:6px">${ph}</span></span></div>`;
-    else if (search.startsWith('filled:')) out += `<div class="lgk-search wn-search${sw}${flag(el, 'searchfocus') ? ' is-focus' : ''}${dim}"><i data-i="search"></i><span class="typed">${search.slice(7)}${flag(el, 'searchfocus') ? '<span class="caret"></span>' : ''}</span><span class="lgk-btn circle clear"><i data-i="xmark" class="bold"></i></span></div>`;
-    else if (search === 'circle') out += `<span class="lgk-btn circle wn-icon-circle${dim}"><i data-i="search"></i></span>`;
+    if (search === 'idle') out += `<div class="lgk-search wn-search${sw}${dim}"${did(el, 'search')}><i data-i="search"></i><span class="ph">${ph}</span></div>`;
+    else if (search === 'focus') out += `<div class="lgk-search wn-search${sw} is-focus${dim}"${did(el, 'search')}><i data-i="search"></i><span class="typed"><span class="caret"></span><span class="ph" style="margin-left:6px">${ph}</span></span></div>`;
+    else if (search.startsWith('filled:')) out += `<div class="lgk-search wn-search${sw}${flag(el, 'searchfocus') ? ' is-focus' : ''}${dim}"${did(el, 'search')}><i data-i="search"></i><span class="typed">${search.slice(7)}${flag(el, 'searchfocus') ? '<span class="caret"></span>' : ''}</span><span class="lgk-btn circle clear"><i data-i="xmark" class="bold"></i></span></div>`;
+    else if (search === 'circle') out += `<span class="lgk-btn circle wn-icon-circle${dim}"${did(el, 'search')}><i data-i="search"></i></span>`;
     el.replaceWith(h(`<div class="wn-toolbar">${out}</div>`));
   }
 
   /* ---------------- bottom ornament: Steam's #Footer (+ laser-mode %{SortAndFilterContainer}) as one toolbar
-   * data-legends="X:Filter|Y:Sort By|menu:Options@Hollow Peaks|A:Select|B:Back"
-   *   G:Label        an action legend; label first, the controller glyph trailing (DESIGN2 §7.3)
-   *   menu:L@Name    the frozen Options target named on the button (concept §3.4.3)
+   * data-legends="X:Filter|Y:Sort By|menu:Options@Hollow Peaks|A:Select|B:Back"   data-mode="laser" | (gamepad)
+   *   G:Label        an action legend; label first, the controller glyph trailing (DESIGN2 §7.3), gamepad mode only
+   *   menu:L@Name    gamepad mode: Steam's ≡ legend. Laser mode: the shell's T2 Options member (Steam renders no
+   *                  ≡ legend under the laser), naming the frozen target (concept §3.4.2, §3.4.3)
    *   sf-sort:Value  Steam's laser-mode Sort button (leading sort glyph + the current sort)
    *   sf-filter:L    Steam's laser-mode Filter button
-   *   A:/B:          nav legends: quiet; omitted when data-mode="laser" (concept §3.4.2)
-   *   prefixes  * hover   ! menu open (white)   ~ gamepad focus */
+   *   A:/B:          nav legends: quiet trailing members in both modes, never hidden (PLAN §1.10)
+   *   prefixes  * hover   ! menu open (white)   ~ gamepad focus   - disabled
+   * Only A and B present -> the quiet legend (no capsule glass; data-inglass on window-full routes, where it
+   * sits inside the glass). Wider than 960 -> compact members. */
   function glyph(g) {
     if (g === 'menu') return '<span class="lgk-glyph wn-menu-glyph"></span>';
     return `<span class="lgk-glyph">${g}</span>`;
@@ -96,27 +105,32 @@
     const laser = el.dataset.mode === 'laser';
     const items = (el.dataset.legends || '').split('|').filter(Boolean).map((s) => {
       let st = '';
-      while ('*!~'.includes(s[0])) { st += s[0]; s = s.slice(1); }
+      while ('*!~-'.includes(s[0])) { st += s[0]; s = s.slice(1); }
       const [g, ...l] = s.split(':'); let label = l.join(':'); let tgt = '';
       if (label.includes('@')) { [label, tgt] = label.split('@'); }
-      const kind = g.startsWith('sf-') ? 'sf' : (g === 'A' || g === 'B') ? 'nav' : 'act';
+      let kind = g.startsWith('sf-') ? 'sf' : (g === 'A' || g === 'B') ? 'nav' : 'act';
+      if (laser && g === 'menu') kind = 'opt';                // the T2 Options member
       const cls = ['wn-leg'];
-      if (kind !== 'act') cls.push(kind);
+      if (kind === 'sf' || kind === 'opt') cls.push('sf');
+      if (kind === 'nav') cls.push('nav');
       if (st.includes('*')) cls.push('is-hover');
       if (st.includes('!')) cls.push('is-open');
       if (st.includes('~')) cls.push('is-focus');
+      if (st.includes('-')) cls.push('is-disabled');
       return { g, label, tgt, kind, cls };
-    }).filter((it) => !(laser && it.kind === 'nav'));
+    });
+    const quiet = items.length > 0 && items.every((it) => it.kind === 'nav') && !el.dataset.seg;
     let html = '', prev = null;
     for (const it of items) {
-      if (prev && prev !== it.kind) html += '<span class="gsep"></span>';
-      prev = it.kind;
-      if (it.kind === 'sf') {
-        const ic = it.g === 'sf-sort' ? 'sort' : 'filter';
-        html += `<span class="${it.cls.join(' ')}" style="--hx:40%;--hy:35%"><i data-i="${ic}"></i><span class="val">${it.label}</span></span>`;
+      const grp = it.kind === 'opt' ? 'act' : it.kind;
+      if (prev && prev !== grp) html += '<span class="gsep"></span>';
+      prev = grp;
+      const t = it.tgt ? ` <span class="tgt">· ${it.tgt}</span>` : '';
+      if (it.kind === 'sf' || it.kind === 'opt') {
+        const ic = it.kind === 'opt' ? 'more' : it.g === 'sf-sort' ? 'sort' : 'filter';
+        html += `<span class="${it.cls.join(' ')}"${did(el, 'orn-' + it.g.toLowerCase())} style="--hx:40%;--hy:35%"><i data-i="${ic}"></i><span class="val">${it.label}</span>${t}</span>`;
       } else {
-        const t = it.tgt ? ` <span class="tgt">· ${it.tgt}</span>` : '';
-        html += `<span class="${it.cls.join(' ')}" style="--hx:40%;--hy:35%">${it.label}${t}${glyph(it.g)}</span>`;
+        html += `<span class="${it.cls.join(' ')}"${did(el, 'orn-' + it.g.toLowerCase())} style="--hx:40%;--hy:35%">${it.label}${t}${laser ? '' : glyph(it.g)}</span>`;
       }
     }
     if (el.dataset.seg) {                                     // area slot: one segmented control (e.g. All · VR · Non-VR)
@@ -125,7 +139,12 @@
     }
     if (!html) { el.remove(); return; }
     const top = el.dataset.top || '628';
-    el.replaceWith(h(`<div class="lgk-glass lgk-toolbar wn-orn" data-mat="liquid" data-lens style="--dz:18; top:${top}px" data-dz="0" data-tier="ornament contract: T1 #Footer + %{SortAndFilterContainer}; T2 target + modes; T5 liquid slab (inset, no pop)">${html}</div>`));
+    const mode = laser ? ' mode-laser' : ' mode-pad';
+    const node = quiet
+      ? h(`<div class="wn-orn quiet${mode}${flag(el, 'inglass') ? ' in-glass' : ''}"${did(el, 'ornament')} style="top:${top}px" data-dz="0" data-tier="quiet legend (only A and B): Steam's #Footer legends, no capsule material, no slab">${html}</div>`).firstElementChild
+      : h(`<div class="lgk-glass lgk-toolbar wn-orn${mode}"${did(el, 'ornament')} data-mat="liquid" data-lens style="--dz:18; top:${top}px" data-dz="0" data-tier="ornament contract: T1 #Footer + %{SortAndFilterContainer}; T2 target + modes; T5 liquid slab (inset, no pop)">${html}</div>`).firstElementChild;
+    el.replaceWith(node);
+    if (node.scrollWidth > 960) node.classList.add('compact');   // never drop a member (PLAN §1.10)
   }
 
   /* ---------------- SteamVR frame controls (systemui panel, x0.75), old placement (kept for area mockups) */
@@ -151,14 +170,14 @@
   function buildWinbar(el) {
     const c = frameCap(el);
     const close = flag(el, 'close');
-    const frag = h(`<div class="lgk-pop wn-frame" style="--pop-scale:.75" data-tier="frame controls: T1 vr:systemui (E16) + T4 move left [PLAUSIBLE]">${close ? c.close : ''}${c.main}</div>`);
+    const frag = h(`<div class="lgk-pop wn-frame"${did(el, 'framecap')} style="--pop-scale:.75" data-tier="frame controls: T1 vr:systemui (E16) + T4 move left [PLAUSIBLE]">${close ? c.close : ''}${c.main}</div>`);
     const pop = frag.firstElementChild; el.replaceWith(pop);
     const cx = parseFloat(el.dataset.cx), y = parseFloat(el.dataset.y);
     const pillW = flag(el, 'pillhover') ? 198 : 183;
     pop.style.left = (cx - pillW / 2 - 26 - pop.offsetWidth * .75) + 'px';
     pop.style.top = y + 'px';
     if (el.dataset.dim) pop.style.opacity = el.dataset.dim;
-    const pill = h(`<div class="wn-pill${flag(el, 'pillhover') ? ' hover' : ''}" data-tier="grab handle: T1 + T4 moved up under the window [PLAUSIBLE]"></div>`).firstElementChild;
+    const pill = h(`<div class="wn-pill${flag(el, 'pillhover') ? ' hover' : ''}"${did(el, 'winbar-pill')} data-tier="grab handle: T1 + T4 moved up under the window [PLAUSIBLE]"></div>`).firstElementChild;
     pop.after(pill);
     pill.style.left = (cx - pillW / 2) + 'px';
     pill.style.top = (y + 75 / 2 - 6) + 'px';
@@ -191,22 +210,35 @@
     p.style.left = (parseFloat(el.dataset.cx) - w / 2) + 'px'; p.style.top = el.dataset.y + 'px';
   }
 
-  /* ---------------- laser beam (SteamVR) + the shell's pointer proxy dot at the hit point (Steam DOM) */
+  /* ---------------- laser beam (SteamVR) + the hit marker: the shell's pointer proxy (native mode, Steam DOM;
+   * PLAN §1.11) or, with data-dot="steamvr", SteamVR's own dot (CSS-only mode, and SteamVR's own pages) */
   function buildLaser(el) {
     const [x, y] = el.dataset.to.split(',').map(Number);
     const [fx, fy] = (el.dataset.from || '1660,1100').split(',').map(Number);
     const id = 'beam' + x + '_' + y;
+    const dot = el.dataset.dot === 'steamvr'
+      ? `<div class="lgk-laser-dot" style="left:${x}px; top:${y}px" data-tier="SteamVR's own laser dot"></div>`
+      : `<div class="wn-proxy" style="left:${x}px; top:${y}px" data-tier="T2 pointer proxy (native mode only)"></div>`;
     el.replaceWith(h(`<svg style="position:absolute; inset:0; width:1920px; height:1080px; pointer-events:none; z-index:40" viewBox="0 0 1920 1080">
       <defs><linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${fx}" y1="${fy}" x2="${x}" y2="${y}"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".45" stop-color="#dbe8ff" stop-opacity=".5"/><stop offset="1" stop-color="#fff" stop-opacity=".9"/></linearGradient></defs>
-      <polygon points="${fx - 6},${fy} ${fx + 6},${fy} ${x + 1},${y} ${x - 1},${y}" fill="url(#${id})" opacity=".55"/></svg>
-      <div class="wn-proxy" style="left:${x}px; top:${y}px" data-tier="T2 pointer proxy"></div>`));
+      <polygon points="${fx - 6},${fy} ${fx + 6},${fy} ${x + 1},${y} ${x - 1},${y}" fill="url(#${id})" opacity=".55"/></svg>${dot}`));
   }
 
-  /* ---------------- the item More circle (T2, shell-owned): 52 px liquid circle on a card's top-right corner */
+  /* ---------------- the item More circle (T2, one shell helper for every area; PLAN §1.11): 60 px visible,
+   * 80 px hit, inside its host, the clear material over content (black .38 + 10 px blur).
+   *   data-corner="x,y"   a card's top-right corner (overlay px): the circle sits inside it, inset 10
+   *   data-row="x,cy"     a row's trailing edge x and its vertical centre: trailing, inset 24
+   *   data-x / data-y     (revision 2 callers) the circle's centre
+   *   data-open, data-hover   states; data-dz the host's depth (a focused card's +15, a row's 0; "none" = no label) */
   function buildMore(el) {
-    const x = parseFloat(el.dataset.x), y = parseFloat(el.dataset.y);
+    let cx, cy;
+    if (el.dataset.corner) { const [x, y] = el.dataset.corner.split(',').map(Number); cx = x - 10 - 30; cy = y + 10 + 30; }
+    else if (el.dataset.row) { const [x, y] = el.dataset.row.split(',').map(Number); cx = x - 24 - 30; cy = y; }
+    else { cx = parseFloat(el.dataset.x); cy = parseFloat(el.dataset.y); }
     const open = flag(el, 'open') ? ' is-open' : '', hov = flag(el, 'hover') ? ' is-hover' : '';
-    el.replaceWith(h(`<div class="lgk-glass wn-more${open}${hov}" data-mat="liquid" data-lens style="left:${x - 26}px; top:${y - 26}px; --dz:15" data-dz="15" data-tier="T2 More circle (dispatches Steam's menu event)"><i data-i="more"></i></div>`));
+    const dz = el.dataset.dz || '15';                         // data-dz="none": no depth label of its own
+    const dza = dz === 'none' ? '' : ` data-dz="${dz}"`;
+    el.replaceWith(h(`<div class="wn-more${open}${hov}"${did(el, 'more')} style="left:${cx - 30}px; top:${cy - 30}px"${dza} data-tier="T2 More circle: the host's own onMenuButton; rides its host's depth"><i data-i="more"></i></div>`));
   }
 
   /* ---------------- Steam VR keyboard (keyboard quad, x0.74) with the display-only echo row */
@@ -234,4 +266,17 @@
   if (document.body && document.body.dataset.annot !== undefined && !/annot/.test(location.hash)) history.replaceState(null, '', location.pathname + '#annot');
   const B = { tabbar: buildTabbar, toolbar: buildToolbar, ornament: buildOrnament, frame: buildFrame, winbar: buildWinbar, bar: buildBar, pill: buildPill, laser: buildLaser, more: buildMore, keyboard: buildKeyboard };
   $$('[data-wn]').forEach((el) => { const f = B[el.dataset.wn]; if (f) f(el); });
+
+  /* #rects: once fonts and kit have settled, write every [data-id] rect (view px: left, top, width, height) as JSON
+   * into <pre id="wn-rects"> for headless --dump-dom (window-nav-measure.py rects; glass.py cmp) */
+  if (/rects/.test(location.hash)) {
+    const dump = () => {
+      const out = {};
+      $$('[data-id]').forEach((n) => { const r = n.getBoundingClientRect(); out[n.dataset.id] = [r.left, r.top, r.width, r.height].map((v) => Math.round(v * 10) / 10); });
+      let pre = document.getElementById('wn-rects');
+      if (!pre) { pre = document.createElement('pre'); pre.id = 'wn-rects'; pre.style.display = 'none'; document.body.append(pre); }
+      pre.textContent = JSON.stringify(out);
+    };
+    (document.fonts ? document.fonts.ready : Promise.resolve()).then(() => setTimeout(dump, 1200));
+  }
 })();

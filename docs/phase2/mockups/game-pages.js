@@ -10,28 +10,33 @@
  *   data-bar="idle|running|none"  dashboard bar (running = the game's circle with a dot)
  * On <html>: data-annot  -> label every [data-dz] element with its depth and tier (kit #annot)
  *
- * Scene builders (revision 2). On an .lgk-overlay:
+ * Scene builders (revision 3: PLAN §1 conformance). On an .lgk-overlay:
  *   data-gp="title"    the title view: hero art = the window, text column, play cluster, tab row.
  *     data-state   installed | notinstalled | update | stream | launching | running | disabled | shortcut
  *     data-focus   play | playfrom | stop | input | vrbind | manage | tab | none   (gamepad focus)
  *     data-hover   same keys (laser hover)
- *     data-open    playfrom | manage | stop    (that source turns white: its menu or alert is open)
+ *     data-open    playfrom | manage | stop | vrbind   (that source turns white: its menu or alert is open)
  *     data-tip     playfrom | stop | manage    (tooltip shown ABOVE its control)
- *     data-depth   pop (default: Play +15 mm, circles and capsules +10, tab row +10) | flat (all 0)
- *     data-vr      1 (default) shows the Controller Bindings capsule; 0 hides it
+ *     data-depth   pop (default: the post-G2 target of the default profile, every cluster control and the tab
+ *                  row +10 mm) | flat (all 0, today until G2 + AT-HV-OFFAXIS)
+ *     data-vr      0 (default: flag vrBindings off, PLAN S13) | 1 shows C5b's Controller Bindings capsule
  *     data-private 1 adds the private badge on the gear
  *     data-cloud   1 adds the Steam Cloud chip (trailing end of the tab row)
  *     data-hero    art spec ("hero-clean:0:") or "img:assets/<file>"
  *     data-logo    text, or "img:assets/<file>"
- *     data-dim     "L,B" left and bottom dimming alphas at the text column (default .50,.55: T2 adaptive
- *                  result for this art); the T1 fallback is .65 with on-art labels at .80
+ *     data-dim     "L,B,T" dimming alphas (text column, controls band, toolbar); default .50,.45,.35. T2 sets them
+ *                  per hero (adaptive); the T1 fallback is .65,.65,.45 with on-art labels at .80
  *     data-chip / data-syn / data-stats   text column contents ("Label|Value;Label|Value")
+ *     data-left    the hero column's leading x (default 104: PLAN VP P-29 puts Play's centre within 400 px
+ *                  of the window centre; 104 + 140 = 244)
  *   data-gp="details"  a details state (tabs pinned): blurred art backdrop + inline title + pinned tab row.
  *     data-tab     activity | yourstuff | community | gameinfo
  *     data-name    the inline title (T2, from appStore display_name)
  *     data-hero    art spec for the blurred backdrop
  *     Children with class .gp-content are moved into the window's scroller.
- *   data-foot="A:Open|≡:Options|B:Back"   bottom ornament legends (both scenes)
+ *   data-foot="≡:Options|A:Open|B:Back"   bottom ornament legends (both scenes). PLAN §1.10: a capsule when any
+ *                  legend other than A and B is present, else a quiet legend; A and B always quiet and trailing.
+ *   data-mode="laser" on the overlay: laser mode (no glyph badges, VP P-26); default gamepad mode.
  */
 (() => {
   'use strict';
@@ -86,11 +91,13 @@
   /* ---------------------------------------------------------------- the play cluster (§3.2) */
   function cluster(o) {
     const st = o.state;
-    const dzP = o.pop ? 15 : 0, dzC = o.pop ? 10 : 0;
+    // PLAN §1.7 default profile: Play, the circles, the capsules and the tab row all go 0 -> +10 mm once the hole
+    // treatment (P9 G2) is live and AT-HV-OFFAXIS passes (flag overArtPops); the wearer profile adds Play +15.
+    const dzP = o.pop ? 10 : 0, dzC = o.pop ? 10 : 0;
     const k = key => (o.focus === key ? ' is-focus' : '') + (o.hover === key ? ' is-hover' : '') + (o.open === key ? ' is-selected' : '');
     const lens = key => (o.open === key ? '' : ' data-lens');
     const tipLabel = { playfrom: 'Play From', stop: 'Stop', manage: 'Manage', input: 'Configure Controller', vrbind: 'VR Controller Bindings' };
-    const tip = key => o.tip === key ? `<div class="lgk-glass gp-tip" data-mat="thick" style="--dz:${dzC + 5}" data-dz="owner+5" data-tier="tooltip above (T2)">${tipLabel[key]}</div>` : '';
+    const tip = key => o.tip === key ? `<div class="lgk-glass gp-tip" data-mat="thick" data-tier="P3 tooltip, data-lgs-tip=above; default profile: CSS shadow only">${tipLabel[key]}</div>` : '';
     const slot = (key, inner) => `<span class="gp-slot" data-k="${key}">${inner}${tip(key)}</span>`;
     const P = {
       installed: ['play', 'Play', 'play'], shortcut: ['play', 'Play', 'play'], disabled: ['play', 'Play', ''],
@@ -101,14 +108,15 @@
       ? `<span class="gp-two"><span>Stream</span><small>from Ben-PC2</small></span>`
       : P[1];
     const out = [];
-    out.push(slot('play', `<div class="lgk-glass gp-ctl gp-overart gp-play${k('play')}${st === 'disabled' ? ' gp-dis' : ''}" data-mat="liquid"${P[2] ? ` data-tint="${P[2]}"` : ''} data-lens style="--dz:${dzP}" data-dz="${o.pop ? '0→15' : '0'}" data-tier="Play: T1; T4 pop + T5 tinted slab after GQ8"><i data-i="${P[0]}"${P[0] === 'throbber' ? ' class="bold"' : ''}></i>${label}</div>`));
+    const dzl = o.pop ? '0→10' : '0';
+    out.push(slot('play', `<div class="lgk-glass gp-ctl gp-overart gp-play${k('play')}${st === 'disabled' ? ' gp-dis' : ''}" data-mat="liquid"${P[2] ? ` data-tint="${P[2]}"` : ''} data-lens style="--dz:${dzP}" data-dz="${dzl}" data-tier="Play: T1; T4 crop + hole (G2) + tinted slab (G3) behind overArtPops"><i data-i="${P[0]}"${P[0] === 'throbber' ? ' class="bold"' : ''}></i>${label}</div>`));
     const hasPF = !['notinstalled', 'running', 'shortcut'].includes(st);
-    if (hasPF) out.push(slot('playfrom', `<div class="lgk-glass gp-ctl gp-overart gp-circ gp-pf${k('playfrom')}" data-mat="clear"${lens('playfrom')} style="--dz:${dzC}" data-dz="${o.pop ? '0→10' : '0'}" data-tier="T1"><i data-i="stream"></i><span class="gp-pfbadge"><i data-i="chevron-down" class="bold"></i></span></div>`));
-    if (st === 'running') out.push(slot('stop', `<div class="lgk-glass gp-ctl gp-overart gp-circ${k('stop')}${o.focus === 'stop' || o.hover === 'stop' ? ' is-danger-focus' : ''}" data-mat="clear"${lens('stop')} style="--dz:${dzC}" data-dz="${o.pop ? '0→10' : '0'}" data-tier="T1"><i data-i="stop"></i></div>`));
-    out.push(slot('input', `<div class="lgk-glass gp-ctl gp-overart gp-cap${k('input')}" data-mat="clear"${lens('input')} style="--dz:${dzC}" data-dz="${o.pop ? '0→10' : '0'}" data-tier="T1+T2 label"><i data-i="controller"></i>Steam Input</div>`));
-    if (o.vr) out.push(slot('vrbind', `<div class="lgk-glass gp-ctl gp-overart gp-cap${k('vrbind')}" data-mat="clear"${lens('vrbind')} style="--dz:${dzC}" data-dz="${o.pop ? '0→10' : '0'}" data-tier="T3 new (Q-A)"><i data-i="vrbind"></i>Controller Bindings</div>`));
-    out.push(slot('manage', `<div class="lgk-glass gp-ctl gp-overart gp-circ${k('manage')}" data-mat="clear"${lens('manage')} style="--dz:${dzC}" data-dz="${o.pop ? '0→10' : '0'}" data-tier="T1"><i data-i="gear"></i>${o.private ? '<span class="gp-badge"><i data-i="eye-slash"></i></span>' : ''}</div>`));
-    return `<div class="gp-cluster" style="left:${o.left ?? 40}px; top:${o.top ?? 448}px">${out.join('')}</div>`;
+    if (hasPF) out.push(slot('playfrom', `<div class="lgk-glass gp-ctl gp-overart gp-circ gp-pf${k('playfrom')}" data-mat="clear"${lens('playfrom')} style="--dz:${dzC}" data-dz="${dzl}" data-tier="T1"><i data-i="stream"></i><span class="gp-pfbadge"><i data-i="chevron-down" class="bold"></i></span></div>`));
+    if (st === 'running') out.push(slot('stop', `<div class="lgk-glass gp-ctl gp-overart gp-circ${k('stop')}${o.focus === 'stop' || o.hover === 'stop' ? ' is-danger-focus' : ''}" data-mat="clear"${lens('stop')} style="--dz:${dzC}" data-dz="${dzl}" data-tier="T1"><i data-i="stop"></i></div>`));
+    out.push(slot('input', `<div class="lgk-glass gp-ctl gp-overart gp-cap${k('input')}" data-mat="clear"${lens('input')} style="--dz:${dzC}" data-dz="${dzl}" data-tier="T1+T2 label"><i data-i="controller"></i>Steam Input</div>`));
+    if (o.vr) out.push(slot('vrbind', `<div class="lgk-glass gp-ctl gp-overart gp-cap${k('vrbind')}" data-mat="clear"${lens('vrbind')} style="--dz:${dzC}" data-dz="${dzl}" data-tier="C5b T3, flag vrBindings (off, S13)"><i data-i="vrbind"></i>Controller Bindings</div>`));
+    out.push(slot('manage', `<div class="lgk-glass gp-ctl gp-overart gp-circ${k('manage')}" data-mat="clear"${lens('manage')} style="--dz:${dzC}" data-dz="${dzl}" data-tier="T1"><i data-i="gear"></i>${o.private ? '<span class="gp-badge"><i data-i="eye-slash"></i></span>' : ''}</div>`));
+    return `<div class="gp-cluster" style="left:${o.left ?? 104}px; top:${o.top ?? 448}px">${out.join('')}</div>`;
   }
 
   /* ---------------------------------------------------------------- tab row: segmented capsule + paired arrows (§3.3) */
@@ -117,20 +125,35 @@
     const seg = (key, txt) => `<span class="gp-seg${sel === key ? ' is-selected' : ''}${o.focus === 'tab' && sel === key ? ' is-focus' : ''}">${txt}</span>`;
     const pinned = !!o.pinned;
     const mat = pinned ? 'liquid' : 'clear';
-    const dz = pinned ? 20 : (o.pop ? 10 : 0);
+    // PLAN §1.7 default profile: pinned +10 (wearer +20); at rest over art 0, then +10 behind overArtPops
+    const dz = pinned ? 10 : (o.pop ? 10 : 0);
     const top = pinned ? 116 : 548;
-    return `<div class="gp-tabrow" style="left:40px; top:${top}px">
-      <div class="lgk-glass gp-ctl ${pinned ? '' : 'gp-overart '}gp-tabs" data-mat="${mat}" data-lens style="--dz:${dz}" data-dz="${pinned ? '+20' : (o.pop ? '0→10' : '0')}" data-tier="${pinned ? 'T1 pin + T4 crop + T5 liquid slab' : 'T1; pinned +20 (T4+T5)'}">
+    const left = o.left ?? 104;          // the same x at rest and pinned: the tab row never moves in x (§3.7)
+    return `<div class="gp-tabrow" style="left:${left}px; top:${top}px">
+      <div class="lgk-glass gp-ctl ${pinned ? '' : 'gp-overart '}gp-tabs" data-mat="${mat}" data-lens style="--dz:${dz}" data-dz="${pinned ? '+10' : (o.pop ? '0→10' : '0')}" data-tier="${pinned ? 'T1 pin + T4 crop + T5 liquid slab (wearer +20)' : 'T1; pinned +10 (T4+T5)'}">
         ${seg('activity', 'Activity')}${seg('yourstuff', 'Your Stuff')}${seg('community', 'Community')}${seg('gameinfo', 'Game Info <span class="ok"><i data-i="check" class="bold"></i></span>')}
       </div>
       <div class="lgk-glass gp-ctl ${pinned ? '' : 'gp-overart '}gp-arrows" data-mat="${mat}" data-lens style="--dz:${dz}" data-tier="Steam's %{Arrows}: two 80 px hit halves (laser only)"><span><i data-i="chevron-left" class="bold"></i></span><span><i data-i="chevron-right" class="bold"></i></span></div>
     </div>`;
   }
 
-  function footer(spec) {
+  /* the bottom ornament (PLAN §1.10, C1a's #Footer[data-lgs-orn]): action legends first, then A and B as quiet
+     trailing members (always present, both input modes); label first, glyph badge after it, badges only in gamepad
+     mode. A capsule (84 px, y 628-712, centred, liquid, depth 0 + inset slab) when any action other than A/B exists,
+     else a quiet legend with no material, in the 64 px margin under the glass (window routes) or inside it
+     (window-full routes: pass top = 640). */
+  function footer(spec, mode, top) {
     const items = (spec || 'A:Select|B:Back').split('|').map(s => s.split(':'));
-    return `<div class="lgk-glass gp-foot" data-mat="liquid" data-lens style="left:640px; translate:-50% 0; top:628px; padding:0 14px; --dz:0" data-dz="0" data-tier="footer: T1 + T5 inset slab">
-      ${items.map(([g, t]) => `<span class="lgk-btn capsule plain${/Back|Cancel/.test(t) ? ' nav' : ''}"><span class="lgk-glyph">${g}</span>${esc(t)}</span>`).join('')}</div>`;
+    const acts = items.filter(([g]) => g !== 'A' && g !== 'B');
+    const navs = items.filter(([g]) => g === 'A' || g === 'B');
+    const btn = ([g, t], nav) => `<span class="lgk-btn capsule plain${nav ? ' nav' : ''}">${esc(t)}<span class="lgk-glyph">${g === '≡' ? '&#8801;' : g}</span></span>`;
+    const inner = acts.map(it => btn(it, false)).join('') + (acts.length && navs.length ? '<span class="gsep"></span>' : '') + navs.map(it => btn(it, true)).join('');
+    const laser = mode === 'laser' ? ' laser' : '';
+    if (!acts.length) {
+      const inglass = top !== undefined && top < 628 ? ' inglass' : '';
+      return `<div class="gp-foot quiet${laser}${inglass}" style="left:640px; translate:-50% 0; top:${top ?? 628}px" data-dz="0" data-tier="quiet legend (only A and B): no material (PLAN §1.10)">${inner}</div>`;
+    }
+    return `<div class="lgk-glass gp-foot${laser}" data-mat="liquid" data-lens style="left:640px; translate:-50% 0; top:${top ?? 628}px; --dz:0" data-dz="0" data-tier="ornament capsule: T1 + T5 inset slab, depth 0">${inner}</div>`;
   }
 
   function artLayer(spec, cls) {
@@ -141,9 +164,10 @@
   /* ---------------------------------------------------------------- title scene (§4.1) */
   function titleScene(ov) {
     const d = ov.dataset;
+    const L = +(d.left || 104);
     const o = {
       state: d.state || 'installed', focus: d.focus || 'play', hover: d.hover || '', open: d.open || '', tip: d.tip || '',
-      pop: (d.depth || 'pop') === 'pop', vr: d.vr !== '0', private: d.private === '1', tab: d.tab || 'activity',
+      pop: (d.depth || 'pop') === 'pop', vr: d.vr === '1', private: d.private === '1', tab: d.tab || 'activity', left: L,
     };
     const [dl, db, dt] = (d.dim || '.50,.45,.35').split(',').map(Number);
     const logo = d.logo && d.logo.startsWith('img:')
@@ -155,17 +179,17 @@
     const html = `
       <div class="lgk-glass gp-win" data-mat="window" data-dz="0" data-tier="window; hero = content (T1 layout, sticky art)" style="--dimL:${dl}; --dimB:${db ?? .45}; --dimT:${dt ?? .35}">
         <div class="gp-hero">${artLayer(d.hero, 'art')}<div class="dim"></div></div>
-        <div class="gp-logo" style="left:40px; top:108px; width:560px; height:124px" data-tier="logo box 560 x 124 (T1, GQ2)">${logo}</div>
-        <div class="gp-chips" style="left:40px; top:244px"><span class="gp-chip"><span class="disc" style="background:var(--lg-yellow); color:#16161a"><i data-i="vr"></i></span>${esc(chip)}</span></div>
-        <div class="gp-syn gp-onart" style="left:40px; top:294px">${esc(d.syn || 'Ride the last light of a dying star through a valley of drifting islands. A rhythm racer built for VR.')}</div>
-        <div class="gp-stats gp-onart" style="left:40px; top:358px">${stats}</div>
+        <div class="gp-logo" style="left:${L}px; top:108px; width:560px; height:124px" data-tier="logo box 560 x 124 (T1, GQ2)">${logo}</div>
+        <div class="gp-chips" style="left:${L}px; top:244px"><span class="gp-chip"><span class="disc" style="background:var(--lg-yellow); color:#16161a"><i data-i="vr"></i></span>${esc(chip)}</span></div>
+        <div class="gp-syn gp-onart" style="left:${L}px; top:294px">${esc(d.syn || 'Ride the last light of a dying star through a valley of drifting islands. A rhythm racer built for VR.')}</div>
+        <div class="gp-stats gp-onart" style="left:${L}px; top:358px">${stats}</div>
       </div>
       <div class="lgk-glass gp-ctl gp-overart gp-back" data-mat="clear" data-lens data-dz="0" data-tier="header T1 (window-nav)"><i data-i="chevron-left" class="bold"></i></div>
-      <div class="lgk-glass gp-ctl gp-overart" data-mat="clear" data-lens style="left:1196px; top:24px; width:60px; height:60px; --r:30px" data-dz="0" data-tier="search magnifier (window-nav)"><i data-i="search"></i></div>
+      <div class="lgk-glass gp-ctl gp-overart" data-mat="clear" data-lens style="left:1196px; top:24px; width:60px; height:60px; --r:30px" data-dz="0" data-tier="search circle 60 / 80 (PLAN §1.9, C1a)"><i data-i="search"></i></div>
       ${cluster(o)}
       ${tabrow(o)}
       ${d.cloud === '1' ? `<span class="gp-chip gp-cloud" style="right:40px; top:562px"><span class="disc" style="background:rgb(255 255 255 / .2); --is:18px"><i data-i="cloud"></i></span>Steam Cloud: Up to date</span>` : ''}
-      ${footer(d.foot)}`;
+      ${footer(d.foot, ov.dataset.mode)}`;
     ov.insertAdjacentHTML('afterbegin', html);
   }
 
@@ -182,7 +206,7 @@
         <span class="lgk-btn circle" style="position:absolute; left:1196px; top:24px"><i data-i="search"></i></span>
       </div>
       ${tabrow({ tab: d.tab, pinned: true, focus: d.focus })}
-      ${footer(d.foot || 'A:Open|B:Back')}`;
+      ${footer(d.foot || 'A:Open|B:Back', d.mode)}`;
     ov.insertAdjacentHTML('afterbegin', html);
     const sc = ov.querySelector('.gp-scroll');
     content.forEach(c => sc.appendChild(c));
@@ -206,8 +230,8 @@
       }
       const legend = document.createElement('div');
       legend.className = 'lgk-annot';
-      legend.style.cssText = 'left:24px; top:1048px; font-size:15px; line-height:22px';
-      legend.textContent = 'a→b mm: 0 mm today; b once GQ8 (per-shape fill for the pop hole) lands and AT-HV-OFFAXIS passes. Text, logo, chips and art stay at 0.';
+      legend.style.cssText = 'left:24px; top:1028px; width:1872px; white-space:normal; font-size:15px; line-height:22px';
+      legend.textContent = 'Default profile (PLAN §1.7). a→b mm: 0 mm today; b once the hole treatment (P9 G2) is live and AT-HV-OFFAXIS passes (flag overArtPops). Non-interactive crops. Text, logo, chips and art stay at 0. Wearer profile (interactivePops, off): Play +15.';
       document.body.append(legend);
     }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-lgk-ready'] });
   }
@@ -216,7 +240,7 @@
   document.querySelectorAll('[data-gp="cluster"]').forEach(h => {
     const d = h.dataset;
     h.outerHTML = cluster({ state: d.state || 'installed', focus: d.focus || '', hover: d.hover || '', open: d.open || '', tip: d.tip || '',
-      pop: (d.depth || 'pop') === 'pop', vr: d.vr !== '0', private: d.private === '1', left: +d.left || 0, top: +d.top || 0 });
+      pop: (d.depth || 'pop') === 'pop', vr: d.vr === '1', private: d.private === '1', left: +d.left || 0, top: +d.top || 0 });
   });
   // geometry dump for the concept's tables (open with ?rects): rects in window px of every cluster slot, tooltip,
   // tab-row part and chip, written into <pre id="gp-rects"> once the kit is ready (read with chrome --dump-dom)
@@ -228,7 +252,10 @@
       const r = el => { const b = el.getBoundingClientRect(); return [Math.round(b.left - o.left), Math.round(b.top - o.top), Math.round(b.width), Math.round(b.height)]; };
       const out = {};
       ov.querySelectorAll('.gp-slot').forEach(s => { out[s.dataset.k] = r(s.firstElementChild); const t = s.querySelector('.gp-tip'); if (t) out['tip:' + s.dataset.k] = r(t); });
-      ov.querySelectorAll('.gp-tabs, .gp-arrows, .gp-cloud, .gp-logo, .gp-chips .gp-chip, .gp-syn, .gp-stats, .gp-ititle').forEach(e => { out[e.className.split(' ').find(c => /^gp-(tabs|arrows|cloud|logo|chip|syn|stats|ititle)$/.test(c))] = r(e); });
+      ov.querySelectorAll('.gp-tabs, .gp-arrows, .gp-cloud, .gp-logo, .gp-chips .gp-chip, .gp-syn, .gp-stats, .gp-ititle, .gp-foot, .gp-menu, .gp-more').forEach(e => {
+        const cls = e.classList.contains('gp-cloud') ? 'gp-cloud' : [...e.classList].find(c => /^gp-(tabs|arrows|logo|chip|syn|stats|ititle|foot|menu|more)$/.test(c));
+        out[cls in out ? cls + '2' : cls] = r(e); });
+      ov.querySelectorAll('.gp-seg').forEach((e, i) => { out['seg' + i] = r(e); });
       const pre = document.createElement('pre'); pre.id = 'gp-rects'; pre.textContent = JSON.stringify(out); document.body.append(pre);
     }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-lgk-ready'] });
   }

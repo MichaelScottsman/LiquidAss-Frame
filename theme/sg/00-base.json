@@ -1,0 +1,14 @@
+{
+  "fragment": "00-base",
+  "about": "P7 scene-graph transform overrides (docs/phase2/contracts/sg.md section 4). Rules are applied by lgs_sg.js only while their flag is true. Area fragments (20-winbar.json, C1a) add rules and may supersede these by id.",
+  "supersedes": [],
+  "rules": [
+    {
+      "id": "tabbar-depth",
+      "flag": "tabBarDepth",
+      "target": "frame-left",
+      "addMm": [0, 0, 21.3],
+      "about": "Tab-bar ornament at +25 mm in all (PLAN 1.7): Steam's own frame-menu offset is z 0.01 units (3.7 mm at r = 1), so 21.3 mm more. WN 3.3.6. Off by default (D-P7-1)."
+    }
+  ]
+}

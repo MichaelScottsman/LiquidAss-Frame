@@ -22,16 +22,19 @@ ROOT = Path(__file__).resolve().parents[3]
 MOCK = ROOT / "docs/phase2/mockups"
 SHOTS = ROOT / "shots"
 OVL = (320, 66)                       # overlay origin in the 1920 x 1080 mockup view
-# text boxes in window px (revision 2 layout), the alpha of the white text, the dim layer that serves the box
-# ("L" text column, "B" controls band = cluster + tab row, "T" toolbar row) and the glass fill over the art
+# text boxes in window px (revision 3 layout: the hero column starts at x 104, VP P-29; rects from the mockups'
+# ?rects dump), the alpha of the white text, the dim layer that serves the box ("L" text column, "B" controls band =
+# cluster + tab row, "T" toolbar row) and the glass fill over the art (clear glass composites to about white .15
+# at the label line: its .16 -> .06 sheen at mid-height over a .06 base; revision 2 modelled it as .12). "Ctrl Bindings" is C5b's capsule (flag
+# vrBindings): the bright mockups draw it on purpose, as the worst case for the controls band.
 BOXES = {
-    "synopsis": ((40, 294, 620, 352), 0.90, "L", 0.0),
-    "stat labels": ((40, 358, 470, 384), 0.80, "L", 0.0),
-    "stat values": ((40, 358, 470, 384), 0.96, "L", 0.0),
-    "chip label": ((84, 250, 240, 274), 0.96, "L", 0.16),
-    "Steam Input": ((486, 478, 604, 498), 0.96, "B", 0.12),
-    "Ctrl Bindings": ((696, 478, 876, 498), 0.96, "B", 0.12),
-    "tab labels": ((214, 572, 652, 596), 0.96, "B", 0.12),
+    "synopsis": ((104, 294, 684, 352), 0.90, "L", 0.0),
+    "stat labels": ((104, 358, 497, 384), 0.80, "L", 0.0),
+    "stat values": ((104, 358, 497, 384), 0.96, "L", 0.0),
+    "chip label": ((148, 250, 268, 274), 0.96, "L", 0.16),
+    "Steam Input": ((560, 478, 694, 498), 0.96, "B", 0.15),
+    "Ctrl Bindings": ((802, 478, 1014, 498), 0.96, "B", 0.15),
+    "tab labels": ((270, 572, 700, 596), 0.96, "B", 0.15),
 }
 TARGET = {"L": 4.5, "B": 4.5, "T": 3.0}
 
@@ -53,9 +56,9 @@ def contrast(text_alpha, bg_rgb01):
 
 
 def left_dim_profile(a, x):
-    """the revision-2 left gradient: a until 46 % of 1280, .45a at 58 %, 0 at 72 %"""
+    """the revision-3 left gradient (game-pages.css): a until 51 % of 1280, .45a at 63 %, 0 at 77 %"""
     u = x / 1280
-    return np.interp(u, [0, 0.46, 0.58, 0.72, 1], [a, a, 0.45 * a, 0, 0])
+    return np.interp(u, [0, 0.51, 0.63, 0.77, 1], [a, a, 0.45 * a, 0, 0])
 
 
 def bottom_dim_profile(a, y):

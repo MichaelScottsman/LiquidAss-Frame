@@ -2,34 +2,82 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Glass Shell P2 home-apps: Library Filters as a visionOS sheet (Steam's real options)</title>
+<title>Glass Shell P2 library catalogue (C2c): Library Filters as a visionOS sheet (Steam's real options)</title>
 <link rel="stylesheet" href="kit.css">
 <link rel="stylesheet" href="window-nav-shared.css">
 <link rel="stylesheet" href="home-apps.css">
 <style>
-  /* window-nav §5.4 sheet frame: 960 wide (75 % of the glass), radius 44, thick glass, +50 mm; content: this concept */
-  .sheet { left: 160px; top: 24px; width: 960px; height: 600px; --r: 44px; overflow: hidden; }
-  .sheet .close { position: absolute !important; left: 24px; top: 24px; }
-  .sheet .ttl { position: absolute; left: 0; right: 0; top: 34px; text-align: center; }
-  .sheet .reset { position: absolute !important; right: 24px; top: 24px; }
-  .body { position: absolute; left: 24px; right: 24px; top: 104px; bottom: 92px; overflow: hidden;
-    -webkit-mask-image: linear-gradient(180deg, #000 0, #000 calc(100% - 56px), transparent 100%); }
-  .lab { font: 700 22px/1 var(--lg-font); color: var(--lg-text-2); margin: 0 0 12px 12px; display: flex; align-items: center; gap: 10px; }
-  .sec { margin-bottom: 22px; }
-  .compat { display: flex; width: 100%; }
-  .compat > span { flex: auto; gap: 8px; padding: 0 12px !important; }
-  .ci { display: inline-flex; gap: 3px; }
-  .ci b { width: 16px; height: 16px; border-radius: 50%; display: inline-grid; place-items: center; font: 800 11px/1 var(--lg-font); }
-  .ci .v { background: var(--lg-green); color: #07240f; } .ci .p { background: var(--lg-yellow, #ffd60a); color: #1b1300; }
-  .ci .u { background: transparent; box-shadow: inset 0 0 0 1.5px currentColor; } .ci .x { background: transparent; box-shadow: inset 0 0 0 1.5px currentColor; }
-  .chips { display: flex; flex-wrap: wrap; gap: 12px; }
-  .chip { position: relative; display: inline-flex; align-items: center; gap: 8px; height: 60px; padding: 0 24px; border-radius: 30px;
-    background: var(--lg-fill-thin); font: 600 22px/1 var(--lg-font); white-space: nowrap; }
-  .chip.more { color: var(--lg-text-2); }
-  .chip .lgk-i { --is: 20px; }
-  .rows { border-radius: 30px; background: var(--lg-fill-regular); padding: 6px; display: flex; flex-direction: column; gap: 0; }
-  .rows .lgk-row { height: 72px; }
-  .foot { position: absolute; left: 36px; right: 24px; bottom: 18px; height: 60px; display: flex; align-items: center; justify-content: space-between; }
+  /* ================================================================== C2c Library Filters, PLAN §1 conformance (M0)
+     Frame: C1c's sheet (WN §5.4, PLAN §1.12): <= 960 wide inside the 108-628 modal box, radius 44, thick glass,
+     close circle top left, title centred, trailing action at the 24 px inset; +10 mm non-interactive (PLAN §1.7);
+     Steam's overlay restyled as the .35 scrim (PLAN §1.8). Content (the T3 re-render) is C2c's: Steam's own options
+     and strings, in the shared vocabulary (PLAN §1.3): a pop-up row, toggle capsules, grouped 80 px rows. */
+  .lc-sheet { left: 160px; top: 128px; width: 960px; height: 488px; --r: 44px; overflow: hidden; }
+  .lc-sheet .close { position: absolute !important; left: 24px; top: 24px; }
+  .lc-sheet .ttl { position: absolute; left: 0; right: 0; top: 35px; text-align: center; }
+  .lc-sheet .reset { position: absolute !important; right: 24px; top: 24px; }
+  /* the scrolling body: inset 24, starts under the 108 px sheet toolbar band; a 56 px scroll-edge fade at the bottom */
+  .lc-body { position: absolute; left: 24px; right: 24px; top: 104px; bottom: 0; overflow: hidden;
+    -webkit-mask-image: linear-gradient(180deg, #000 0, #000 calc(100% - 56px), transparent 100%);
+            mask-image: linear-gradient(180deg, #000 0, #000 calc(100% - 56px), transparent 100%); }
+  /* grouped rows (CTL §10): platter black .14, radius 30; rows 80 contiguous, padding 0 26; separators 2 px white
+     .08 inset 26, hidden next to a lit row */
+  .lc-platter { position: relative; border-radius: 30px; background: var(--lg-fill-regular); }
+  .lc-prow { position: relative; display: flex; align-items: center; gap: 16px; height: 80px; padding: 0 10px 0 26px; box-sizing: border-box;
+    font: 500 24px/1.2 var(--lg-font); color: var(--lg-text-1); }
+  .lc-prow + .lc-prow::before { content: ""; position: absolute; left: 26px; right: 26px; top: -1px; height: 2px; background: rgb(255 255 255 / .08); }
+  .lc-prow .val { margin-left: auto; display: flex; align-items: center; gap: 10px; font: 500 22px/1 var(--lg-font); color: var(--lg-text-2); padding-right: 16px; }
+  .lc-prow .val .lgk-i { --is: 20px; color: var(--lg-text-3); }
+  /* the pop-up button (CTL §8.1): a 60 px raised capsule, value 22 Medium, Steam's caret; here with Steam's own four
+     compatibility icons for the chosen level (all four for "All Games") */
+  .lc-popup { margin-left: auto; display: inline-flex; align-items: center; gap: 10px; height: 60px; padding: 0 20px 0 18px; border-radius: 30px; box-sizing: border-box;
+    background: linear-gradient(180deg, rgb(255 255 255 / .06), rgb(255 255 255 / 0) 60%), var(--lg-fill-thin);
+    box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / .22), 0 1px 2px rgb(0 0 0 / .10);
+    font: 500 22px/1 var(--lg-font); color: var(--lg-text-1); }
+  .lc-popup > .lgk-i { --is: 22px; color: var(--lg-text-2); }
+  .lc-ci { display: inline-flex; gap: 4px; margin-right: 4px; }
+  .lc-ci b { position: relative; width: 22px; height: 22px; border-radius: 50%; display: inline-grid; place-items: center; font: 800 14px/1 var(--lg-font); }
+  .lc-ci .v { background: var(--lg-green); color: #07240f; --is: 14px; }
+  .lc-ci .p { background: var(--lg-yellow); color: #1b1300; }
+  .lc-ci .u { box-shadow: inset 0 0 0 2px rgb(255 255 255 / .80); color: rgb(255 255 255 / .9); }
+  .lc-ci .x { box-shadow: inset 0 0 0 2px rgb(255 255 255 / .80); }
+  .lc-ci .x::after { content: ""; position: absolute; width: 14px; height: 2px; border-radius: 1px; background: rgb(255 255 255 / .85); rotate: -45deg; }
+  /* section labels (CTL §10): 22 px Semibold text-2, title case as Steam writes them, 26 px inside */
+  .lc-lab { font: 600 22px/28px var(--lg-font); color: var(--lg-text-2); margin: 16px 0 8px 26px; }
+  /* multi-choice options as toggle capsules (text buttons, PLAN §1.3: 60 visible, padding 24, label 24 Semibold);
+     their hit boxes are 80 tall and abut across the 12 px gaps, so P-08 holds without wider gaps.
+     On = white .94, dark label, leading check. At most one row per section. */
+  .lc-chips { display: flex; flex-wrap: wrap; gap: 12px; }
+  .lc-chips .lgk-btn { padding: 0 24px; font: 600 24px/1 var(--lg-font); }
+  .lc-chips .lgk-btn .lgk-i { --is: 22px; }
+  .lc-chips .lgk-btn.is-hover::after { --lift: .08; --spot: .12; }
+  .lc-after { margin-top: 16px; }
+  /* the ornament while the sheet is open, laser mode: its members are Steam's laser-only Sort / Filter (page nodes)
+     and our Options, so it stays the 880 capsule (PLAN §1.10, PLAN-2c-1) and recedes with the window like the tab
+     bar (a black .35 layer, WN §3.3.4); the shell's Options member (C1a) is disabled; Steam's Select / Back legends (now the sheet's)
+     stay lit above the layer, labels only in laser mode (P-26). In gamepad mode Steam's footer holds only A and B,
+     so the same place shows the quiet legend. */
+  .lc-orn { gap: 4px !important; padding: 0 12px !important; }
+  .lc-orn .wn-leg { box-sizing: border-box; justify-content: center; gap: 10px; padding: 0 12px; }
+  .lc-orn .s1 { width: 300px; } .lc-orn .s2 { width: 130px; } .lc-orn .s3 { width: 156px; } .lc-orn .s4 { width: 134px; } .lc-orn .s5 { width: 120px; }
+  .lc-orn .wn-leg.sf > .lgk-i { --is: 24px; color: var(--lg-text-2); }
+  .lc-orn .wn-leg.is-off { opacity: .38; }
+  .lc-orn .recede { position: absolute; inset: 0; border-radius: inherit; background: rgb(0 0 0 / .35); z-index: 4; pointer-events: none; }
+  .lc-orn .lit { position: relative; z-index: 5; }
+  /* the window behind (same layout as home-apps-library.html), dimmed by the scrim */
+  .lc-tabs { position: absolute; left: 108px; right: 108px; top: 116px; height: 64px; overflow: hidden;
+    -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%); }
+  .lc-tabs .lgk-seg { position: absolute; left: 0; top: 0; }
+  .lc-tabs .n { font-weight: 500; color: var(--lg-text-2); margin-left: 2px; }
+  .lc-tabs .is-selected .n { color: rgb(13 14 18 / .55); }
+  .lc-seg { padding: 2px !important; gap: 0 !important; }
+  .lc-seg > span { position: relative; isolation: isolate; height: 60px; min-width: 140px; box-sizing: border-box; padding: 0 28px; }
+  .lc-seg > span.is-selected { background: transparent !important; box-shadow: none; }
+  .lc-seg > span.is-selected::before { content: ""; position: absolute; inset: 2px; z-index: -1; border-radius: inherit;
+    background: var(--lg-fill-selected); box-shadow: 0 2px 6px rgb(0 0 0 / .22); }
+  .lc-grid { position: absolute; inset: 0; }
+  .lc-grid .ha-poster { position: absolute; width: 172px; height: 258px; border-radius: 20px; overflow: hidden; background: #1b1e25; box-shadow: 0 4px 10px rgb(0 0 0 / .25); }
+  .lc-scrub { position: absolute; right: 24px; top: 270px; width: 60px; height: 340px; border-radius: 30px; background: rgb(0 0 0 / .14); }
 </style>
 </head>
 <body>
@@ -38,55 +86,69 @@
   <div data-wn="tabbar" data-right="302" data-cy="426" data-sel="library" data-dim></div>
 
   <div class="lgk-overlay" style="left:320px; top:66px">
-    <div class="lgk-glass wn-win dimmed" data-mat="window" data-dz="0">
-      <div data-wn="toolbar" data-back="root" data-title="Library" data-search="idle" data-dim></div>
-      <span class="ha-poster" style="left:40px; top:270px" data-app="735580"></span>
-      <span class="ha-poster" style="left:236px; top:270px" data-app="793460"></span>
-      <span class="ha-poster" style="left:1020px; top:270px" data-app="954280"></span>
+    <div class="lgk-glass wn-win dimmed" data-mat="window" data-dz="0" data-id="window" data-tier="Steam's .ModalOverlayBackground restyled: black .35 (PLAN §1.8)">
+      <div class="lc-grid wn-fade-bottom">
+        <span class="ha-poster" style="left:44px; top:270px" data-app="735580"></span>
+        <span class="ha-poster" style="left:233px; top:270px" data-app="793460"></span>
+        <span class="ha-poster" style="left:423px; top:270px" data-app="410110"></span>
+        <span class="ha-poster" style="left:613px; top:270px" data-app="242820"></span>
+        <span class="ha-poster" style="left:802px; top:270px" data-app="1147940"></span>
+        <span class="ha-poster" style="left:992px; top:270px" data-app="954280"></span>
+        <span class="ha-poster" style="left:44px; top:570px" data-app="503560"></span>
+        <span class="ha-poster" style="left:992px; top:570px" data-app="371140"></span>
+      </div>
+      <div data-wn="toolbar" data-back="root" data-title="Library" data-search="idle"></div>
+      <div class="lc-tabs"><div class="lgk-seg lc-seg"><span class="is-selected">All Games <span class="n t-num">350</span></span><span>Great On Frame <span class="n t-num">21</span></span><span>Ready To Play <span class="n t-num">68</span></span><span>Collections <span class="n t-num">9</span></span><span>Non-Steam <span class="n t-num">54</span></span></div></div>
+      <div class="lc-scrub"></div>
     </div>
 
-    <div class="lgk-glass sheet" data-mat="thick" data-lens style="--dz:50" data-dz="50" data-tier="Steam's filter dialog: T3 re-render (chips) / T1 restyle (rows)">
-      <span class="lgk-btn circle close"><i data-i="xmark" class="bold"></i></span>
+    <div class="lgk-glass wn-sheet lc-sheet" data-mat="thick" data-lens style="--dz:10" data-dz="10" data-id="sheet" data-tier="C1c sheet frame (+10 mm, non-interactive) + C2c content: T3 re-render of Steam's filter dialog / T1 restyle">
+      <span class="lgk-btn circle close" data-id="sheet-close"><i data-i="xmark" class="bold"></i></span>
       <div class="ttl t-title2">Library Filters</div>
-      <span class="lgk-btn capsule reset">Reset</span>
-      <div class="body">
-        <div class="sec">
-          <div class="lab">Steam Frame Compatibility</div>
-          <div class="lgk-seg compat">
-            <span>Verified Only</span>
-            <span>Verified and Playable</span>
-            <span>Verified, Playable, and Untested</span>
-            <span class="is-selected">All Games</span>
+      <span class="lgk-btn capsule reset" data-id="sheet-reset">Reset</span>
+      <div class="lc-body">
+        <div class="lc-platter" data-id="compat-row">
+          <div class="lc-prow">Steam Frame Compatibility
+            <span class="lc-popup" data-id="compat-popup"><span class="lc-ci"><b class="v"><i data-i="check" class="bold"></i></b><b class="p">i</b><b class="u">?</b><b class="x"></b></span>All Games<i data-i="chevron-down"></i></span>
           </div>
         </div>
-        <div class="sec">
-          <div class="lab">Players</div>
-          <div class="chips"><span class="chip">Single player</span><span class="chip">Multiplayer</span><span class="chip">Cooperative</span><span class="chip">Local Multiplayer</span></div>
+        <div class="lc-lab">Players</div>
+        <div class="lc-chips" data-id="chips-players">
+          <span class="lgk-btn capsule">Single player</span>
+          <span class="lgk-btn capsule is-hover" style="--hx:62%; --hy:44%">Multiplayer</span>
+          <span class="lgk-btn capsule">Cooperative</span>
+          <span class="lgk-btn capsule">Local Multiplayer</span>
         </div>
-        <div class="sec">
-          <div class="lab">Play state</div>
-          <div class="chips"><span class="chip">Ready to play</span><span class="chip">Installed</span><span class="chip">Played</span><span class="chip">Unplayed</span><span class="chip more"><i data-i="more"></i>1 More</span></div>
+        <div class="lc-lab">Play state</div>
+        <div class="lc-chips" data-id="chips-playstate">
+          <span class="lgk-btn capsule">Ready to play</span>
+          <span class="lgk-btn capsule">Installed</span>
+          <span class="lgk-btn capsule">Played</span>
+          <span class="lgk-btn capsule">Unplayed</span>
+          <span class="lgk-btn capsule">Private</span>
         </div>
-        <div class="sec">
-          <div class="rows">
-            <div class="lgk-row is-hover" style="--hx:40%;--hy:50%">Hardware support<span class="trail">Gamepad Support<i data-i="chevron-right"></i></span></div>
-            <div class="lgk-row">Features<span class="trail">Any<i data-i="chevron-right"></i></span></div>
-            <div class="lgk-row">Language<span class="trail">Any language<i data-i="chevron-right"></i></span></div>
-          </div>
+        <div class="lc-platter lc-after" data-id="sections">
+          <div class="lc-prow">Hardware support<span class="val"><i data-i="chevron-down"></i></span></div>
+          <div class="lc-prow">Features<span class="val"><i data-i="chevron-down"></i></span></div>
+          <div class="lc-prow">Language<span class="val">Any language<i data-i="chevron-down"></i></span></div>
         </div>
-      </div>
-      <div class="foot">
-        <span class="t-callout v2">Showing all 350 games</span>
-        <span class="lgk-btn capsule"><i data-i="sparkle"></i>Save as Dynamic Collection</span>
       </div>
     </div>
-    <div data-wn="ornament" data-legends="Y:Reset|A:Select|B:Done"></div>
+
+    <!-- the ornament while the sheet is open (laser mode): receded with the window; Select / Back lit; Options disabled -->
+    <div class="lgk-glass lgk-toolbar wn-orn mode-laser lc-orn" data-mat="liquid" data-lens style="--dz:18" data-dz="0" data-id="ornament" data-tier="laser mode during a modal: capsule kept, receded (.35); Steam's A/B legends lit">
+      <span class="wn-leg sf s1" data-id="slot-sort"><i data-i="sort"></i><span class="val">Alphabetical</span></span>
+      <span class="wn-leg sf s2" data-id="slot-filter"><i data-i="filter"></i><span class="val">Filter</span></span>
+      <span class="wn-leg sf s3 is-off" data-id="slot-options"><i data-i="more"></i><span class="val">Options</span></span>
+      <span class="wn-leg nav s4 lit" data-id="slot-select">Select</span>
+      <span class="wn-leg nav s5 lit" data-id="slot-back">Back</span>
+      <span class="recede"></span>
+    </div>
   </div>
 
-  <div data-wn="frame" data-cx="960" data-y="806" data-dim=".72"></div>
+  <div data-wn="winbar" data-cx="960" data-y="806" data-dim=".6"></div>
   <div data-wn="bar" data-cx="960" data-y="904"></div>
-  <div data-wn="pill" data-cx="960" data-y="1018"></div>
-  <div data-wn="laser" data-to="900,646" data-from="1660,1100"></div>
+  <div data-wn="laser" data-to="813,450" data-from="1660,1100"></div>
 </div>
 <script src="../../refs/library/library.js"></script>
 <script src="home-apps.js"></script>

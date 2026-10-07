@@ -7,54 +7,119 @@
 <link rel="stylesheet" href="control-center.css">
 <style>
   .row { position: absolute; left: 0; width: 1600px; display: flex; justify-content: center; --pop-scale: 1.2; }
-  .lab { left: 24px; width: 330px; }
+  .lab { left: 24px; width: 408px; }
+  .lab small { font-size: 15px; }
+  .lab .mode { position: absolute; right: 12px; top: 11px; padding: 1px 8px; border-radius: 8px; font: 600 13px/18px var(--lg-font);
+               background: rgb(255 255 255 / .16); color: rgb(255 255 255 / .86); }
+
+  /* ---------------------------------------------------------------------------------------------------------------------------
+     PLAN §1 conformance (C3a, M0). These page-local rules apply the plan's decisions to the shared bar component of
+     control-center.css (owned by C3b) until that file adopts them (REQ C3a->C3b in docs/phase2/wp/C3a.md). They change
+     looks only: sizes, slots and order stay as the bar builder makes them.                                              */
+
+  /* §1.6 edges: E3 is a conic arc with gaps on both sides plus a radial lobe at 26 % of the width; no linear top layer (WN D-15) */
+  .lgk-view .lgk-glass::before {
+    background:
+      conic-gradient(from var(--lg-light),
+        rgb(255 255 255 / calc(.62 * var(--rim, 1))) 0deg, rgb(255 255 255 / calc(.20 * var(--rim, 1))) 38deg,
+        transparent 72deg, transparent 148deg, rgb(255 255 255 / calc(.16 * var(--rim, 1))) 180deg,
+        transparent 214deg, transparent 288deg, rgb(255 255 255 / calc(.22 * var(--rim, 1))) 322deg,
+        rgb(255 255 255 / calc(.62 * var(--rim, 1))) 360deg),
+      radial-gradient(70% 120% at 26% 0%, rgb(255 255 255 / calc(.18 * var(--rim, 1))) 0, rgb(255 255 255 / calc(.06 * var(--rim, 1))) 46%, transparent 75%);
+  }
+
+  /* §1.4 navigation selection: white .18 disc + specular top arc (+ Steam's own indicator, recoloured to a 6 pp white dot) */
+  .bar2 .slot.sel::before { box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / .40); }
+
+  /* §1.4 gamepad focus: + white .28 uniform, a static .16 spot in the upper third, the control's own arc x1.5.
+     No scale and no contact shadow: CC's D-CC6 scale is withdrawn (bar buttons never scale, VP P-05). */
+  .bar2 .disc.gp, .bar2 .pill.gp { scale: none; box-shadow: none; }
+  .bar2 .disc.gp::after, .bar2 .pill.gp::after { opacity: 1; --lift: .28; --spot: .16; --hx: 50%; --hy: 30%; }
+  .bar2 .pill.gp::after { background: radial-gradient(circle at 50% 30%, rgb(255 255 255 / .16) 0, rgb(255 255 255 / 0) 75%), rgb(255 255 255 / .28); }
+  .bar2 .disc.gp::before, .bar2 .pill.gp::before {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; padding: 1.5px; z-index: 2;
+    background: conic-gradient(from var(--lg-light), rgb(255 255 255 / .93) 0deg, rgb(255 255 255 / .30) 38deg, transparent 72deg, transparent 148deg,
+      rgb(255 255 255 / .24) 180deg, transparent 214deg, transparent 288deg, rgb(255 255 255 / .33) 322deg, rgb(255 255 255 / .93) 360deg);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+  /* focus on a white (or coloured / art) fill: an outer glow (VP P-16). Blurred, never a ring. A white disc cannot get
+     lighter, so it gets no lift and no arc. §1.4 writes the glow as 0 0 18px 2px white .30; measured on this render that
+     adds only +4 L in P-16's 8-16 px band (the gate needs +20). Shown here at 0 0 22px 8px white .55 (+23 L), the
+     weakest tested value that passes; P4 owns the final token (REQ C3a->P4 in docs/phase2/wp/C3a.md). */
+  .bar2 .disc.on.gp, .bar2 .disc.art.gp, .bar2 .pill.open.gp { box-shadow: 0 0 22px 8px rgb(255 255 255 / .55); }
+  .bar2 .disc.on.gp::after, .bar2 .disc.on.gp::before, .bar2 .pill.open.gp::after, .bar2 .pill.open.gp::before,
+  .bar2 .disc.art.gp::after, .bar2 .disc.art.gp::before { display: none; }   /* art discs: glow only, no wash over the art */
+
+  /* §1.16 E-BAR: every bar slot >= 64 x 72 pp, the avatar's too (the builder's 60 pp avatar slot is widened here) */
+  .bar2 .sys > .slot:last-child { width: 64px !important; }
+
+  /* bar popups (§1.6): panel glass. In T5 glassd adds only a small contact shadow (GM §1.5); the popup's own CSS
+     shadow would be cut by its clip rect (inventory/bar.md §2.0), so none is drawn here */
+  #menuA .lgk-glass { --dz: 9; --sh-a: .12; }
+  /* bar-menu rows in pp (E-MENU x .83: >= 50 visible on a contiguous pitch >= 65 regular, >= 266 wide): 64 pp rows 5 pp
+     apart (pitch 69), radius 20, 20 pp Medium labels, 22 pp leading glyphs, no separators. One column: the barpopup host
+     is 300 pp wide, so PLAN §1.12's two-column layout cannot apply. */
+  #menuA .lgk-row { height: 64px; border-radius: 20px; padding: 0 20px 0 14px; gap: 14px; font: 500 20px/1.2 var(--lg-font); flex: none; }
+  #menuA .lgk-row .lead { width: 26px; display: grid; place-items: center; --is: 22px; flex: none; }
+
+  /* bar tooltip (§1.13): thick-glass capsule filling Steam's 400 x 40 host: 40 tall, 18 Semibold (= 20 main px).
+     No outer shadow: the tooltip's clip rect is its content box (inventory/hud.md §0). */
+  .tip { height: 40px; padding: 0 18px; border-radius: 20px; font: 600 18px/1 var(--lg-font); }
+  #tipC .lgk-glass { --dz: 0; }
 </style>
 </head>
 <body>
-<!-- The bar keeps Steam's nodes, order and handlers. Three glass pieces instead of five: the Steam (Home) circle, the apps capsule
-     (running apps as art discs + "+"), and ONE system capsule painted on Steam's %{Tray} (room controls, the status pill, the avatar).
-     56 pp discs at 64 pp pitch; ~740 pp wide with two apps (today 700). Numbers on coloured fills are dark. -->
+<!-- The bar keeps Steam's nodes, order and handlers. Three glass pieces: the Steam (Home) circle, the apps capsule
+     (running apps as art discs + "+"), and ONE system capsule painted on Steam's %{Tray} (room controls, the status pill,
+     the avatar). 56 pp discs at 64 pp pitch (E-BAR: slots >= 64 x 72 pp); ~850 pp wide with two apps (today 700 with none).
+     Numbers on coloured fills are dark. Every row is one input mode and shows at most one focused element (VP P-13).
+     Rendered as T5 (the capsules frost the room); T1 is panel tint .78 + the same edges. -->
 <div class="lgk-view" data-room="studio">
 
-  <div class="lab plate" style="top:206px">Playspace Menu open<small>The source turns white; the menu is thick glass that grows up out of it (64 pp rows, +25 mm).</small></div>
-  <div class="lgk-pop row" style="top:270px"><div class="bar2" id="barA" data-bar='{"room":{"play":"open","view":"on"},"pill":{"batt":{"mode":"num","v":82}}}'></div></div>
+  <div class="lab plate" style="top:150px">Playspace Menu open<span class="mode">laser</span><small>The source disc turns white. Panel-glass menu at +25 mm (popup z): 64 pp rows in Steam's order; the hovered row gets +.08 and a light spot.</small></div>
+  <div class="lgk-pop row" style="top:290px"><div class="bar2" id="barA" data-bar='{"apps":["poster:0:","program:8:terminal"],"room":{"play":"open","view":"off"},"pill":{"batt":{"mode":"num","v":82}}}'></div></div>
   <div class="lgk-pop" id="menuA" style="--pop-scale:1.2" data-dz="25">
-    <div class="lgk-glass lgk-menu" data-mat="thick" data-lens style="position:relative; width:290px; min-width:0; --r:28px; --dz:25; padding:8px; gap:4px">
-      <div class="mrow" style="--rh:64px; --fs:20px; --rr:20px"><span class="lead"><i data-i="playspace"></i></span>Playspace Setup</div>
-      <div class="mrow is-hover" style="--rh:64px; --fs:20px; --rr:20px; --hx:30%; --hy:50%"><span class="lead"><i data-i="sort"></i></span>Adjust Floor Height</div>
-      <div class="mrow" style="--rh:64px; --fs:20px; --rr:20px"><span class="lead"><i data-i="recenter"></i></span>Recenter</div>
+    <div class="lgk-glass lgk-menu" data-mat="panel" data-lens style="position:relative; width:290px; min-width:0; --r:28px; padding:8px; gap:5px">
+      <div class="lgk-row"><span class="lead"><i data-i="playspace"></i></span>Playspace Setup</div>
+      <div class="lgk-row is-hover" id="rowHover" style="--hx:92%; --hy:50%"><span class="lead"><i data-i="sort"></i></span>Adjust Floor Height</div>
+      <div class="lgk-row"><span class="lead"><i data-i="recenter"></i></span>Recenter</div>
     </div>
   </div>
 
-  <div class="lab plate" style="top:400px">At rest<small>Steam selected (lighter disc + dot) · Room View off · Battery Percentage off: level capsule, no number</small></div>
-  <div class="lgk-pop row" style="top:410px"><div class="bar2" data-bar='{"apps":["program:3:window"],"room":{"view":"off"},"pill":{"batt":{"mode":"level","v":80}}}'></div></div>
+  <div class="lab plate" style="top:404px">At rest<span class="mode">laser</span><small>Steam selected: .18 disc, top arc, white dot. Battery Percentage off: a level capsule, no number.</small></div>
+  <div class="lgk-pop row" style="top:404px"><div class="bar2" data-bar='{"apps":["program:3:window"],"room":{"view":"off"},"pill":{"batt":{"mode":"level","v":80}}}'></div></div>
 
-  <div class="lab plate" style="top:540px">Laser on +<small>Hover light follows the pointer; no scale, no ring. Tooltip capsule below the bar (Steam's placement and delay).</small></div>
-  <div class="lgk-pop row" style="top:550px"><div class="bar2" id="barC" data-bar='{"apps":["poster:0:"],"hover":"plus","hx":"40%","hy":"42%","pill":{"batt":{"mode":"num","v":82}}}'></div></div>
-  <div class="lgk-pop" id="tipC" style="--pop-scale:1.2"><div class="lgk-glass tip" data-mat="panel" style="position:relative">Launch Program</div></div>
+  <div class="lab plate" style="top:518px">Laser hover on +<span class="mode">laser</span><small>+.08 and a light spot at the pointer; no scale. After 0.8 s: a thick-glass tooltip, 40 pp, 18 pp Semibold.</small></div>
+  <div class="lgk-pop row" style="top:518px"><div class="bar2" id="barC" data-bar='{"apps":["poster:0:"],"room":{"view":"on"},"hover":"plus","hx":"40%","hy":"42%","pill":{"batt":{"mode":"num","v":82}}}'></div></div>
+  <div class="lgk-pop" id="tipC" style="--pop-scale:1.2"><div class="lgk-glass tip" data-mat="thick" style="position:relative">Launch Program</div></div>
 
-  <div class="lab plate" style="top:712px">Gamepad focus on the status pill<small>D-CC6: scale 1.06, +.26 white, doubled arc, bloom. 3 unread · headset 14 % (orange, dark number 8.6:1) · a download running.</small></div>
-  <div class="lgk-pop row" style="top:730px"><div class="bar2" data-bar='{"apps":["poster:0:"],"dl":"62%","pill":{"state":"focus","batt":{"mode":"num","v":14,"st":"low"},"badge":3}}'></div></div>
+  <div class="lab plate" style="top:690px">Focus on the status pill<span class="mode">gamepad</span><small>+.28 white, a static spot in the upper third, own arc ×1.5; no scale. Headset 14 %: orange, dark number.</small></div>
+  <div class="lgk-pop row" style="top:690px"><div class="bar2" data-bar='{"apps":["poster:0:"],"room":{"view":"on"},"dl":"62%","pill":{"state":"focus","batt":{"mode":"num","v":14,"st":"low"},"badge":3}}'></div></div>
 
-  <div class="lab plate" style="top:878px">Gamepad focus on Room View (on)<small>A white "on" disc cannot get lighter, so focus shows as scale 1.10 + bloom + contact shadow.</small></div>
-  <div class="lgk-pop row" style="top:880px"><div class="bar2" data-bar='{"apps":["poster:0:","program:8:terminal"],"focus":"view","pill":{"batt":{"mode":"num","v":82},"badge":3}}'></div></div>
-  <div class="lgk-windowbar" style="left:870px; top:996px"></div>
+  <div class="lab plate" style="top:804px">Focus on Streaming<span class="mode">gamepad</span><small>Focus (+.28) is brighter than the selected Steam circle (.18), VP P-15. Nothing grows.</small></div>
+  <div class="lgk-pop row" style="top:804px"><div class="bar2" data-bar='{"apps":["poster:0:","program:8:terminal"],"room":{"view":"off"},"focus":"stream","pill":{"batt":{"mode":"num","v":82},"badge":3}}'></div></div>
+
+  <div class="lab plate" style="top:918px">Focus on Room View (on)<span class="mode">gamepad</span><small>White cannot get lighter, so focus is a soft outer glow (+23 L in the 8–16 px band, VP P-16), not a ring.</small></div>
+  <div class="lgk-pop row" style="top:918px"><div class="bar2" data-bar='{"apps":["poster:0:","program:8:terminal"],"focus":"view","pill":{"batt":{"mode":"num","v":82},"badge":3}}'></div></div>
+  <div class="lgk-windowbar" style="left:870px; top:1040px"></div>
 </div>
 <script src="control-center-build.js"></script>
 <script>
 (() => {
-  const place = (popId, anchor, how) => {
+  const place = (popId, anchor, how, gap) => {
     const a = document.querySelector(anchor).getBoundingClientRect(), p = document.getElementById(popId);
     const w = p.firstElementChild.offsetWidth * 1.2, h = p.firstElementChild.offsetHeight * 1.2;
     p.style.left = (a.left + a.width / 2 - w / 2) + 'px';
-    p.style.top = (how === 'above' ? a.top - h - 14 : a.bottom + 10) + 'px';
+    p.style.top = (how === 'above' ? a.top - h - gap : a.bottom + gap) + 'px';
   };
-  place('menuA', '#barA [data-id="play"]', 'above');
-  place('tipC', '#barC [data-id="plus"]', 'below');
-  const dot = document.createElement('div'); dot.className = 'lgk-laser-dot';
+  /* Steam bottom-aligns bar popups 10 pp above the bar (12 view px); bar tooltips sit below the bar */
+  place('menuA', '#barA [data-id="play"]', 'above', 12 + 8 * 1.2);
+  place('tipC', '#barC [data-id="plus"]', 'below', 8 * 1.2);
+  const dot = (x, y) => { const d = document.createElement('div'); d.className = 'lgk-laser-dot'; d.style.left = x + 'px'; d.style.top = y + 'px';
+                          document.querySelector('.lgk-view').append(d); };
   const r = document.querySelector('#barC [data-id="plus"]').getBoundingClientRect();
-  dot.style.left = (r.left + r.width * .4) + 'px'; dot.style.top = (r.top + r.height * .42) + 'px';
-  document.querySelector('.lgk-view').append(dot);
+  dot(r.left + r.width * .4, r.top + r.height * .42);
+  const m = document.getElementById('rowHover').getBoundingClientRect();
+  dot(m.left + m.width * .92, m.top + m.height * .5);
 })();
 </script>
 <script src="kit.js"></script>

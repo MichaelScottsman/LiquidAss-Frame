@@ -2,7 +2,11 @@
  * mockups and for every area mockup that draws the shell's chrome. Builds on kit.css (DESIGN2
  * tokens). Every number is a size or rule from docs/phase2/concepts/window-nav.md; numbers are
  * main-window CSS px unless a block says "popup px" (frame.menu, x1.10 in the view) or
- * "systemui px" (frame controls, x0.75). Revision 2 (critique pass). */
+ * "systemui px" (frame controls, x0.75). Revision 3 (PLAN §1 conformance): state values from
+ * PLAN §1.4 (focus + .28 with a .16 spot in the upper third; laser hover + .08 and a .12 spot;
+ * navigation hover = the spot only; navigation selection .18 + arc + Semibold), the ornament's
+ * quiet legend and gamepad-only glyph badges (§1.10), the 60 / 80 More circle inside its host
+ * (§1.11), quiet frame controls (VP P-70), text on coloured fills dark (CC §7). */
 
 /* ------------------------------------------------------------------ edges (WN §8.2, critique 4)
    kit.css draws the E3 specular ring as a conic arc PLUS a full-width linear top layer. On wide
@@ -24,10 +28,16 @@
     radial-gradient(70% 120% at 26% 0%, rgb(255 255 255 / calc(.18 * var(--rim, 1))) 0, rgb(255 255 255 / calc(.06 * var(--rim, 1))) 46%, transparent 75%);
 }
 
+/* ------------------------------------------------------------------ state values (PLAN §1.4)
+   The gamepad focus add is P4's token, tuned once between .28 and .32 from the G-FOCUS measurement.
+   The revision 3 tab-bar render needs .32 to pass (focus >= rest + 40 L and >= current route + 15 L
+   over the bright lounge; window-nav.md §13.1), so the shell's mockups use the top of the range. */
+.lgk-view { --wn-focus-add: .32; --wn-focus-spot: .16; }
+
 /* ------------------------------------------------------------------ window glass */
-/* Glass ends at 656 on routes with a bottom ornament (64 px ornament margin): the ornament
-   628-712 overlaps the glass by 28 and keeps 8 + 19 px clear of SteamVR's window-bar row
-   (WN §3.1). Routes without an ornament use the full 720. */
+/* The route's glass mode decides the height (WN §3.1.1, PLAN §1.2): `window` ends at 656 (a
+   64 px ornament margin: the ornament 628-712 overlaps the glass by 28 and keeps 8 + 19 px clear
+   of SteamVR's window-bar row); `window-full` (.full) uses the full 720. Never follows focus. */
 .wn-win { left: 0; top: 0; width: 1280px; height: 656px; overflow: hidden; }
 .wn-win.full { height: 720px; }
 .wn-win.dimmed::after {
@@ -56,20 +66,36 @@
 .wn-search.dim, .wn-back.dim, .wn-title.dim { opacity: .45; }
 .wn-icon-circle { position: absolute !important; top: 24px; right: 24px; }
 
-/* ------------------------------------------------------------------ bottom ornament (#Footer): the ornament contract (WN §3.4)
+/* ------------------------------------------------------------------ bottom ornament (#Footer): the ornament contract (WN §3.4, PLAN §1.10)
    One capsule, y 628-712, centred, width fit-content <= 960. Members in this order:
-   [Steam's laser-mode Sort/Filter buttons] [action legends, label first, controller glyph trailing]
-   [area slot: one segmented control] [nav legends A/B: gamepad mode only, quiet]. */
+   [Steam's laser-mode Sort/Filter buttons] [action legends, label first, controller glyph trailing
+   (gamepad mode only)] [area slot: one segmented control] [nav legends A/B: quiet, in both modes].
+   Material by content: only A and B present -> the quiet legend (.wn-orn.quiet: no capsule glass,
+   items keep 60 px and their place). Over 960 px -> compact members (20 px labels, 16 px padding). */
 .wn-orn { left: 50%; translate: -50% 0; top: 628px; gap: 4px; padding: 0 12px; max-width: 960px; }
+.wn-orn.quiet { position: absolute; display: flex; align-items: center; height: 84px; box-sizing: border-box; z-index: 6; }
 .wn-leg { position: relative; display: inline-flex; align-items: center; gap: 12px; height: 60px; padding: 0 14px 0 22px;
   border-radius: 999px; font: 600 22px/1 var(--lg-font); color: var(--lg-text-1); white-space: nowrap; }
-.wn-leg .lgk-glyph { width: 30px; height: 30px; font-size: 15px; background: rgb(255 255 255 / .16); color: var(--lg-text-2); }
+.wn-leg .lgk-glyph { width: 30px; height: 30px; font: 700 16px/1 var(--lg-font); background: rgb(255 255 255 / .16); color: var(--lg-text-2); }
 .wn-leg .tgt { margin-left: -4px; color: var(--lg-text-2); font-weight: 500; max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
 .wn-leg.nav { color: var(--lg-text-2); font-weight: 500; }
-.wn-leg.sf { padding: 0 24px 0 18px; gap: 10px; }                  /* Steam's %{SortAndFilterButton} */
+.wn-orn.mode-laser .wn-leg.nav { padding: 0 22px; }                /* labels only: no trailing badge */
+.wn-leg.is-disabled { opacity: .38; }
+.wn-orn.compact .wn-leg { font-size: 20px; padding: 0 12px 0 16px; gap: 10px; }
+.wn-orn.compact .wn-leg.sf, .wn-orn.compact.mode-laser .wn-leg.nav { padding: 0 16px; }
+.wn-orn.quiet .wn-leg { padding: 0 22px; }
+/* in the ornament margin of a `window` route the quiet labels sit on the room: white .92 with the
+   on-room shadow (DESIGN2 §8.3, VP P-41); inside the glass (`window-full`, .in-glass) white .70 */
+.wn-orn.quiet:not(.in-glass) .wn-leg { color: rgb(255 255 255 / .92); text-shadow: 0 1px 3px rgb(0 0 0 / .55), 0 0 12px rgb(0 0 0 / .35); }
+.wn-orn.quiet:not(.in-glass) .wn-leg .lgk-glyph { box-shadow: 0 1px 4px rgb(0 0 0 / .35); text-shadow: none; }
+.wn-leg.sf { padding: 0 24px 0 18px; gap: 10px; }                  /* Steam's %{SortAndFilterButton}, and the T2 Options member */
 .wn-leg.sf > .lgk-i { --is: 24px; color: var(--lg-text-2); }
 .wn-leg.sf .val { color: var(--lg-text-1); }
 .wn-orn .gsep { width: 14px; flex: none; }
+/* CSS-only tier (WN §8.4): the page cannot see the room, so the ornament cannot frost it. Over the
+   window (its top 28 px) the window's own tint is beneath; outside the window: tint .70 + edges. */
+.lgk-view[data-tier="t1"] .wn-orn.lgk-glass { -webkit-backdrop-filter: none; backdrop-filter: none;
+  background: linear-gradient(180deg, rgb(255 255 255 / .06), rgb(255 255 255 / 0) 40%), linear-gradient(180deg, rgb(28 30 40 / .50) 0 28px, rgb(28 30 40 / .70) 28px); }
 .wn-leg.is-open { background: var(--lg-fill-selected); color: var(--lg-text-on-selected); }
 .wn-leg.is-open .lgk-glyph, .wn-leg.is-open > .lgk-i, .wn-leg.is-open .tgt { background: rgb(13 14 18 / .12); color: rgb(13 14 18 / .7); }
 .wn-leg.is-open > .lgk-i { background: transparent; }
@@ -80,8 +106,8 @@
 .wn-leg::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
   mix-blend-mode: plus-lighter; opacity: 0;
   background: radial-gradient(circle at var(--hx, 50%) var(--hy, 30%), rgb(255 255 255 / var(--spot, .12)) 0, rgb(255 255 255 / 0) var(--spot-r, 75%)), rgb(255 255 255 / var(--lift, 0)); }
-.wn-leg.is-hover::after { opacity: 1; --lift: .10; }
-.wn-leg.is-focus::after { opacity: 1; --lift: .30; --spot: .18; }
+.wn-leg.is-hover::after { opacity: 1; --lift: .08; --spot: .12; }
+.wn-leg.is-focus::after { opacity: 1; --lift: var(--wn-focus-add); --spot: var(--wn-focus-spot); --hx: 50% !important; --hy: 28% !important; }
 .wn-leg.is-focus::before { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; padding: 1.5px;
   background: conic-gradient(from var(--lg-light), rgb(255 255 255 / .8) 0deg, rgb(255 255 255 / .22) 40deg, transparent 75deg, transparent 145deg, rgb(255 255 255 / .2) 180deg, transparent 215deg, transparent 285deg, rgb(255 255 255 / .22) 320deg, rgb(255 255 255 / .8) 360deg);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
@@ -91,8 +117,10 @@
 /* ------------------------------------------------------------------ tab-bar ornament (frame.menu, popup px; WN §3.3)
    Pitch p and circle d come from the live sizing rule (WN §3.3.2). On this device (Console on,
    developer mode, r = 1): p 58, d 50, two capsules (6 sections; Console, Steam Settings,
-   VR Settings, a 10 px section gap, Power). Selected = a circle only; gamepad focus = a pill
-   spanning icon and label at +.30 with its own specular arc; the two never share a shape. */
+   VR Settings, a 10 px section gap, Power). PLAN §1.4: the current route = the navigation
+   selection (.18 + its specular top arc + Semibold label) drawn as a circle only; laser hover =
+   the light spot only (navigation rows add no fill); gamepad focus = a pill spanning icon and
+   label at + .28 with a .16 spot in the upper third and its own arc; the two never share a shape. */
 .wn-tabbar { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; --p: 58px; --d: 50px; }
 .wn-tabcap { position: relative !important; display: flex; flex-direction: column; padding: 6px 12px; width: calc(var(--d) + 24px);
   --r: calc((var(--d) + 24px) / 2); box-sizing: border-box; }
@@ -101,23 +129,31 @@
 .wn-tab.secgap { margin-top: 10px; }
 .wn-tab > .ic { position: relative; z-index: 1; display: grid; place-items: center; flex: none; width: var(--d); height: var(--d); border-radius: 50%; }
 .wn-tab > .ic > .lgk-i { --is: calc(var(--d) * .52); }
-.wn-tab > .lbl { position: relative; z-index: 1; display: none; margin-left: 10px; font: 600 22px/1 var(--lg-font); color: var(--lg-text-1); white-space: nowrap; }
+.wn-tab > .lbl { position: relative; z-index: 1; display: none; margin-left: 10px; font: 500 22px/1 var(--lg-font); color: var(--lg-text-1); white-space: nowrap; }
+.wn-tab:is(.is-nav-selected, .is-focus) > .lbl { font-weight: 600; }
 .wn-tabbar.expanded .wn-tab > .lbl { display: block; }
 .wn-tab .wn-badge { position: absolute; left: calc(var(--d) * .66); top: calc((var(--p) - var(--d)) / 2 + 2px); width: 13px; height: 13px; border-radius: 50%;
   background: var(--lg-yellow); box-shadow: 0 0 0 2px rgb(30 30 34 / .5); z-index: 2; }
-/* current route: a .16 circle behind a heavier white glyph; no label pill */
+/* current route: the navigation selection (.18 + its specular top arc) as a circle behind a
+   heavier white glyph; no label pill */
 .wn-tab.is-nav-selected { color: #fff; background: transparent; }   /* kit's .is-nav-selected fill would paint the whole row */
-.wn-tab.is-nav-selected > .ic { background: rgb(255 255 255 / .16); }
+.wn-tab.is-nav-selected > .ic { background: rgb(255 255 255 / .18); }
+.wn-tab.is-nav-selected > .ic::before { content: ""; position: absolute; inset: 0; border-radius: 50%; pointer-events: none; padding: 1.5px;
+  background: conic-gradient(from var(--lg-light), rgb(255 255 255 / .60) 0deg, rgb(255 255 255 / .16) 40deg, transparent 75deg, transparent 285deg, rgb(255 255 255 / .16) 320deg, rgb(255 255 255 / .60) 360deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
 .wn-tab.is-nav-selected > .ic > .lgk-i { stroke-width: 2.8; }
-/* laser hover (pill in the expanded bar, circle in the collapsed one) and gamepad focus (always the expanded pill) */
+/* laser hover (navigation row: the light spot only, no fill) and gamepad focus (always the expanded pill) */
 .wn-tab::after { content: ""; position: absolute; left: 0; right: 0; top: calc((var(--p) - var(--d)) / 2); height: var(--d); border-radius: 999px;
   pointer-events: none; opacity: 0; mix-blend-mode: plus-lighter;
-  background: radial-gradient(circle at var(--hx, 22%) var(--hy, 30%), rgb(255 255 255 / var(--spot, .10)) 0, transparent 70%), rgb(255 255 255 / var(--lift, 0)); }
+  background: radial-gradient(circle at var(--hx, 22%) var(--hy, 30%), rgb(255 255 255 / var(--spot, .12)) 0, transparent var(--spot-r, 70%)), rgb(255 255 255 / var(--lift, 0)); }
 .wn-tabbar:not(.expanded) .wn-tab::after { right: auto; width: var(--d); }
 .wn-tab.is-hover { color: var(--lg-text-1); }
-.wn-tab.is-hover::after { opacity: 1; --lift: .10; --spot: .10; }
+.wn-tab.is-hover::after { opacity: 1; --lift: 0; --spot: .12; }
+.wn-tabbar:not(.expanded) .wn-tab.is-hover::after { --hx: 50%; --hy: 40%; }
 .wn-tab.is-focus { color: #fff; }
-.wn-tab.is-focus::after { opacity: 1; --lift: .30; --spot: .20; }
+.wn-tab.is-focus::after { opacity: 1; --lift: var(--wn-focus-add); --spot: var(--wn-focus-spot); --hx: 50%; --hy: 26%; --spot-r: 85%; }
+/* white labels on a bright focus fill: a soft shadow keeps them legible (contrast note in window-nav.md §13.1) */
+.wn-tab.is-focus > .lbl, .wn-leg.is-focus { text-shadow: 0 1px 2px rgb(0 0 0 / .35); }
 .wn-tab.is-focus::before { content: ""; position: absolute; left: 0; right: 0; top: calc((var(--p) - var(--d)) / 2); height: var(--d); border-radius: 999px; pointer-events: none; padding: 1.5px; z-index: 2;
   background: conic-gradient(from var(--lg-light), rgb(255 255 255 / .85) 0deg, rgb(255 255 255 / .22) 40deg, transparent 75deg, transparent 145deg, rgb(255 255 255 / .22) 180deg, transparent 215deg, transparent 285deg, rgb(255 255 255 / .24) 320deg, rgb(255 255 255 / .85) 360deg);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
@@ -134,11 +170,15 @@
    one row directly under the window instead of two separate strata. */
 .wn-frame { display: flex; align-items: center; gap: 14px; }
 .wn-framecap { position: relative !important; display: flex; align-items: center; gap: 27px; height: 100px; padding: 0 10px; --r: 50px; box-sizing: border-box; }
-.wn-framecap .lgk-btn { --s: 80px; background: rgb(255 255 255 / .10); }
+/* circles rest quiet (fill .06, glyph .70; with SteamVR's idle dim .6 the glyph reads at .42, VP P-70)
+   and become full circles on hover (.14 = rest + .08, and the spot) or gamepad focus (+ .28, arc) */
+.wn-framecap .lgk-btn { --s: 80px; background: rgb(255 255 255 / .06); color: var(--lg-text-2); }
+.wn-framecap .lgk-btn:is(.is-hover, .is-focus) { background: rgb(255 255 255 / .14); color: #fff; }
 .wn-framecap .lgk-btn .lgk-i { --is: 36px; }
 .wn-framecap .sep { width: 10px; }
-.wn-framecap .lgk-btn.danger.is-focus { background: var(--lg-tint-danger) !important; }
-.wn-framecap .lgk-btn.is-focus::after { --lift: .30; --spot: .2; }
+.wn-framecap .lgk-btn.danger:is(.is-focus, .is-hover) { background: var(--lg-tint-danger) !important; color: #fff; }
+.wn-framecap .lgk-btn.is-hover::after { --lift: 0; --spot: .12; }
+.wn-framecap .lgk-btn.is-focus::after { --lift: var(--wn-focus-add); --spot: var(--wn-focus-spot); --hx: 50%; --hy: 28%; }
 .wn-tip { position: absolute; white-space: nowrap; padding: 0 30px; height: 60px; display: flex; align-items: center;
   font: 600 30px/1 var(--lg-font); --r: 30px; }
 /* the visionOS window bar = SteamVR's grab handle: 467 x 32 grab px (140 x 9.6 mm) -> 183 x 12.5 view px */
@@ -151,18 +191,27 @@
 .wn-barcap { position: relative !important; height: 80px; gap: 8px; padding: 0 8px; --r: 40px; }
 .wn-barcap .lgk-btn { --s: 64px; }
 
-/* ------------------------------------------------------------------ the pointer proxy (T2, WN §3.7)
+/* ------------------------------------------------------------------ the pointer proxy (T2, WN §3.6; native mode only, PLAN §1.11)
    Drawn by the shell inside Steam's own DOM at the laser's hit point, so it is part of the texture
-   that every base crop and popped crop shows, whatever SteamVR does with its own dot. */
+   that every base crop and popped crop shows, whatever SteamVR does with its own dot. In CSS-only
+   mode it is not drawn (SteamVR's own dot shows): T1 mockups omit it. */
 /* a 16 px ring with a 6 px core: where SteamVR's own dot also shows, the ring reads as its halo */
 .wn-proxy { position: absolute; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; box-sizing: border-box; z-index: 52; pointer-events: none;
   border: 2.5px solid rgb(255 255 255 / .95);
   background: radial-gradient(circle, #fff 0 3px, transparent 3.5px);
   box-shadow: 0 0 0 1.5px rgb(0 0 0 / .30), inset 0 0 0 1px rgb(0 0 0 / .18), 0 0 14px 4px rgb(255 255 255 / .40); }
 
-/* ------------------------------------------------------------------ the item "More" circle (T2 helper owned by the shell, WN §3.4.4) */
-.wn-more { width: 52px; height: 52px; display: grid; place-items: center; --r: 26px; z-index: 6; }
+/* ------------------------------------------------------------------ the item "More" circle (T2 helper owned by the shell, WN §3.4.4, PLAN §1.11)
+   60 px visible inside its host (cards: top right, inset 10; rows: trailing, inset 24) with an
+   80 px hit (transparent padding, not drawn); the clear material over content: black .38 + 10 px
+   blur; white .94 with a dark glyph while its menu is open. It rides its host's depth. */
+.wn-more { position: absolute; width: 60px; height: 60px; display: grid; place-items: center; border-radius: 50%; z-index: 6; box-sizing: border-box;
+  color: #fff; background: rgb(0 0 0 / .38); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / .22), 0 2px 8px rgb(0 0 0 / .22); }
 .wn-more .lgk-i { --is: 26px; }
+.wn-more::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; mix-blend-mode: plus-lighter; opacity: 0;
+  background: radial-gradient(circle at var(--hx, 40%) var(--hy, 35%), rgb(255 255 255 / .12) 0, transparent 75%), rgb(255 255 255 / .08); }
+.wn-more.is-hover::after { opacity: 1; }
 .wn-more.is-open { background: var(--lg-fill-selected) !important; color: var(--lg-text-on-selected); -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 
 /* ------------------------------------------------------------------ menus (DESIGN2 §3.7, layout by item count: WN §5.1) */
@@ -177,14 +226,16 @@
 .wn-menu .lgk-row .chk { margin-left: auto; --is: 24px; color: var(--lg-text-1); }
 .wn-menu .gap { height: 8px; flex: none; }
 .wn-menu.compact .gap { height: 6px; }
-.wn-menu .lgk-row.is-focus::after { --lift: .30; --spot: .18; }
+.wn-menu .lgk-row.is-focus::after { --lift: var(--wn-focus-add); --spot: var(--wn-focus-spot); --hx: 50%; --hy: 28%; }
 .wn-menu .lgk-row.danger { color: var(--lg-red); font-weight: 600; }
 .wn-menu .lgk-row.danger .lead { color: var(--lg-red); }
 .wn-menu .lgk-row.danger-glyph .lead { color: var(--lg-red); }          /* many destructive rows: red glyph, white label */
-.wn-menu .lgk-row:is(.danger, .danger-glyph).is-focus { background: var(--lg-tint-danger); color: #fff; }
+/* text on a coloured whole fill is dark (CC §7); glyphs stay white on red and blue */
+.wn-menu .lgk-row:is(.danger, .danger-glyph).is-focus { background: var(--lg-tint-danger); color: var(--lg-text-on-selected); }
 .wn-menu .lgk-row:is(.danger, .danger-glyph).is-focus .lead { color: #fff; }
 .wn-menu .lgk-row:is(.danger, .danger-glyph).is-focus::after { --lift: .08; }
-.wn-menu .lgk-row.primary { background: linear-gradient(180deg, rgb(255 255 255 / .16), rgb(255 255 255 / 0) 60%), var(--lg-tint-play); }
+.wn-menu .lgk-row.primary { background: linear-gradient(180deg, rgb(255 255 255 / .16), rgb(255 255 255 / 0) 60%), var(--lg-tint-play); color: var(--lg-text-on-selected); }
+.wn-menu .lgk-row.primary .lead { color: var(--lg-text-on-selected); }
 .wn-menu .cancel { align-self: center; flex: none; margin-top: 4px; --s: 56px; padding: 0 44px; background: rgb(255 255 255 / .08); color: var(--lg-text-2); font-weight: 500; font-size: 22px; }
 .wn-menu .cols2 { display: grid; grid-template-columns: 1fr 1fr; grid-auto-flow: column; gap: 6px 8px; }
 .wn-menu .cols2 .lgk-row { min-width: 0; }

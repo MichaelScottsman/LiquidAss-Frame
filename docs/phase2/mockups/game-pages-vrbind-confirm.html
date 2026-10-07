@@ -8,23 +8,28 @@
 </head>
 <body>
 <div class="lgk-view" data-room="lounge" data-tab="library" data-fc="steam" data-bar="idle">
-  <!-- Gamepad A on the Controller Bindings capsule (onOKButton) opens Steam's ConfirmModal (SR §3.6, proven) instead
-       of switching straight to SteamVR's laser-only editor; a laser click goes straight through. Cancel / B returns
-       focus to the capsule. Strings: title SteamVR #Controller_Bindings; body new (GQ14b); buttons Steam's own. -->
-  <div class="lgk-overlay" style="left:320px; top:66px" data-gp="title" data-state="installed" data-focus="none" data-open="vrbind"
+  <!-- Flag vrBindings on (PLAN S13: built and tested, OFF by default; the capsule and its relay are C5b's).
+       Gamepad A on the Controller Bindings capsule (onOKButton) opens Steam's ConfirmModal instead of switching straight
+       to SteamVR's laser-only editor; a laser click goes straight through. Cancel / B returns focus to the capsule (P-21).
+       Drawn as C1c's alert: 640 px, centred on the glass, thick glass, +10 mm non-interactive pop (no destructive
+       button), scrim black .35 (PLAN §1.8). Strings: title SteamVR #Controller_Bindings; buttons Steam's own; the body
+       is a NEW string (GQ14b), drawn only when the UI language starts with "en" (PLAN §1.15), else omitted.
+       Default focus is Steam's (S6): its primary, which as a coloured fill shows focus as the outer glow (P-16). -->
+  <div class="lgk-overlay" style="left:320px; top:66px" data-gp="title" data-state="installed" data-focus="none" data-open="vrbind" data-vr="1"
        data-private="1" data-cloud="1" data-dim=".46,.40,.35" data-foot="A:Select|B:Cancel">
-    <div class="gp-scrim" style="left:0; top:0; width:1280px; height:656px; border-radius:54px; --a:.35; z-index:4"></div>
-    <div class="lgk-glass" data-mat="thick" data-lens style="left:320px; top:188px; width:640px; height:328px; --r:44px; --dz:30; z-index:5; padding:36px 40px; box-sizing:border-box" data-dz="30" data-tier="ConfirmModal (T3 call) drawn as a WN alert">
+    <div class="gp-scrim modal" style="left:0; top:0; width:1280px; height:656px; border-radius:54px; z-index:4"></div>
+    <div class="lgk-glass gp-alert" data-mat="thick" data-lens style="left:320px; top:328px; translate:0 -50%; width:640px; --r:44px; --dz:10; z-index:5" data-dz="10" data-tier="C1c alert (ConfirmModal via C5b's T3); +10 mm crop">
       <div style="display:flex; align-items:center; gap:16px">
         <span style="display:grid; place-items:center; width:48px; height:48px; border-radius:50%; background:var(--lg-indigo); color:#fff; --is:28px"><i data-i="vrbind"></i></span>
-        <div style="font:700 28px/1.25 var(--lg-font); letter-spacing:-.01em">Controller Bindings</div>
+        <div class="t">Controller Bindings</div>
       </div>
-      <div style="margin-top:14px; font:500 22px/1.36 var(--lg-font); color:var(--lg-text-2)">SteamVR's binding editor is used with the laser pointer. Back in the editor returns you to this page.</div>
-      <div style="position:absolute; left:40px; right:40px; bottom:36px; display:flex; gap:24px">
-        <span class="lgk-btn capsule is-focus" style="flex:1; background:linear-gradient(180deg, rgb(255 255 255 / .16), rgb(255 255 255 / 0) 60%), var(--lg-tint-primary)"><i data-i="laser"></i>Continue</span>
-        <span class="lgk-btn capsule" style="flex:1">Cancel</span>
+      <div class="b">SteamVR's binding editor is used with the laser pointer. Back in the editor returns you to this page.</div>
+      <div class="btns">
+        <span class="lgk-btn capsule gp-primary is-focus"><i data-i="laser"></i>Continue</span>
+        <span class="lgk-btn capsule">Cancel</span>
       </div>
     </div>
+    <span class="gp-flag" style="left:976px; top:-34px">flag vrBindings on (C5b); default off</span>
   </div>
 </div>
 <script src="kit.js"></script>

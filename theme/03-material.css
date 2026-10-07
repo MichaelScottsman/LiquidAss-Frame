@@ -1,0 +1,182 @@
+/* Glass Shell foundation: materials (package P4).
+   Contract: docs/phase2/contracts/tokens.md §2. Sources: PLAN §1.6, DESIGN2
+   §6, WN §8.2 (edge lobe) and §8.4 (degraded glass), GM §1.7.
+   Wrapped as html.lgs-on { ... } by the bundler ("&" is html.lgs-on).
+
+   Edges come from light, never from lines (VP P-42): E3 is a conic arc from
+   the one key light with gaps on both sides plus a lobe at 26 % of the width;
+   E4/E5 (dark inner edge, thickness) are inset shadows in the
+   --lgs-mat-<m>-shade tokens; the fill is the --lgs-mat-<m>-bg token.
+
+   1. The edge hook: --lgs-edge: <material> on an element → E3 on its ::before.
+   2. Markup classes for elements we create (T2/T3).
+   3. Utilities: media dimming, scroll edges.
+   4. High Contrast: the one allowed stroke. */
+
+/* ------------------------------------------------------------------ */
+/* 1. The edge hook                                                     */
+/* ------------------------------------------------------------------ */
+
+@container style(--lgs-edge: window) or style(--lgs-edge: panel) or style(--lgs-edge: liquid) or style(--lgs-edge: thick) or style(--lgs-edge: clear) or style(--lgs-edge: control) {
+  *::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    box-sizing: border-box;
+    --lgs-focus: inherit;
+    --_lgs-rim: var(--lgs-rim-control);
+    --_lgs-k: calc(var(--_lgs-rim) * (1 + .5 * var(--lgs-focus)));
+    padding: var(--_lgs-rim-w, var(--lgs-rim-w));
+    background:
+      conic-gradient(from var(--lgs-light),
+        rgb(255 255 255 / calc(.62 * var(--_lgs-k))) 0deg,
+        rgb(255 255 255 / calc(.20 * var(--_lgs-k))) 38deg,
+        rgb(255 255 255 / 0) 72deg, rgb(255 255 255 / 0) 148deg,
+        rgb(255 255 255 / calc(.16 * var(--_lgs-k))) 180deg,
+        rgb(255 255 255 / 0) 214deg, rgb(255 255 255 / 0) 288deg,
+        rgb(255 255 255 / calc(.22 * var(--_lgs-k))) 322deg,
+        rgb(255 255 255 / calc(.62 * var(--_lgs-k))) 360deg),
+      radial-gradient(70% 120% at 26% 0%,
+        rgb(255 255 255 / calc(.18 * var(--_lgs-k))) 0,
+        rgb(255 255 255 / calc(.06 * var(--_lgs-k))) 46%,
+        rgb(255 255 255 / 0) 75%);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    transition: --lgs-focus var(--lgs-ill-d-out, 441ms) var(--lgs-ill-ease, ease-out);
+  }
+}
+@container style(--lgs-edge: window) {
+  *::before { --_lgs-rim: var(--lgs-rim-window); --_lgs-rim-w: var(--lgs-rim-w-window); }
+}
+@container style(--lgs-edge: panel) {
+  *::before { --_lgs-rim: var(--lgs-rim-panel); }
+}
+@container style(--lgs-edge: liquid) {
+  *::before { --_lgs-rim: var(--lgs-rim-liquid); }
+}
+@container style(--lgs-edge: thick) {
+  *::before { --_lgs-rim: var(--lgs-rim-thick); }
+}
+@container style(--lgs-edge: clear) {
+  *::before { --_lgs-rim: var(--lgs-rim-clear); }
+}
+
+/* ------------------------------------------------------------------ */
+/* 2. Markup classes (elements we create, or Steam nodes T2 tags)        */
+/* ------------------------------------------------------------------ */
+
+& .lgs-edge { --lgs-edge: control; }
+& :is(.lgs-edge, .lgs-glass)[data-lgs-mat="window"] { --lgs-edge: window; }
+& :is(.lgs-edge, .lgs-glass)[data-lgs-mat="panel"] { --lgs-edge: panel; }
+& :is(.lgs-edge, .lgs-glass)[data-lgs-mat="liquid"] { --lgs-edge: liquid; }
+& :is(.lgs-edge, .lgs-glass)[data-lgs-mat="thick"] { --lgs-edge: thick; }
+& :is(.lgs-edge, .lgs-glass)[data-lgs-mat="clear"] { --lgs-edge: clear; }
+
+& .lgs-glass {
+  position: relative;
+  box-sizing: border-box;
+  color: var(--lgs-text-1);
+  box-shadow: var(--_lgs-shade, none), var(--_lgs-dz, 0 0 0 transparent);
+}
+& .lgs-glass[data-lgs-mat="window"] {
+  --_lgs-shade: var(--lgs-mat-window-shade);
+  background: var(--lgs-mat-window-bg);
+  border-radius: var(--lgs-r-window);
+}
+& .lgs-glass[data-lgs-mat="panel"] {
+  --_lgs-shade: var(--lgs-mat-panel-shade);
+  background: var(--lgs-mat-panel-bg);
+}
+& .lgs-glass[data-lgs-mat="liquid"] {
+  --_lgs-shade: var(--lgs-mat-liquid-shade);
+  background: var(--lgs-mat-liquid-bg);
+  backdrop-filter: var(--lgs-mat-liquid-blur);
+}
+/* liquid glass with nothing of the page behind it (outside the window) */
+& .lgs-glass[data-lgs-mat="liquid"][data-lgs-over="room"] {
+  background: var(--lgs-mat-liquid-room-bg);
+  backdrop-filter: none;
+}
+& .lgs-glass[data-lgs-mat="thick"] {
+  --_lgs-shade: var(--lgs-mat-thick-shade);
+  background: var(--lgs-mat-thick-bg);
+  backdrop-filter: var(--lgs-mat-thick-blur);
+  border-radius: var(--lgs-r-menu);
+}
+& .lgs-glass[data-lgs-mat="clear"] {
+  --_lgs-shade: var(--lgs-mat-clear-shade);
+  background: var(--lgs-mat-clear-bg);
+  backdrop-filter: var(--lgs-mat-clear-blur);
+}
+& .lgs-glass[data-lgs-mat="plate"] {
+  --_lgs-shade: var(--lgs-mat-panel-shade);
+  --lgs-edge: panel;
+  background: var(--lgs-mat-plate-bg);
+}
+/* depth shadow, sized by depth (DESIGN2 §3.8) */
+& [data-lgs-dz="10"] { --_lgs-dz: var(--lgs-shadow-10mm); }
+& [data-lgs-dz="15"] { --_lgs-dz: var(--lgs-shadow-15mm); }
+& [data-lgs-dz="25"] { --_lgs-dz: var(--lgs-shadow-25mm); }
+& [data-lgs-dz="30"] { --_lgs-dz: var(--lgs-shadow-30mm); }
+
+/* selection vocabulary as markup (contract §3.3) */
+& [data-lgs-sel="on"] {
+  background: var(--lgs-selected-fill) !important;
+  color: var(--lgs-text-on-selected) !important;
+  --lgs-ill: white;
+}
+& [data-lgs-sel="nav"] {
+  background: var(--lgs-fill-nav);
+  box-shadow: var(--lgs-sel-arc);
+  font-weight: var(--lgs-nav-weight);
+}
+
+/* ------------------------------------------------------------------ */
+/* 3. Utilities                                                          */
+/* ------------------------------------------------------------------ */
+
+/* the 35 % dimming layer under clear glass over media (DESIGN2 §6.4) */
+& .lgs-media-dim { background: var(--lgs-media-dim); }
+
+/* scroll edges (DESIGN2 §6.7): a mask on a scroller we tag. Never on a
+   scroller that holds backdrop-filter (a mask makes it a backdrop root) */
+& .lgs-scroll-fade-bottom { -webkit-mask-image: var(--lgs-scroll-mask-bottom); mask-image: var(--lgs-scroll-mask-bottom); }
+& .lgs-scroll-fade-top { -webkit-mask-image: var(--lgs-scroll-mask-top); mask-image: var(--lgs-scroll-mask-top); }
+& [data-lgs-scroll-band="top"] { --lgs-scroll-band: top; }
+& [data-lgs-scroll-band="bottom"] { --lgs-scroll-band: bottom; }
+
+/* the scroll-edge dimming band, on the scroller's non-scrolling container */
+@container style(--lgs-scroll-band: top) or style(--lgs-scroll-band: bottom) {
+  *::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: var(--lgs-scroll-band-h);
+    pointer-events: none;
+    z-index: 1;
+  }
+}
+@container style(--lgs-scroll-band: top) {
+  *::after { top: 0; background: var(--lgs-scroll-band-top); border-radius: inherit; }
+}
+@container style(--lgs-scroll-band: bottom) {
+  *::after { bottom: 0; background: var(--lgs-scroll-band-bottom); border-radius: inherit; }
+}
+
+/* ------------------------------------------------------------------ */
+/* 4. High Contrast: the one allowed stroke, 2 px solid white .70        */
+/* ------------------------------------------------------------------ */
+
+@media (prefers-contrast: more) {
+  @container style(--lgs-edge: window) or style(--lgs-edge: panel) or style(--lgs-edge: liquid) or style(--lgs-edge: thick) or style(--lgs-edge: clear) or style(--lgs-edge: control) {
+    *::before {
+      padding: 2px;
+      background: rgb(255 255 255 / .70);
+    }
+  }
+  & .lgs-glass { backdrop-filter: none; }
+}

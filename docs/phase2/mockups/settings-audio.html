@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Glass Shell P2 — Settings: Audio, scrolled (inline title), gamepad on the volume slider</title>
+<title>Glass Shell P2 — Settings: Audio, scrolled (inline title), gamepad on the volume slider, quiet "Done" legend</title>
 <link rel="stylesheet" href="kit.css">
 <link rel="stylesheet" href="window-nav-shared.css">
 <link rel="stylesheet" href="settings.css">
@@ -13,17 +13,20 @@
   <div data-wn="tabbar" data-right="302" data-cy="426" data-sel="steam settings"></div>
 
   <div class="lgk-overlay" style="left:320px; top:66px">
-    <div class="lgk-glass st-win" data-mat="window" data-dz="0" data-tier="T5 window (T1: smoky tint)">
+    <div class="lgk-glass st-win" data-mat="window" data-dz="0" data-tier="T5 window cover (T1: smoky tint + edge cues)">
       <div data-st="sidebar" data-sel="audio" data-scroll="400"></div>
       <!-- the hero has passed under the scroll edge, so the page title appears inline in the toolbar (T2, scroll-linked over 24 px) -->
       <div data-st="toolbar" data-title="Audio"></div>
 
-      <div class="st-scroll orn">
+      <div class="st-scroll">
         <div class="st-col" style="top:96px">
           <div class="st-sh first">Output</div>
           <div class="st-plat">
-            <div class="st-r first is-focus" style="min-height:96px; --hx:40%; --hy:50%">
-              <span class="st-slider" style="--v:62%"><span class="fill"></span><i data-i="speaker"></i><span class="knob"></span></span>
+            <!-- single-control row with gamepad focus: the row carries the focus (+.28, spot, top highlight); the slider is "lifted":
+                 its 58 px knob shows on the 64 px handle and the track gets the light and the highlight (CTL §4.3, §7.2).
+                 Steam's speaker glyph (G>FieldIcon) is inert and sits on the white fill, which is always >= 64 px wide -->
+            <div class="st-r first is-focus" style="min-height:96px">
+              <span class="st-slider" style="--v:.62"><span class="fill"></span><i data-i="speaker"></i><span class="knob"></span></span>
               <span class="st-pct">62%</span>
             </div>
             <div class="st-r"><span class="lab">Output Device</span><span class="st-pop">Steam Frame Speakers<i data-si="updown"></i></span></div>
@@ -31,26 +34,26 @@
           </div>
           <div class="st-sh">Apps</div>
           <div class="st-plat">
-            <div class="st-r" style="color:var(--lg-text-2)">No apps are currently playing audio.</div>
+            <div class="st-r first last" style="color:var(--lg-text-2)">No apps are currently playing audio.</div>
           </div>
           <div class="st-sh">Voice</div>
           <div class="st-plat">
             <div class="st-r first" style="min-height:96px">
-              <span class="st-slider" style="--v:38%"><span class="fill"></span><i data-i="mic"></i></span>
+              <span class="st-slider" style="--v:.38"><span class="fill"></span><i data-i="mic"></i></span>
               <span class="st-pct">38%</span>
             </div>
+            <div class="st-r last"><span class="lab">Input Device</span><span class="st-pop">Steam Frame Microphone<i data-si="updown"></i></span></div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- the ornament appears because the legend is page-specific: Steam's slider renames B to "Done" -->
-    <div data-wn="ornament" data-legends="B:Done"></div>
+    <!-- Steam's slider renames B to "Done". Its legend still holds only A/B button enums, so it stays the quiet legend
+         (PLAN §1.10: the test is the button enum, never the label); gamepad mode, so the glyph badge shows -->
+    <div data-st="legend" data-mode="pad" data-legends="B:Done"></div>
   </div>
 
-  <div data-wn="frame" data-cx="960" data-y="806" data-dim=".72"></div>
   <div data-wn="bar" data-cx="960" data-y="904"></div>
-  <div data-wn="pill" data-cx="960" data-y="1018"></div>
 </div>
 <script src="settings-shared.js"></script>
 <script src="settings-icons.js"></script>

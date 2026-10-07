@@ -1,0 +1,200 @@
+{
+ "seq": 1,
+ "dial": 0.5,
+ "unitM": 0.369,
+ "surfaces": [
+  {
+   "name": "main",
+   "overlayKey": "valve.steam.gamepadui.main",
+   "texW": 1920,
+   "texH": 1080,
+   "radius": 81,
+   "material": "window",
+   "visible": true,
+   "shapes": [],
+   "plates": [
+    {
+     "id": "disc-0",
+     "x": 366,
+     "y": 168,
+     "w": 180,
+     "h": 180,
+     "material": "liquid"
+    },
+    {
+     "id": "disc-1",
+     "x": 702,
+     "y": 168,
+     "w": 180,
+     "h": 180,
+     "material": "liquid"
+    },
+    {
+     "id": "disc-2",
+     "x": 1038,
+     "y": 168,
+     "w": 180,
+     "h": 180,
+     "material": "liquid"
+    },
+    {
+     "id": "disc-3",
+     "x": 1374,
+     "y": 168,
+     "w": 180,
+     "h": 180,
+     "material": "liquid"
+    },
+    {
+     "id": "disc-4",
+     "x": 198,
+     "y": 450,
+     "w": 180,
+     "h": 180,
+     "material": "liquid"
+    },
+    {
+     "id": "disc-5",
+     "x": 534,
+     "y": 450,
+     "w": 180,
+     "h": 180,
+     "material": "liquid"
+    },
+    {
+     "id": "disc-6",
+     "x": 870,
+     "y": 450,
+     "w": 180,
+     "h": 180,
+     "material": "liquid",
+     "occluder": true
+    },
+    {
+     "id": "disc-7",
+     "x": 1206,
+     "y": 450,
+     "w": 180,
+     "h": 180,
+     "material": "liquid"
+    },
+    {
+     "id": "disc-8",
+     "x": 1542,
+     "y": 450,
+     "w": 180,
+     "h": 180,
+     "material": "liquid"
+    },
+    {
+     "id": "disc-9",
+     "x": 366,
+     "y": 732,
+     "w": 180,
+     "h": 180,
+     "material": "liquid"
+    },
+    {
+     "id": "disc-10",
+     "x": 702,
+     "y": 732,
+     "w": 180,
+     "h": 180,
+     "material": "liquid"
+    },
+    {
+     "id": "disc-11",
+     "x": 1038,
+     "y": 732,
+     "w": 180,
+     "h": 180,
+     "material": "liquid"
+    },
+    {
+     "id": "disc-12",
+     "x": 1374,
+     "y": 732,
+     "w": 180,
+     "h": 180,
+     "material": "liquid"
+    },
+    {
+     "id": "top-0",
+     "x": 1503,
+     "y": 30,
+     "w": 90,
+     "h": 90,
+     "material": "liquid"
+    },
+    {
+     "id": "top-1",
+     "x": 1623,
+     "y": 30,
+     "w": 90,
+     "h": 90,
+     "material": "liquid"
+    },
+    {
+     "id": "top-2",
+     "x": 1743,
+     "y": 30,
+     "w": 90,
+     "h": 90,
+     "material": "liquid"
+    },
+    {
+     "id": "card",
+     "x": 120,
+     "y": 930,
+     "w": 450,
+     "h": 126,
+     "r": 45,
+     "material": "thick",
+     "fill": "rgba(0, 0, 0, 0.14)"
+    },
+    {
+     "id": "nameplate",
+     "x": 840,
+     "y": 654,
+     "w": 240,
+     "h": 90,
+     "r": 45,
+     "material": "liquid",
+     "tint": [
+      0.2,
+      0.55,
+      1.0,
+      0.45
+     ]
+    },
+    {
+     "id": "dim",
+     "x": 1590,
+     "y": 900,
+     "w": 300,
+     "h": 150,
+     "r": 36,
+     "material": "dim",
+     "fill": [
+      0,
+      0,
+      0,
+      0.3
+     ]
+    }
+   ],
+   "slabs": [
+    {
+     "id": "cell",
+     "x": 870,
+     "y": 450,
+     "w": 180,
+     "h": 180,
+     "r": 90,
+     "material": "liquid",
+     "dz": 0.041
+    }
+   ]
+  }
+ ]
+}

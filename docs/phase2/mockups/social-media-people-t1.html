@@ -4,23 +4,26 @@
 <meta charset="utf-8">
 <title>Glass Shell P2 — People, T1 fallback (no glassd)</title>
 <link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="window-nav-shared.css">
 <link rel="stylesheet" href="social-media.css">
 </head>
 <body>
-<!-- Concept: docs/phase2/concepts/social-media.md §3.1 and §6.2 (revision 2). Route /chat in the CSS-only tier: no glassd, so the window
-     is the smoky tint with CSS edge cues, and there are no scene-graph pops at all (a crop without an opaque cover would double).
-     Names and art are invented. -->
+<!-- Concept: docs/phase2/concepts/social-media.md §3.1 and §6.2 (revision 3, PLAN §1.6 "CSS-only look"). Route /chat in the CSS-only
+     tier: no glassd, so the window is the smoky tint rgb(20 22 30 / .74) with the E3 lobe and dark-edge cues (WN §8.4), and there
+     are no scene-graph pops at all (a crop without an opaque cover would double). No pointer proxy (native mode only, PLAN S16):
+     SteamVR draws its own laser dot. Names and art are invented. -->
 <div class="lgk-view" data-room="lounge" data-tab="friends" data-chrome="bar" data-tier="t1">
   <div class="lgk-overlay" style="left:320px; top:66px">
     <div data-sm-people="hover"></div>
   </div>
   <svg style="position:absolute; inset:0; width:1920px; height:1080px; pointer-events:none; z-index:40" viewBox="0 0 1920 1080">
-    <defs><linearGradient id="beam" x1="1" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".35" stop-color="#dbe8ff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity=".9"/></linearGradient></defs>
-    <polygon points="1640,1095 1652,1095 744,464 742,464" fill="url(#beam)" opacity=".5"/>
+    <defs><linearGradient id="beam" gradientUnits="userSpaceOnUse" x1="1640" y1="1100" x2="778" y2="463"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".45" stop-color="#dbe8ff" stop-opacity=".5"/><stop offset="1" stop-color="#fff" stop-opacity=".9"/></linearGradient></defs>
+    <polygon points="1634,1100 1646,1100 779,463 777,463" fill="url(#beam)" opacity=".55"/>
   </svg>
-  <div class="lgk-laser-dot" style="left:743px; top:464px"></div>
+  <div class="lgk-laser-dot" style="left:778px; top:463px"></div>
 </div>
 <script src="kit.js"></script>
 <script src="social-media.js"></script>
+<script src="window-nav-shared.js"></script>
 </body>
 </html>

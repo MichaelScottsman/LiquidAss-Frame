@@ -4,11 +4,12 @@
 <meta charset="utf-8">
 <title>Glass Shell P2 — Store web view with a Safari-style navigation ornament</title>
 <link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="window-nav-shared.css">
 <link rel="stylesheet" href="social-media.css">
 <style>
-  .nav-orn { left: 264px; top: 0px; width: 752px; gap: 8px; box-shadow: inset 0 0 6px -1px rgb(0 0 0 / .12), 0 7px 22px rgb(0 0 0 / .22) !important; }
+  .nav-orn { left: 264px; top: 0px; width: 752px; gap: 24px; box-shadow: inset 0 0 6px -1px rgb(0 0 0 / .12), 0 7px 22px rgb(0 0 0 / .22) !important; }
   .url { flex: 1; height: 60px; border-radius: 30px; background: var(--lg-fill-thick); box-shadow: inset 0 2px 5px rgb(0 0 0 / .26); display: flex; align-items: center; gap: 10px;
-    padding: 0 20px; font: 500 20px/1 var(--lg-font); color: rgb(255 255 255 / .72); white-space: nowrap; overflow: hidden; margin-left: 4px; }
+    padding: 0 20px; font: 500 20px/1 var(--lg-font); color: rgb(255 255 255 / .72); white-space: nowrap; overflow: hidden; margin-left: 0; }
   .url .lgk-i { --is: 20px; color: rgb(255 255 255 / .72); }
   .storebar { position: absolute; left: 0; right: 0; top: 0; height: 64px; background: linear-gradient(90deg, #1e3a52, #22344a); display: flex; align-items: center; gap: 30px; padding: 0 40px;
     font: 600 18px/1 var(--lg-font); color: #c7d5e0; }
@@ -17,16 +18,18 @@
 </style>
 </head>
 <body>
-<!-- Concept: docs/phase2/concepts/social-media.md §3.10 (revision 2). Routes /steamweb, /externalweb. The page gives up a 96 px top strip
+<!-- Concept: docs/phase2/concepts/social-media.md §3.10 (revision 3, PLAN §1, sign-off S22 flag storeOrnament: on once S-P passes).
+     Routes /steamweb, /externalweb, glass mode window with the store's cover shape (y 96-656). The page gives up a 96 px top strip
      (ornament margin): Steam's browser header becomes a liquid-glass navigation ornament above the window (Safari, ref 7). It sits
-     outside the window cover, so it stays at 0 mm with a glassd liquid slab behind it (inset method), never a crop pop. The web view's
-     bounds follow its DOM rect (module 5689: SetBounds from getBoundingClientRect), inset 16 px in the glass (y 112-612); lgs on/off
-     re-runs Steam's own bounds update so turning the theme off with the store open restores the stock rect. Store art is procedural. -->
+     outside the window cover, so it stays at 0 mm with a glassd liquid slab behind it (inset method), never a crop (PLAN §1.7 rule 1).
+     Its 60 px circles sit at an 84 px pitch (24 px clear; hit boxes abut, VP P-07). The web view's bounds follow its DOM rect (module
+     5689: SetBounds from getBoundingClientRect), inset 16 px in the glass (y 112-612); lgs on/off re-runs Steam's own bounds update.
+     Web content is exempt from size, type and outline checks (E-WEB). Laser mode: the bottom ornament shows labels only. Art is procedural. -->
 <div class="lgk-view" data-room="lounge" data-tab="store" data-chrome="bar">
   <div class="lgk-overlay" style="left:320px; top:66px">
-    <div class="lgk-glass" data-mat="window" data-dz="0" style="left:0; top:96px; width:1280px; height:560px" data-tier="T5 window (y 96-656) / T1 tint">
+    <div class="lgk-glass" data-mat="window" data-dz="0" style="left:0; top:96px; width:1280px; height:560px" data-id="window" data-tier="glass mode window, store cover shape y 96-656 (flag storeOrnament)">
       <!-- %{MainBrowserContainer>Browser}: the separate browser view, inset 16 px, corners rounded r 38 (concentric) -->
-      <div class="sm-web" style="left:16px; top:16px; width:1248px; height:500px; border-radius:38px 38px 0 0">
+      <div class="sm-web" style="left:16px; top:16px; width:1248px; height:500px; border-radius:38px 38px 0 0" data-id="webview">
         <div class="storebar"><span class="on">Your Store</span><span>New &amp; Noteworthy</span><span>Categories</span><span>Points Shop</span><span>News</span><span>Labs</span>
           <span style="margin-left:auto; height:36px; width:240px; border-radius:4px; background:#316282; opacity:.8"></span></div>
         <div class="wh" style="position:absolute; left:120px; top:96px">FEATURED &amp; RECOMMENDED</div>
@@ -44,27 +47,19 @@
     </div>
 
     <!-- Steam's browser header (HeaderBrowser > URLBar: back, forward, reload, lock, URL) as a liquid ornament above the window -->
-    <div class="lgk-glass lgk-toolbar nav-orn" data-mat="liquid" data-lens data-dz="0" data-tier="T1 layout + T5 slab (inset), 0 mm, no crop">
-      <span class="lgk-btn circle plain is-hover" style="--hx:50%; --hy:40%"><i data-i="chevron-left"></i></span>
-      <span class="lgk-btn circle plain is-disabled"><i data-i="chevron-right"></i></span>
-      <span class="lgk-btn circle plain"><i data-i="reload"></i></span>
-      <span class="url"><i data-i="lock"></i>https://store.steampowered.com/</span>
+    <div class="lgk-glass lgk-toolbar nav-orn" data-mat="liquid" data-lens data-dz="0" data-id="navornament" data-tier="store ornament: liquid slab behind (inset), 0 mm, no crop">
+      <span class="lgk-btn circle plain is-hover" style="--hx:62%; --hy:40%" data-id="webback"><i data-i="chevron-left"></i></span>
+      <span class="lgk-btn circle plain is-disabled" data-id="webfwd"><i data-i="chevron-right"></i></span>
+      <span class="lgk-btn circle plain" data-id="reload"><i data-i="reload"></i></span>
+      <span class="url" data-id="url"><i data-i="lock"></i>https://store.steampowered.com/</span>
     </div>
 
-    <div class="lgk-glass lgk-toolbar sm-orn" data-mat="liquid" data-lens data-dz="0" data-tier="#Footer T1 + T5 slab (inset), no crop">
-      <span class="lgk-btn capsule sm-leg"><span class="lgk-glyph">Y</span><i data-i="cart" style="--is:24px"></i>Add to Cart</span>
-      <span class="lgk-btn capsule sm-leg"><span class="lgk-glyph"><i data-i="menu3" style="--is:16px"></i></span>Store Menu</span>
-      <span class="lgk-btn capsule sm-leg quiet split"><span class="lgk-glyph">A</span>Select</span>
-      <span class="lgk-btn capsule sm-leg quiet"><span class="lgk-glyph">B</span>Back</span>
-    </div>
+    <div data-sm-orn="Y:Add to Cart|@menu3:Store Menu|A:Select|B:Back" data-mode="laser"></div>
   </div>
-  <svg style="position:absolute; inset:0; width:1920px; height:1080px; pointer-events:none; z-index:40" viewBox="0 0 1920 1080">
-    <defs><linearGradient id="beam" x1="1" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".35" stop-color="#dbe8ff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity=".9"/></linearGradient></defs>
-    <polygon points="1640,1095 1652,1095 627,110 625,110" fill="url(#beam)" opacity=".5"/>
-  </svg>
-  <div class="lgk-laser-dot" style="left:626px; top:110px"></div>
+  <div data-wn="laser" data-to="638,122" data-from="1640,1100"></div>
 </div>
 <script src="kit.js"></script>
 <script src="social-media.js"></script>
+<script src="window-nav-shared.js"></script>
 </body>
 </html>

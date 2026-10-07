@@ -9,17 +9,28 @@
 <body>
 <div class="lgk-view" data-room="lounge" data-tab="library" data-fc="steam" data-bar="running">
   <div class="lgk-overlay" style="left:320px; top:66px" data-gp="title" data-state="running" data-focus="none" data-open="stop"
-       data-private="1" data-cloud="1" data-dim=".46,.40,.35" data-foot="A:Select|B:Cancel">
-    <div class="gp-scrim" style="left:0; top:0; width:1280px; height:656px; border-radius:54px; --a:.35; z-index:4"></div>
-    <div class="lgk-glass" data-mat="thick" data-lens style="left:320px; top:204px; width:640px; height:296px; --r:44px; --dz:30; z-index:5; padding:36px 40px; box-sizing:border-box" data-dz="30" data-tier="alert: T1, T4 pop, T5 slab">
-      <div style="font:700 28px/1.25 var(--lg-font); letter-spacing:-.01em">Exit game?</div>
-      <div style="margin-top:4px; font:500 22px/1.32 var(--lg-font); color:var(--lg-text-2)">Any progress since your last save may be lost.</div>
-      <div style="position:absolute; left:40px; right:40px; bottom:36px; display:flex; gap:24px">
-        <span class="lgk-btn capsule is-focus" style="flex:1; background:linear-gradient(180deg, rgb(255 255 255 / .16), rgb(255 255 255 / 0) 60%), var(--lg-tint-danger)">Exit Game</span>
-        <span class="lgk-btn capsule" style="flex:1">Cancel</span>
+       data-private="1" data-cloud="1" data-dim=".46,.40,.35" data-foot="A:Select|B:Cancel" data-mode="laser">
+    <!-- Steam's global "Exit game?" ConfirmModal as C1c's alert (WN §5.3, PLAN §1.12): 640 px, radius 44, thick glass,
+         centred on the glass (VP P-35), title and body left-aligned, 60 px capsules side by side in Steam's order.
+         It holds a destructive button, so it stays FLAT at 0 mm (PLAN §1.7 rule 4; the reporter sees
+         data-lgs-destructive): a flat thick plate in native mode, no pop. The confirm is a red whole fill with a dark
+         label (S19, CC §7). Scrim: Steam's .ModalOverlayBackground at black .35, clipped to the glass (PLAN §1.8; no t1
+         tint). Default focus stays Steam's (S6); this frame shows the laser on Cancel. Tests never confirm it. -->
+    <div class="gp-scrim modal" style="left:0; top:0; width:1280px; height:656px; border-radius:54px; z-index:4"></div>
+    <div class="lgk-glass gp-alert" data-mat="thick" data-lens style="left:320px; top:328px; translate:0 -50%; width:640px; --r:44px; --dz:0; z-index:5" data-dz="0" data-tier="C1c alert; destructive: flat (0 mm), flat thick plate in T5">
+      <div class="t">Exit game?</div>
+      <div class="b">Any progress since your last save may be lost.</div>
+      <div class="btns">
+        <span class="lgk-btn capsule gp-danger">Exit Game</span>
+        <span class="lgk-btn capsule is-hover" style="--hx:58%; --hy:46%">Cancel</span>
       </div>
     </div>
   </div>
+  <svg style="position:absolute; inset:0; width:1920px; height:1080px; pointer-events:none; z-index:40" viewBox="0 0 1920 1080">
+    <defs><linearGradient id="beam" x1="1" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".35" stop-color="#dbe8ff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity=".9"/></linearGradient></defs>
+    <polygon points="1660,1095 1672,1095 1121,456 1119,456" fill="url(#beam)" opacity=".5"/>
+  </svg>
+  <div class="lgk-laser-dot" style="left:1120px; top:456px"></div>
 </div>
 <script src="kit.js"></script>
 <script src="game-pages.js"></script>

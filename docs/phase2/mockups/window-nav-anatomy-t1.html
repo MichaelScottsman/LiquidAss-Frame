@@ -22,17 +22,18 @@
 <body>
 <div class="lgk-view" data-room="lounge" data-tier="t1">
 
-  <!-- tab-bar ornament: Steam's VR main menu (frame.menu), always visible. This device: Console on
-       (developer mode), 10 destinations at 58 popup px pitch; the bar spans the panel (y 15-705 main px)
-       and its system capsule ends level with the bottom ornament. Library = the current route (circle only). -->
+  <!-- tab-bar ornament: Steam's VR main menu (frame.menu), always visible (flag tabBarAlways, PLAN S9), +25 mm.
+       This device: Console on (developer mode), 10 destinations at 58 popup px pitch; the bar spans the panel
+       (y 15-705 main px) and its system capsule ends level with the bottom ornament. Library = the current
+       route: the navigation selection (.18 + its arc) as a circle only (PLAN §1.4). -->
   <div data-wn="tabbar" data-right="302" data-cy="426" data-sel="library" data-badge data-pitch="58"></div>
 
-  <!-- Steam's main window, 1280 x 720 overlay at 1:1 (r = 1) -->
+  <!-- Steam's main window, 1280 x 720 overlay at 1:1 (r = 1). Route glass mode "window" (PLAN §1.2): 1280 x 656 -->
   <div class="lgk-overlay" style="left:320px; top:66px">
-    <div class="lgk-glass wn-win" data-mat="window" data-dz="0" data-tier="T5 window cover (gate AT-0); T1: tint">
+    <div class="lgk-glass wn-win" data-mat="window" data-dz="0" data-tier="T5 window cover (native gate, PLAN §4.3); T1: tint; mode window, 656">
       <div class="grid wn-fade-bottom">
         <div class="lgk-poster lgk-art" data-art="poster:0:Starfall Drift" style="left:42px; top:0"></div>
-        <div class="lgk-poster lgk-art is-hover" data-art="poster:1:Hollow Peaks" style="left:286px; top:0" data-dz="15" data-tier="lift: non-interactive pop <= 15 mm (cards)"></div>
+        <div class="lgk-poster lgk-art is-hover" data-art="poster:1:Hollow Peaks" style="left:286px; top:0" data-dz="15" data-tier="card + its More circle: non-interactive crop after 80 ms dwell"></div>
         <div class="lgk-poster lgk-art" data-art="poster:2:Neon Orchard" style="left:530px; top:0">
           <div class="dl"><i data-i="download" style="--is:22px"></i><span class="bar"><i></i></span><span class="t-num">62%</span></div>
         </div>
@@ -55,11 +56,12 @@
       </div>
     </div>
 
-    <!-- the shell's More circle on the hovered poster (T2): the laser's direct path to this game's menu -->
-    <div data-wn="more" data-x="494" data-y="226"></div>
+    <!-- the shell's More circle (T2, PLAN §1.11) inside the dwelled poster's top right (inset 10; the poster is
+         lifted to x 1.05, so its corner is at 511, 204): the laser's direct path to this game's menu -->
+    <div data-wn="more" data-corner="511,204" data-dz="none"></div>
 
-    <!-- bottom ornament, laser mode: Steam's Sort/Filter buttons folded in; A/B hidden (the Back circle and a
-         direct click do both); Options names the frozen target -->
+    <!-- bottom ornament, laser mode (PLAN §1.10): Steam's Sort/Filter buttons folded into slot 1; the shell's
+         Options member names the frozen target; Select and Back stay as quiet members; no glyph badges -->
     <div data-wn="ornament" data-mode="laser" data-legends="sf-sort:Alphabetical|sf-filter:Filter|menu:Options@Hollow Peaks|A:Select|B:Back"></div>
   </div>
 
@@ -68,10 +70,11 @@
   <!-- dashboard bar (control-center concept) -->
   <div data-wn="bar" data-cx="960" data-y="904"></div>
 
-  <div data-wn="laser" data-to="702,402" data-from="1690,1100"></div>
+  <!-- CSS-only mode: no pointer proxy; SteamVR draws its own dot on Steam's panel (PLAN §1.11) -->
+  <div data-wn="laser" data-to="702,402" data-from="1690,1100" data-dot="steamvr"></div>
 
-  <div class="wn-cap" style="left:1618px; top:88px; width:280px">Degraded glass (native gate AT-0 failed): smoky tint + light-from-above edges; the room is not frosted.</div>
-  <div class="wn-cap" style="left:1618px; top:560px; width:280px">Ornament, laser mode: Sort and Filter folded in; Options names its target; no A / B.</div>
+  <div class="wn-cap" style="left:1618px; top:88px; width:280px">Degraded glass (native mode off): smoky tint + light-from-above edges; the room is not frosted. No pointer proxy: SteamVR's own dot.</div>
+  <div class="wn-cap" style="left:1618px; top:560px; width:280px">Ornament, laser mode: Sort and Filter folded in; Options names its target; Select and Back stay, quiet; no glyph badges.</div>
   <div class="wn-cap" style="left:1618px; top:806px; width:280px">One window-bar row: frame controls left of the window bar.</div>
 </div>
 <script src="window-nav-shared.js"></script>

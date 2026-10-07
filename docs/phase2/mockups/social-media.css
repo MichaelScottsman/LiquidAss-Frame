@@ -2,23 +2,36 @@
  * Page-level layout for the social-media-*.html mockups. Every size is a DESIGN2 token or derived
  * from one (main-window CSS px; 1 pt = 4/3 px). Glass stays in kit.css (.lgk-glass); this file only
  * places things and draws fills, content and text on top of glass. No borders, no outlines.
+ * Load order: kit.css, window-nav-shared.css (C1a: E3 lobe edge, ornament members, chrome), this file.
  *
- * Revision 2: window, toolbar and bottom-ornament geometry are taken from concepts/window-nav.md
- * §3.1-3.4 (glass 1280 x 656, ornament y 628-712 centred on x 640, Back box (14,14) 80 x 80 with the
- * 60 px circle at (24,24), Large Title at x 100, search 520 x 64 centred on x 640, collapsed magnifier
- * circle at the top-right inset). Nothing outside the window cover pops (native-e2e.md §1). */
+ * Revision 3 (PLAN §1, M0): route glass modes (§1.2), the control vocabulary (§1.3: segments 60 in a 64
+ * track and >= 120 wide compact, 24 px clear between 60 px targets, primary 70), states (§1.4: focus add
+ * .28, navigation selection = white .18 + top arc + Semibold), the More circle look (§1.11), the ornament
+ * by content (§1.10), menus by count (§1.12), no full-width bands (VP P-81). */
 
-/* ------------------------------------------------------------------ window and toolbar row */
-.sm-win { left: 0; top: 0; width: 1280px; height: 656px; }          /* window-nav §3.1: 64 px ornament margin below */
-.sm-win.full { height: 720px; }                                       /* quiet-legend routes: the legend sits inside the glass */
+/* ------------------------------------------------------------------ states (PLAN §1.4) on top of kit.css
+   The kit still carries Phase 1's focus add .14 (P4 updates kit.css to §1.4: REQ C7->P4). These mockups
+   show §1.4's values: gamepad focus = + white .28, a spot of .16 in the upper third, the arc x1.5. */
+.lgk-overlay .is-focus::after { --lift: .28; --spot: .16; --hy: 26%; }
+/* navigation selection (sidebar row, the open conversation): white .18 pill + a specular top arc + Semibold */
+.lgk-overlay .is-nav-selected { background: var(--lg-fill-nav); }
+.lgk-overlay .is-nav-selected::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; padding: 1.5px;
+  background: radial-gradient(60% 140% at 30% 0%, rgb(255 255 255 / .55) 0, rgb(255 255 255 / .16) 50%, transparent 78%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+/* focus on a white (selected / on) fill: an outer blurred glow, never a ring (VP P-16) */
+.lgk-overlay .is-selected.is-focus { box-shadow: 0 0 18px 2px rgb(255 255 255 / .30) !important; }
+
+/* ------------------------------------------------------------------ window and toolbar row (WN §3.1-3.2, PLAN §1.2, §1.9) */
+.sm-win { left: 0; top: 0; width: 1280px; height: 656px; }          /* glass mode window: 64 px ornament margin below */
+.sm-win.full { height: 720px; }                                       /* glass mode window-full: the legend sits inside the glass */
 .sm-back { position: absolute !important; left: 24px; top: 24px; }  /* 60 px circle in Steam's 80 x 80 box at (14,14) */
 .sm-back > .lgk-i { --is: 28px; }
-.sm-back.root { background: transparent; color: var(--lg-text-2); } /* section roots: borderless (window-nav §3.2) */
+.sm-back.root { background: transparent; color: var(--lg-text-2); } /* section roots: borderless (WN §3.2) */
 .sm-ltitle { position: absolute; left: 100px; top: 24px; height: 60px; display: flex; align-items: center; white-space: nowrap; }
-.sm-searchbar { position: absolute; top: 22px; left: 380px; width: 520px; }   /* Steam's %{SearchBox}, 64 px capsule centred on x 640 */
-.sm-mag { position: absolute !important; top: 24px; right: 24px; }          /* collapsed search (window-nav hero variant, AT-4 gate) */
+.sm-searchbar { position: absolute; top: 22px; left: 380px; width: 520px; }   /* Steam's %{SearchBox}, 520 x 64 capsule centred on x 640 */
+.sm-mag { position: absolute !important; top: 24px; right: 24px; }          /* collapsed search (60 circle in the 80 box at 1186, 14) */
 .sm-clear { background: rgb(0 0 0 / .32) !important; -webkit-backdrop-filter: blur(10px) saturate(1.4); backdrop-filter: blur(10px) saturate(1.4); }
-.sm-trail { position: absolute; top: 24px; right: 24px; display: flex; gap: 20px; }
 
 /* scroll edge under the toolbar row and over the bottom ornament (DESIGN2 §6.7): content fades, never clips hard */
 .sm-scroll { position: absolute; overflow: hidden;
@@ -28,20 +41,18 @@
   mask-image: linear-gradient(180deg, #000 calc(100% - 64px), rgb(0 0 0 / .25) calc(100% - 18px), transparent 100%); }
 .sm-scroll.top-only { -webkit-mask-image: linear-gradient(180deg, transparent 0, rgb(0 0 0 / .35) 24px, #000 64px); mask-image: linear-gradient(180deg, transparent 0, rgb(0 0 0 / .35) 24px, #000 64px); }
 
-/* ------------------------------------------------------------------ bottom ornament = Steam's #Footer legend (window-nav §3.4)
-   84 px capsule at y 628-712, centred on x 640, 0 mm: a glassd liquid slab behind it (inset method), never a crop pop.
-   Items: 60 px capsules, leading glyph badge, 22 px Semibold; A and B are quieter (Medium, text-2) after a 14 px larger gap. */
-.sm-orn { left: 640px; translate: -50% 0; top: 628px; gap: 4px; padding: 0 12px;
-  box-shadow: inset 0 0 6px -1px rgb(0 0 0 / .12), inset 0 -2px 4px -1px rgb(0 0 0 / .12), 0 7px 22px rgb(0 0 0 / .22) !important; }
-.sm-leg.lgk-btn { background: transparent; padding: 0 22px 0 14px; gap: 12px; font: 600 22px/1 var(--lg-font); }
-.sm-leg.quiet { color: var(--lg-text-2); font-weight: 500; }
-.sm-leg.split { margin-left: 14px; }
-.sm-leg.danger { color: rgb(255 120 118); }
-.sm-leg .lgk-glyph { width: 28px; height: 28px; font-size: 15px; }
-.lgk-glyph .smi { width: 16px; height: 16px; }
-/* quiet legend: on routes whose legend only ever holds A/B hints the glass runs to 720 and the legend is a row of
-   quiet hints inside the window's bottom edge (no capsule, no slab, no extra chrome row under the window) */
-.sm-band { position: absolute; left: 640px; translate: -50% 0; top: 628px; height: 84px; display: flex; align-items: center; gap: 4px; padding: 0 12px; }
+/* ------------------------------------------------------------------ bottom ornament = Steam's #Footer legend (PLAN §1.10, WN §3.4)
+   Capsule (window-nav-shared .wn-orn / .wn-leg): 84 px at y 628-712, centred, <= 960 wide, members 60 px, label first,
+   the glyph badge trailing in gamepad mode only. Quiet legend: the same box without capsule material or slab. */
+.sm-orn { box-shadow: inset 0 0 6px -1px rgb(0 0 0 / .12), inset 0 -2px 4px -1px rgb(0 0 0 / .12), 0 7px 22px rgb(0 0 0 / .22) !important; }
+.sm-quiet { position: absolute; left: 50%; translate: -50% 0; height: 84px; display: flex; align-items: center; gap: 4px; padding: 0 12px; box-sizing: border-box; z-index: 6; }
+.sm-quiet .gsep { width: 14px; flex: none; }
+/* labels over the room (glass mode window: the margin below 656): white .70 cannot hold contrast over a bright room (VP P-39), so they
+   take the Home-label recipe, white .96 with the on-room shadow (VP P-41); inside glass they stay Medium white .70 (PLAN §1.10) */
+.sm-quiet.room .wn-leg { color: rgb(255 255 255 / .96); text-shadow: 0 1px 3px rgb(0 0 0 / .55), 0 0 12px rgb(0 0 0 / .35); }
+.sm-quiet.room .wn-leg .lgk-glyph { box-shadow: 0 1px 4px rgb(0 0 0 / .35); }
+.wn-leg.danger { color: rgb(255 130 125); }                          /* destructive label at rest (CTL §5), 22 px Semibold (VP P-40 exception) */
+.wn-leg.compact { padding: 0 12px 0 16px; font-size: 20px; }         /* PLAN §1.10: compact members rather than exceed 960 */
 
 /* ------------------------------------------------------------------ avatars (content discs; presence ring drawn on the image) */
 .sm-ava { position: relative; flex: none; width: var(--av, 48px); height: var(--av, 48px); border-radius: 50%; overflow: hidden;
@@ -55,48 +66,59 @@
 .sm-ava[data-st="offline"] { --ring: rgb(142 142 147 / .7); }
 .sm-ava[data-st="offline"] > .lgk-art { filter: grayscale(1) brightness(.75); }
 
+/* ------------------------------------------------------------------ the More circle (C1a's helper, PLAN §1.11)
+   60 px visible, 80 px hit, black .38 + 10 px blur, white .94 while its menu is open. Rows: trailing end, inset 24.
+   Cards: top right, inset 10 from the visible card. */
+.sm-more { background: rgb(0 0 0 / .38) !important; color: var(--lg-text-1); }
+.sm-more.blur { -webkit-backdrop-filter: blur(10px) saturate(1.3); backdrop-filter: blur(10px) saturate(1.3); }
+.sm-more.is-selected { background: var(--lg-fill-selected) !important; color: var(--lg-text-on-selected) !important; }
+
 /* ------------------------------------------------------------------ People: sidebar, friend rows, segmented tabs */
-.sm-side { width: 456px; }
+.sm-side { width: 512px; }
 .sm-stitle { position: absolute; left: 24px; top: 104px; height: 60px; display: flex; align-items: center; white-space: nowrap; }
 
-/* segmented control: 68 px recessed track, 60 px segments (G2: >= 60 visible; the tab element's 80 px box carries the hit) */
-.sm-seg { position: absolute; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; height: 68px; padding: 4px; box-sizing: border-box;
+/* segmented control (CTL §8.3, PLAN §1.3, E-SEG): 64 px recessed track, padding 2, contiguous 60 px segments
+   (>= 140 wide, >= 120 compact), the visible fill inset 2 px, 22 px Semibold labels */
+.sm-seg { position: absolute; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; height: 64px; padding: 2px; box-sizing: border-box;
   border-radius: 999px; background: var(--lg-fill-thick); box-shadow: inset 0 2px 5px rgb(0 0 0 / .26); }
-.sm-seg.fit { display: inline-flex; gap: 4px; }
-.sm-seg > span { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; height: 60px; border-radius: 999px;
-  font: 600 20px/1 var(--lg-font); color: var(--lg-text-2); white-space: nowrap; }
-.sm-seg.fit > span { padding: 0 26px; font-size: 22px; color: var(--lg-text-1); }
-.sm-seg > span.is-selected { box-shadow: 0 2px 6px rgb(0 0 0 / .22); }
-.sm-seg > span::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; mix-blend-mode: plus-lighter; opacity: 0;
+.sm-seg.fit { display: inline-grid; grid-auto-columns: minmax(140px, auto); }
+.sm-seg > span { position: relative; z-index: 0; display: flex; align-items: center; justify-content: center; gap: 8px; height: 60px; box-sizing: border-box;
+  border-radius: 999px; font: 600 22px/1 var(--lg-font); color: var(--lg-text-1); white-space: nowrap; }
+.sm-seg.fit > span { padding: 0 28px; }
+/* the selected pill is drawn inset 2 px on its own layer, so it keeps a full capsule radius at any segment width */
+.sm-seg > span.is-selected { background: transparent !important; color: var(--lg-text-on-selected) !important; }
+.sm-seg > span.is-selected::before { content: ""; position: absolute; inset: 2px; z-index: -1; border-radius: 999px;
+  background: var(--lg-fill-selected); box-shadow: 0 2px 6px rgb(0 0 0 / .22); }
+.sm-seg > span::after { content: ""; position: absolute; inset: 2px; border-radius: inherit; pointer-events: none; mix-blend-mode: plus-lighter; opacity: 0;
   background: radial-gradient(circle at var(--hx, 50%) var(--hy, 30%), rgb(255 255 255 / var(--spot, .12)) 0, rgb(255 255 255 / 0) var(--spot-r, 75%)), rgb(255 255 255 / var(--lift, 0)); }
-/* Steam's bumper glyph images (%{TabBumper}, non-interactive) as badges on the track's ends, overlapping by a third */
+/* Steam's bumper glyph images (%{TabBumper}, non-interactive) as glyph badges on the track's ends: gamepad mode only */
 .sm-bump { position: absolute; display: grid; place-items: center; width: 36px; height: 26px; border-radius: 13px; z-index: 2;
-  background: rgb(98 100 110 / .88); color: var(--lg-text-1); font: 700 14px/1 var(--lg-font); box-shadow: 0 2px 6px rgb(0 0 0 / .35); }
+  background: rgb(98 100 110 / .88); color: var(--lg-text-1); font: 700 16px/1 var(--lg-font); box-shadow: 0 2px 6px rgb(0 0 0 / .35); }
 
-.sm-grp { position: absolute; left: 12px; width: 432px; height: 72px; display: flex; align-items: center; gap: 14px; padding: 0 20px; box-sizing: border-box;
+.sm-grp { position: absolute; left: 12px; width: 488px; height: 72px; display: flex; align-items: center; gap: 14px; padding: 0 20px; box-sizing: border-box;
   border-radius: var(--lg-r-row); font: 600 22px/1 var(--lg-font); color: var(--lg-text-2); }
 .sm-grp .count { color: var(--lg-text-3); font-weight: 500; }
 .sm-grp .chev { margin-left: auto; --is: 22px; color: var(--lg-text-3); }
 .sm-grp .gicon { width: 40px; height: 40px; border-radius: 10px; flex: none; background-size: cover; box-shadow: 0 2px 6px rgb(0 0 0 / .3); }
 
-.sm-frow { position: absolute; left: 12px; width: 432px; height: 72px; gap: 14px; padding: 0 6px 0 14px; }
+.sm-frow { position: absolute; left: 12px; width: 488px; height: 72px; gap: 14px; padding: 0 24px 0 14px; }
 .sm-frow .lines { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.sm-frow .nm { font: 600 24px/1.3 var(--lg-font); color: var(--lg-text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sm-frow .nm { font: 500 24px/1.3 var(--lg-font); color: var(--lg-text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sm-frow .pr { font: 500 20px/1.3 var(--lg-font); color: var(--lg-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sm-frow .more { margin-left: auto; }
-.sm-frow .zz { font: 700 16px/1 var(--lg-font); color: var(--lg-text-3); margin-left: 6px; }
-/* the open conversation is the only filled row (white .18, Bold name); laser hover is the light spot alone */
-.sm-frow.cur .nm { font-weight: 700; }
+.sm-frow .zz { font: 700 18px/1 var(--lg-font); color: var(--lg-text-3); margin-left: 6px; }
+/* the open conversation is the only filled row (navigation selection: white .18 + top arc + Semibold name);
+   laser hover on a navigation row is the light spot alone (PLAN §1.4, SM-D13) */
+.sm-frow.cur .nm { font-weight: 600; }
 .is-spot::after { opacity: 1; --lift: 0; --spot: .12; --spot-r: 108px; }   /* DESIGN2 §10.1: radius 1.5 x the shorter side */
 
-/* conversation header lockup (Steam's %{ChatTab}, role=button) */
-.sm-chattab { position: absolute; top: 18px; left: 868px; translate: -50% 0; height: 72px; display: flex; align-items: center; gap: 14px;
+/* conversation header lockup (Steam's %{ChatTab}, role=button), centred on the pane (x 512-1280) */
+.sm-chattab { position: absolute; top: 18px; left: 896px; translate: -50% 0; height: 72px; display: flex; align-items: center; gap: 14px;
   padding: 0 24px 0 10px; border-radius: 36px; }
 .sm-chattab .nm { font: 600 24px/1.25 var(--lg-font); }
 .sm-chattab .pr { font: 500 20px/1.25 var(--lg-font); color: var(--lg-text-2); }
 
 /* bubbles: raised fills on glass; your own are the blue whole fill (DESIGN2 §6.5) */
-.sm-hist { left: 456px; top: 100px; width: 824px; height: 396px; }
+.sm-hist { left: 512px; top: 100px; width: 768px; height: 396px; }
 .sm-hist-in { position: absolute; left: 32px; right: 32px; bottom: 0; display: flex; flex-direction: column; gap: 8px; }
 .sm-day { align-self: center; font: 600 18px/1.35 var(--lg-font); color: var(--lg-text-2); margin: 6px 0 10px; }
 .sm-who { font: 500 18px/1.35 var(--lg-font); color: var(--lg-text-3); margin: 10px 0 0 60px; }
@@ -104,7 +126,7 @@
 .sm-msg { display: flex; align-items: flex-end; gap: 12px; }
 .sm-msg .sm-ava { --av: 36px; }
 .sm-msg .sm-ava.ghost { visibility: hidden; }
-.sm-bub { max-width: 560px; padding: 13px 20px 14px; border-radius: 26px; font: 500 24px/1.3 var(--lg-font); color: var(--lg-text-1);
+.sm-bub { max-width: 540px; padding: 13px 20px 14px; border-radius: 26px; font: 500 24px/1.3 var(--lg-font); color: var(--lg-text-1);
   background: rgb(255 255 255 / .16); box-shadow: 0 1px 2px rgb(0 0 0 / .12); }
 .sm-msg.first .sm-bub { border-bottom-left-radius: 10px; }
 .sm-msg.me { justify-content: flex-end; }
@@ -113,8 +135,8 @@
 .sm-typing { display: inline-flex; align-items: center; gap: 10px; padding: 12px 18px; border-radius: 22px; background: rgb(255 255 255 / .10);
   font: 500 20px/1 var(--lg-font); color: var(--lg-text-2); }
 
-/* compose: recessed capsule, the one ring on focus (DESIGN2 §8.2); Send is a 60 px circle 2 px inside the capsule end */
-.sm-compose { position: absolute; left: 480px; top: 544px; width: 776px; padding-right: 2px !important; }
+/* compose: recessed 64 px capsule, the one ring on focus (DESIGN2 §8.2); Send is a 60 px circle 2 px inside the capsule end */
+.sm-compose { position: absolute; left: 536px; top: 544px; width: 720px; padding-right: 2px !important; }
 .sm-compose .typed { flex: 1; font: 500 24px/1 var(--lg-font); color: var(--lg-text-1); white-space: nowrap; }
 .sm-compose .typed.ph { color: rgb(255 255 255 / .55); }
 .sm-send { --s: 60px !important; background: linear-gradient(180deg, rgb(255 255 255 / .18), rgb(255 255 255 / 0) 55%), var(--lg-blue) !important; color: #fff !important; }
@@ -122,69 +144,89 @@
 .sm-hint { position: absolute; right: 48px; top: 506px; display: flex; align-items: center; gap: 8px; font: 500 18px/1 var(--lg-font); color: var(--lg-text-3); }
 .sm-hint .lgk-glyph { width: 26px; height: 26px; }
 
-/* menus: window-nav §5.1 header row (40 px, 22 px Bold text-2) with a 28 px avatar (T2 decoration); Cancel as a 60 px capsule */
+/* ------------------------------------------------------------------ menus (PLAN §1.12, WN §5.1)
+   <= 5 actions: one column of 72 px rows, 6 px apart, 40 px header row. 6-7: compact, 60 px visible on a contiguous
+   64 px pitch with the header as an inline 26 px line. >= 8: two columns, <= 592 wide. Cancel: a 56 px quiet capsule. */
 .sm-menu-hdr { display: flex; align-items: center; gap: 12px; height: 40px; padding: 0 16px; font: 700 22px/1 var(--lg-font); color: var(--lg-text-2); }
+.sm-menu-hdr.inline { height: 26px; padding: 0 18px; font: 600 19px/1 var(--lg-font); color: var(--lg-text-3); }
 .lgk-menu .lgk-row .trail .lgk-i { --is: 22px; }
-.lgk-menu .lgk-row.danger { color: var(--lg-red); }
+.lgk-menu .lgk-row.danger { color: rgb(255 130 125); font-weight: 600; }
+.lgk-menu .lgk-row.danger .lead { color: var(--lg-red); }
 .lgk-menu .lgk-row.quiet { color: var(--lg-text-2); }
-.sm-cancel { align-self: center; margin-top: 2px; background: rgb(255 255 255 / .08) !important; color: var(--lg-text-2) !important; font-weight: 500 !important; }
+.lgk-menu.compact { gap: 0; }
+.lgk-menu.compact .lgk-row { height: 60px; margin: 2px 0; border-radius: 22px; }
+.sm-cancel { align-self: center; height: 56px !important; margin-top: 6px; background: rgb(255 255 255 / .08) !important; color: var(--lg-text-2) !important; font-weight: 500 !important; }
 
 /* ------------------------------------------------------------------ grouped platters (Account, Downloads) */
 .sm-col { position: absolute; left: 260px; width: 760px; }
-.sm-platter { position: absolute; border-radius: var(--lg-r-platter); background: var(--lg-fill-regular); padding: 8px; box-sizing: border-box; }
+.sm-platter { position: absolute; border-radius: var(--lg-r-platter); background: var(--lg-fill-regular); padding: 0; box-sizing: border-box; }
 .sm-prow.lgk-row { height: 80px; font: inherit; }
-.sm-prow { position: relative; height: 80px; display: flex; align-items: center; gap: 16px; padding: 0 16px 0 24px; border-radius: 24px; }
+.sm-prow { position: relative; height: 80px; display: flex; align-items: center; gap: 16px; padding: 0 26px; border-radius: 24px; background-clip: content-box; }
 .sm-prow .lbl { font: 500 24px/1.25 var(--lg-font); }
 .sm-prow .sub { font: 500 18px/1.35 var(--lg-font); color: var(--lg-text-2); }
-.sm-prow .end { margin-left: auto; display: flex; align-items: center; gap: 16px; }
+.sm-prow .end { margin-left: auto; display: flex; align-items: center; gap: 24px; }
+/* the hover / focus pill of a row in a platter is inset 6 (CTL §10); 2 px white .08 separators inset 26, hidden next to a lit row */
+.sm-prow.pill { background: none; }
+.sm-prow.pill::after, .sm-prow.pill::before { inset: 6px; }
+/* a single-control row carries the focus and lifts its control (CTL C-D14): the switch knob glows, the track gets + .10 light */
+.lgk-toggle.lift { background: rgb(255 255 255 / .26); }
+.lgk-toggle.lift::after { box-shadow: 0 2px 5px rgb(0 0 0 / .3), 0 0 14px 3px rgb(255 255 255 / .42); }
+/* pop-up button (CTL §8.1): 60 capsule, min width 200, value 22 px Medium, Steam's caret 22 px text-2 */
+.sm-popup { height: 60px; min-width: 200px; padding: 0 20px 0 24px; gap: 12px; font: 500 22px/1 var(--lg-font) !important; justify-content: space-between; }
+.sm-popup .lgk-i { --is: 22px; color: var(--lg-text-2); }
+.sm-sep { position: relative; height: 2px; margin: -1px 26px; background: rgb(255 255 255 / .08); z-index: 1; }
 .sm-chip { display: grid; place-items: center; flex: none; width: var(--cs, 48px); height: var(--cs, 48px); border-radius: 50%; color: #fff; --is: calc(var(--cs, 48px) * .5); }
 
 /* ------------------------------------------------------------------ media */
-.sm-tile { position: absolute; width: 389px; height: 212px; border-radius: var(--lg-r-card); overflow: hidden; background-size: cover; background-position: center;
+.sm-tile { position: absolute; width: 389px; height: 212px; border-radius: var(--lg-r-card); overflow: visible; background-size: cover; background-position: center;
   box-shadow: 0 6px 18px rgb(0 0 0 / .30); }
-.sm-tile.is-focus { scale: 1.05; z-index: 3; box-shadow: 0 18px 44px rgb(0 0 0 / .48), 0 0 30px 2px rgb(255 255 255 / .22); }
-.sm-tile.is-focus::after { content: ""; position: absolute; inset: 0; border-radius: inherit; mix-blend-mode: plus-lighter;
+.sm-tile.is-focus, .sm-tile.is-dwell { scale: 1.05; z-index: 3; box-shadow: 0 18px 44px rgb(0 0 0 / .48), 0 0 30px 2px rgb(255 255 255 / .22); }
+.sm-tile.is-focus::after, .sm-tile.is-dwell::after { content: ""; position: absolute; inset: 0; border-radius: inherit; mix-blend-mode: plus-lighter; pointer-events: none;
   background: linear-gradient(155deg, rgb(255 255 255 / .24) 0, rgb(255 255 255 / .05) 30%, transparent 55%); }
-.sm-tile .more { position: absolute; top: 12px; right: 12px; }
+.sm-tile .sm-more { position: absolute; top: 10px; right: 10px; z-index: 2; }
 .sm-dur { position: absolute; right: 12px; bottom: 12px; height: 36px; padding: 0 14px 0 10px; border-radius: 18px; display: flex; align-items: center; gap: 6px;
   background: rgb(0 0 0 / .52); font: 600 18px/1 var(--lg-font); font-variant-numeric: tabular-nums; --is: 18px; }
 .sm-media-dim-top { position: absolute; left: 0; right: 0; top: 0; height: 132px; background: linear-gradient(180deg, rgb(0 0 0 / .42), rgb(0 0 0 / 0)); border-radius: inherit; }
 .sm-media-dim-bot { position: absolute; left: 0; right: 0; bottom: 0; height: 240px; background: linear-gradient(0deg, rgb(0 0 0 / .5), rgb(0 0 0 / 0)); }
 
-/* ------------------------------------------------------------------ downloads */
-.sm-drow { position: absolute; left: 24px; width: 1232px; height: 96px; display: flex; align-items: center; gap: 20px; padding: 0 16px; box-sizing: border-box;
+/* ------------------------------------------------------------------ downloads (content column x 72-1208: no full-width band, VP P-81) */
+.sm-drow { position: absolute; left: 72px; width: 1136px; height: 96px; display: flex; align-items: center; gap: 20px; padding: 0 24px 0 16px; box-sizing: border-box;
   border-radius: 24px; }
 .sm-drow .art { width: 144px; height: 68px; border-radius: 12px; flex: none; background-size: cover; background-position: center; box-shadow: 0 3px 10px rgb(0 0 0 / .3); }
 .sm-drow .nm { font: 600 24px/1.3 var(--lg-font); }
 .sm-drow .dt { font: 500 18px/1.35 var(--lg-font); color: var(--lg-text-2); }
 .sm-drow .st { margin-left: auto; font: 500 18px/1 var(--lg-font); color: var(--lg-text-2); font-variant-numeric: tabular-nums; }
-.sm-sec { position: absolute; left: 40px; right: 40px; display: flex; align-items: baseline; gap: 12px; }
+.sm-drow .btns { display: flex; align-items: center; gap: 24px; margin-left: 24px; }     /* 60 px circles, centres 84 apart */
+.sm-sec { position: absolute; left: 88px; right: 88px; display: flex; align-items: baseline; gap: 12px; }
 .sm-sec .ct { font: 600 24px/1 var(--lg-font); color: var(--lg-text-3); }
 .sm-sec .aux { margin-left: auto; display: flex; align-items: center; gap: 8px; font: 500 18px/1 var(--lg-font); color: var(--lg-text-2); --is: 20px; }
 .sm-track { position: relative; height: 12px; border-radius: 6px; background: var(--lg-fill-thick); box-shadow: inset 0 1px 3px rgb(0 0 0 / .3); overflow: hidden; }
 .sm-track > i { position: absolute; left: 0; top: 0; bottom: 0; width: var(--v, 40%); border-radius: 6px; background: rgb(255 255 255 / .9); }
 
-/* ------------------------------------------------------------------ keyboard (Steam's VR keyboard quad, popup px) */
+/* ------------------------------------------------------------------ keyboard (Steam's VR keyboard quad, keyboard px; CTL §12, owner C4b) */
 .sm-kb { position: absolute; width: 854px; height: 280px; }
-.sm-kb .echo { position: absolute; left: 14px; right: 14px; top: 0; height: 40px; display: flex; align-items: center; gap: 12px; padding: 0 16px;
-  border-radius: 20px; background: var(--lg-fill-thick); box-shadow: inset 0 2px 4px rgb(0 0 0 / .26); }
-.sm-kb .echo .lbl { font: 500 15px/1 var(--lg-font); color: var(--lg-text-2); white-space: nowrap; }
+.sm-kb .echo { position: absolute; left: 8px; right: 8px; top: 5px; height: 33px; display: flex; align-items: center; gap: 10px; padding: 0 14px;
+  border-radius: 17px; background: var(--lg-fill-thick); box-shadow: inset 0 2px 4px rgb(0 0 0 / .26); }
+.sm-kb .echo .lbl { font: 600 15px/1 var(--lg-font); color: var(--lg-text-2); white-space: nowrap; }
 .sm-kb .echo .txt { font: 500 19px/1 var(--lg-font); color: var(--lg-text-1); white-space: nowrap; }
-.sm-kb .echo .caret { width: 2px; height: 22px; background: var(--lg-blue); margin-left: -8px; }
-.sm-key { position: absolute; height: 44px; border-radius: 11px; background: rgb(255 255 255 / .16); color: var(--lg-text-1); display: grid; place-items: center;
-  font: 500 17px/1 var(--lg-font); box-shadow: 0 2px 3px rgb(0 0 0 / .22), inset 0 1px 0 rgb(255 255 255 / .12); --is: 18px; }
-.sm-key.mod { background: rgb(255 255 255 / .09); color: var(--lg-text-2); font-size: 15px; }
-.sm-key.go { background: linear-gradient(180deg, rgb(255 255 255 / .18), rgb(255 255 255 / 0) 55%), var(--lg-blue); color: #fff; font-weight: 600; }
-.sm-key.hot { background: #fff; color: #0d0e12; box-shadow: 0 2px 8px rgb(0 0 0 / .3), 0 0 14px rgb(255 255 255 / .35); }
+.sm-kb .echo .caret { width: 2px; height: 22px; background: var(--lg-blue); margin-left: -6px; }
+.sm-key { position: absolute; height: 44px; border-radius: 11px; color: var(--lg-text-1); display: grid; place-items: center;
+  background: linear-gradient(180deg, rgb(255 255 255 / .08), rgb(255 255 255 / 0) 45%), rgb(255 255 255 / .15);
+  font: 500 20px/1 var(--lg-font); box-shadow: 0 2px 3px rgb(0 0 0 / .22), inset 0 1px 0 rgb(255 255 255 / .14); --is: 20px; }
+.sm-key.mod { background: rgb(255 255 255 / .075); color: var(--lg-text-1); font: 600 15px/1 var(--lg-font); }
+.sm-key.go { background: linear-gradient(180deg, rgb(255 255 255 / .18), rgb(255 255 255 / 0) 55%), rgb(0 145 255 / .86); color: #fff; font: 600 15px/1 var(--lg-font); }
+/* the key under the laser (Steam's %{Modal>Focused}): white .32 + the light spot + its arc; the label stays white (CTL §12.4) */
+.sm-key.hot { background: radial-gradient(circle at 50% 30%, rgb(255 255 255 / .18), rgb(255 255 255 / 0) 70%), rgb(255 255 255 / .32);
+  box-shadow: 0 2px 6px rgb(0 0 0 / .28), inset 0 1.5px 1.5px -1px rgb(255 255 255 / .6); }
 .sm-key .sh { position: absolute; left: 6px; top: 4px; font: 500 15px/1 var(--lg-font); color: rgb(255 255 255 / .6); }
 
-/* ------------------------------------------------------------------ store web content (content: opaque, never glass) */
+/* ------------------------------------------------------------------ store web content (content: opaque, never glass; E-WEB) */
 .sm-web { position: absolute; overflow: hidden; background: #16202d; color: #dfe6ee; }
 .sm-web .wh { font: 700 22px/1 var(--lg-font); color: #e6edf3; }
 .sm-web .cap { position: absolute; border-radius: 8px; background-size: cover; background-position: center; box-shadow: 0 4px 14px rgb(0 0 0 / .35); }
 
-/* ------------------------------------------------------------------ achievements */
-.sm-arow { position: absolute; left: 24px; width: 1232px; height: 88px; display: flex; align-items: center; gap: 20px; padding: 0 20px 0 14px; box-sizing: border-box;
+/* ------------------------------------------------------------------ achievements (content column x 72-1208, VP P-81) */
+.sm-arow { position: absolute; left: 72px; width: 1136px; height: 88px; display: flex; align-items: center; gap: 20px; padding: 0 20px 0 14px; box-sizing: border-box;
   border-radius: 24px; background: var(--lg-fill-regular); }
 .sm-arow .ic { width: 64px; height: 64px; border-radius: 14px; flex: none; background-size: cover; box-shadow: 0 3px 10px rgb(0 0 0 / .3); }
 .sm-arow.locked .ic { filter: grayscale(1) brightness(.55); }
@@ -194,8 +236,13 @@
 .sm-rare { width: 160px; height: 8px; border-radius: 4px; background: var(--lg-fill-thick); overflow: hidden; }
 .sm-rare > i { display: block; height: 100%; width: var(--v); background: rgb(255 255 255 / .55); border-radius: 4px; }
 
-/* the room behind the window dims while a photo or a clip is open (T5 glassd dim layer, black .30) */
+/* the room behind the window dims while a photo or a clip is open (flag roomDim, off by default: needs glass outside
+   the Steam texture, P9 G7; the mockups show the flagged look) */
 .sm-roomdim { position: absolute; inset: 0; background: rgb(0 0 0 / .30); pointer-events: none; }
+
+/* the CSS plate of windowless routes (PLAN §1.2, T1): black .58 with a white .16 -> .04 gradient + edge cues */
+.lgk-view[data-tier="t1"] .sm-cssplate, .sm-cssplate.t1 { -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+  background: linear-gradient(180deg, rgb(255 255 255 / .16), rgb(255 255 255 / .04)), rgb(0 0 0 / .58) !important; }
 
 /* depth annotations for the depth plate (yellow = annotation, not UI) */
 .sm-note { position: absolute; z-index: 60; width: 286px; padding: 14px 16px; border-radius: 10px; background: #ffe27a; color: #111;

@@ -17,21 +17,24 @@
 <div class="lgk-view" data-room="lounge" data-tab="none" data-fc="none" data-bar="none">
   <div class="lgk-overlay" style="left:80px; top:20px; width:1760px; height:1040px">
     <div class="lgk-glass sheet" data-mat="window"><div class="gp-hero"><div class="art lgk-art" data-art="hero-clean:0:"></div><div class="dim"></div></div></div>
-    <!-- rows 104 px apart; rows with a tooltip get 56 px more, because cluster tooltips sit ABOVE their control -->
+    <!-- rows 104 px apart; rows with a tooltip get 56 px more, because cluster tooltips sit ABOVE their control
+         (P3's tooltip layer with data-lgs-tip="above"; gamepad: at once, data-lgs-tip-pad="now"; laser: after 0.8 s).
+         Default state: vrBindings off (PLAN S13); one row shows C5b's capsule with the flag on. -->
     <div class="lab" style="top:82px"><b>Play-from focused</b><span>Label at once on gamepad focus</span></div>
     <div data-gp="cluster" data-state="installed" data-focus="playfrom" data-tip="playfrom" data-private="1" data-left="340" data-top="76"></div>
-    <div class="lab" style="top:186px"><b>Not installed</b><span>Install: blue; no Play-from</span></div>
-    <div data-gp="cluster" data-state="notinstalled"  data-left="340" data-top="180"></div>
+    <div class="lab" style="top:186px"><b>Not installed</b><span>Install: blue; no Play-from. Drawn with vrBindings on (C5b)</span></div>
+    <div data-gp="cluster" data-state="notinstalled" data-vr="1" data-left="340" data-top="180"></div>
+    <span class="gp-flag" style="left:1100px; top:150px">flag vrBindings (S13, off by default): C5b's capsule</span>
     <div class="lab" style="top:290px"><b>Update required</b><span>Update: blue</span></div>
     <div data-gp="cluster" data-state="update"  data-left="340" data-top="284"></div>
     <div class="lab" style="top:394px"><b>Stream from a PC</b><span>Two-line label inside 80 px</span></div>
-    <div data-gp="cluster" data-state="stream" data-vr="0" data-left="340" data-top="388"></div>
+    <div data-gp="cluster" data-state="stream" data-left="340" data-top="388"></div>
     <div class="lab" style="top:498px"><b>Launching</b><span>Steam’s throbber, no extra motion</span></div>
     <div data-gp="cluster" data-state="launching"  data-left="340" data-top="492"></div>
     <div class="lab" style="top:658px"><b>Running, Stop focused</b><span>Red whole fill only on focus</span></div>
     <div data-gp="cluster" data-state="running" data-focus="stop" data-tip="stop" data-left="340" data-top="652"></div>
     <div class="lab" style="top:762px"><b>No action</b><span>Disabled: content at 40 %</span></div>
-    <div data-gp="cluster" data-state="disabled" data-vr="0" data-left="340" data-top="756"></div>
+    <div data-gp="cluster" data-state="disabled" data-left="340" data-top="756"></div>
     <div class="lab" style="top:922px"><b>Non-Steam shortcut</b><span>No Play-from; laser on Manage</span></div>
     <div data-gp="cluster" data-state="shortcut" data-hover="manage" data-tip="manage" data-left="340" data-top="916"></div>
   </div>

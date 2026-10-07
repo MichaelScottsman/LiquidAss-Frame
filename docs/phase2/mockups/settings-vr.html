@@ -13,7 +13,7 @@
   <div data-wn="tabbar" data-right="302" data-cy="426" data-sel="steam settings"></div>
 
   <div class="lgk-overlay" style="left:320px; top:66px">
-    <div class="lgk-glass st-win" data-mat="window" data-dz="0" data-tier="T5 window (T1: smoky tint)">
+    <div class="lgk-glass st-win" data-mat="window" data-dz="0" data-tier="T5 window cover (T1: smoky tint + edge cues)">
       <div data-st="sidebar" data-sel="vr" data-scroll="180"></div>
       <div data-st="toolbar"></div>
 
@@ -22,18 +22,22 @@
           <div class="st-hero"><span data-chip="vr" data-cls="md"></span><div class="t-title1">VR Settings</div></div>
 
           <!-- one row into SteamVR's own page (T3 Focusable; A or click = SteamClient.SteamVR.DashboardTabClicked, as the tab bar's
-               VR Settings item does). Trailing laser glyph: that page is laser-only -->
+               VR Settings item does). Trailing laser glyph: that page is laser-only. Laser hover = + .08 and the light spot -->
           <div class="st-plat">
-            <div class="st-r is-hover" style="--hx:56%; --hy:50%"><span class="st-chip" data-c="gray"><i data-si="headset"></i></span><span class="lab">SteamVR</span><i data-si="laser" style="--is:26px; color:var(--lg-text-2)"></i><i data-si="chevr" class="chev"></i></div>
+            <div class="st-r first last is-hover" style="--hx:56%; --hy:50%"><span class="st-chip" data-c="gray"><i data-si="headset"></i></span><span class="lab">SteamVR</span><i data-si="laser" style="--is:26px; color:var(--lg-text-2)"></i><i data-si="chevr" class="chev"></i></div>
           </div>
+          <!-- English-only T3 footnote (PLAN §1.15) -->
+          <div class="st-foot">SteamVR's own settings use the laser pointer. With a controller, press Left there to reach the tab bar.</div>
           <div class="st-gap20"></div>
 
           <!-- Steam's own Quick Access › Performance › VR components (module 862 via 51008), rendered unchanged and restyled by
-               the same settings rules. Live (2026-10-07): five render; Custom Render Resolution only when SteamVR reports it -->
+               the same rules. Refresh Rate is Steam's notched slider (CTL §7.3): 7 rates, knob always shown at the current notch,
+               the fill ends at its centre, bookends under the ends. Live (2026-10-07): five render; Custom Render Resolution only
+               when SteamVR reports it -->
           <div class="st-plat">
             <div class="st-r first stack">
               <div class="head"><span class="lab">Refresh Rate</span><span class="val" style="font-weight:600; color:var(--lg-text-1)">90</span></div>
-              <span class="st-slider notched" style="--v:33.3%"><span class="fill"></span></span>
+              <span class="st-slider notched" style="--n:6; --i:2"><span class="fill"></span><span class="tick on" style="--t:0"></span><span class="tick on" style="--t:1"></span><span class="tick" style="--t:3"></span><span class="tick" style="--t:4"></span><span class="tick" style="--t:5"></span><span class="tick" style="--t:6"></span><span class="knob"></span></span>
               <div class="ends"><span>72</span><span>144</span></div>
             </div>
             <div class="st-r last"><span class="lab">Motion Smoothing</span><i data-si="info" style="--is:26px; color:var(--lg-text-3)"></i><span class="lgk-toggle on"></span></div>
@@ -47,11 +51,11 @@
         </div>
       </div>
     </div>
+    <div data-st="legend" data-mode="laser" data-legends="A:Select|B:Back"></div>
   </div>
 
-  <div data-wn="frame" data-cx="960" data-y="806" data-dim=".72"></div>
+  <div data-wn="winbar" data-cx="960" data-y="806" data-dim=".85"></div>
   <div data-wn="bar" data-cx="960" data-y="904"></div>
-  <div data-wn="pill" data-cx="960" data-y="1018"></div>
   <div data-wn="laser" data-to="1205,294" data-from="1640,1100"></div>
 </div>
 <script src="settings-shared.js"></script>

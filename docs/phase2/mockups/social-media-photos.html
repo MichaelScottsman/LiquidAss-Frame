@@ -4,30 +4,35 @@
 <meta charset="utf-8">
 <title>Glass Shell P2 — Media as Photos (grid)</title>
 <link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="window-nav-shared.css">
 <link rel="stylesheet" href="social-media.css">
 </head>
 <body>
-<!-- Concept: docs/phase2/concepts/social-media.md §3.6 (revision 2). Route /media/grid. Section root: borderless Back, Large Title at x 100,
-     the 520 px search capsule centred on x 640 (window-nav §3.2). The focused tile lifts +15 mm as a non-interactive crop (click-safe:
-     the 45-degree parallax error is under a tenth of the 212 px tile); the ornament stays at 0 mm. Steam's virtualized 3-up grid keeps its JS geometry
-     (405 x 228 slots at x 26 / 439 / 853, 236 px row pitch); the thumbnail is inset 8 px inside its unchanged hit slot,
-     so the visible gap is 24 px; only paint, radius, crop and the focus lift change. Art is procedural. -->
+<!-- Concept: docs/phase2/concepts/social-media.md §3.6 (revision 3, PLAN §1). Route /media/grid, glass mode window (656), gamepad mode.
+     Section root: borderless Back, Large Title at x 100, the 520 px search capsule centred on x 640. The media-type filter is a T3
+     segmented control (64 px track, contiguous segments >= 140 wide); the game filter a 60 px capsule with its X glyph badge (gamepad
+     mode only). The focused tile lifts: scale 1.05 + shadow + 15 mm as a non-interactive crop (a content card >= 150 px, PLAN §1.7);
+     C1a's More circle sits on its top-right corner, inset 10 (60 px, black .38 + blur). Steam's virtualized 3-up grid keeps its JS
+     geometry (405 x 228 slots at x 26 / 439 / 853, 236 px row pitch); the thumbnail is inset 8 px inside its unchanged hit slot, so
+     the visible gap is 24 px. The ornament holds actions, so it is a capsule (0 mm). Art is procedural. -->
 <div class="lgk-view" data-room="lounge" data-tab="media" data-chrome="bar">
   <div class="lgk-overlay" style="left:320px; top:66px">
-    <div class="lgk-glass sm-win" data-mat="window" data-dz="0" data-tier="T5 window / T1 tint">
-      <span class="lgk-btn circle sm-back root"><i data-i="chevron-left"></i></span>
-      <div class="sm-ltitle t-large">Media</div>
-      <div class="lgk-search sm-searchbar"><i data-i="search"></i><span class="ph">Search for games or profiles</span></div>
+    <div class="lgk-glass sm-win" data-mat="window" data-dz="0" data-id="window" data-tier="glass mode window (656): T5 window cover / T1 smoky tint">
+      <span class="lgk-btn circle sm-back root" data-id="back"><i data-i="chevron-left"></i></span>
+      <div class="sm-ltitle t-large" data-id="title">Media</div>
+      <div class="lgk-search sm-searchbar" data-id="search"><i data-i="search"></i><span class="ph">Search for games or profiles</span></div>
 
-      <!-- T3/T2: the media-type filter as a segmented control (state visible, one laser click), and the game filter as a capsule -->
-      <div class="sm-seg fit" style="left:24px; top:106px">
+      <!-- T3: the media-type filter as a segmented control (Steam's own filter state and strings); T2: the game filter capsule -->
+      <div class="sm-seg fit" style="left:24px; top:106px" data-id="types">
         <span class="is-selected">All</span><span>Screenshots</span><span>Clips</span><span>Recordings</span>
       </div>
-      <span class="lgk-btn capsule" style="position:absolute; right:24px; top:110px; gap:12px; padding:0 14px 0 20px"><i data-i="controller" style="--is:24px"></i>All Games<i data-i="chevron-down" style="--is:22px"></i><span class="lgk-glyph">X</span></span>
+      <span class="lgk-btn capsule" style="position:absolute; right:24px; top:108px; gap:12px; padding:0 14px 0 20px" data-id="game"><i data-i="controller" style="--is:24px"></i>All Games<i data-i="chevron-down" style="--is:22px"></i><span class="lgk-glyph">X</span></span>
 
       <div class="sm-scroll bottom-only" style="left:0; top:180px; width:1280px; height:476px">
         <div class="sm-tile lgk-art" data-art="hero-clean:3:" style="left:34px; top:20px"></div>
-        <div class="sm-tile lgk-art is-focus" data-art="hero-clean:7:" style="left:447px; top:20px" data-dz="15" data-tier="T4 crop +15 (click-safe)"><span class="lgk-btn circle more sm-clear"><i data-i="more"></i></span><span class="sm-dur"><i data-i="play"></i>0:47</span></div>
+        <div class="sm-tile lgk-art is-focus" data-art="hero-clean:7:" style="left:447px; top:20px" data-dz="15" data-id="tile-focus"
+             data-tier="crop +15 (content card), interactive:false">
+          <span class="lgk-btn circle sm-more blur" data-id="more"><i data-i="more"></i></span><span class="sm-dur"><i data-i="play"></i>0:47</span></div>
         <div class="sm-tile lgk-art" data-art="hero-clean:1:" style="left:861px; top:20px"></div>
         <div class="sm-tile lgk-art" data-art="hero-clean:5:" style="left:34px; top:256px"><span class="sm-dur"><i data-i="play"></i>1:12</span></div>
         <div class="sm-tile lgk-art" data-art="hero-clean:0:" style="left:447px; top:256px"></div>
@@ -35,11 +40,12 @@
       </div>
     </div>
 
-    <!-- bottom ornament: Steam's #Footer legend (X Select Game, Y Filter, ≡ Options, A Select, B Back) as buttons; 0 mm, liquid slab, no crop -->
-    <div class="lgk-glass lgk-toolbar sm-orn" data-mat="liquid" data-lens data-dz="0" data-tier="#Footer T1 + T5 slab (inset), no crop" data-sm-legend="X:Select Game|Y:Filter|@menu3:Options|A:Select:quiet split|B:Back:quiet"></div>
+    <!-- bottom ornament: Steam's #Footer legend as buttons, label first, glyph trailing (gamepad mode); 0 mm, liquid slab, no crop -->
+    <div data-sm-orn="X:Select Game|Y:Filter|@menu3:Options|A:Select|B:Back" data-mode="pad"></div>
   </div>
 </div>
 <script src="kit.js"></script>
 <script src="social-media.js"></script>
+<script src="window-nav-shared.js"></script>
 </body>
 </html>

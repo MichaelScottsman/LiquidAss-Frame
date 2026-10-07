@@ -1,0 +1,5 @@
+{
+ "_doc": "PLAN 1.16 exemptions for glass.py gates (contracts/lab.md section 6). Owned by P10: request additions with 'REQ <YOU>->P10' in your evidence log. Elements may also carry data-lgs-exempt=\"E-...\" (set by the owning package). Selectors accept %{Token}; one that does not resolve is skipped.",
+ "E-WEB": ["%{MainBrowserContainer}", "%{*Browser}", "iframe"],
+ "E-KEY": ["%{*KeyboardKey}"]
+}

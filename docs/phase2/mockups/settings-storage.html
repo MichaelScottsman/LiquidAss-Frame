@@ -18,17 +18,16 @@
   <div data-wn="tabbar" data-right="302" data-cy="426" data-sel="steam settings"></div>
 
   <div class="lgk-overlay" style="left:320px; top:66px">
-    <div class="lgk-glass st-win" data-mat="window" data-dz="0" data-tier="T5 window (T1: smoky tint)">
+    <div class="lgk-glass st-win" data-mat="window" data-dz="0" data-tier="T5 window cover (T1: smoky tint + edge cues)">
       <div data-st="sidebar" data-sel="storage"></div>
       <!-- Storage has no hero (its virtualised list sizes itself from the space it gets); the title is inline from the start -->
       <div data-st="toolbar" data-title="Storage"></div>
 
       <div class="st-scroll orn">
         <div class="st-col" style="top:112px">
+          <!-- drive tabs: Steam's %{InstallFolder} group as a segmented control: 64 px track, contiguous segments >= 290 px -->
           <div style="display:flex; justify-content:center">
-            <span class="lgk-seg" style="height:64px">
-              <span class="is-selected" style="min-width:290px">Internal · 512 GB</span><span style="min-width:290px">microSD · 256 GB</span>
-            </span>
+            <span class="st-seg"><span class="is-selected" style="min-width:300px">Internal · 512 GB</span><span style="min-width:300px">microSD · 256 GB</span></span>
           </div>
           <div style="margin:24px 4px 0; height:24px; border-radius:12px; background:var(--lg-fill-thick); box-shadow:inset 0 2px 4px rgb(0 0 0 / .3); overflow:hidden; display:flex">
             <span style="width:41%; background:var(--lg-blue)"></span><span style="width:6%; background:rgb(175 82 222)"></span><span style="width:4%; background:var(--lg-orange)"></span><span style="width:7%; background:rgb(40 190 80)"></span><span style="width:5%; background:rgb(160 162 170)"></span>
@@ -40,14 +39,16 @@
             <span><i class="dot" style="background:rgb(40 190 80)"></i>Media 36 GB</span>
             <span style="margin-left:auto; color:var(--lg-text-1)">214 GB free</span>
           </div>
-          <div style="display:flex; align-items:center; margin:26px 0 12px; padding-left:24px">
+          <div style="display:flex; align-items:center; margin:26px 0 12px; padding-left:26px">
             <span class="t-headline" style="flex:1; color:var(--lg-text-2); font-size:22px">Items · 17</span>
             <span class="st-pop" style="min-width:240px"><i data-i="sort" style="--is:22px; color:var(--lg-text-2)"></i>Size on Disk<i data-si="updown"></i></span>
           </div>
-          <!-- selection mode (Steam's %{AppSelected} + checkbox, restyled): a leading 40 px check circle, blue when selected -->
+          <!-- selection mode (Steam's %{AppSelected} + checkbox, restyled; never seen live, T-STORE-SEL checks a detached clone):
+               a leading 40 px check circle, blue when selected. Rows 80 px through T3 rowHeight, else 58 px (exemption E-ROW58).
+               Gamepad focus on an app row: the row itself is the focusable, so it carries the focus -->
           <div class="st-plat">
             <div class="st-r first sto-row"><span class="st-ck on"><i data-si="check"></i></span><span class="lgk-art" data-art="poster:0:"></span><span class="lab">Starfall Drift<span class="desc">Last played yesterday</span></span><span class="val">48.2 GB</span></div>
-            <div class="st-r sto-row is-focus" style="--hx:30%; --hy:50%"><span class="st-ck on"><i data-si="check"></i></span><span class="lgk-art" data-art="poster:1:"></span><span class="lab">Hollow Peaks<span class="desc">Last played 3 days ago</span></span><span class="val">31.7 GB</span></div>
+            <div class="st-r sto-row is-focus"><span class="st-ck on"><i data-si="check"></i></span><span class="lgk-art" data-art="poster:1:"></span><span class="lab">Hollow Peaks<span class="desc">Last played 3 days ago</span></span><span class="val">31.7 GB</span></div>
             <div class="st-r sto-row"><span class="st-ck"></span><span class="lgk-art" data-art="poster:2:"></span><span class="lab">Neon Orchard<span class="desc">Last played last week</span></span><span class="val">22.9 GB</span></div>
             <div class="st-r last sto-row"><span class="st-ck"></span><span class="lgk-art" data-art="poster:3:"></span><span class="lab">Tidebreaker<span class="desc">Never played</span></span><span class="val">12.4 GB</span></div>
           </div>
@@ -55,18 +56,13 @@
       </div>
     </div>
 
-    <!-- the ornament carries the legend-only actions as real buttons (page-specific, so it is shown); Uninstall's badge is a red whole fill -->
-    <div class="lgk-glass lgk-toolbar wn-orn" data-mat="liquid" data-lens style="--dz:18; top:628px" data-dz="0" data-tier="T1 #Footer + T5 liquid slab (inset, no crop pop)">
-      <span class="wn-leg"><span class="lgk-glyph" style="background:var(--lg-red)">X</span>Uninstall</span>
-      <span class="wn-leg"><span class="lgk-glyph">Y</span>Move Content</span>
-      <span class="wn-leg nav split"><span class="lgk-glyph">A</span>Select</span>
-      <span class="wn-leg nav"><span class="lgk-glyph">B</span>Back</span>
-    </div>
+    <!-- the legend carries actions other than A and B, so it is the capsule ornament (PLAN §1.10), and its X / Y actions become
+         clickable buttons (VP P-89). Uninstall is destructive: red Semibold label at rest, red whole fill on hover or focus.
+         Gamepad mode: Steam's glyphs trail the labels; A and B are the quiet trailing members -->
+    <div data-st="legend" data-mode="pad" data-legends="X:-Uninstall|Y:Move Content|A:Select|B:Back"></div>
   </div>
 
-  <div data-wn="frame" data-cx="960" data-y="806" data-dim=".72"></div>
   <div data-wn="bar" data-cx="960" data-y="904"></div>
-  <div data-wn="pill" data-cx="960" data-y="1018"></div>
 </div>
 <script src="settings-shared.js"></script>
 <script src="settings-icons.js"></script>

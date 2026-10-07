@@ -1,28 +1,203 @@
-/* Glass Shell design tokens. Every colour, material, radius and timing the
-   theme uses is defined here; area stylesheets only reference these.
+/* Glass Shell design tokens (Phase 2, package P4). The contract is
+   docs/phase2/contracts/tokens.md; values come from DESIGN2 §16 with the
+   PLAN §1 changes (focus add .28, selection recipe, edge lobe, T1 materials).
+   Every colour, size, radius, fill and material the theme uses is a token
+   here; area stylesheets only reference them. Motion tokens and keyframes
+   are P5's (theme/02-motion.nowrap.css), except the two Phase 1 keyframes
+   kept below as aliases.
    Not wrapped: selectors are written in full (html.lgs-on ...). */
 
+/* ---- state numbers (04-states.css sets them; areas and hooks read them).
+   Non-inherited, so a focused row never lights its children; a pseudo-element
+   reads them with "--lgs-focus: inherit". ---- */
+@property --lgs-hover { syntax: "<number>"; inherits: false; initial-value: 0; }
+@property --lgs-focus { syntax: "<number>"; inherits: false; initial-value: 0; }
+@property --lgs-within { syntax: "<number>"; inherits: false; initial-value: 0; }
+@property --lgs-press { syntax: "<number>"; inherits: false; initial-value: 0; }
+@property --lgs-lift { syntax: "<number>"; inherits: false; initial-value: 0; }
+@property --lgs-dis { syntax: "<number>"; inherits: false; initial-value: 0; }
+/* ---- hook switches (03-material.css, 04-states.css): an element asks for a
+   hook by setting one of these; non-inherited so children never inherit it ---- */
+@property --lgs-edge { syntax: "*"; inherits: false; }
+@property --lgs-ill { syntax: "*"; inherits: false; }
+@property --lgs-scroll-band { syntax: "*"; inherits: false; }
+
 html.lgs-on {
-  /* Transparency dial, 0 = clearest .. 1 = most opaque ("lgs dial 0.7"). */
+  /* Transparency dial, 0 = clearest .. 1 = most opaque ("lgs dial 0.7").
+     The bundler appends the remembered value after every file. */
   --lgs-dial: 0.5;
 
-  /* ---- text vibrancy on glass (white is the default label colour) ---- */
-  --lgs-text-1: rgba(255, 255, 255, 0.96);
-  --lgs-text-2: rgba(255, 255, 255, 0.72);
-  --lgs-text-3: rgba(255, 255, 255, 0.56);
-  --lgs-text-disabled: rgba(255, 255, 255, 0.34);
+  /* ================================================================ type */
+  --lgs-font: "LGS Inter", "Motiva Sans", Arial, sans-serif;
+  --lgs-text-1: rgb(255 255 255 / .96);
+  --lgs-text-2: rgb(255 255 255 / .70);
+  --lgs-text-3: rgb(255 255 255 / .50);
+  --lgs-text-4: rgb(255 255 255 / .32);
+  --lgs-text-disabled: var(--lgs-text-4);
   --lgs-text-on-selected: #0d0e12;
-  --lgs-text-shadow: 0 1px 2px rgba(0, 0, 0, 0.32);
+  --lgs-text-on-selected-2: rgb(13 14 18 / .60);
+  --lgs-text-on-tint: #fff;
+  --lgs-text-danger: rgb(255 130 125);
+  --lgs-text-room-shadow: 0 1px 3px rgb(0 0 0 / .55), 0 0 12px rgb(0 0 0 / .35);
 
-  /* ---- window glass (visionOS): the dashboard window over the room ----
-     Overlays have no access to the passthrough behind them, so the window
-     cannot blur the room; tint alone carries legibility. At the default dial
-     (.72) white body text stays above 4.5:1 even over a bright room. */
+  /* type scale (DESIGN2 §5.3): sizes, font shorthands, tracking */
+  --lgs-fs-xl1: 64px;  --lgs-fs-xl2: 52px;  --lgs-fs-large: 46px;  --lgs-fs-title1: 38px;
+  --lgs-fs-title2: 30px;  --lgs-fs-title3: 28px;  --lgs-fs-headline: 24px;  --lgs-fs-body: 24px;
+  --lgs-fs-callout: 22px;  --lgs-fs-subhead: 20px;  --lgs-fs-footnote: 18px;  --lgs-fs-caption: 18px;
+  --lgs-type-xl1: 700 64px/1.10 var(--lgs-font);
+  --lgs-type-xl2: 700 52px/1.10 var(--lgs-font);
+  --lgs-type-large: 700 46px/1.18 var(--lgs-font);
+  --lgs-type-title1: 700 38px/1.20 var(--lgs-font);
+  --lgs-type-title2: 700 30px/1.25 var(--lgs-font);
+  --lgs-type-title3: 600 28px/1.25 var(--lgs-font);
+  --lgs-type-headline: 600 24px/1.30 var(--lgs-font);
+  --lgs-type-body: 500 24px/1.30 var(--lgs-font);
+  --lgs-type-callout: 500 22px/1.30 var(--lgs-font);
+  --lgs-type-subhead: 500 20px/1.30 var(--lgs-font);
+  --lgs-type-footnote: 500 18px/1.35 var(--lgs-font);
+  --lgs-type-caption: 600 18px/1.35 var(--lgs-font);
+  --lgs-track-xl: -.02em;  --lgs-track-large: -.015em;  --lgs-track-title: -.01em;
+  --lgs-track-headline: -.005em;  --lgs-track-footnote: .005em;  --lgs-track-caption: .01em;
+
+  /* ================================================================ sizes
+     main-window CSS px (1 pt = 4/3 px); PLAN §1.3 */
+  --lgs-hit: 80px;  --lgs-btn: 60px;  --lgs-btn-lg: 70px;  --lgs-btn-xl: 86px;
+  --lgs-btn-sm: 44px;  --lgs-btn-mini: 38px;  --lgs-btn-pad: 24px;
+  --lgs-play-w: 280px;  --lgs-play-h: 80px;
+  --lgs-symbol: 26px;  --lgs-symbol-row: 24px;
+  --lgs-target-gap: 24px;
+  --lgs-row: 72px;  --lgs-row-platter: 80px;  --lgs-row-gap: 8px;  --lgs-row-inset: 6px;  --lgs-sep-inset: 26px;
+  --lgs-field: 64px;  --lgs-seg: 64px;  --lgs-seg-item: 56px;  --lgs-seg-min-w: 140px;
+  --lgs-switch-w: 66px;  --lgs-switch-h: 40px;  --lgs-check: 40px;  --lgs-slider: 64px;
+  --lgs-inset: 24px;  --lgs-inset-text: 40px;  --lgs-gap: 24px;
+  --lgs-header: 108px;
+  --lgs-glass-h: 656px;  --lgs-glass-h-full: 720px;
+  --lgs-ornament: 84px;  --lgs-ornament-overlap: 28px;  --lgs-ornament-y: 628px;  --lgs-ornament-max-w: 960px;
+  --lgs-search-w: 520px;  --lgs-search-w-nested: 640px;
+  --lgs-more: 60px;  --lgs-more-hit: 80px;
+  --lgs-glyph: 30px;
+  --lgs-home-disc: 120px;  --lgs-home-pitch-x: 224px;  --lgs-home-pitch-y: 188px;
+  --lgs-menu-row: 72px;  --lgs-menu-row-gap: 6px;  --lgs-menu-row-compact: 60px;  --lgs-menu-pitch-compact: 64px;
+  --lgs-menu-min-w: 320px;  --lgs-menu-max-w: 592px;  --lgs-menu-header: 40px;
+  --lgs-alert-w: 640px;  --lgs-sheet-max-w: 960px;
+  --lgs-tooltip-h: 48px;  --lgs-toast-w: 320px;  --lgs-toast-h: 76px;
+  --lgs-badge-h: 28px;  --lgs-page-dot: 12px;  --lgs-page-dot-pitch: 24px;
+  /* surface multipliers (DESIGN2 §2.5): calc(var(--lgs-btn) * var(--lgs-m-bar)) */
+  --lgs-m-popup: .90;  --lgs-m-bar: .83;  --lgs-m-kb: .74;
+  --lgs-m-vr-frame: 1.33;  --lgs-m-vr-page: 1.44;  --lgs-m-vr-bind: 1.87;
+
+  /* ================================================================ radii (concentric) */
+  --lgs-r-window: 54px;  --lgs-r-sheet: 44px;  --lgs-r-tile: 44px;  --lgs-r-menu: 32px;
+  --lgs-r-platter: 30px;  --lgs-r-toast: 30px;  --lgs-r-row: 24px;  --lgs-r-card: 20px;
+  --lgs-r-small: 14px;  --lgs-r-capsule: 999px;
+
+  /* ================================================================ colour (whole fills only) */
+  --lgs-blue: rgb(0 145 255);  --lgs-green: rgb(48 209 88);  --lgs-red: rgb(255 66 69);
+  --lgs-orange: rgb(255 146 48);  --lgs-yellow: rgb(255 214 0);  --lgs-purple: rgb(219 52 242);
+  --lgs-teal: rgb(0 210 224);  --lgs-indigo: rgb(109 124 255);  --lgs-gray: rgb(142 142 147);
+  --lgs-tint-play: rgb(48 209 88 / .88);
+  --lgs-tint-primary: rgb(0 145 255 / .86);
+  --lgs-tint-danger: rgb(255 66 69 / .84);
+  --lgs-toggle-on: var(--lgs-green);
+  --lgs-check-on: var(--lgs-blue);
+
+  /* ================================================================ fills on glass (DESIGN2 §6.5) */
+  --lgs-fill-thin: rgb(255 255 255 / .10);
+  --lgs-raised-bg: linear-gradient(180deg, rgb(255 255 255 / .06), rgb(255 255 255 / 0) 60%), rgb(255 255 255 / .10);
+  --lgs-raised-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / .22), 0 1px 2px rgb(0 0 0 / .10);
+  --lgs-fill-regular: rgb(0 0 0 / .14);
+  --lgs-fill-thick: rgb(0 0 0 / .30);
+  --lgs-recessed-shadow: inset 0 2px 5px rgb(0 0 0 / .30);
+  --lgs-well-shadow: inset 0 2px 5px rgb(0 0 0 / .26);
+  --lgs-fill-nav: rgb(255 255 255 / .18);
+  --lgs-selected-fill: rgb(255 255 255 / .94);
+  --lgs-scrim: rgb(0 0 0 / .35);
+  --lgs-field-focus: 0 0 0 3px rgb(255 255 255 / .55), 0 0 16px rgb(255 255 255 / .22);
+  --lgs-separator: rgb(255 255 255 / .08);
+
+  /* ================================================================ states (PLAN §1.4) */
+  --lgs-hover-add: .08;
+  --lgs-hover-spot: .12;
+  --lgs-focus-add: .28;          /* G-FOCUS tuning range .28-.32; final value in wp/P4.md */
+  --lgs-focus-spot: .16;
+  --lgs-focus-arc: .55;
+  --lgs-focus-first: .60;
+  --lgs-within-add: .06;
+  --lgs-press-add: .06;
+  --lgs-press-spot: .22;
+  --lgs-press-grow: 6;
+  --lgs-press-max: 1.06;
+  --lgs-white-glow: 0 0 18px 2px rgb(255 255 255 / .30);
+  --lgs-dis-content: .40;
+  --lgs-dis-focus-add: .10;
+  --lgs-card-lift: 1.05;
+  --lgs-disc-lift: 1.10;
+  --lgs-nav-weight: 600;
+  --lgs-sel-arc: inset 0 1.5px 1.5px -1px rgb(255 255 255 / .45);
+
+  /* ================================================================ edges and shadows (DESIGN2 §6.2) */
+  --lgs-light: 340deg;
+  --lgs-rim-window: .78;  --lgs-rim-panel: .90;  --lgs-rim-liquid: 1.10;
+  --lgs-rim-thick: .85;  --lgs-rim-clear: 1.20;  --lgs-rim-control: 1;
+  --lgs-rim-w-window: 2px;  --lgs-rim-w: 1.5px;
+  --lgs-darkedge-window: inset 0 0 16px -2.4px rgb(0 0 0 / .20), inset 0 -2px 4px -1px rgb(0 0 0 / .12);
+  --lgs-darkedge-panel: inset 0 0 10px -1.5px rgb(0 0 0 / .16), inset 0 -2px 4px -1px rgb(0 0 0 / .12);
+  --lgs-darkedge-liquid: inset 0 0 6px -0.9px rgb(0 0 0 / .12), inset 0 -2px 4px -1px rgb(0 0 0 / .12);
+  --lgs-darkedge-thick: inset 0 0 12px -1.8px rgb(0 0 0 / .20), inset 0 -2px 4px -1px rgb(0 0 0 / .12);
+  --lgs-darkedge-clear: inset 0 0 5px -0.75px rgb(0 0 0 / .10), inset 0 -2px 4px -1px rgb(0 0 0 / .10);
+  --lgs-shadow-10mm: 0 4px 12px rgb(0 0 0 / .30);
+  --lgs-shadow-15mm: 0 6px 18px rgb(0 0 0 / .30);
+  --lgs-shadow-25mm: 0 10px 30px rgb(0 0 0 / .28);
+  --lgs-shadow-30mm: 0 12px 36px rgb(0 0 0 / .32);
+  --lgs-shadow-contact: 0 6px 18px rgb(0 0 0 / .35);
+
+  /* ================================================================ materials, CSS-only (T1) look
+     (PLAN §1.6, WN §8.4). glassd draws the real glass in native mode;
+     05-native.css (P6) zeroes these where the daemon acknowledged a cover. */
+  --lgs-mat-window-bg:
+      linear-gradient(180deg, rgb(255 255 255 / .08) 0, rgb(255 255 255 / 0) 30%),
+      rgb(20 22 30 / calc(.60 + var(--lgs-dial) * .24));
+  --lgs-mat-window-blur: none;
+  --lgs-mat-window-shade: var(--lgs-darkedge-window);
+  --lgs-mat-panel-bg:
+      linear-gradient(180deg, rgb(255 255 255 / .08) 0, rgb(255 255 255 / 0) 40%),
+      rgb(28 30 40 / calc(.67 + var(--lgs-dial) * .22));
+  --lgs-mat-panel-blur: none;
+  --lgs-mat-panel-shade: var(--lgs-darkedge-panel);
+  --lgs-mat-liquid-bg:
+      linear-gradient(180deg, rgb(255 255 255 / .12), rgb(255 255 255 / .03) 55%),
+      rgb(80 80 86 / .12);
+  --lgs-mat-liquid-blur: blur(12px) saturate(1.7);
+  --lgs-mat-liquid-room-bg:
+      linear-gradient(180deg, rgb(255 255 255 / .12), rgb(255 255 255 / .03) 55%),
+      rgb(28 30 40 / calc(.58 + var(--lgs-dial) * .24));
+  --lgs-mat-liquid-shade: var(--lgs-darkedge-liquid);
+  --lgs-mat-thick-bg:
+      linear-gradient(180deg, rgb(255 255 255 / .08), rgb(255 255 255 / 0) 35%),
+      rgb(36 37 42 / calc(.30 + var(--lgs-dial) * .20));
+  --lgs-mat-thick-blur: blur(30px) saturate(1.5);
+  --lgs-mat-thick-shade: var(--lgs-darkedge-thick);
+  --lgs-mat-clear-bg: rgb(255 255 255 / .05);
+  --lgs-mat-clear-blur: blur(3px) saturate(1.3);
+  --lgs-mat-clear-shade: var(--lgs-darkedge-clear);
+  --lgs-media-dim: rgb(0 0 0 / .35);
+  --lgs-mat-plate-bg:
+      linear-gradient(180deg, rgb(255 255 255 / .16), rgb(255 255 255 / .04)),
+      rgb(0 0 0 / .58);
+  /* scroll edges (DESIGN2 §6.7): one per view, never stacked */
+  --lgs-scroll-band-h: 124px;
+  --lgs-scroll-band-top: linear-gradient(180deg, rgb(0 0 0 / .30), rgb(0 0 0 / 0));
+  --lgs-scroll-band-bottom: linear-gradient(0deg, rgb(0 0 0 / .30), rgb(0 0 0 / 0));
+  --lgs-scroll-mask-bottom: linear-gradient(180deg, #000 calc(100% - 120px), transparent);
+  --lgs-scroll-mask-top: linear-gradient(0deg, #000 calc(100% - 120px), transparent);
+
+  /* ================================================================ Phase 1 aliases
+     Kept with their Phase 1 values until every area reaches M2 (PLAN §6).
+     Do not use them in Phase 2 code; contracts/tokens.md §1.8 has the list.
+     Rim tokens lost their closing 1 px ring (DESIGN2 §6.2 R1). */
+  --lgs-text-shadow: 0 1px 2px rgba(0, 0, 0, 0.32);
   --lgs-window-alpha: calc(0.60 + var(--lgs-dial) * 0.24);
   --lgs-window-bg: rgba(20, 22, 30, var(--lgs-window-alpha));
-  /* Sheens are written bottom-up (0deg) so the first stop is the faint end:
-     identical pixels, and the audit's flat "first stop" estimate of the
-     backdrop no longer counts the top highlight under body text. */
   --lgs-window-sheen: linear-gradient(0deg,
       rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0) 18%,
       rgba(255, 255, 255, 0) 62%, rgba(255, 255, 255, 0.035) 86%,
@@ -31,11 +206,7 @@ html.lgs-on {
       inset 0 1.5px 0 rgba(255, 255, 255, 0.34),
       inset 1px 0 0 rgba(255, 255, 255, 0.10),
       inset -1px 0 0 rgba(255, 255, 255, 0.06),
-      inset 0 -1px 0 rgba(255, 255, 255, 0.05),
-      inset 0 0 0 1px rgba(255, 255, 255, 0.07);
-
-  /* ---- panel glass: small overlays standing alone over the room
-     (bar segments, bar popups, frame menus, toasts, tooltip, HUDs) ---- */
+      inset 0 -1px 0 rgba(255, 255, 255, 0.05);
   --lgs-panel-alpha: calc(0.62 + var(--lgs-dial) * 0.22);
   --lgs-panel-bg: rgba(28, 30, 40, var(--lgs-panel-alpha));
   --lgs-panel-sheen: linear-gradient(0deg,
@@ -44,47 +215,23 @@ html.lgs-on {
   --lgs-panel-rim:
       inset 0 1.5px 0 rgba(255, 255, 255, 0.42),
       inset 1px 1px 0 rgba(255, 255, 255, 0.10),
-      inset -1px -1px 0 rgba(255, 255, 255, 0.06),
-      inset 0 0 0 1px rgba(255, 255, 255, 0.09);
-  /* no outer shadow on overlays: there is no room around them, and SteamVR
-     already separates the quad from the scene */
-
-  /* ---- liquid glass: floating controls over in-page content
-     (header capsules, segmented tabs, side menus, sheets, context menus)
-     here backdrop-filter has real content to blur and lens ---- */
+      inset -1px -1px 0 rgba(255, 255, 255, 0.06);
   --lgs-glass-bg: rgba(255, 255, 255, 0.09);
   --lgs-glass-blur: blur(22px) saturate(1.8);
   --lgs-glass-rim:
       inset 0 1px 0 rgba(255, 255, 255, 0.40),
       inset 1px 0 0 rgba(255, 255, 255, 0.12),
-      inset -1px -1px 0 rgba(255, 255, 255, 0.06),
-      inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+      inset -1px -1px 0 rgba(255, 255, 255, 0.06);
   --lgs-glass-shadow: 0 10px 30px rgba(0, 0, 0, 0.26), 0 1px 3px rgba(0, 0, 0, 0.20);
-
-  /* thick glass (sheets, side menus, menus): more tint, more frost.
-     .78 at the default dial: Steam's dim greys in dialog bodies keep 4.5:1
-     over a bright room even where the sheet sits on window glass. */
   --lgs-thick-bg: rgba(30, 32, 42, calc(0.68 + var(--lgs-dial) * 0.2));
   --lgs-thick-blur: blur(34px) saturate(1.7);
-  --lgs-scrim: rgba(0, 0, 0, 0.35);        /* Apple's dimming layer */
-  /* behind context/dropdown menus the dimming layer also frosts the page
-     (iOS context-menu look). Steam's menu column sits in an animated
-     container that is a backdrop root, so the menu's own blur cannot reach
-     the page; the scrim carries the frost instead. */
   --lgs-menu-scrim-blur: blur(16px) saturate(1.4);
-
-  /* ---- fills: content ON glass (never glass on glass) ---- */
   --lgs-fill-1: rgba(255, 255, 255, 0.06);
   --lgs-fill-2: rgba(255, 255, 255, 0.10);
   --lgs-fill-3: rgba(255, 255, 255, 0.16);
   --lgs-fill-sunken: rgba(0, 0, 0, 0.20);
-  --lgs-separator: rgba(255, 255, 255, 0.11);
-
-  /* ---- interaction states ---- */
   --lgs-hover-fill: rgba(255, 255, 255, 0.14);
   --lgs-focus-fill: rgba(255, 255, 255, 0.22);
-  /* "illuminate from within": bright rim + soft glow. Must stay obvious,
-     it is how controller and laser focus are shown. */
   --lgs-focus-ring:
       inset 0 0 0 2px rgba(255, 255, 255, 0.90),
       0 0 0 1px rgba(255, 255, 255, 0.25),
@@ -92,54 +239,25 @@ html.lgs-on {
   --lgs-focus-ring-outer:
       0 0 0 2px rgba(255, 255, 255, 0.92),
       0 0 24px rgba(255, 255, 255, 0.32);
-  --lgs-selected-fill: rgba(255, 255, 255, 0.94);   /* white = selected only */
   --lgs-pressed-scale: 0.97;
-  --lgs-disabled-opacity: 0.5;   /* lowest that keeps disabled labels >= stock contrast over a bright room */
-  /* the floating focus ring element (%{FocusRing}) and other outline rings */
+  --lgs-disabled-opacity: 0.5;
   --lgs-focus-outline: rgba(255, 255, 255, 0.92);
   --lgs-focus-glow: 0 0 22px rgba(255, 255, 255, 0.30);
   --lgs-pressed-fill: rgba(255, 255, 255, 0.30);
-
-  /* ---- controls (foundation primitives, theme/10-primitives.css) ---- */
-  --lgs-control-rim: inset 0 1px 0 rgba(255, 255, 255, 0.18);   /* inner top rim of filled controls */
-  /* brightens a tinted capsule from within on hover/focus: layer it over the tint */
+  --lgs-control-rim: inset 0 1px 0 rgba(255, 255, 255, 0.18);
   --lgs-tint-lift: linear-gradient(rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.16));
-  --lgs-well-bg: var(--lgs-fill-sunken);                          /* text inputs, search, value boxes */
-  --lgs-well-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25), inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+  --lgs-well-bg: var(--lgs-fill-sunken);
   --lgs-caret: rgba(255, 255, 255, 0.96);
-  --lgs-control-outline: rgba(255, 255, 255, 0.26);               /* edge of empty controls (unchecked box) */
-  --lgs-knob: #fff;                                               /* toggle and slider knobs */
+  --lgs-control-outline: rgba(255, 255, 255, 0.26);
+  --lgs-knob: #fff;
   --lgs-knob-shadow: 0 1px 3px rgba(0, 0, 0, 0.30), 0 0 0 0.5px rgba(0, 0, 0, 0.12);
   --lgs-slider-fill: rgba(255, 255, 255, 0.92);
-  --lgs-slider-fill-2: rgba(255, 255, 255, 0.50);                /* secondary range (past the default value) */
-  --lgs-track-depth: inset 0 1px 2px rgba(0, 0, 0, 0.18);         /* toggle rail, slider track */
-  --lgs-pill-shadow: 0 1px 3px rgba(0, 0, 0, 0.22);               /* white selected pill in a segmented well */
-  --lgs-text-on-tint: #fff;                                       /* label on a tinted capsule */
-  --lgs-field-gap: 6px;   /* Steam's margin between consecutive field rows (grouped cards fill it) */
-
-  /* ---- colour: whole fills only, never thin coloured text ---- */
-  --lgs-blue: #0a84ff;
-  --lgs-green: #30d158;
-  --lgs-red: #ff453a;
-  --lgs-orange: #ff9f0a;
-  --lgs-yellow: #ffd60a;
-  --lgs-purple: #bf5af2;
-  --lgs-tint-primary: rgba(10, 132, 255, 0.82);   /* the one tinted action */
-  --lgs-tint-play: rgba(48, 209, 88, 0.86);       /* Play keeps Steam green */
-  --lgs-tint-danger: rgba(255, 69, 58, 0.80);
-  --lgs-toggle-on: #30d158;
-
-  /* ---- shape: concentric radii (child = parent - padding) ---- */
-  --lgs-r-window: 32px;
-  --lgs-r-sheet: 28px;
+  --lgs-slider-fill-2: rgba(255, 255, 255, 0.50);
+  --lgs-track-depth: inset 0 1px 2px rgba(0, 0, 0, 0.18);
+  --lgs-pill-shadow: 0 1px 3px rgba(0, 0, 0, 0.22);
+  --lgs-field-gap: 6px;
   --lgs-r-panel: 24px;
-  --lgs-r-menu: 20px;
-  --lgs-r-card: 16px;
-  --lgs-r-row: 12px;
-  --lgs-r-small: 8px;
-  --lgs-r-capsule: 999px;
-
-  /* ---- motion: springs approximated with overshooting béziers ---- */
+  /* Phase 1 motion aliases (Phase 2 motion: --lgs-ease-*, --lgs-d-*, P5) */
   --lgs-spring: cubic-bezier(0.2, 0.9, 0.25, 1.15);
   --lgs-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --lgs-t-fast: 140ms;
@@ -147,9 +265,10 @@ html.lgs-on {
   --lgs-t-slow: 320ms;
 }
 
-/* Materialize, don't fade: grows into place with a slight overshoot. Uses the
-   independent scale property so it never fights transforms Steam positions
-   menus and popups with. */
+/* Vietnamese mixes Inter and fallback letters inside one word: keep Steam's stack */
+html.lgs-on:lang(vi) { --lgs-font: "Motiva Sans", Arial, sans-serif; }
+
+/* Phase 1 keyframes (aliases; Phase 2 uses P5's lgs-mat-* keyframes) */
 @keyframes lgs-materialize {
   from { opacity: 0; scale: 0.955; }
   60% { opacity: 1; }
@@ -161,19 +280,39 @@ html.lgs-on {
   to { opacity: 1; scale: 1; translate: 0 0; }
 }
 
-/* Steam's High Contrast mode: glass goes fully opaque, separators and rims
-   get stronger, text loses its vibrancy dimming. */
+/* Steam's High Contrast (prefers-contrast: more): glass goes near-opaque, text
+   loses its vibrancy dimming; 04-states.css and 03-material.css add the one
+   allowed stroke (2 px white .70). */
 @media (prefers-contrast: more) {
   html.lgs-on {
     --lgs-dial: 1;
-    --lgs-text-2: rgba(255, 255, 255, 0.86);
-    --lgs-text-3: rgba(255, 255, 255, 0.74);
-    --lgs-separator: rgba(255, 255, 255, 0.28);
+    --lgs-text-2: rgb(255 255 255 / .86);
+    --lgs-text-3: rgb(255 255 255 / .74);
+    --lgs-separator: rgb(255 255 255 / .28);
+    --lgs-mat-window-bg: rgb(11 13 16 / .94);
+    --lgs-mat-panel-bg: rgb(11 13 16 / .94);
+    --lgs-mat-liquid-bg: rgb(11 13 16 / .94);
+    --lgs-mat-liquid-room-bg: rgb(11 13 16 / .94);
+    --lgs-mat-thick-bg: rgb(11 13 16 / .96);
+    --lgs-mat-clear-bg: rgb(11 13 16 / .94);
+    --lgs-mat-plate-bg: rgb(11 13 16 / .94);
+    --lgs-hover-spot: 0;
+    --lgs-focus-spot: 0;
+    --lgs-press-spot: 0;
+    /* Phase 1 aliases, as before */
     --lgs-glass-bg: rgba(24, 26, 34, 0.92);
     --lgs-thick-bg: rgba(24, 26, 34, 0.96);
   }
 }
 
+/* Reduce Motion: no swell and no lift; fades stay (MO C8). The Phase 1
+   duration aliases keep their Phase 1 behaviour. */
 @media (prefers-reduced-motion: reduce) {
-  html.lgs-on { --lgs-t-fast: 1ms; --lgs-t: 1ms; --lgs-t-slow: 1ms; }
+  html.lgs-on {
+    --lgs-press-grow: 0;
+    --lgs-press-max: 1;
+    --lgs-card-lift: 1;
+    --lgs-disc-lift: 1;
+    --lgs-t-fast: 1ms; --lgs-t: 1ms; --lgs-t-slow: 1ms;
+  }
 }

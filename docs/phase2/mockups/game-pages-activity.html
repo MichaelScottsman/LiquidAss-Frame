@@ -6,14 +6,20 @@
 <link rel="stylesheet" href="kit.css">
 <link rel="stylesheet" href="game-pages.css">
 <style>
-  /* revision 2: Post is its own 60 px capsule beside the field (no nested target); Like/Comment 60 px, 24 apart;
-     the event "⋯" is a 60 px circle with an 80 px transparent hit box */
-  .post { position: absolute; left: 40px; top: 204px; width: 1046px; height: 64px; display: flex; align-items: center; gap: 14px; padding: 0 24px; box-sizing: border-box;
+  /* revision 2: Post is its own 60 px capsule beside the field (no nested target); Like/Comment 60 px, 24 apart.
+     revision 3 (PLAN §1.11, S14): the event "⋯" is C1a's More circle registered on the card host
+     (more.register('%{Event}', {placement: 'card'})): 60 px, 80 px hit, black .38 + 10 px blur, inside the card's top
+     right at inset 10, dispatching the card's own onMenuButton. Focus on an event card is the content-card lift
+     (PLAN §1.4, §1.7): +15 mm, deeper shadow, the diagonal sheen; scale 1.01 only (1 + 12 / 1072, MO C3 and M1 for
+     a 1072 px card) and a .14 fill add instead of .28 (a 1072 x 248 white wash would glare, D2 §8.3).
+     Revision 3: the whole game page shares one leading edge at x 104 (the hero column, the tab row, the content), with
+     the same 104 px trailing inset (VP P-36), so the tab row never moves in x between rest and pinned. */
+  .post { position: absolute; left: 104px; top: 204px; width: 928px; height: 64px; display: flex; align-items: center; gap: 14px; padding: 0 24px; box-sizing: border-box;
           border-radius: 32px; background: var(--lg-fill-thick); box-shadow: inset 0 2px 5px rgb(0 0 0 / .26); font: 500 24px/1 var(--lg-font); color: rgb(255 255 255 / .55); }
   .post .lgk-i { --is: 26px; }
-  .postbtn { left: 1120px; top: 206px; width: 120px; }
-  .day { position: absolute; left: 40px; font: 600 24px/1.3 var(--lg-font); color: var(--lg-text-2); }
-  .ev { position: absolute; left: 40px; width: 1200px; border-radius: 30px; background: rgb(255 255 255 / .08); display: flex; gap: 28px; padding: 16px; box-sizing: border-box; }
+  .postbtn { left: 1056px; top: 206px; width: 120px; }
+  .day { position: absolute; left: 104px; font: 600 24px/1.3 var(--lg-font); color: var(--lg-text-2); }
+  .ev { position: absolute; left: 104px; width: 1072px; border-radius: 30px; background: rgb(255 255 255 / .08); display: flex; gap: 28px; padding: 16px; box-sizing: border-box; }
   .ev .img { flex: none; width: 352px; border-radius: 20px; overflow: hidden; }
   .ev .col { display: flex; flex-direction: column; min-width: 0; padding-top: 6px; padding-right: 96px; }
   .ev .kind { font: 600 18px/1.35 var(--lg-font); color: var(--lg-text-2); }
@@ -21,12 +27,14 @@
   .ev p { margin: 0; font: 500 22px/1.32 var(--lg-font); color: var(--lg-text-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .ev .rate { display: flex; gap: 24px; margin-top: auto; }
   .ev .rate .gp-btn { position: static; height: 60px; padding: 0 22px; font-size: 22px; }
-  .ev .opt { position: absolute; right: 16px; top: 16px; width: 60px; height: 60px; border-radius: 30px; background: var(--lg-fill-thin); display: grid; place-items: center; --is: 28px; }
-  .ev.is-focus { background: rgb(255 255 255 / .16); box-shadow: 0 6px 18px rgb(0 0 0 / .30), 0 0 30px 2px rgb(255 255 255 / .16); }
+  .ev .gp-more { right: 10px; top: 10px; }
+  .ev.is-focus { background: rgb(255 255 255 / .22); scale: 1.01; z-index: 3; box-shadow: 0 6px 18px rgb(0 0 0 / .30), 0 18px 44px rgb(0 0 0 / .40), 0 0 30px 2px rgb(255 255 255 / .16); }
+  .ev.is-focus::after { content: ""; position: absolute; inset: 0; border-radius: inherit; mix-blend-mode: plus-lighter; pointer-events: none;
+    background: linear-gradient(155deg, rgb(255 255 255 / .16) 0, rgb(255 255 255 / .04) 30%, transparent 55%); }
 </style>
 </head><body>
 <div class="lgk-view" data-room="lounge" data-tab="library" data-fc="steam" data-bar="idle">
-  <div class="lgk-overlay" style="left:320px; top:66px" data-gp="details" data-tab="activity" data-name="Starfall Drift" data-hero="hero-clean:0:" data-foot="A:Open|≡:Options|B:Back">
+  <div class="lgk-overlay" style="left:320px; top:66px" data-gp="details" data-tab="activity" data-name="Starfall Drift" data-hero="hero-clean:0:" data-foot="≡:Options|A:Open|B:Back">
     <div class="gp-content">
       <div class="post"><i data-i="pencil"></i>Say something about this game to your friends…</div>
       <span class="gp-btn postbtn">Post</span>
@@ -39,7 +47,7 @@
           <p>Twelve new tracks, a remixed campaign and hand-tracking support arrive today. Here is everything that changed in the biggest update since launch.</p>
           <div class="rate"><span class="gp-btn"><i data-i="like"></i>128</span><span class="gp-btn"><i data-i="bubble"></i>14</span></div>
         </div>
-        <span class="opt"><i data-i="more"></i></span>
+        <span class="gp-more" data-tier="C1a More circle (S14), 60 / 80"><i data-i="more"></i></span>
       </div>
       <div class="day" style="top:616px">September 12</div>
       <div class="ev" style="top:656px; height:160px"><div class="img lgk-art" data-art="hero-clean:8:"></div><div class="col"><span class="kind">Patch Notes</span><h3>Hotfix 1.3.2</h3></div></div>

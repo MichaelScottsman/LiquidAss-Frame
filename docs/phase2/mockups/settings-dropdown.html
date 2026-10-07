@@ -13,7 +13,7 @@
   <div data-wn="tabbar" data-right="302" data-cy="426" data-sel="steam settings"></div>
 
   <div class="lgk-overlay" style="left:320px; top:66px">
-    <div class="lgk-glass st-win" data-mat="window" data-dz="0" data-tier="T5 window (T1: smoky tint)">
+    <div class="lgk-glass st-win" data-mat="window" data-dz="0" data-tier="T5 window cover (T1: smoky tint + edge cues)">
       <div data-st="sidebar" data-sel="power" data-scroll="400"></div>
       <div data-st="toolbar"></div>
       <div class="st-scroll top">
@@ -21,11 +21,11 @@
           <div class="st-hero"><span data-chip="power" data-cls="md"></span><div class="t-title1">Power</div></div>
           <div class="st-sh first">Battery</div>
           <div class="st-plat">
-            <div class="st-r two"><span class="lab">Battery Percentage<span class="desc">Show battery percentage on dashboard bar</span></span><span class="lgk-toggle on"></span></div>
+            <div class="st-r first last two"><span class="lab">Battery Percentage<span class="desc">Show battery percentage on dashboard bar</span></span><span class="lgk-toggle on"></span></div>
           </div>
           <div class="st-sh">When On Battery and Idle</div>
           <div class="st-plat">
-            <!-- the source: white while its menu is open (hidden under the slab in this overlap placement) -->
+            <!-- the source: white while its menu is open (PLAN §1.4), hidden under the slab in this "over" placement; depth 0 -->
             <div class="st-r first"><span class="lab">Dim display after</span><span class="st-pop is-selected">5 minutes<i data-si="updown"></i></span></div>
             <div class="st-r last"><span class="lab">Sleep after</span><span class="st-pop">15 minutes<i data-si="updown"></i></span></div>
           </div>
@@ -37,24 +37,28 @@
       </div>
     </div>
 
-    <!-- Steam's dropdown menu as the shell's menu slab (window-nav §5.1), right-aligned to its value capsule (x 824..1204).
-         Placement rule (settings.md §4.5): below the capsule if it fits above y 628, else above it if it fits below y 108,
-         else over it with the current value on the capsule, clamped to y 108..628 (this case: y 180..628).
-         Depth 0 until the wearer check (then +30 mm, growing from the capsule's +15 mm) -->
-    <div class="lgk-glass wn-menu" data-mat="thick" data-lens style="left:824px; top:180px; width:380px; --dz:0" data-dz="0" data-tier="T1 placement + T2 source rect + T5 thick shape (T4 pop behind the depth flag)">
+    <!-- Steam's dropdown menu as the shell's menu slab (window-nav §5.1, built by C1c), placed by settings' rule (PLAN §1.12,
+         settings.md §4.5): right edge = the capsule's right edge + 8 (x 822..1202); below the capsule if it fits above y 628, else
+         above it if it fits below y 108, else over it with the current value's row on the capsule, clamped to 108..628
+         (this case: y 178..626, "5 minutes" at y 388..460 over the capsule at 394..454).
+         4 options: one column of 72 px rows 6 px apart, a 40 px header row (the source row's label, T2), the current value's
+         trailing check, Steam's Cancel as the 56 px quiet capsule. No scrim. Depth +10 mm as a non-interactive crop with a thick
+         slab, rising 0 -> +10 on `depth` with the materialize (PLAN §1.7); rows 72 >= 52 px, so the click-safe rule admits it -->
+    <div class="lgk-glass wn-menu" data-mat="thick" data-lens style="left:822px; top:178px; width:380px; --dz:10" data-dz="10" data-tier="C1c slab + settings placement + T4 non-interactive crop +10 mm + T5 thick slab">
       <div class="hdr">Dim display after</div>
-      <div class="lgk-row"><span class="lead"></span>Never</div>
-      <div class="lgk-row"><span class="lead"></span>1 minute</div>
-      <div class="lgk-row"><span class="lead"><i data-si="check" style="--is:24px"></i></span>5 minutes</div>
-      <div class="lgk-row is-hover" style="--hx:58%; --hy:50%"><span class="lead"></span>10 minutes</div>
+      <div class="lgk-row"><span class="t">Never</span></div>
+      <div class="lgk-row"><span class="t">1 minute</span></div>
+      <div class="lgk-row"><span class="t">5 minutes</span><i data-si="check" class="chk"></i></div>
+      <div class="lgk-row is-hover" style="--hx:77%; --hy:50%"><span class="t">10 minutes</span></div>
       <div class="gap"></div>
-      <span class="lgk-btn capsule" style="align-self:center; background:rgb(255 255 255 / .08); color:var(--lg-text-2); font-weight:500; min-width:200px; --s:60px">Cancel</span>
+      <span class="lgk-btn capsule cancel">Cancel</span>
     </div>
+    <!-- while the menu is open Steam's legend is Select / Cancel: the quiet legend; laser mode, so labels only -->
+    <div data-st="legend" data-mode="laser" data-legends="A:Select|B:Cancel"></div>
   </div>
 
-  <div data-wn="frame" data-cx="960" data-y="806" data-dim=".72"></div>
+  <div data-wn="winbar" data-cx="960" data-y="806" data-dim=".85"></div>
   <div data-wn="bar" data-cx="960" data-y="904"></div>
-  <div data-wn="pill" data-cx="960" data-y="1018"></div>
   <div data-wn="laser" data-to="1432,570" data-from="1640,1100"></div>
 </div>
 <script src="settings-shared.js"></script>

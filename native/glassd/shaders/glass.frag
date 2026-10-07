@@ -22,6 +22,10 @@
 //   Shade       a soft darkened band inside the edge (strongest away from the
 //               light), occlusion inside the lower edge, the shadows of slabs on
 //               a cover, and outside the shape an optional contact shadow.
+//   v3          plates (one rounded rect per draw, the cover's depth) with a
+//               colour tint, a flat fill tone, an occluder variant (x.55, no
+//               light) and a flat "dim" mode; holes: a slab's shadow that is not
+//               excluded under the slab, plus a fill tone inside the crop rect.
 // Output: premultiplied, sRGB-encoded; coverage x uAlpha (materialize).
 uniform vec2 uOrigin;      // region origin in this texture (px; y = row, row 0 = top)
 uniform float uScale;      // glassd px per Steam px
@@ -75,10 +79,19 @@ uniform vec2 uCoverSize;   // its size in texels
 uniform float uCoverScale; // its texels per Steam px
 uniform vec2 uSteamSize;   // texW, texH
 uniform float uCoverLod;   // mip offset: room-map mip -> cover mip
-// covers: shadows of the slabs in front of them
+uniform float uCoverDz;    // slabs: the cover's plane (metres toward the viewer)
+// covers and plates: shadows of the slabs in front of them, and holes
 uniform int uNSh;
-uniform vec4 uShBox[12];   // centre x, y (Steam px), half width, half height
-uniform vec4 uShPar[12];   // corner radius, alpha, offset down (Steam px), softness (Steam px)
+uniform vec4 uShBox[16];   // centre x, y (Steam px), half width, half height
+uniform vec4 uShPar[16];   // corner radius, alpha, offset down (Steam px), softness (Steam px)
+uniform vec4 uShClip[16];  // hole: the crop rect x0, y0, x1, y1 (Steam px); x1 <= x0 = not a hole
+uniform vec4 uShFill[16];  // hole: fill tone inside the crop rect (sRGB, alpha)
+// v3 per-piece looks
+uniform vec4 uTintC;       // colour tint: linear rgb, strength (0 = none)
+uniform vec4 uFillC;       // flat fill over the glass: sRGB rgb, alpha (0 = none)
+uniform int uOccl;         // 1 = occluder variant: brightness x.55, no light
+uniform int uFlat;         // 1 = "dim" plate: uFillC only, feathered by uFeather
+uniform float uFeather;    // Steam px
 uniform int uDebug;        // 0 normal; 1 backdrop only; 2 light only; 3 bezel t, lens, slope; 4 room uv; 5 known
 // Covers render in two passes: the flat interior is low-frequency (frost of
 // several degrees), so pass 1 computes it at 1/4 resolution; pass 2 runs the
@@ -112,6 +125,18 @@ vec4 sdf(vec2 q) {
 
 float srgbLum(vec3 lin) { return pow(max(luma(lin), 0.0), 1.0 / 2.2); }
 vec3 srgbToLin(vec3 c) { return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), c)); }
+// Inside caster i's hole (its crop rect)?
+bool inClip(int i, vec2 q) {
+  vec4 c = uShClip[i];
+  return c.z > c.x && q.x >= c.x && q.y >= c.y && q.x < c.z && q.y < c.w;
+}
+bool inAnyHole(vec2 q) {
+  for (int i = 0; i < 16; i++) {
+    if (i >= uNSh) break;
+    if (inClip(i, q)) return true;
+  }
+  return false;
+}
 
 // Where a ray from P along dir meets the room sphere, as room-map uv.
 vec2 roomUVRay(vec3 P, vec3 dir) {
@@ -140,7 +165,7 @@ vec4 behind(vec3 P, vec3 dir, float lod, bool cheap) {
   if (uUnder == 1) {
     float dn = dot(dir, uN);
     if (dn < -1e-4) {
-      float t = dot(uO + uN * 0.001 - P, uN) / dn;
+      float t = dot(uO + uN * uCoverDz - P, uN) / dn;
       vec3 X = P + dir * t - uO;
       vec2 q = vec2(dot(X, uU) / dot(uU, uU), dot(X, uV) / dot(uV, uV));
       // the copy has a transparent border, so the cover's edge blurs into the room
@@ -161,7 +186,14 @@ void main() {
   vec2 p = local - uShapeC;                            // from the union's centre, y down
   vec4 sd = sdf(local);
   float d = sd.x;
-  if (uPass == 2 && -d > uInner) {
+  if (uFlat == 1) {
+    // a "dim" plate: a flat tone, feathered inside its edge, no optics
+    float cov = clamp(-d / max(uFeather, 1.0), 0.0, 1.0);
+    float fa = uFillC.a * cov * uAlpha;
+    oColor = uPass == 1 ? vec4(srgbToLin(uFillC.rgb) * fa, fa) : vec4(uFillC.rgb * fa, fa);
+    return;
+  }
+  if (uPass == 2 && -d > uInner && !inAnyHole(local)) {
     vec3 c = texture(uLow, local * uLowScale / uLowSize).rgb;
     oColor = vec4(linearToSrgb(c) * uAlpha, uAlpha);
     return;
@@ -264,6 +296,12 @@ void main() {
   // glass over glass (a slab seeing the cover) adds only part of its tint:
   // the cover is already tinted
   rgb = mix(rgb, hue * lumG, clamp(uTintA * (1.0 - 0.5 * gCover) * (1.0 - 0.8 * uEdgeClear * band) + 0.1 * unk, 0.0, 0.95));
+  // coloured glass (v3 tint): the tint colour, keeping a little of the room's
+  // brightness variation; the light terms below stay on top
+  if (uTintC.a > 0.0) {
+    float vary = clamp(luma(rgb) / max(lumG, 1e-3), 0.75, 1.25);
+    rgb = mix(rgb, uTintC.rgb * vary, uTintC.a);
+  }
 
   // Top-down sheen across the union (stronger over unknown room).
   float ext = abs(uHalf.x * Lp.x) + abs(uHalf.y * Lp.y);
@@ -277,22 +315,38 @@ void main() {
   float shade = uDark * e4 * (0.35 + 0.65 * away);
   float e5 = 1.0 - smoothstep(0.0, 1.6 * uDarkW, -d);
   shade += uOcc * e5 * e5 * smoothstep(0.35, 1.0, away);
-  // shadows of the slabs in front of a cover
-  for (int i = 0; i < 12; i++) {
+  // shadows of the slabs in front of a cover or plate; a hole's shadow is not
+  // excluded under its slab inside the crop rect, and is applied in sRGB below
+  // (like CSS black at alpha), over the hole's fill tone
+  float holeShade = 0.0;
+  vec4 holeFill = vec4(0.0);
+  for (int i = 0; i < 16; i++) {
     if (i >= uNSh) break;
     vec4 bx = uShBox[i], pr = uShPar[i];
+    bool hole = uShClip[i].z > uShClip[i].x;
+    bool inside = hole && inClip(i, local);
+    if (inside && uShFill[i].a > 0.0) holeFill = uShFill[i];
+    // under a raised element nothing is fully lit: inside its hole the shadow
+    // never drops below half its strength (ambient occlusion), so the sliver
+    // above its top edge, revealed off axis, is shaded too
+    float floorA = inside ? 0.5 * pr.y : 0.0;
     vec2 qb = abs(local - bx.xy - vec2(0.0, pr.z)) - bx.zw - pr.w;
-    if (max(qb.x, qb.y) > 0.0) continue;  // beyond this shadow's reach
+    if (max(qb.x, qb.y) > 0.0) {  // beyond this shadow's reach
+      if (floorA > 0.0) holeShade = 1.0 - (1.0 - holeShade) * (1.0 - floorA);
+      continue;
+    }
     float ds = sdRR(local - bx.xy - vec2(0.0, pr.z), bx.zw, pr.x).x;
     float s = 1.0 - smoothstep(-0.4 * pr.w, pr.w, ds);
-    float under = smoothstep(-1.0, 1.5, sdRR(local - bx.xy, bx.zw, pr.x).x);  // not under the slab itself
-    shade = 1.0 - (1.0 - shade) * (1.0 - pr.y * s * s * under);
+    float under = inside ? 1.0 : smoothstep(-1.0, 1.5, sdRR(local - bx.xy, bx.zw, pr.x).x);  // not under the slab itself
+    if (hole) holeShade = 1.0 - (1.0 - holeShade) * (1.0 - max(pr.y * s * s * under, floorA));
+    else shade = 1.0 - (1.0 - shade) * (1.0 - pr.y * s * s * under);
   }
   rgb *= 1.0 - clamp(shade, 0.0, 0.9);
 
   // Light (on the bezel only: the flat face has no highlight from this light).
+  // The occluder variant has none: it must read as shadowed glass, not a rim.
   vec3 light = vec3(0.0);
-  if (t < 0.95) {
+  if (t < 0.95 && uOccl == 0) {
     vec3 H = normalize(L + Vl);
     float spec = pow(max(dot(n, H), 0.0), uGloss);
     vec3 Lt = vec3(-L.xy, L.z);                          // leaves through the opposite bezel
@@ -311,6 +365,18 @@ void main() {
     }
   }
   rgb += light;
+
+  // v3 tones in sRGB, as CSS blends them: the fill, the occluder's dimming,
+  // the hole's fill and its shadow
+  bool post = uFillC.a > 0.0 || uOccl == 1 || holeFill.a > 0.0 || holeShade > 0.0;
+  if (post) {
+    vec3 c = linearToSrgb(rgb);
+    if (uFillC.a > 0.0) c = mix(c, uFillC.rgb, uFillC.a);
+    if (uOccl == 1) c *= 0.55;
+    if (holeFill.a > 0.0) c = mix(c, holeFill.rgb, holeFill.a);
+    c *= 1.0 - clamp(holeShade, 0.0, 0.95);
+    rgb = srgbToLin(c);
+  }
 
   // pass 1: linear, premultiplied by coverage (slabs see the cover through it;
   // pass 2 reads it only deeper than uInner, where no edge term reaches)

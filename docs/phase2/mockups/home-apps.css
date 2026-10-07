@@ -1,24 +1,39 @@
-/* Home & App Library concept (docs/phase2/concepts/home-apps.md), revision 2: pieces shared by the
- * home-apps-*.html mockups. Built from DESIGN2 tokens (kit.css). Sizes are main-window CSS px unless a
- * block says "popup px". Real art and icons come from home-apps.js (docs/refs/library, git-ignored).
+/* Home & App Library concept (docs/phase2/concepts/home-apps.md), revision 3 (PLAN §1 conformance, M0):
+ * pieces shared by the home-apps-*.html mockups. Built from DESIGN2 tokens (kit.css) and PLAN §1
+ * (control vocabulary §1.3, states §1.4, plates §1.6). Sizes are main-window CSS px unless a block says
+ * "popup px". Real art and icons come from home-apps.js (docs/refs/library, git-ignored).
+ * Owner: C2a (PLAN §2.6). C2b and C2c mockups also load this file.
  */
 
 /* ================================================================== Home: the top row (windowless)
-   Every element here is a glass plate: a glassd cover shape at the window plane in native mode
-   (concept §10), CSS liquid glass otherwise. Nothing on Home pops at rest. */
-.ha-back { left: 24px; top: 20px; width: 60px; height: 60px; --r: 50%; display: grid; place-items: center; }
+   Every element here is a plate (PLAN §1.6): glassd plate glass at the cover's depth in native mode,
+   the CSS plate recipe otherwise. Nothing on Home pops at rest. The row is centred on y 54, the
+   centre of window-nav's 108 px toolbar row, so Back and search sit where they sit on every route. */
+.ha-back { left: 24px; top: 24px; width: 60px; height: 60px; --r: 50%; display: grid; place-items: center; }
 .ha-back > .lgk-i { --is: 28px; }
-.ha-find { left: 1196px; top: 20px; width: 60px; height: 60px; --r: 50%; display: grid; place-items: center; }
+.ha-find { left: 1196px; top: 24px; width: 60px; height: 60px; --r: 50%; display: grid; place-items: center; }
 .ha-find > .lgk-i { --is: 27px; }
-/* the section control: a liquid capsule holding a segmented control (selected = white, D2 §7.10) */
-.ha-seg { top: 18px; height: 64px; padding: 4px; display: flex; gap: 4px; box-sizing: border-box; }
-.ha-seg > span { position: relative; display: inline-flex; align-items: center; justify-content: center; height: 56px; min-width: 140px; padding: 0 26px;
+/* the section control: a liquid plate holding a segmented control (PLAN §1.3, CTL §8.3, E-SEG).
+   Track 64 tall at y 22-86, padding 2; segments are contiguous (no dead gap between hit boxes, VP P-07),
+   60 tall and >= 140 wide; the visible fill is inset 2 px, so 4 px show between fills. Selected = the
+   white pill (D2 §7.10), which travels on `snappy` in the live build. */
+.ha-seg { top: 22px; height: 64px; padding: 2px; display: flex; gap: 0; box-sizing: border-box; }
+.ha-seg > span { position: relative; isolation: isolate; display: inline-flex; align-items: center; justify-content: center; height: 60px; min-width: 140px; padding: 0 28px;
   box-sizing: border-box; border-radius: 999px; font: 600 22px/1 var(--lg-font); color: var(--lg-text-1); white-space: nowrap; }
-.ha-seg > span.is-selected { box-shadow: 0 2px 6px rgb(0 0 0 / .22); }
-.ha-seg > span.is-focus::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: rgb(255 255 255 / .14);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / .35); pointer-events: none; }
-/* What's New: its own destination (a window route), so a capsule button, not a segment */
-.ha-wn { top: 20px; height: 60px; display: inline-flex; align-items: center; gap: 10px; padding: 0 24px 0 20px; box-sizing: border-box;
+.ha-seg > span.is-selected { background: transparent !important; box-shadow: none; }
+.ha-seg > span.is-selected::before { content: ""; position: absolute; inset: 2px; z-index: -1; border-radius: inherit; background: var(--lg-fill-selected);
+  box-shadow: 0 2px 6px rgb(0 0 0 / .22); }
+/* gamepad focus on an unselected segment: + white .28, a spot of .16 in the upper third, its own arc (PLAN §1.4) */
+.ha-seg > span.is-focus::after { content: ""; position: absolute; inset: 2px; border-radius: inherit; pointer-events: none; mix-blend-mode: plus-lighter;
+  background: radial-gradient(circle at 50% 30%, rgb(255 255 255 / .16) 0, rgb(255 255 255 / 0) 75%), rgb(255 255 255 / .28); }
+/* gamepad focus on the white (selected) segment: an outer glow, not a ring (VP P-16) */
+.ha-seg > span.is-selected.is-focus::after { display: none; }
+.ha-seg > span.is-selected.is-focus::before { box-shadow: 0 2px 6px rgb(0 0 0 / .22), 0 0 18px 2px rgb(255 255 255 / .30); }
+/* laser hover on a segment: + white .08 and the light spot at the pointer, drawn under the label */
+.ha-seg > span.is-hover::after { content: ""; position: absolute; inset: 2px; z-index: -1; border-radius: inherit; pointer-events: none;
+  background: radial-gradient(circle at var(--hx, 50%) var(--hy, 30%), rgb(255 255 255 / .12) 0, rgb(255 255 255 / 0) 75%), rgb(255 255 255 / .08); }
+/* What's New: its own destination (a window-full route), so a capsule button, not a segment */
+.ha-wn { top: 24px; height: 60px; display: inline-flex; align-items: center; gap: 10px; padding: 0 24px 0 20px; box-sizing: border-box;
   font: 600 22px/1 var(--lg-font); white-space: nowrap; }
 .ha-wn > .lgk-i { --is: 24px; }
 
@@ -55,7 +70,9 @@
   text-shadow: 0 1px 3px rgb(0 0 0 / .6), 0 0 12px rgb(0 0 0 / .4); transition: opacity .441s; }
 .ha-label .run { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--lg-green); margin-right: 8px; vertical-align: 1px; }
 
-/* ---- states */
+/* ---- states. A Home disc is a content card: its focus look is the lift (PLAN §1.4, VP P-19): x1.10,
+   a glow and a depth shadow sized for +15 mm (0.4 px y and 1.2 px blur per mm, VP P-48). Gamepad: at once.
+   Laser: brightness at once, the lift only after 80 ms of dwell (.lgs-dwell). */
 .ha-cell.is-focus { z-index: 6; }
 .ha-cell.is-focus .ha-disc { scale: 1.10; box-shadow: inset 0 0 6px -1px rgb(0 0 0 / .12), 0 6px 18px rgb(0 0 0 / .40), 0 0 26px 2px rgb(255 255 255 / .22); }
 .ha-cell.is-focus .ha-label { color: #fff; }
@@ -65,6 +82,7 @@
   background: rgb(0 0 0 / .55); color: #fff; --is: 22px; }
 .ha-cell .lgk-badge { z-index: 8; left: 134px; top: -6px; }
 .ha-cell.empty .ha-disc { opacity: .62; }
+.ha-cell.empty.is-focus .ha-disc { opacity: .86; }                /* still reads "empty", but the lift is visible */
 .ha-cell.empty .ha-label { color: rgb(255 255 255 / .62); }
 .ha-sub { position: absolute; left: 0; right: 0; top: 160px; text-align: center; font: 500 18px/22px var(--lg-font); color: rgb(255 255 255 / .62);
   text-shadow: 0 1px 3px rgb(0 0 0 / .6); }
@@ -86,10 +104,16 @@
 .ha-dots > i { width: 12px; height: 12px; border-radius: 50%; background: rgb(255 255 255 / .40); box-shadow: 0 1px 3px rgb(0 0 0 / .45); }
 .ha-dots > i.on { background: #fff; }
 
-/* ================================================================== the card (focus ramp)
-   A liquid glass plate 320 x 240, radius 36. Art inset 12 (radius 24, concentric). Actions on the art:
-   a green Play capsule and a More circle, centres 180 px apart (rule: >= 80). */
+/* ================================================================== the card (attention ramp, 0.8 s)
+   A liquid plate 320 x 240, radius 36. Art inset 12 (radius 24, concentric). Actions on the art:
+   a green Play capsule and a More circle, centres 180 px apart (rule: >= 80). Each action's hit element
+   is 80 px tall (80 x 80 for More), so the click-safe rule admits the card's +15 mm pop (PLAN §1.7 rule 2).
+   More uses the shell helper's look (PLAN §1.3, §1.11): 60 visible, black .38 + 10 px blur, white while
+   its menu is open. Glyph badges (X on Play, menu on More) show in gamepad mode only (VP P-26). */
 .ha-card { width: 320px; height: 240px; --r: 36px; z-index: 20; }
+/* text-bearing plates (card, name plate) sit darker, at L 70-90 under text (D2 §6.3, PLAN §1.6 tone): in native mode
+   through the plate's tint (data-lgs-plate-tint="text"), in the kit through a lower adaptation target */
+.lgk-glass.ha-card, .lgk-glass.ha-plate { --lgk-target-luma: .30; }
 .ha-card .ha-hero { position: absolute; left: 12px; top: 12px; width: 296px; height: 140px; border-radius: 24px; overflow: hidden; background: #15171c; }
 .ha-hero img.hero { inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .ha-hero img.logo { left: 50%; top: 31%; translate: -50% -50%; max-width: 62%; max-height: 40%; object-fit: contain;
@@ -99,7 +123,17 @@
 .ha-card .lgk-btn { position: absolute; z-index: 3; }
 .ha-card .play { left: 24px; top: 80px; height: 60px; padding: 0 26px 0 20px; gap: 8px; font: 600 22px/1 var(--lg-font); }
 .ha-card .play .lgk-i { --is: 22px; }
-.ha-card .more { left: 236px; top: 80px; --s: 60px; background: rgb(0 0 0 / .34); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+.ha-card .more { left: 236px; top: 80px; --s: 60px; background: rgb(0 0 0 / .38); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+.ha-card .more.is-selected { -webkit-backdrop-filter: none; backdrop-filter: none; }
+/* gamepad-mode glyph badges on the card (VP P-26, D2 §7.3): trailing inside Play; on More's lower-right edge */
+.ha-card .play .lgk-glyph { width: 30px; height: 30px; margin: 0 -12px 0 4px; font: 700 16px/1 var(--lg-font); background: rgb(255 255 255 / .26); color: #fff; }
+.ha-card .more .badge { position: absolute; right: -8px; bottom: -8px; z-index: 2; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+  background: rgb(44 46 54 / .92); color: #fff; box-shadow: 0 2px 6px rgb(0 0 0 / .35); }
+.ha-card .more .badge::before { content: ""; width: 13px; height: 2.4px; border-radius: 2px; background: currentColor;
+  box-shadow: 0 -4.6px 0 currentColor, 0 4.6px 0 currentColor; }
+/* hit boxes, drawn only in annotated mockups (body[data-hits]) */
+.ha-hit { position: absolute; z-index: 9; pointer-events: none; border-radius: 40px; outline: 2px dashed rgb(255 226 122 / .9); outline-offset: -2px; display: none; }
+body[data-hits] .ha-hit { display: block; }
 .ha-card .ttl { position: absolute; left: 24px; right: 24px; top: 162px; font: 700 24px/30px var(--lg-font); letter-spacing: -.01em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ha-card .sub { position: absolute; left: 24px; right: 24px; top: 194px; font: 500 18px/22px var(--lg-font); color: var(--lg-text-2); white-space: nowrap; }
@@ -117,6 +151,14 @@
 .ha-plate .n { font: 600 20px/1.2 var(--lg-font); color: #fff; white-space: nowrap; }
 .ha-plate .s { font: 500 18px/1.2 var(--lg-font); color: var(--lg-text-2); white-space: nowrap; }
 .ha-plate.two { height: 72px; }
+
+/* ================================================================== CSS-only plates (PLAN §1.2 windowless, T1; concept §10.5)
+   glassd off: Steam's page cannot see the room, so a plate is black .58 with a white .16 -> .04 gradient
+   plus the edge cues, never frost. The pointer proxy is native-mode only (PLAN §1.11, S16). */
+.lgk-view[data-tier="t1"] .lgk-overlay .lgk-glass[data-mat="liquid"] { -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+  background: linear-gradient(180deg, rgb(255 255 255 / .16), rgb(255 255 255 / .04) 55%), rgb(0 0 0 / .58) !important; }
+.lgk-view[data-tier="t1"] .lgk-overlay .ha-card .more { -webkit-backdrop-filter: blur(10px) !important; backdrop-filter: blur(10px) !important; }
+.lgk-view[data-tier="t1"] .wn-proxy { display: none; }
 
 /* annotation tags in the mockups (not UI) */
 .ha-note { position: absolute; z-index: 60; font: 600 15px/20px ui-monospace, Consolas, monospace; color: #10131a; background: #ffe27a; padding: 1px 7px; border-radius: 5px;
@@ -178,7 +220,8 @@
 .ha-poster img.port { inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .ha-poster.is-titlecard { display: grid; place-items: center; background: linear-gradient(160deg, #3b4a63, #1a2232); }
 .ha-poster.is-titlecard .tc { padding: 16px; text-align: center; font: 700 22px/1.2 var(--lg-font); }
-.ha-poster.is-lift { scale: 1.05; z-index: 5; box-shadow: 0 18px 44px rgb(0 0 0 / .48), 0 0 30px 2px rgb(255 255 255 / .16); }
+/* lift = x1.05 + a depth shadow sized for its +15 mm pop (VP P-48: 0.4 px y and 1.2 px blur per mm) + glow + sheen */
+.ha-poster.is-lift { scale: 1.05; z-index: 5; box-shadow: 0 6px 18px rgb(0 0 0 / .44), 0 0 30px 2px rgb(255 255 255 / .16); }
 .ha-poster.is-lift::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; mix-blend-mode: plus-lighter;
   background: linear-gradient(155deg, rgb(255 255 255 / .22) 0, rgb(255 255 255 / .05) 30%, transparent 55%); }
 .hl-cap { position: absolute; width: 220px; text-align: center; translate: -24px 0; }

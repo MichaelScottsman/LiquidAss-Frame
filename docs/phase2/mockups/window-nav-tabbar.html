@@ -18,17 +18,23 @@
   .thumb { width: 96px; height: 54px; border-radius: 12px; flex: none; }
   .two { display: flex; flex-direction: column; gap: 4px; }
   .key { position: absolute; left: 1460px; top: 860px; width: 420px; }
+  /* the state key: one expanded capsule of the tab bar (popup px x1.10) with each state on one row,
+     so rest, laser hover, current route and gamepad focus are compared over the same room (G-FOCUS) */
+  .statekey { left: 62px; top: 800px; }
+  .statekey .wn-tabcap { width: 272px; }
+  .keycap { left: 390px; top: 812px; width: 250px; box-sizing: border-box; }
 </style>
 </head>
 <body>
 <div class="lgk-view" data-room="lounge">
 
   <!-- gamepad focus entered the tab bar (D-pad Left at the page edge): the bar expands at once.
-       Downloads = the current route: a circle only. Store = gamepad focus: a pill across icon and label at +.30. -->
+       Downloads = the current route: the navigation selection (.18 + its arc) as a circle only.
+       Store = gamepad focus: a pill across icon and label at + .28, a .16 spot in the upper third, its own arc (PLAN §1.4). -->
   <div data-wn="tabbar" data-right="362" data-cy="426" data-sel="download" data-focus="store" data-expanded data-badge data-pitch="58"></div>
 
   <div class="lgk-overlay" style="left:380px; top:66px">
-    <div class="lgk-glass wn-win" data-mat="window" data-dz="0">
+    <div class="lgk-glass wn-win" data-mat="window" data-dz="0" data-id="window">
       <div data-wn="toolbar" data-back="root" data-title="Downloads" data-search="idle"></div>
 
       <div class="now">
@@ -59,7 +65,17 @@
   <div data-wn="bar" data-cx="1020" data-y="904"></div>
 
   <div class="wn-cap" style="left:380px; top:12px">Gamepad: <b>D-pad Left</b> at the page edge (or B at the root) expands the bar at once · <span class="m">laser: hover 0.5 s (Steam's timer)</span></div>
-  <div class="wn-cap key"><b>Focus</b> = a pill across icon and label, white +.30, its own specular arc. <b>Current route</b> = a .16 circle behind a heavier glyph, no pill. Shape differs, and &Delta;L &ge; 25 (AT-8b).</div>
+  <!-- state key (G-FOCUS, PLAN-1a-2): the same tab row in each state, over the same room -->
+  <div class="wn-cap keycap">State key, top to bottom: rest · laser hover (the spot only) · current route · gamepad focus</div>
+  <div class="lgk-pop wn-tabbar expanded statekey" style="--pop-scale:1.10; --p:58px; --d:50px" data-id="statekey">
+    <div class="lgk-glass wn-tabcap" data-mat="liquid" data-lens>
+      <div class="wn-tab" data-id="key-rest"><span class="ic"><i data-i="media"></i></span><span class="lbl">Media</span></div>
+      <div class="wn-tab is-hover" data-id="key-hover" style="--hx:12%;--hy:46%"><span class="ic"><i data-i="friends"></i></span><span class="lbl">Friends &amp; Chat</span></div>
+      <div class="wn-tab is-nav-selected" data-id="key-sel"><span class="ic"><i data-i="download"></i></span><span class="lbl">Downloads</span></div>
+      <div class="wn-tab is-focus" data-id="key-focus"><span class="ic"><i data-i="store"></i></span><span class="lbl">Store</span></div>
+    </div>
+  </div>
+  <div class="wn-cap key"><b>Focus</b> = a pill across icon and label, + .28, a .16 spot in the upper third and its own specular arc. <b>Current route</b> = the .18 selection circle with its arc, no pill. <b>Laser hover</b> on a tab = the light spot only. Criteria in §13.1 (AT-8b).</div>
 </div>
 <script src="window-nav-shared.js"></script>
 <script src="kit.js"></script>

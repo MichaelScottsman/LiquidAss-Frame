@@ -2,55 +2,39 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Glass Shell P2 — Power menu (thick glass, grouped, window dimmed)</title>
+<title>Glass Shell P2 — Power menu opened from Control Center (layout: window-nav §5.2, PLAN §1.12)</title>
 <link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="window-nav-shared.css">
 <link rel="stylesheet" href="control-center.css">
 <style>
-  /* Steam main window behind (as in _example.html, no menu open) */
-  .win { left: 0; top: 0; width: 1280px; height: 664px; }
-  .hdr-title { position: absolute; left: 40px; top: 25px; }
-  .hdr-sub { position: absolute; left: 42px; top: 82px; }
-  .hdr-search { position: absolute; left: 380px; top: 22px; width: 520px; }
-  .hdr-avatar { position: absolute; right: 24px; top: 24px; }
-  .tabs { position: absolute; left: 40px; top: 118px; }
-  .grid { position: absolute; left: 0; top: 206px; right: 0; bottom: 0; overflow: hidden; border-radius: 0 0 var(--lg-r-window) var(--lg-r-window);
-          -webkit-mask-image: linear-gradient(180deg, #000 0, #000 calc(100% - 120px), rgb(0 0 0 / .25) calc(100% - 36px), transparent 100%); }
+  .tabs { position: absolute; left: 40px; top: 120px; }
+  .tabs .n { font-weight: 500; color: var(--lg-text-2); margin-left: 2px; }
+  .tabs .is-selected .n { color: rgb(13 14 18 / .55); }
+  .grid { position: absolute; left: 0; top: 212px; right: 0; bottom: 0; }
   .grid .lgk-poster { width: 220px; height: 330px; }
-  .toolbar { left: 192px; top: 636px; width: 896px; }
+  .pm { left: 24px; top: 152px; width: 592px; }
+  .pm .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 8px; }
+  .pm .col { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .pm .sub { height: 34px; display: flex; align-items: flex-end; padding: 0 0 6px 18px; font: 600 18px/1 var(--lg-font); color: var(--lg-text-3); }
+  .pm .lgk-row { padding: 0 14px 0 16px; gap: 14px; }
+  .pm .cancel { margin-top: 12px; align-self: center; height: 56px; background: rgb(255 255 255 / .08); color: var(--lg-text-2); font-weight: 500; }
 </style>
 </head>
 <body>
+<!-- The Power circle in Control Center's Now tile closes Control Center (the page comes back as it was), then calls the same
+     SteamUIStore.OpenPowerMenu as the tab bar's Power. The menu itself is C1c's (window-nav §5.2, PLAN §1.12): 7 actions ->
+     two groups side by side, 592 x 464 px, anchored at the window's leading edge beside the Power tab (white while it is open);
+     no scrim for menus (PLAN §1.8); +10 mm, non-interactive, in native mode (PLAN §1.7). Six of seven rows are destructive:
+     red glyph and white label at rest, a red whole fill on focus with a DARK label (PLAN §1.12, CC §7). Steam's first focus is
+     unchanged (S6): here it has landed on Restart SteamVR, the case CC R7 worried about. Gamepad mode, no laser. -->
 <div class="lgk-view" data-room="lounge">
-
-  <!-- VR main menu as the tab-bar ornament (frame.menu; owned by the shell concept) -->
-  <div class="lgk-pop" style="left:212px; top:28px; --pop-scale:1.10" data-dz="25">
-    <div class="lgk-glass lgk-tabbar" data-mat="liquid" data-lens style="position:relative; --r:40px; --dz:25; gap:16px; padding:12px; width:80px; --lg-btn:56px">
-      <div class="lgk-tab"><i data-i="home"></i></div>
-      <div class="lgk-tab is-nav-selected" style="background:var(--lg-fill-nav)"><i data-i="library"></i></div>
-      <div class="lgk-tab"><i data-i="store"></i></div>
-      <div class="lgk-tab"><i data-i="friends"></i></div>
-      <div class="lgk-tab"><i data-i="media"></i></div>
-      <div class="lgk-tab"><i data-i="download"></i></div>
-    </div>
-    <div class="lgk-glass lgk-tabbar" data-mat="liquid" data-lens style="position:relative; margin-top:16px; --r:40px; --dz:25; gap:16px; padding:12px; width:80px; --lg-btn:56px">
-      <div class="lgk-tab"><i data-i="gear"></i></div>
-      <div class="lgk-tab"><i data-i="vr"></i></div>
-      <div class="lgk-tab is-selected" style="background:var(--lg-fill-selected); color:var(--lg-text-on-selected)"><i data-i="power"></i></div>
-    </div>
-  </div>
-
-  <!-- Steam's main window -->
+  <div data-wn="tabbar" data-right="302" data-cy="426" data-sel="library" data-open="power" data-pitch="58" data-badge></div>
   <div class="lgk-overlay" style="left:320px; top:66px">
-    <div class="lgk-glass win" data-mat="window" data-dz="0">
-      <div class="hdr-title t-large">Library</div>
-      <div class="hdr-sub t-subhead v2">350 games · 18 installed</div>
-      <div class="lgk-search hdr-search"><i data-i="search"></i><span class="ph">Search your library</span><span class="lgk-btn circle"><i data-i="mic"></i></span></div>
-      <div class="lgk-btn circle hdr-avatar lgk-art" data-art="avatar:2:B" style="background-size:cover"></div>
-      <div class="lgk-seg tabs"><span class="is-selected">All Games</span><span>Great on Frame</span><span>Ready to Play</span><span>Collections</span><span>Non-Steam</span></div>
-      <div class="grid">
+    <div class="lgk-glass wn-win" data-mat="window" data-dz="0">
+      <div class="grid wn-fade-bottom">
         <div class="lgk-poster lgk-art" data-art="poster:0:Starfall Drift" style="left:42px; top:0"></div>
         <div class="lgk-poster lgk-art" data-art="poster:1:Hollow Peaks" style="left:286px; top:0"></div>
-        <div class="lgk-poster lgk-art" data-art="poster:2:Neon Orchard" style="left:530px; top:0"></div>
+        <div class="lgk-poster lgk-art" data-art="poster:2:Neon Orchard" style="left:530px; top:0; opacity:.9"></div>
         <div class="lgk-poster lgk-art" data-art="poster:3:Tidebreaker" style="left:774px; top:0"></div>
         <div class="lgk-poster lgk-art" data-art="poster:4:Lumen Vale" style="left:1018px; top:0"></div>
         <div class="lgk-poster lgk-art" data-art="poster:8:Echo Station" style="left:42px; top:354px"></div>
@@ -59,48 +43,46 @@
         <div class="lgk-poster lgk-art" data-art="poster:5:Glasswing" style="left:774px; top:354px"></div>
         <div class="lgk-poster lgk-art" data-art="poster:9:Deep Field" style="left:1018px; top:354px"></div>
       </div>
+      <div data-wn="toolbar" data-back="root" data-title="Library" data-search="idle"></div>
+      <div class="lgk-seg tabs">
+        <span class="is-selected">All Games <span class="n t-num">350</span></span>
+        <span>Great on Frame <span class="n t-num">21</span></span>
+        <span>Ready to Play <span class="n t-num">68</span></span>
+        <span>Collections <span class="n t-num">9</span></span>
+        <span>Non-Steam <span class="n t-num">54</span></span>
+      </div>
     </div>
-    <div style="position:absolute; left:0; top:0; width:1280px; height:664px; border-radius:54px; background:rgb(0 0 0 / .35); z-index:5; pointer-events:none"></div>
-    <div class="lgk-glass lgk-toolbar toolbar" data-mat="liquid" data-lens style="--dz:25; filter:brightness(.62)" data-dz="25">
-      <span class="lgk-btn capsule plain"><i data-i="sort"></i>Recently Played<span class="lgk-glyph">Y</span></span>
-      <span class="lgk-btn capsule plain"><i data-i="filter"></i>Filter<span class="lgk-glyph">X</span></span>
-      <span class="lgk-seg compact" style="height:60px; background:rgb(0 0 0 / .22); margin-left:12px"><span class="is-selected">All</span><span>VR</span><span>Non-VR</span></span>
-      <span class="lgk-btn circle plain" style="margin-left:auto"><i data-i="more"></i></span>
+
+    <div class="lgk-glass wn-menu pm" data-mat="thick" data-lens style="--dz:10" data-dz="10" data-tier="C1c: T1 slab + 2-col grid + T2 anchor; native: +10 mm non-interactive pop">
+      <div class="hdr">Power</div>
+      <div class="cols">
+        <div class="col">
+          <div class="sub">This Device</div>
+          <div class="lgk-row"><span class="lead"><i data-i="moon"></i></span>Sleep</div>
+          <div class="lgk-row danger-glyph"><span class="lead"><i data-i="power"></i></span>Shutdown</div>
+          <div class="lgk-row danger-glyph"><span class="lead"><i data-i="restart"></i></span>Restart Device</div>
+          <div class="lgk-row danger-glyph cc-dark is-focus"><span class="lead"><i data-i="vr"></i></span>Restart SteamVR</div>
+        </div>
+        <div class="col">
+          <div class="sub">Steam</div>
+          <div class="lgk-row danger-glyph"><span class="lead"><i data-i="swap"></i></span>Change Account</div>
+          <div class="lgk-row danger-glyph"><span class="lead"><i data-i="signout"></i></span>Sign Out</div>
+          <div class="lgk-row danger-glyph"><span class="lead"><i data-i="restart"></i></span>Restart Steam</div>
+        </div>
+      </div>
+      <span class="lgk-btn capsule cancel">Cancel</span>
     </div>
+
+    <div class="cc-legend" data-legend='{"mode":"pad","items":[["A","Select"],["B","Cancel"]]}'></div>
+  </div>
+  <div class="lgk-pop" style="left:0; top:904px; width:1600px; display:flex; justify-content:center; --pop-scale:1.2">
+    <div class="bar2" data-bar='{"pill":{"state":"rest","batt":{"mode":"num","v":82},"badge":3}}'></div>
   </div>
 
-  <!-- ============ Power menu: Steam's context menu in the main window, thick glass at +30 mm (in-place interactive crop).
-       Rows 72 px, 4 px apart, groups 8 px apart (Steam's separators), title inside the slab. Window dimmed .35 (t1 tint). -->
-  <div class="lgk-overlay" style="left:320px; top:66px; z-index:6">
-    <div class="lgk-glass lgk-menu" data-mat="thick" data-lens style="left:420px; top:44px; width:440px; --dz:30; gap:4px; padding:8px">
-      <div class="hdr" style="height:44px; padding:0 18px">Power</div>
-      <div class="mrow is-hover is-focus" style="--hx:30%; --hy:46%"><span class="lead"><i data-i="sleep"></i></span>Sleep</div>
-      <div class="mrow"><span class="lead"><i data-i="power"></i></span>Shut Down</div>
-      <div class="mrow"><span class="lead"><i data-i="restart"></i></span>Restart Device</div>
-      <div class="mrow"><span class="lead"><i data-i="vr"></i></span>Restart SteamVR</div>
-      <div style="height:4px; flex:none"></div>
-      <div class="mrow"><span class="lead"><i data-i="swap"></i></span>Change Account</div>
-      <div class="mrow"><span class="lead"><i data-i="signout"></i></span>Sign Out</div>
-      <div class="mrow"><span class="lead"><i data-i="restart"></i></span>Restart Steam</div>
-      <div style="height:4px; flex:none"></div>
-      <div class="mrow" style="color:var(--lg-text-2)"><span class="lead"><i data-i="xmark"></i></span>Cancel</div>
-    </div>
-  </div>
-  <svg style="position:absolute; inset:0; width:1920px; height:1080px; pointer-events:none; z-index:40" viewBox="0 0 1920 1080">
-    <defs><linearGradient id="beam" x1="1" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".35" stop-color="#dbe8ff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity=".9"/></linearGradient></defs>
-    <polygon points="1660,1095 1672,1095 862,209 860,209" fill="url(#beam)" opacity=".5"/>
-  </svg>
-  <div class="lgk-laser-dot" style="left:861px; top:209px"></div>
-
-  <!-- the dashboard bar (revised: Home circle, apps capsule, system capsule) -->
-  <div class="lgk-pop" style="left:0; top:878px; width:1600px; display:flex; justify-content:center; --pop-scale:1.2">
-    <div class="bar2" data-bar='{"pill":{"batt":{"mode":"num","v":82}}}'></div>
-  </div>
-
-  <!-- SteamVR grab handle as the visionOS window bar -->
-  <div class="lgk-windowbar" style="left:870px; top:996px"></div>
-
+  <div class="wn-cap" style="left:1612px; top:150px; width:290px">Second entry point: Control Center's Power circle closes Control Center, then calls the same OpenPowerMenu as the tab bar's Power.</div>
+  <div class="wn-cap" style="left:1612px; top:300px; width:290px">Steam's first focus is kept (S6). Destructive rows: red glyph at rest; on focus a red whole fill with a dark label (PLAN §1.12).</div>
 </div>
+<script src="window-nav-shared.js"></script>
 <script src="control-center-build.js"></script>
 <script src="kit.js"></script>
 <script src="control-center-icons.js"></script>

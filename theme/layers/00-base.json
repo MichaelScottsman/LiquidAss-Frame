@@ -1,0 +1,83 @@
+{
+  "version": 2,
+  "about": [
+    "Phase 2 layer fragment 00 (P6): the surfaces. No layer rules here; areas add theirs in theme/layers/NN-name.json.",
+    "Contract: docs/phase2/contracts/reporter.md. Fragments merge in name order; a later fragment changes a surface's",
+    "cover, material, modes or modal only when it lists the surface in \"owns\".",
+    "main.modes: the glass mode C1a sets as data-lgs-glass on %{BasicUiRoot} (PLAN 1.2) -> main's cover shape in CSS px.",
+    "main.modal / bar...: Steam's open modals (admission rule 6: while one is open only modal rules pop)."
+  ],
+  "defaults": {
+    "material": "liquid",
+    "maxLayers": 20
+  },
+  "surfaces": {
+    "main": {
+      "key": "valve.steam.gamepadui.main",
+      "frameKey": "valve.steam.gamepadui.main",
+      "material": "window",
+      "cover": {
+        "sel": "%{BasicUiRoot}:not(:has(> %{MainNavMenuMainSplit} > %{BasicHome}%{PopupBody>TransparentBackground}))"
+      },
+      "modes": {
+        "attr": "data-lgs-glass",
+        "sel": "%{BasicUiRoot}",
+        "window": {
+          "h": 656,
+          "r": 54
+        },
+        "window-full": {
+          "h": 720,
+          "r": 54
+        },
+        "hero": {
+          "h": 720,
+          "r": 54
+        },
+        "windowless": {
+          "cover": false
+        }
+      },
+      "modal": "%{*BasicContextMenuModal>contextMenuContents}, %{*GamepadDialogContent>ModalPosition} > :not(%{*GamepadDialogContent>ModalClickToDismiss})",
+      "layers": []
+    },
+    "bar": {
+      "key": "valve.steam.gamepadui.bar",
+      "material": "liquid",
+      "cover": {
+        "sel": "%{PopupBody>DashboardBar} > %{BarSurface}",
+        "all": true,
+        "r": "capsule"
+      },
+      "layers": []
+    },
+    "barpopup": {
+      "keyPrefix": "valve.steam.gamepadui.barpopup.",
+      "material": "panel",
+      "cover": {
+        "sel": "%{DashboardBarPopupContents}, %{QuickAccessMenu}, %{DashboardMenu}%{Variant_TabMenu}",
+        "all": true
+      },
+      "layers": []
+    },
+    "frame.menu": {
+      "keyPrefix": "valve.steam.gamepadui.frame.menu.",
+      "frameKey": "valve.steam.gamepadui.main",
+      "laserOnly": true,
+      "material": "panel",
+      "cover": {
+        "sel": "%{DashboardMenu}%{Variant_FrameMenu}"
+      },
+      "layers": []
+    },
+    "floatingfooter": {
+      "key": "valve.steam.gamepadui.floatingfooter",
+      "material": "panel",
+      "cover": {
+        "sel": "#Footer%{BasicFooter}%{FloatingVRFooter}",
+        "r": "capsule"
+      },
+      "layers": []
+    }
+  }
+}

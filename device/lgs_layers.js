@@ -79,21 +79,52 @@
 // While the theme is off it pauses. It stops itself when the daemon's pings
 // stop; without pings (an older daemon), when the daemon's lgs-native
 // heartbeat goes stale or the theme stays off for 30 s.
+//
+// Phase 2 (v3, docs/phase2/contracts/reporter.md): the rules may also be a
+// list of fragments (theme/layers/NN-name.json, merged in name order, with
+// "owns" and "supersedes"); main's cover follows the glass mode C1a sets as
+// data-lgs-glass; [data-lgs-plate] elements are reported as plates and
+// [data-lgs-mosaic] as mosaic bands; rules with admission on go through the
+// depth plan's admission rules (PLAN 1.7: covered, click-safe cap snapped to
+// {10, 15, 25} mm, not over media, not destructive, containers only, modal
+// only, at most 4 depths) in the default or wearer profile; lifts key on
+// .gpfocus in gamepad mode and .lgs-dwell:hover in laser mode (P3); acks may
+// carry plates (data-lgs-plate-ack).
 (function lgsLayersInstall() {
   'use strict';
   const W = window;
-  const VERSION = 2;
+  const VERSION = 3;
   // The daemon's options are for this evaluation only: a later evaluation of
   // the bare file must not start with a binding nobody listens to.
   const OPTS = W.__LGS_LAYERS_OPTS;
   try { delete W.__LGS_LAYERS_OPTS; } catch (_) { W.__LGS_LAYERS_OPTS = undefined; }
-  if (W.__LGS_LAYERS && typeof W.__LGS_LAYERS.stop === 'function') {
-    try { W.__LGS_LAYERS.stop({ silent: true, keepGlobal: true }); } catch (_) { /* stale instance */ }
+  // tests install a second instance under another name (the daemon's stays)
+  const GLOBAL = OPTS && typeof OPTS.global === 'string' && /^__LGS_LAYERS\w*$/.test(OPTS.global) ? OPTS.global : '__LGS_LAYERS';
+  if (W[GLOBAL] && typeof W[GLOBAL].stop === 'function') {
+    try { W[GLOBAL].stop({ silent: true, keepGlobal: true }); } catch (_) { /* stale instance */ }
   }
 
   const ATTR_PREFIX = 'data-lgs';
   const DEFAULT_FOCUS = '.gpfocus, .gpfocuswithin';
   const MATERIALS = ['window', 'panel', 'liquid', 'thick'];
+  // Phase 2 (admission-on rules and plates)
+  const SLAB_MATERIALS = ['window', 'panel', 'liquid', 'thick', 'clear', 'none'];
+  const PLATE_MATERIALS = ['window', 'panel', 'liquid', 'thick', 'clear', 'dim'];
+  const MODES = ['window', 'window-full', 'hero', 'windowless'];
+  const ALLOWED_MM = [10, 15, 25];   // the depth set at rest (PLAN 1.7 rule 7; 0 = no pop)
+  const CLICK_SAFE = 0.000521;       // units per CSS px of the smallest target (rule 2)
+  const MIN_CONTAINER = 60;          // CSS px (rule 5)
+  const MIN_CAPSULE_H = 44;          // CSS px (rule 5, capsules)
+  const MIN_VISIBLE_TARGET = 8;      // CSS px of a focusable visible in the crop (rule 2)
+  const MAX_PLATES = 32;             // per surface (glassd G1)
+  const MAX_DEPTHS = 4;              // distinct dz at rest per surface, 0 included (rule 7)
+  const COVER_TOL = 2;               // texture px (rule 1)
+  const DEFAULT_S = 0.369;           // dashboard scale (SP 1.1) without P8's geometry
+  const DEFAULT_FOCUSABLES = '.Focusable, button, [role="button"], a[href], input, select, textarea, '
+    + '[tabindex]:not([tabindex="-1"]), .gpfocus, .gpfocuswithin';
+  const TINTS = { green: 'rgb(48 209 88)', blue: 'rgb(10 132 255)' };
+  const ID_RE = /^[A-Za-z0-9_.:-]{1,64}$/;
+  const COLOR_RE = /^[#a-zA-Z0-9(),.%\s/-]{1,64}$/;
   const POLL_MS = 500;          // dashboard state, window list, liveness, stalled-frame watchdog
   const RESAMPLE_EVERY = 4;     // safety re-measure every N polls (2 s)
   const DEEP_EVERY = 5;         // every Nth resample also re-queries and re-hit-tests (10 s)
@@ -167,17 +198,125 @@
 
   function material(m, fallback) { return MATERIALS.includes(m) ? m : fallback; }
 
-  function compile(cfg) {
+  // ------------------------------------------------------------ fragments
+
+  // The configuration as a list of fragments: Phase 1's layers.json object
+  // is one legacy fragment (admission off); a v2 fragment object is a list of
+  // one; a list is taken as is (P8 passes theme/layers/*.json in name order).
+  function fragmentsOf(cfg) {
     if (typeof cfg === 'string') cfg = JSON.parse(cfg);
+    if (Array.isArray(cfg)) return cfg.filter((f) => f && typeof f === 'object');
+    if (cfg && typeof cfg === 'object' && Array.isArray(cfg.fragments)) return cfg.fragments.filter((f) => f && typeof f === 'object');
     if (!cfg || typeof cfg !== 'object' || !cfg.surfaces) throw new Error('lgs_layers: rules need a "surfaces" object');
+    if (+cfg.version >= 2) return [cfg];
+    return [Object.assign({ file: 'layers.json', admission: false }, cfg)];
+  }
+
+  const SURFACE_FIELDS = ['key', 'keyPrefix', 'cover', 'material', 'modes', 'modal', 'frameKey', 'laserOnly',
+    'docVisibility', 'maxLayers', 'coverMm', 'coverDz', 'space', 'enabled'];
+
+  // Merge fragments in order: the first fragment that names a surface defines
+  // it; a later one changes its fields only when it "owns" it. Rules are
+  // appended; "supersedes" drops other fragments' rules by id.
+  function mergeFragments(frags, errs) {
+    const surfaces = new Map(); // name -> {def: {...fields}, defFile, maxDefault, rules: [{rc, frag}]}
+    const sup = [];             // [{file, surface|null, id}]
+    const fragInfo = [];
+    frags.forEach((fr, fi) => {
+      const file = String(fr.file || fr.name || 'fragment' + fi);
+      const owns = Array.isArray(fr.owns) ? fr.owns.map(String) : [];
+      const meta = {
+        file,
+        admission: fr.admission !== false,
+        defaults: fr.defaults && typeof fr.defaults === 'object' ? fr.defaults : {},
+      };
+      fragInfo.push({ file, admission: meta.admission, owns, supersedes: Array.isArray(fr.supersedes) ? fr.supersedes.slice(0, 200) : [] });
+      for (const id of Array.isArray(fr.supersedes) ? fr.supersedes : []) {
+        // "main.footer" names one surface's rule; a bare id any surface's
+        sup.push({ file, raw: String(id) });
+      }
+      const sfs = fr.surfaces && typeof fr.surfaces === 'object' ? fr.surfaces : {};
+      for (const name of Object.keys(sfs)) {
+        const sc = sfs[name];
+        if (!sc || typeof sc !== 'object') { errs.push(file + ': surface ' + name + ' is not an object'); continue; }
+        let ent = surfaces.get(name);
+        if (!ent) {
+          ent = { def: {}, defFile: file, maxDefault: +meta.defaults.maxLayers || 0, rules: [] };
+          for (const k of SURFACE_FIELDS) if (sc[k] !== undefined) ent.def[k] = sc[k];
+          surfaces.set(name, ent);
+        } else {
+          const set = SURFACE_FIELDS.filter((k) => sc[k] !== undefined);
+          if (set.length) {
+            if (owns.includes(name)) {
+              for (const k of set) ent.def[k] = sc[k];
+              if (+meta.defaults.maxLayers) ent.maxDefault = +meta.defaults.maxLayers;
+            } else {
+              errs.push(file + ': ' + name + '.' + set.join(', ') + ' ignored (defined by ' + ent.defFile + '; list "' + name + '" in "owns")');
+            }
+          }
+        }
+        if (Array.isArray(sc.layers)) for (const rc of sc.layers) ent.rules.push({ rc, frag: meta });
+        else if (sc.layers !== undefined) errs.push(file + ': ' + name + '.layers is not a list');
+      }
+    });
+    // supersedes: drop other fragments' rules by id ("id" or "surface.id")
+    const dropped = [];
+    for (const [name, ent] of surfaces) {
+      ent.rules = ent.rules.filter(({ rc, frag }) => {
+        const id = String(rc && rc.id || '');
+        if (!id) return true;
+        const hit = sup.find((x) => x.file !== frag.file && (x.raw === id || x.raw === name + '.' + id));
+        if (hit) { dropped.push(name + '.' + id + ' (by ' + hit.file + ')'); return false; }
+        return true;
+      });
+    }
+    return { surfaces, dropped, fragments: fragInfo };
+  }
+
+  function mmOrUnits(mm, units) {
+    if (mm !== undefined && mm !== null && mm !== '') {
+      const v = +mm;
+      return Number.isFinite(v) ? { mm: v } : null;
+    }
+    const u = +units || 0;
+    return { units: u };
+  }
+
+  function colorOf(c) {
+    if (c === undefined || c === null || c === '') return null;
+    if (typeof c === 'string' && TINTS[c]) return TINTS[c];
+    if (c === 'auto' || c === 'scrim') return c;
+    if (Array.isArray(c) && c.length >= 3) {
+      const v = c.map((x) => +x);
+      if (v.some((x) => !Number.isFinite(x))) return null;
+      return 'rgba(' + [0, 1, 2].map((i) => Math.round(Math.max(0, Math.min(1, v[i])) * 255)).join(', ') + ', ' + (v.length > 3 ? Math.max(0, Math.min(1, v[3])) : 1) + ')';
+    }
+    return typeof c === 'string' && COLOR_RE.test(c) ? c : null;
+  }
+
+  function holeOf(h, errs, where) {
+    if (h === undefined || h === null || h === false) return null;
+    if (h === true) return true;
+    if (typeof h !== 'object') { errs.push(where + '.hole: true or an object'); return null; }
+    const o = {};
+    for (const k of ['shadow', 'y', 'blur']) if (Number.isFinite(+h[k]) && h[k] !== null && h[k] !== '') o[k] = +h[k];
+    if (h.fill !== undefined) {
+      const f = h.fill === 'scrim' ? 'rgba(0, 0, 0, 0.35)' : colorOf(h.fill);
+      if (f) o.fill = f; else errs.push(where + '.hole.fill: not a colour');
+    }
+    return Object.keys(o).length ? o : true;
+  }
+
+  function compile(cfg) {
+    const frags = fragmentsOf(cfg);
     const index = getIndex();
     if (!index) return null; // no token index yet (theme off): caller waits
     const errs = [];
-    const defaults = cfg.defaults || {};
+    const merged = mergeFragments(frags, errs);
     const out = [];
-    for (const name of Object.keys(cfg.surfaces)) {
-      const sc = cfg.surfaces[name];
-      if (!sc || sc.enabled === false) continue;
+    for (const [name, ent] of merged.surfaces) {
+      const sc = ent.def;
+      if (sc.enabled === false) continue;
       const s = {
         name,
         key: sc.key || null,
@@ -186,8 +325,12 @@
         frameKey: sc.frameKey || null,
         laserOnly: !!sc.laserOnly,
         docVisibility: sc.docVisibility !== false,
-        maxLayers: Math.max(0, Math.min(+sc.maxLayers || +defaults.maxLayers || 20, MAX_LAYERS)),
+        maxLayers: Math.max(0, Math.min(+sc.maxLayers || ent.maxDefault || 20, MAX_LAYERS)),
+        space: sc.space === 'bar' || sc.space === 'main' ? sc.space : (sc.key === 'valve.steam.gamepadui.main' ? 'main' : 'bar'),
         cover: null,
+        modes: null,
+        modal: null,
+        coverDz: null,
         rules: [],
       };
       if (!s.key && !s.keyPrefix) { errs.push(name + ': needs "key" or "keyPrefix"'); continue; }
@@ -195,34 +338,106 @@
       const csel = resolveSel(c.sel, index, errs, name + '.cover');
       if (!csel) { errs.push(name + ': no usable cover, surface skipped'); continue; }
       s.cover = { sel: csel, pseudo: pseudoOf(c.pseudo), r: c.r, inset: insetOf(c.inset, c.outset), all: !!c.all };
-      (sc.layers || []).forEach((rc, i) => {
+      if (sc.modes && typeof sc.modes === 'object') {
+        const m = sc.modes;
+        const msel = m.sel ? resolveSel(m.sel, index, errs, name + '.modes.sel') : null;
+        const shapes = {};
+        for (const k of MODES) {
+          const v = m[k];
+          if (!v || typeof v !== 'object') continue;
+          shapes[k] = v.cover === false ? { none: true } : { h: +v.h > 0 ? +v.h : null, r: Number.isFinite(+v.r) && v.r !== null ? +v.r : null };
+        }
+        s.modes = { attr: typeof m.attr === 'string' && /^data-[a-z0-9-]+$/.test(m.attr) ? m.attr : 'data-lgs-glass', sel: msel, shapes };
+      }
+      if (sc.modal) s.modal = resolveSel(sc.modal, index, errs, name + '.modal');
+      if (sc.coverMm !== undefined || sc.coverDz !== undefined) s.coverDz = mmOrUnits(sc.coverMm, sc.coverDz);
+      const ids = new Set();
+      ent.rules.forEach(({ rc, frag }, i) => {
+        if (!rc || typeof rc !== 'object') return;
         const id = String(rc.id || 'layer' + i);
         const where = name + '.' + id;
+        if (ids.has(id)) { errs.push(where + ': duplicate id (' + frag.file + '), skipped'); return; }
+        ids.add(id);
         const sel = resolveSel(rc.sel, index, errs, where);
         if (!sel) return;
+        const adm = frag.admission && rc.admission !== false;
         let focus = null;
         if (rc.focus !== 'always') {
           focus = rc.focus ? resolveSel(rc.focus, index, errs, where + '.focus') : DEFAULT_FOCUS;
           if (!focus) return;
         }
-        const dz = +rc.dz || 0;
-        const lift = +rc.lift || 0;
-        if (!(dz > 0) && !(lift > 0)) { errs.push(where + ': needs dz or lift > 0'); return; }
-        s.rules.push({
-          id, sel, focus, dz, lift,
+        const fdef = frag.defaults || {};
+        const base = {
+          id, sel, focus,
           pseudo: pseudoOf(rc.pseudo),
           part: pseudoOf(rc.pseudo) ? pseudoOf(rc.pseudo).slice(2) : 'self',
           r: rc.r,
           inset: insetOf(rc.inset, rc.outset),
-          material: material(rc.material, material(defaults.material, 'liquid')),
           max: Math.max(1, Math.floor(+rc.max || 1)),
           hitTest: rc.hitTest !== false,
           clip: rc.clip !== false,
+          admission: adm,
+          file: frag.file,
+        };
+        if (!adm) {
+          // Phase 1 semantics, unchanged (99-legacy.json, layers.json)
+          const dz = +rc.dz || 0;
+          const lift = +rc.lift || 0;
+          if (!(dz > 0) && !(lift > 0)) { errs.push(where + ': needs dz or lift > 0'); return; }
+          s.rules.push(Object.assign(base, {
+            dz, lift,
+            material: material(rc.material, material(fdef.material, 'liquid')),
+          }));
+          return;
+        }
+        // Phase 2 rule
+        const slab = rc.slab !== undefined ? rc.slab : rc.material;
+        const r = Object.assign(base, {
+          depth: mmOrUnits(rc.mm, rc.dz),
+          lift: mmOrUnits(rc.liftMm, rc.lift),
+          when: rc.when === 'attended' ? 'attended' : 'always',
+          interactive: rc.interactive === true,
+          profile: rc.profile === 'default' || rc.profile === 'wearer' ? rc.profile : null,
+          wearer: null,
+          modal: rc.modal === true,
+          hole: holeOf(rc.hole, errs, where),
+          tint: rc.tint !== undefined ? colorOf(rc.tint) : null,
+          material: SLAB_MATERIALS.includes(slab) ? slab : (SLAB_MATERIALS.includes(fdef.material) ? fdef.material : 'liquid'),
+          exclude: rc.exclude ? resolveSel(rc.exclude, index, errs, where + '.exclude') : null,
+          media: rc.media === 'allow',
+          flag: typeof rc.flag === 'string' && rc.flag ? rc.flag : null,
+          from: rc.from === 'cut' ? 'cut' : (rc.fromMm !== undefined ? mmOrUnits(rc.fromMm, null) : (Number.isFinite(+rc.from) && rc.from !== null && rc.from !== '' ? { units: +rc.from } : null)),
+          sink: rc.sink === false ? false : null,
+          focusables: null,
         });
+        if (rc.exclude && !r.exclude) return;
+        if (rc.tint !== undefined && !r.tint) errs.push(where + '.tint: not a colour');
+        const fsel = rc.focusables || fdef.focusables;
+        r.focusables = fsel ? resolveSel(fsel, index, errs, where + '.focusables') : null;
+        if (rc.wearer && typeof rc.wearer === 'object') {
+          const w = rc.wearer;
+          r.wearer = {
+            depth: w.mm !== undefined || w.dz !== undefined ? mmOrUnits(w.mm, w.dz) : null,
+            lift: w.liftMm !== undefined || w.lift !== undefined ? mmOrUnits(w.liftMm, w.lift) : null,
+            when: w.when === 'attended' || w.when === 'always' ? w.when : null,
+            interactive: typeof w.interactive === 'boolean' ? w.interactive : null,
+          };
+        }
+        const d = r.depth;
+        const l = r.lift;
+        const pos = (v) => v && ((v.mm !== undefined && v.mm > 0) || (v.units !== undefined && v.units > 0));
+        if (!pos(d) && !pos(l) && !(r.wearer && (pos(r.wearer.depth) || pos(r.wearer.lift)))) {
+          errs.push(where + ': needs mm, dz, liftMm or lift > 0'); return;
+        }
+        if (d && d.mm !== undefined && d.mm > 0 && !ALLOWED_MM.includes(d.mm)) {
+          errs.push(where + ': mm ' + d.mm + ' is not in {' + ALLOWED_MM.join(', ') + '}; it snaps down');
+        }
+        s.rules.push(r);
       });
+      s.hasAdmission = s.rules.some((r) => r.admission);
       out.push(s);
     }
-    return { surfaces: out, errors: errs };
+    return { surfaces: out, errors: errs, fragments: merged.fragments, superseded: merged.dropped };
   }
 
   // ------------------------------------------------------------ Steam state
@@ -409,6 +624,20 @@
     return t !== undefined && now - t < SCROLL_SETTLE_MS;
   }
 
+  // attributes whose changes we measure again for (never our own outputs)
+  const INPUT_ATTRS = ['class', 'style', 'hidden', 'open', 'data-lgs-plate', 'data-lgs-plate-id',
+    'data-lgs-plate-phase', 'data-lgs-plate-appear', 'data-lgs-plate-tint', 'data-lgs-plate-fill',
+    'data-lgs-plate-occluder', 'data-lgs-plate-r', 'data-lgs-plate-inset', 'data-lgs-mosaic', 'data-lgs-nopop',
+    'data-lgs-destructive', 'data-lgs-media', 'data-lgs-window-dim', 'data-lgs-window-recede'];
+  const SPOT_RE = /--h[xy]\s*:[^;]*;?/g;
+
+  function spotOnly(r) {
+    if (r.type !== 'attributes' || r.attributeName !== 'style') return false;
+    let now = '';
+    try { now = r.target.getAttribute('style') || ''; } catch (_) { return false; }
+    return now.replace(SPOT_RE, '').trim() === (r.oldValue || '').replace(SPOT_RE, '').trim();
+  }
+
   function isPaintProp(p) {
     if (!p || p === 'all') return false;
     const k = p.startsWith('--') ? p : p.replace(/[A-Z]/g, (m) => '-' + m.toLowerCase());
@@ -447,7 +676,7 @@
       csw: new WeakMap(), psw: new WeakMap(), hit: new WeakMap(), settled: new WeakMap(),
       scrolling: new Map(), anims: new Map(), panims: new Map(),
       tailUntil: 0, full: null, cur: null, sig: null, lastIds: null,
-      attrPop: S.attrPrefix + '-pop', attrCover: S.attrPrefix + '-cover',
+      attrPop: S.attrPrefix + '-pop', attrCover: S.attrPrefix + '-cover', attrPlate: S.attrPrefix + '-plate-ack',
       applied: new Map(), hold: new Map(), keyAcked: false, nativeSince: 0,
       wakes: {}, computes: 0, computeMs: 0, lights: 0, changes: 0, queries: 0, hitTests: 0,
     };
@@ -521,8 +750,12 @@
     };
     ent.handler = handler;
     try {
-      ent.mo = new win.MutationObserver((records) => {
+      ent.mo = new win.MutationObserver((all) => {
         if (!S) return;
+        // P3's light spot rewrites --hx/--hy inline on every pointer move:
+        // that alone never moves anything
+        const records = all.filter((r) => !spotOnly(r));
+        if (!records.length) { bump('spot'); return; }
         // mutations inside a scrolling scroller (virtualized rows) wait for it
         if (ent.scrolling.size) {
           const act = activeScrollers(ent, performance.now());
@@ -539,7 +772,8 @@
       });
       ent.mo.observe(doc.documentElement, {
         subtree: true, childList: true, characterData: true,
-        attributes: true, attributeFilter: ['class', 'style', 'hidden', 'open'],
+        attributes: true, attributeOldValue: true,
+        attributeFilter: INPUT_ATTRS.concat(s.modes ? [s.modes.attr] : []),
       });
     } catch (_) { /* window closing */ }
     const add = (target, type) => {
@@ -844,7 +1078,7 @@
       if (now > rec.until || !T.isConnected) { ent.anims.delete(T); continue; }
       if (T === el || T.contains(el)) return true;
     }
-    if (part && part !== 'self' && part !== 'cover' && ent.panims.size) {
+    if (part && part !== 'self' && part !== 'cover' && part !== 'plate' && ent.panims.size) {
       const rec = ent.panims.get(pseudoKey(el, part));
       if (rec) {
         if (now <= rec.until && el.isConnected) return true;
@@ -894,6 +1128,57 @@
     return el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + (cls.length ? ' ' + cls.join(' ') : '');
   }
 
+  // ------------------------------------------------------------ runtime inputs (P1, P3, P8)
+
+  function rtObj() { try { return W.__LGS_RT || null; } catch (_) { return null; } }
+
+  // a runtime flag (opts.flags for tests, else P1's rt.flags)
+  function flagOn(name) {
+    if (S && S.optFlags && Object.prototype.hasOwnProperty.call(S.optFlags, name)) return !!S.optFlags[name];
+    const rt = rtObj();
+    try {
+      if (rt && rt.flags && typeof rt.flags.enabled === 'function') return !!rt.flags.enabled(name);
+    } catch (_) { /* no flags */ }
+    return false;
+  }
+
+  // wearer only while interactivePops is on (PLAN 1.7, S2)
+  function profileNow() {
+    if (S.optProfile) return S.optProfile;
+    return flagOn('interactivePops') ? 'wearer' : 'default';
+  }
+
+  // S and r for mm -> units (P8 publishes them as the bridge value "geom")
+  function geomNow() {
+    if (S.optGeom) return S.optGeom;
+    const rt = rtObj();
+    let g = null;
+    try { if (rt && rt.bridge && typeof rt.bridge.get === 'function') g = rt.bridge.get('geom'); } catch (_) { /* none */ }
+    if (g && +g.S > 0) return { S: +g.S, r: +g.r > 0 ? +g.r : 1, src: 'bridge' };
+    return { S: DEFAULT_S, r: 1, src: 'default' };
+  }
+
+  // {mm} or {units} -> scene units for this surface
+  function unitsOf(v, ctx) {
+    if (!v) return 0;
+    if (v.units !== undefined) return +v.units || 0;
+    const g = ctx.geom;
+    const per = ctx.ent.s.space === 'main' ? g.S * g.r : g.S;
+    return (+v.mm || 0) / (1000 * per);
+  }
+
+  function r4(v) { return Math.round(v * 10000) / 10000; }
+
+  // the largest allowed depth (PLAN 1.7 set) not above v; 0 when none
+  function snapDown(v, ctx) {
+    let best = 0;
+    for (const mm of ALLOWED_MM) {
+      const u = unitsOf({ mm }, ctx);
+      if (u <= v + 1e-6 && u > best) best = u;
+    }
+    return best;
+  }
+
   // ------------------------------------------------------------ per surface
 
   // element lists, cached until the DOM (classes, styles, nodes) changes
@@ -901,12 +1186,20 @@
     if (ent.q && ent.q.gen === ent.domGen) return ent.q;
     const a = performance.now();
     const s = ent.s;
-    const q = { gen: ent.domGen, cover: [], rules: new Map() };
-    try { q.cover = Array.from(ent.doc.querySelectorAll(s.cover.sel)); } catch (_) { /* window gone */ }
-    for (const rule of s.rules) {
-      let a = [];
-      try { a = Array.from(ent.doc.querySelectorAll(rule.sel)); } catch (_) { /* window gone */ }
-      q.rules.set(rule, a);
+    const q = { gen: ent.domGen, cover: [], rules: new Map(), modeEl: null, plates: [], mosaic: [], nopop: [], media: [], modal: [] };
+    const all = (sel) => { try { return Array.from(ent.doc.querySelectorAll(sel)); } catch (_) { return []; } };
+    q.cover = all(s.cover.sel);
+    for (const rule of s.rules) q.rules.set(rule, all(rule.sel));
+    if (s.modes) {
+      q.modeEl = q.cover.find((el) => el.hasAttribute(s.modes.attr)) || null;
+      if (!q.modeEl && s.modes.sel) { try { q.modeEl = ent.doc.querySelector(s.modes.sel); } catch (_) { /* gone */ } }
+    }
+    q.plates = all('[data-lgs-plate]');
+    q.mosaic = all('[data-lgs-mosaic]');
+    if (s.hasAdmission) {
+      q.nopop = all('[data-lgs-nopop]');
+      q.media = all('video, [data-lgs-media]');
+      if (s.modal) q.modal = all(s.modal);
     }
     ent.q = q;
     ent.queries++;
@@ -914,8 +1207,9 @@
     return q;
   }
 
-  // Full measurement of one window: {surface, kept, covers}. Layers in a
-  // scroller that is scrolling right now are left out ('scrolling').
+  // Full measurement of one window: {surface, kept, covers, plateEls,
+  // warnings}. Layers in a scroller that is scrolling right now are left out
+  // ('scrolling').
   function computeEntry(ent, why) {
     const s = ent.s;
     const win = ent.win;
@@ -930,12 +1224,12 @@
       vw = win.innerWidth;
       vh = win.innerHeight;
     } catch (_) {
-      return { surface: blank(ent, 0, 0), kept: [], covers: [] };
+      return { surface: blank(ent, 0, 0), kept: [], covers: [], plateEls: [], warnings: [] };
     }
     const texW = Math.round(vw * dpr);
     const texH = Math.round(vh * dpr);
     const surface = blank(ent, texW, texH);
-    const out = { surface, kept: [], covers: [] };
+    const out = { surface, kept: [], covers: [], plateEls: [], warnings: [], windowReq: null };
     const off = (reason) => {
       if (why) why.push({ surface: reason });
       return out;
@@ -946,37 +1240,123 @@
       const g = gamepadNav();
       if (g !== false) return off(g === null ? 'input mode unknown yet (laser-only surface)' : 'controller navigation (laser-only surface)');
     }
-    const ctx = { ent, win, doc, dpr, vw, vh, texW, texH, now, held: 0 };
+    const ctx = { ent, win, doc, dpr, vw, vh, texW, texH, now, held: 0, geom: S.geom, profile: S.profile };
     const q = queries(ent);
 
-    // the cover: the first match, or (cover.all) every outermost match
-    const shapes = [];
-    for (const el of q.cover) {
-      if (shapes.length && !s.cover.all) break;
-      if (s.cover.all && q.cover.some((o) => o !== el && o.contains(el))) {
-        if (why) why.push({ cover: describe(el), skip: 'inside another cover' });
-        continue;
-      }
-      const b = measure(ctx, el, s.cover, false, true);
-      if (b.skip) { if (why) why.push({ cover: describe(el), skip: b.skip }); continue; }
-      let t = toTex(b, ctx);
-      if (!t) { if (why) why.push({ cover: describe(el), skip: 'too small' }); continue; }
-      t = settleCover(ctx, el, t);
-      if (!t) { if (why) why.push({ cover: describe(el), skip: 'animating (new)' }); continue; }
-      shapes.push(t);
-      out.covers.push(el);
-      if (why) why.push({ cover: describe(el), ok: t });
+    // glass mode (main): data-lgs-glass on %{BasicUiRoot} (C1a)
+    let mode = null;
+    const modeEl = q.modeEl;
+    if (s.modes && modeEl) {
+      const v = modeEl.getAttribute(s.modes.attr);
+      if (v && MODES.includes(v) && s.modes.shapes[v]) mode = v;
+      else if (v) out.warnings.push(s.name + ': unknown ' + s.modes.attr + '="' + String(v).slice(0, 24) + '" (Phase 1 cover)');
     }
-    if (!shapes.length) return off('no cover on screen');
+
+    const shapes = [];
+    if (mode) {
+      const sh = s.modes.shapes[mode];
+      if (!sh.none) {
+        const b = measure(ctx, modeEl, { pseudo: null, inset: null, r: sh.r !== null ? sh.r : undefined }, false, true);
+        if (b.skip) {
+          if (why) why.push({ cover: describe(modeEl), mode, skip: b.skip });
+        } else {
+          if (sh.h) {
+            const R = modeEl.getBoundingClientRect();
+            b.b = Math.min(b.b, R.top + sh.h);
+          }
+          let t = b.b - b.t > 1 ? toTex(b, ctx) : null;
+          if (t) t = settleShape(ctx, modeEl, t, 'cover');
+          if (t) {
+            shapes.push(t);
+            out.covers.push(modeEl);
+            if (why) why.push({ cover: describe(modeEl), mode, ok: t });
+          } else if (why) why.push({ cover: describe(modeEl), mode, skip: 'too small or animating (new)' });
+        }
+      } else if (why) why.push({ cover: describe(modeEl), mode, skip: 'windowless: plates only' });
+    } else {
+      // the cover: the first match, or (cover.all) every outermost match
+      for (const el of q.cover) {
+        if (shapes.length && !s.cover.all) break;
+        if (s.cover.all && q.cover.some((o) => o !== el && o.contains(el))) {
+          if (why) why.push({ cover: describe(el), skip: 'inside another cover' });
+          continue;
+        }
+        const b = measure(ctx, el, s.cover, false, true);
+        if (b.skip) { if (why) why.push({ cover: describe(el), skip: b.skip }); continue; }
+        let t = toTex(b, ctx);
+        if (!t) { if (why) why.push({ cover: describe(el), skip: 'too small' }); continue; }
+        t = settleShape(ctx, el, t, 'cover');
+        if (!t) { if (why) why.push({ cover: describe(el), skip: 'animating (new)' }); continue; }
+        shapes.push(t);
+        out.covers.push(el);
+        if (why) why.push({ cover: describe(el), ok: t });
+      }
+    }
+
+    // plates: [data-lgs-plate] (any mode, any surface)
+    const plates = [];
+    if (q.plates.length) {
+      const seen = new Set();
+      let n = 0;
+      for (const el of q.plates) {
+        const p = plateOf(ctx, el, n, seen, why);
+        if (!p) continue;
+        n++;
+        if (plates.length >= MAX_PLATES) { out.warnings.push(s.name + ': plate ' + p.id + ' dropped (more than ' + MAX_PLATES + ')'); continue; }
+        plates.push(p);
+        out.plateEls.push({ el, p, occ: el.getAttribute('data-lgs-plate-occluder') });
+      }
+    }
+
+    if (!shapes.length && !plates.length) return off(mode === 'windowless' ? 'windowless, no plates on screen' : 'no cover on screen');
     surface.visible = true;
-    surface.radius = shapes[0].r;
+    if (shapes.length) surface.radius = shapes[0].r;
+    else if (mode && s.modes.shapes.window && s.modes.shapes.window.r !== null) surface.radius = Math.round(s.modes.shapes.window.r * dpr);
     surface.shapes = shapes;
+    if (mode) surface.mode = mode;
+    if (s.coverDz) surface.coverDz = r4(unitsOf(s.coverDz, ctx));
+
+    // the window request (CC-A dim, sheet recede): main's <html> or the mode element
+    if (s.modes) {
+      let dim = null;
+      let rec = null;
+      for (const e of [doc.documentElement, modeEl]) {
+        if (!e) continue;
+        const d = e.getAttribute('data-lgs-window-dim');
+        if (d !== null && d !== '' && Number.isFinite(+d)) dim = Math.max(0, Math.min(1, +d));
+        const rr = e.getAttribute('data-lgs-window-recede');
+        if (rr !== null && rr !== '' && Number.isFinite(+rr)) rec = +rr;
+      }
+      if (dim !== null || rec !== null) {
+        out.windowReq = {};
+        if (dim !== null) out.windowReq.dim = dim;
+        if (rec !== null) out.windowReq.recede = r4(unitsOf({ mm: rec }, ctx));
+      }
+    }
+
+    // admission inputs (rules with admission on)
+    const adm = { modalOpen: false, nopop: [], media: [] };
+    if (s.hasAdmission) {
+      adm.nopop = boxes(ctx, q.nopop);
+      adm.media = boxes(ctx, q.media);
+      adm.modalOpen = q.modal.some((el) => !measure(ctx, el, {}, false, true).skip)
+        || s.rules.some((r) => r.admission && r.modal && (!r.flag || flagOn(r.flag)) && (q.rules.get(r) || []).some((el) => !measure(ctx, el, r, false, true).skip));
+    }
 
     for (const rule of s.rules) {
+      if (rule.admission) {
+        if (rule.flag && !flagOn(rule.flag)) { if (why) why.push({ rule: rule.id, skip: 'flag ' + rule.flag + ' off' }); continue; }
+        if (rule.profile && rule.profile !== ctx.profile) { if (why) why.push({ rule: rule.id, skip: 'profile ' + rule.profile + ' only' }); continue; }
+        if (adm.modalOpen && !rule.modal) {
+          if (why && (q.rules.get(rule) || []).length) why.push({ rule: rule.id, skip: 'rule6-modal (a modal is open)' });
+          continue;
+        }
+      }
       let n = 0;
       for (const el of q.rules.get(rule) || []) {
         if (n >= rule.max || out.kept.length >= s.maxLayers) break;
-        const r = candidate(ctx, rule, el, out.kept, shapes, n);
+        const r = rule.admission ? candidateV3(ctx, rule, el, out.kept, shapes, plates, n, adm)
+          : candidate(ctx, rule, el, out.kept, shapes, n);
         if (why) why.push(Object.assign({ rule: rule.id, el: describe(el) }, r.skip ? { skip: r.skip } : { ok: r.layer }));
         if (r.skip) continue;
         out.kept.push(r);
@@ -984,26 +1364,114 @@
       }
     }
     surface.layers = out.kept.map((k) => k.layer);
+
+    // plates under a pop read as its shadow (HA 10.2), unless told otherwise
+    if (plates.length) {
+      for (const pe of out.plateEls) {
+        const p = pe.p;
+        if (pe.occ === 'true' || (pe.occ !== 'false' && out.kept.some((k) => overlaps(k.t, p)))) p.occluder = true;
+      }
+      surface.plates = plates;
+    }
+    const bands = mosaicOf(ctx, q, mode, plates);
+    if (bands) surface.mosaic = bands;
+
+    // rule 7: at most 4 distinct depths at rest (0 counts)
+    const depths = new Set([0]);
+    for (const k of out.kept) if (k.admission) depths.add(k.layer.dz);
+    if (depths.size > MAX_DEPTHS) {
+      out.warnings.push(s.name + ': ' + depths.size + ' distinct depths (max ' + MAX_DEPTHS + '): ' + [...depths].sort((a, b) => a - b).join(', '));
+    }
     out.held = ctx.held;
     return out;
   }
 
-  // An animating cover keeps its last settled shape, updated at most every
-  // COVER_FOLLOW_MS; a new cover waits until it settles (a materializing
+  // visible boxes of elements, in texture px
+  function boxes(ctx, els) {
+    const out = [];
+    for (const el of els) {
+      const b = measure(ctx, el, {}, false, true);
+      if (b.skip) continue;
+      const t = toTex(b, ctx);
+      if (t) out.push(t);
+    }
+    return out;
+  }
+
+  // One [data-lgs-plate] element as a plate, or null.
+  function plateOf(ctx, el, n, seen, why) {
+    const mat0 = el.getAttribute('data-lgs-plate') || '';
+    const mat = PLATE_MATERIALS.includes(mat0) ? mat0 : 'liquid';
+    const rA = el.getAttribute('data-lgs-plate-r');
+    const iA = el.getAttribute('data-lgs-plate-inset');
+    const spec = {
+      pseudo: null,
+      inset: iA !== null && iA !== '' && Number.isFinite(+iA) ? insetOf(+iA) : null,
+      r: rA === 'capsule' ? 'capsule' : (rA !== null && rA !== '' && Number.isFinite(+rA) ? +rA : undefined),
+    };
+    let id = el.getAttribute('data-lgs-plate-id');
+    if (!id || !ID_RE.test(id)) id = 'p' + n;
+    while (seen.has(id)) id += '~';
+    seen.add(id);
+    const b = measure(ctx, el, spec, false, true);
+    if (b.skip) { if (why) why.push({ plate: id, el: describe(el), skip: b.skip }); return null; }
+    let t = toTex(b, ctx);
+    if (!t) { if (why) why.push({ plate: id, el: describe(el), skip: 'too small' }); return null; }
+    t = settleShape(ctx, el, t, 'plate');
+    if (!t) { if (why) why.push({ plate: id, el: describe(el), skip: 'animating (new)' }); return null; }
+    const p = { id, x: t.x, y: t.y, w: t.w, h: t.h, r: t.r, material: mat };
+    const ph = el.getAttribute('data-lgs-plate-phase');
+    if (ph !== null && ph !== '' && Number.isFinite(+ph)) p.phase = Math.max(0, Math.min(1, +ph));
+    const ap = el.getAttribute('data-lgs-plate-appear');
+    if (ap === 'materialize' || ap === 'dematerialize') p.appear = ap;
+    const tint = colorOf(el.getAttribute('data-lgs-plate-tint'));
+    if (tint && tint !== 'auto' && tint !== 'scrim') p.tint = tint;
+    const fill = el.getAttribute('data-lgs-plate-fill') === 'scrim' ? 'rgba(0, 0, 0, 0.35)' : colorOf(el.getAttribute('data-lgs-plate-fill'));
+    if (fill && fill !== 'auto' && fill !== 'scrim') p.fill = fill;
+    if (why) why.push({ plate: id, el: describe(el), ok: p });
+    return p;
+  }
+
+  // mosaic bands: [data-lgs-mosaic] boxes; in windowless mode without any,
+  // plates whose vertical spans overlap merged into one band (+2 px)
+  function mosaicOf(ctx, q, mode, plates) {
+    if (q.mosaic.length) {
+      return boxes(ctx, q.mosaic).map((t) => ({ x: t.x, y: t.y, w: t.w, h: t.h }));
+    }
+    if (mode !== 'windowless' || !plates.length) return null;
+    const list = plates.map((p) => ({ x0: p.x, y0: p.y, x1: p.x + p.w, y1: p.y + p.h })).sort((a, b) => a.y0 - b.y0);
+    const bands = [];
+    for (const p of list) {
+      const last = bands[bands.length - 1];
+      if (last && p.y0 <= last.y1) {
+        last.x0 = Math.min(last.x0, p.x0);
+        last.x1 = Math.max(last.x1, p.x1);
+        last.y1 = Math.max(last.y1, p.y1);
+      } else bands.push(Object.assign({}, p));
+    }
+    return bands.map((b) => {
+      const x = Math.max(0, b.x0 - 2);
+      const y = Math.max(0, b.y0 - 2);
+      return { x, y, w: Math.min(ctx.texW, b.x1 + 2) - x, h: Math.min(ctx.texH, b.y1 + 2) - y };
+    });
+  }
+
+  // An animating cover or plate keeps its last settled shape, updated at most
+  // every COVER_FOLLOW_MS; a new one waits until it settles (a materializing
   // popup), so glassd re-renders its shape a few times, not every frame.
-  function settleCover(ctx, el, t) {
+  function settleShape(ctx, el, t, key) {
     const ent = ctx.ent;
     let m = ent.settled.get(el);
     if (!m) ent.settled.set(el, m = {});
-    const prev = m.cover;
-    if (!animating(ent, el, ctx.now, 'cover')) {
-      m.cover = Object.assign({ at: ctx.now }, t);
+    const prev = m[key];
+    if (!animating(ent, el, ctx.now, key)) {
+      m[key] = Object.assign({ at: ctx.now }, t);
       return t;
     }
     if (!prev) return null;
     ctx.held++;
-    if (ctx.now - prev.at >= COVER_FOLLOW_MS) m.cover = Object.assign({ at: ctx.now }, t);
-    const c = m.cover;
+    if (ctx.now - prev.at >= COVER_FOLLOW_MS) m[key] = Object.assign({ at: ctx.now }, t);
+    const c = m[key];
     return { x: c.x, y: c.y, w: c.w, h: c.h, r: c.r };
   }
 
@@ -1014,6 +1482,7 @@
     };
   }
 
+  // Phase 1 candidate (admission off: 99-legacy.json, layers.json)
   function candidate(ctx, rule, el, kept, shapes, slot) {
     const ent = ctx.ent;
     for (const k of kept) if (k.el === el && k.part === rule.part) return { skip: 'already popped' };
@@ -1032,24 +1501,177 @@
     if (!shape) return { skip: 'outside the cover' };
     t = intersectTex(t, shape);
     if (!t) return { skip: 'outside the cover' };
-    // the slab size changes only once the element has settled
-    let m = ent.settled.get(el);
-    if (!m) ent.settled.set(el, m = {});
-    if (!animating(ent, el, ctx.now, rule.part)) {
-      m[rule.part] = { w: t.w, h: t.h, r: t.r };
-    } else {
-      const p = m[rule.part];
-      if (!p) return { skip: 'animating (new)' };
-      ctx.held++;
-      t = { x: Math.round(t.x + t.w / 2 - p.w / 2), y: Math.round(t.y + t.h / 2 - p.h / 2), w: p.w, h: p.h, r: p.r };
-    }
+    t = settleSize(ctx, el, rule, t);
+    if (!t) return { skip: 'animating (new)' };
     // same rule as the daemon: popped rects never overlap
     for (const k of kept) if (overlaps(t, k.t)) return { skip: 'overlaps ' + k.layer.id };
     const id = slot === 0 ? rule.id : rule.id + '.' + slot;
     return {
-      el, part: rule.part, t, scrollers: b.scrollers,
+      el, part: rule.part, t, scrollers: b.scrollers, admission: false,
       layer: { id, x: t.x, y: t.y, w: t.w, h: t.h, r: t.r, dz: Math.round(dz * 10000) / 10000, material: rule.material },
     };
+  }
+
+  // the slab size changes only once the element has settled
+  function settleSize(ctx, el, rule, t) {
+    const ent = ctx.ent;
+    let m = ent.settled.get(el);
+    if (!m) ent.settled.set(el, m = {});
+    if (!animating(ent, el, ctx.now, rule.part)) {
+      m[rule.part] = { w: t.w, h: t.h, r: t.r };
+      return t;
+    }
+    const p = m[rule.part];
+    if (!p) return null;
+    ctx.held++;
+    return { x: Math.round(t.x + t.w / 2 - p.w / 2), y: Math.round(t.y + t.h / 2 - p.h / 2), w: p.w, h: p.h, r: p.r };
+  }
+
+  // Is the element attended (PLAN 1.4)? Gamepad: focused (.gpfocus). Laser
+  // (P3's html.lgs-input-laser): dwelt on, .lgs-dwell:hover on it, inside it
+  // or around it. Without P3's classes: Phase 1 (.gpfocus).
+  function attended(ent, el, rule) {
+    let html;
+    try { html = ent.doc.documentElement; } catch (_) { return false; }
+    try {
+      if (html.classList.contains('lgs-input-laser')) {
+        if (el.matches('.lgs-dwell:hover') || el.querySelector('.lgs-dwell:hover')) return true;
+        const d = el.closest('.lgs-dwell');
+        return !!(d && el.matches(':hover'));
+      }
+      return el.matches(rule.focus || DEFAULT_FOCUS);
+    } catch (_) { return false; }
+  }
+
+  function inputMode(ent) {
+    try {
+      const c = ent.doc.documentElement.classList;
+      return c.contains('lgs-input-laser') ? 'laser' : c.contains('lgs-input-pad') ? 'pad' : null;
+    } catch (_) { return null; }
+  }
+
+  // the rule's values in the live profile
+  function effective(rule, profile) {
+    const w = profile === 'wearer' && rule.wearer ? rule.wearer : null;
+    return {
+      depth: w && w.depth ? w.depth : rule.depth,
+      lift: w && w.lift ? w.lift : rule.lift,
+      when: w && w.when ? w.when : rule.when,
+      interactive: profile === 'wearer' && (w && w.interactive !== null ? w.interactive : rule.interactive),
+    };
+  }
+
+  // The shorter side (CSS px) of the smallest visible focusable that is the
+  // element or inside it and shows in the crop by >= 8 x 8 px; null if none.
+  function smallestTarget(ctx, el, rule, b) {
+    const F = rule.focusables || DEFAULT_FOCUSABLES;
+    let list;
+    try {
+      list = el.matches(F) ? [el] : [];
+      const inner = el.querySelectorAll(F);
+      for (let i = 0; i < inner.length && i < 300; i++) list.push(inner[i]);
+    } catch (_) { return null; }
+    let best = null;
+    for (const c of list) {
+      const R = c.getBoundingClientRect();
+      if (!(R.width >= 1 && R.height >= 1)) continue;
+      const ix = Math.min(R.right, b.r) - Math.max(R.left, b.l);
+      const iy = Math.min(R.bottom, b.b) - Math.max(R.top, b.t);
+      if (ix < MIN_VISIBLE_TARGET || iy < MIN_VISIBLE_TARGET) continue;
+      const st = cs(ctx.ent, c);
+      if (st.display === 'none' || st.visibility !== 'visible') continue;
+      const s = Math.min(R.width, R.height);
+      if (best === null || s < best) best = s;
+    }
+    return best === null ? null : Math.round(best * 10) / 10;
+  }
+
+  // the cover shape or plate that contains t (within COVER_TOL)
+  function containerOf(t, shapes, plates) {
+    const inside = (c) => t.x >= c.x - COVER_TOL && t.y >= c.y - COVER_TOL
+      && t.x + t.w <= c.x + c.w + COVER_TOL && t.y + t.h <= c.y + c.h + COVER_TOL;
+    for (const c of shapes) if (inside(c)) return c;
+    for (const c of plates) if (inside(c)) return c;
+    return null;
+  }
+
+  function isDestructive(el) {
+    try { return el.matches('[data-lgs-destructive]') || !!el.querySelector('[data-lgs-destructive]'); } catch (_) { return false; }
+  }
+
+  // a saturated computed background colour of the element, or null
+  function autoTint(ent, el) {
+    let c;
+    try { c = cs(ent, el).backgroundColor; } catch (_) { return null; }
+    const m = /rgba?\(([\d.]+),?\s*([\d.]+),?\s*([\d.]+)(?:\s*[,/]\s*([\d.]+))?/.exec(c || '');
+    if (!m) return null;
+    const v = [+m[1], +m[2], +m[3]];
+    const a = m[4] === undefined ? 1 : +m[4];
+    const mx = Math.max(...v);
+    const mn = Math.min(...v);
+    if (a < 0.5 || mx < 40 || (mx - mn) / mx < 0.25) return null;
+    return 'rgb(' + v.map(Math.round).join(' ') + ')';
+  }
+
+  // Phase 2 candidate: the admission rules of PLAN 1.7 (contract section 4).
+  function candidateV3(ctx, rule, el, kept, shapes, plates, slot, adm) {
+    const ent = ctx.ent;
+    for (const k of kept) if (k.el === el && k.part === rule.part) return { skip: 'already popped' };
+    const eff = effective(rule, ctx.profile);
+    const liftU = unitsOf(eff.lift, ctx);
+    const att = eff.when === 'attended' || liftU > 0 ? attended(ent, el, rule) : false;
+    if (eff.when === 'attended' && !att) return { skip: 'not attended' };
+    const want = unitsOf(eff.depth, ctx) + (att ? liftU : 0);
+    if (!(want > 0)) return { skip: 'no depth' };
+    if (isDestructive(el)) return { skip: 'rule4-destructive' };
+    if (rule.exclude) {
+      try { if (el.matches(rule.exclude) || el.querySelector(rule.exclude)) return { skip: 'exclude' }; } catch (_) { /* bad selector */ }
+    }
+    const b = measure(ctx, el, rule, rule.hitTest, rule.clip);
+    if (b.skip) return b;
+    if (b.scrollers.some((sc) => isScrolling(ent, sc, ctx.now))) return { skip: 'rule6-scrolling' };
+    let t = toTex(b, ctx);
+    if (!t) return { skip: 'too small' };
+    // rule 5: containers only
+    const wc = t.w / ctx.dpr;
+    const hc = t.h / ctx.dpr;
+    const big = wc >= MIN_CONTAINER - 0.5 && hc >= MIN_CONTAINER - 0.5;
+    const capsule = rule.r === 'capsule' && hc >= MIN_CAPSULE_H - 0.5 && wc >= MIN_CONTAINER - 0.5;
+    if (!big && !capsule) return { skip: 'rule5-small ' + Math.round(wc) + 'x' + Math.round(hc) };
+    // rule 1: inside a cover shape or a plate, never over a nopop element
+    const host = containerOf(t, shapes, plates);
+    if (!host) return { skip: 'rule1-uncovered' };
+    t = intersectTex(t, host) || t;
+    if (adm.nopop.some((x) => overlaps(t, x))) return { skip: 'rule1-nopop' };
+    // rule 3: not over media
+    if (!rule.media && adm.media.some((x) => overlaps(t, x))) return { skip: 'rule3-media' };
+    t = settleSize(ctx, el, rule, t);
+    if (!t) return { skip: 'animating (new)' };
+    for (const k of kept) if (overlaps(t, k.t)) return { skip: 'overlaps ' + k.layer.id };
+    // rule 2: click-safe cap, snapped down to the allowed set
+    const interactive = !!eff.interactive;
+    let dz = want;
+    let sMin = null;
+    let cap = Infinity;
+    if (!interactive) {
+      sMin = smallestTarget(ctx, el, rule, b);
+      if (sMin !== null) cap = CLICK_SAFE * sMin;
+      dz = snapDown(Math.min(want, cap), ctx);
+      if (!(dz > 0)) return { skip: 'rule2-click-safe s=' + sMin + ' cap=' + r4(cap) };
+    }
+    const id = slot === 0 ? rule.id : rule.id + '.' + slot;
+    const layer = { id, x: t.x, y: t.y, w: t.w, h: t.h, r: t.r, dz: r4(dz), material: rule.material, interactive };
+    if (cap < want - 1e-6) { layer.capped = true; layer.want = r4(want); }
+    if (rule.hole) layer.hole = rule.hole;
+    if (rule.tint) {
+      const tint = rule.tint === 'auto' ? autoTint(ent, el) : rule.tint;
+      if (tint) layer.tint = tint;
+    }
+    if (rule.modal) layer.modal = true;
+    if (rule.from === 'cut') layer.from = 'cut';
+    else if (rule.from) layer.from = r4(unitsOf(rule.from, ctx));
+    if (rule.sink === false) layer.sink = false;
+    return { el, part: rule.part, t, scrollers: b.scrollers, admission: true, s: sMin, layer };
   }
 
   // The last full measurement minus the layers whose scroller started
@@ -1059,7 +1681,7 @@
     const kept = f.kept.filter((k) => !k.scrollers.some((sc) => isScrolling(ent, sc, now)));
     if (kept.length === f.kept.length) return f;
     const surface = Object.assign({}, f.surface, { layers: kept.map((k) => k.layer) });
-    return { surface, kept, covers: f.covers };
+    return Object.assign({}, f, { surface, kept });
   }
 
   // ------------------------------------------------------------ attributes
@@ -1067,7 +1689,7 @@
   // Since when each reported (element, part) has held its id. An ack names
   // ids; it can only refer to the element now holding an id once that
   // element has held it for a scene-graph round trip (an id moves, e.g. the
-  // focused card). Covers hold the id '#cover'.
+  // focused card). Covers hold the id '#cover', plates their plate id.
   function refreshHold(ent, now) {
     const next = new Map();
     const cur = ent.cur;
@@ -1082,20 +1704,34 @@
       };
       for (const el of cur.covers) put(el, 'cover', '#cover');
       for (const k of cur.kept) put(k.el, k.part, k.layer.id);
+      for (const pe of cur.plateEls || []) put(pe.el, 'plate', pe.p.id);
     }
     ent.hold = next;
   }
 
-  // ack mode: the ids acknowledged for this window (null: its key is not in
-  // the ack map, i.e. the compositor shows no cover for it)
-  function ackedIds(ent, now) {
-    const list = S.acked && Object.prototype.hasOwnProperty.call(S.acked, ent.key) ? S.acked[ent.key] : null;
-    const ids = Array.isArray(list) ? list.map(String) : null;
-    if (ids) ent.keyAcked = true;
+  // ack mode: what the compositor shows for this window, {cover, pops,
+  // plates}; null when its key is in neither ack map (nothing shown)
+  function ackedFor(ent, now) {
+    const a = S.acked && Object.prototype.hasOwnProperty.call(S.acked, ent.key) ? S.acked[ent.key] : undefined;
+    let r = null;
+    if (Array.isArray(a)) r = { cover: true, pops: a.map(String), plates: [] };
+    else if (a && typeof a === 'object') {
+      r = {
+        cover: a.cover !== false,
+        pops: Array.isArray(a.pops) ? a.pops.map(String) : [],
+        plates: Array.isArray(a.plates) ? a.plates.map(String) : [],
+      };
+    }
+    // P8's form: ack(popMap, {plates: plateMap})
+    if (S.ackedPlates && Object.prototype.hasOwnProperty.call(S.ackedPlates, ent.key) && Array.isArray(S.ackedPlates[ent.key])) {
+      if (!r) r = { cover: false, pops: [], plates: [] };
+      r.plates = S.ackedPlates[ent.key].map(String);
+    }
+    if (r) ent.keyAcked = true;
     let native = false;
     try { native = ent.doc.documentElement.classList.contains('lgs-native'); } catch (_) { /* gone */ }
     if (!native) ent.nativeSince = 0; else if (!ent.nativeSince) ent.nativeSince = now;
-    return ids;
+    return r;
   }
 
   function updateAttrs() {
@@ -1107,16 +1743,20 @@
       const cur = ent.cur;
       refreshHold(ent, now);
       if (cur && cur.surface.visible) {
-        const ids = S.ackMode ? ackedIds(ent, now) : null;
+        const ack = S.ackMode ? ackedFor(ent, now) : null;
         // a daemon that leaves out surfaces with nothing popped: the window's
         // lgs-native (glassd covers it) stands in for the cover's ack
-        const fallback = S.ackMode && !ids && !ent.keyAcked && ent.nativeSince && now - ent.nativeSince >= COVER_FALLBACK_MS;
+        const fallback = S.ackMode && !ack && !ent.keyAcked && ent.nativeSince && now - ent.nativeSince >= COVER_FALLBACK_MS;
         const ok = (el, part) => {
           if (!S.ackMode) return true;
           const o = ent.hold.get(el);
           const r = o && o[part];
           if (!r) return false;
-          if (part === 'cover' ? !(ids || fallback) : !(ids && ids.includes(r.id))) return false;
+          let shown;
+          if (part === 'cover') shown = !!((ack && ack.cover) || fallback);
+          else if (part === 'plate') shown = !!(ack && ack.plates.includes(r.id));
+          else shown = !!(ack && ack.pops.includes(r.id));
+          if (!shown) return false;
           const t = r.since + S.ackDelay;
           if (now >= t) return true;
           due = Math.min(due, t);
@@ -1124,11 +1764,14 @@
         };
         const add = (el, part) => {
           let p = plan.get(el);
-          if (!p) plan.set(el, p = { cover: false, pop: [] });
-          if (part === 'cover') p.cover = true; else if (!p.pop.includes(part)) p.pop.push(part);
+          if (!p) plan.set(el, p = { cover: false, pop: [], plate: false });
+          if (part === 'cover') p.cover = true;
+          else if (part === 'plate') p.plate = true;
+          else if (!p.pop.includes(part)) p.pop.push(part);
         };
         for (const el of cur.covers) if (ok(el, 'cover')) add(el, 'cover');
         for (const k of cur.kept) if (ok(k.el, k.part)) add(k.el, k.part);
+        for (const pe of cur.plateEls || []) if (ok(pe.el, 'plate')) add(pe.el, 'plate');
       }
       applyAttrs(ent, plan);
     }
@@ -1141,11 +1784,13 @@
   function applyAttrs(ent, plan) {
     const AP = ent.attrPop;
     const AC = ent.attrCover;
+    const APL = ent.attrPlate;
     for (const el of ent.applied.keys()) {
       if (plan.has(el)) continue;
       try {
         el.removeAttribute(AP);
         el.removeAttribute(AC);
+        el.removeAttribute(APL);
       } catch (_) { /* window gone */ }
     }
     for (const [el, at] of plan) {
@@ -1153,6 +1798,7 @@
         const pop = at.pop.join(' ');
         if (pop) { if (el.getAttribute(AP) !== pop) el.setAttribute(AP, pop); } else if (el.hasAttribute(AP)) el.removeAttribute(AP);
         if (at.cover) { if (!el.hasAttribute(AC)) el.setAttribute(AC, ''); } else if (el.hasAttribute(AC)) el.removeAttribute(AC);
+        if (at.plate) { if (!el.hasAttribute(APL)) el.setAttribute(APL, ''); } else if (el.hasAttribute(APL)) el.removeAttribute(APL);
       } catch (_) { /* window gone */ }
     }
     ent.applied = plan;
@@ -1161,6 +1807,12 @@
   function popCount() {
     let n = 0;
     for (const ent of S.ents.values()) for (const at of ent.applied.values()) if (at.pop.length) n++;
+    return n;
+  }
+
+  function plateCount() {
+    let n = 0;
+    for (const ent of S.ents.values()) for (const at of ent.applied.values()) if (at.plate) n++;
     return n;
   }
 
@@ -1314,13 +1966,31 @@
     return out;
   }
 
+  // the window request (CC-A dim, sheet recede) from the main surface
+  function windowNow() {
+    for (const ent of S.ents.values()) if (ent.cur && ent.cur.windowReq && ent.cur.surface.visible) return ent.cur.windowReq;
+    return null;
+  }
+
+  // configuration errors plus this moment's warnings (rule 7, dropped plates)
+  function errorsNow() {
+    const out = (S.errors || []).slice();
+    for (const ent of S.ents.values()) if (ent.cur && ent.cur.warnings) for (const w of ent.cur.warnings) out.push(w);
+    return out.slice(0, 20);
+  }
+
   function emit(final, force) {
-    const body = '"dash":' + (S.dash ? 'true' : 'false') + ',"surfaces":' + JSON.stringify(surfacesNow(final));
+    let body = '"v":' + VERSION + ',"dash":' + (S.dash ? 'true' : 'false')
+      + ',"profile":' + JSON.stringify(S.profile) + ',"geom":' + JSON.stringify(S.geom)
+      + ',"surfaces":' + JSON.stringify(surfacesNow(final));
+    const win = final ? null : windowNow();
+    if (win) body += ',"window":' + JSON.stringify(win);
+    const errs = errorsNow();
+    if (errs.length) body += ',"errors":' + JSON.stringify(errs);
     if (!final && !force && body === S.lastBody) return false;
     S.lastBody = body;
     S.seq++;
     let json = '{"seq":' + S.seq + ',' + body;
-    if (S.errors && S.errors.length) json += ',"errors":' + JSON.stringify(S.errors.slice(0, 20));
     if (final) json += ',"stopped":true';
     json += '}';
     S.last = json;
@@ -1350,6 +2020,18 @@
     return null;
   }
 
+  // The live profile, geometry and rule flags; true when one changed.
+  function refreshInputs() {
+    const p = profileNow();
+    const g = geomNow();
+    const fs = S.flagNames.map((n) => (flagOn(n) ? '1' : '0')).join('');
+    const changed = p !== S.profile || !S.geom || g.S !== S.geom.S || g.r !== S.geom.r || fs !== S.flagSig;
+    S.profile = p;
+    S.geom = g;
+    S.flagSig = fs;
+    return changed;
+  }
+
   function pause() {
     if (S.paused) return;
     S.paused = true;
@@ -1371,6 +2053,8 @@
     if (S.paused) { S.paused = false; S.structureChanged = true; }
     try { syncWindows(); } catch (e) { S.lastError = String(e && e.stack || e).slice(0, 400); }
     refreshDash();
+    // profile, geometry or a rule's flag changed: measure everything again
+    if (refreshInputs()) { for (const e of S.ents.values()) e.force = true; schedule(0); }
     if (!S.dash) return;
     if (S.structureChanged || S.ackMode) updateAttrs(); // new windows; cover fallback timing
     const resample = S.polls % RESAMPLE_EVERY === 0 || S.structureChanged;
@@ -1425,7 +2109,14 @@
       ackMode: !!opts.ackMode, acked: null, acks: 0, lastAckAt: 0,
       ackDelay: +opts.ackDelayMs >= 0 ? +opts.ackDelayMs : ACK_DELAY_MS,
       pingAt: 0, pings: 0, pingTtl: +opts.pingTtlMs > 0 ? +opts.pingTtlMs : PING_TTL_MS, nativeSeen: false,
+      ackedPlates: null,
+      optProfile: opts.profile === 'default' || opts.profile === 'wearer' ? opts.profile : null,
+      optGeom: opts.geom && +opts.geom.S > 0 ? { S: +opts.geom.S, r: +opts.geom.r > 0 ? +opts.geom.r : 1, src: 'opts' } : null,
+      optFlags: opts.flags && typeof opts.flags === 'object' ? Object.assign({}, opts.flags) : null,
+      flagNames: [...new Set([].concat(...cfg.surfaces.map((sf) => sf.rules.filter((r) => r.flag).map((r) => r.flag))))],
+      profile: 'default', geom: null, flagSig: '',
     };
+    refreshInputs();
     syncWindows();
     refreshDash();
     S.timer = setInterval(poll, POLL_MS);
@@ -1437,8 +2128,8 @@
     o = o || {};
     if (waiting) { clearInterval(waiting.timer); waiting = null; }
     const dropGlobal = () => {
-      if (o.keepGlobal || W.__LGS_LAYERS !== API) return;
-      try { delete W.__LGS_LAYERS; } catch (_) { W.__LGS_LAYERS = undefined; }
+      if (o.keepGlobal || W[GLOBAL] !== API) return;
+      try { delete W[GLOBAL]; } catch (_) { W[GLOBAL] = undefined; }
     };
     if (!S) { dropGlobal(); return { running: false }; }
     const st = S;
@@ -1452,7 +2143,7 @@
     st.ents.clear();
     S = null;
     const reason = o.reason || 'stop()';
-    W.__LGS_LAYERS_LAST = { reason, at: Date.now(), emits: st.emits, seq: st.seq };
+    W[GLOBAL + '_LAST'] = { reason, at: Date.now(), emits: st.emits, seq: st.seq };
     dropGlobal();
     return { running: false, emits: st.emits, seq: st.seq, reason };
   }
@@ -1470,15 +2161,18 @@
   // The daemon's acknowledgement: {overlayKey: [layer ids popped on screen]}.
   // Re-tags every window from its last measurement (no re-measuring). null
   // leaves ack mode (every reported element is tagged again).
-  function ack(map) {
+  function ack(map, extra) {
     if (!S) return false;
     if (typeof map === 'string') { try { map = JSON.parse(map); } catch (_) { map = null; } }
+    if (typeof extra === 'string') { try { extra = JSON.parse(extra); } catch (_) { extra = null; } }
     if (map && typeof map === 'object') {
       S.ackMode = true;
       S.acked = map;
+      S.ackedPlates = extra && typeof extra === 'object' && extra.plates && typeof extra.plates === 'object' ? extra.plates : null;
     } else {
       S.ackMode = false;
       S.acked = null;
+      S.ackedPlates = null;
     }
     S.acks++;
     S.lastAckAt = Date.now();
@@ -1509,7 +2203,7 @@
   function status() {
     if (!S) {
       return waiting ? { running: false, version: VERSION, waiting: 'token index (theme off?)', tries: waiting.tries }
-        : { running: false, version: VERSION, last: W.__LGS_LAYERS_LAST || null };
+        : { running: false, version: VERSION, last: W[GLOBAL + '_LAST'] || null };
     }
     const now = performance.now();
     const surfaces = [];
@@ -1518,6 +2212,9 @@
         name: e.name, key: e.key,
         visible: !!(e.cur && e.cur.surface.visible),
         layers: e.cur ? e.cur.surface.layers.length : 0,
+        plates: e.cur && e.cur.surface.plates ? e.cur.surface.plates.length : 0,
+        mode: e.cur && e.cur.surface.mode || null,
+        input: inputMode(e),
         attrs: e.applied.size,
         computes: e.computes, computeMs: Math.round(e.computeMs * 10) / 10,
         lights: e.lights, changes: e.changes, queries: e.queries, hitTests: e.hitTests,
@@ -1529,7 +2226,9 @@
     let nav = null;
     if (S.nav.C) { try { nav = !!S.nav.C.Instance.IsInGamepadNav; } catch (_) { nav = null; } }
     return {
-      running: true, version: VERSION, seq: S.seq, emits: S.emits, ticks: S.ticks, polls: S.polls,
+      running: true, version: VERSION, v: VERSION, seq: S.seq, emits: S.emits, ticks: S.ticks, polls: S.polls,
+      profile: S.profile, geom: S.geom, fragments: (S.cfg.fragments || []).map((f) => f.file),
+      superseded: S.cfg.superseded || [], plateAcks: plateCount(),
       fullComputes: S.fullComputes, lightComputes: S.lightComputes,
       queryMs: Math.round(S.prof.queryMs * 10) / 10, hitMs: Math.round(S.prof.hitMs * 10) / 10,
       uptimeS: Math.round((Date.now() - S.startedAt) / 100) / 10,
@@ -1544,27 +2243,64 @@
       binding: S.binding, bound: typeof W[S.binding] === 'function',
       lastEmitAgoMs: S.lastEmitAt ? Date.now() - S.lastEmitAt : null,
       animations: Object.fromEntries([...S.animGeo].slice(0, 40).map(([k, v]) => [k, v ? 'moves' : 'paint'])),
-      surfaces, errors: S.errors, lastError: S.lastError, bindError: S.bindError,
+      surfaces, errors: errorsNow(), lastError: S.lastError, bindError: S.bindError,
     };
   }
 
+  // The report as it would be now, measured fresh; emits nothing.
   function snapshot() {
     if (!S) return null;
+    refreshInputs();
     const surfaces = [];
-    for (const ent of S.ents.values()) surfaces.push(computeEntry(ent, null).surface);
-    return { seq: S.seq, dash: S.dash, surfaces };
+    const warnings = [];
+    let win = null;
+    for (const ent of S.ents.values()) {
+      const r = computeEntry(ent, null);
+      surfaces.push(r.surface);
+      for (const w of r.warnings) warnings.push(w);
+      if (r.windowReq && r.surface.visible && !win) win = r.windowReq;
+    }
+    const o = { seq: S.seq, v: VERSION, dash: S.dash, profile: S.profile, geom: S.geom, surfaces };
+    if (win) o.window = win;
+    const errs = (S.errors || []).concat(warnings);
+    if (errs.length) o.errors = errs.slice(0, 20);
+    return o;
   }
 
   function debug(name) {
     if (!S) return null;
+    refreshInputs();
     const out = {};
     for (const ent of S.ents.values()) {
       if (name && ent.name !== name && ent.s.name !== name) continue;
       const why = [];
       const r = computeEntry(ent, why);
-      out[ent.name] = { visible: r.surface.visible, shapes: r.surface.shapes, layers: r.surface.layers.length, why };
+      out[ent.name] = {
+        visible: r.surface.visible, mode: r.surface.mode || null, input: inputMode(ent),
+        shapes: r.surface.shapes, plates: r.surface.plates || [], mosaic: r.surface.mosaic || null,
+        layers: r.surface.layers, warnings: r.warnings, why,
+      };
     }
     return out;
+  }
+
+  // The merged configuration (fragments, surfaces, rules), for tools.
+  function rules() {
+    if (!S) return null;
+    return {
+      fragments: S.cfg.fragments || [], superseded: S.cfg.superseded || [], errors: S.errors,
+      profile: S.profile, geom: S.geom,
+      surfaces: S.cfg.surfaces.map((sf) => ({
+        name: sf.name, key: sf.key, keyPrefix: sf.keyPrefix, material: sf.material, space: sf.space,
+        modes: sf.modes ? Object.keys(sf.modes.shapes) : null, modal: !!sf.modal,
+        rules: sf.rules.map((r) => ({
+          id: r.id, file: r.file, admission: r.admission,
+          depth: r.admission ? r.depth : { units: r.dz }, lift: r.admission ? r.lift : { units: r.lift },
+          when: r.when || null, interactive: !!r.interactive, profile: r.profile || null, modal: !!r.modal,
+          flag: r.flag || null, hole: r.hole || null, tint: r.tint || null, material: r.material,
+        })),
+      })),
+    };
   }
 
   // Debug only: outline the cover (cyan) and every layer (magenta, with id and
@@ -1605,8 +2341,8 @@
     return n;
   }
 
-  API = { version: VERSION, start, stop, ping, ack, resend, snapshot, status, debug, overlay, forceDash };
-  W.__LGS_LAYERS = API;
+  API = { version: VERSION, start, stop, ping, ack, resend, snapshot, status, debug, rules, overlay, forceDash };
+  W[GLOBAL] = API;
 
   // The daemon sets window.__LGS_LAYERS_OPTS = {layers, binding, ackMode}
   // before evaluating this file: start right away with those rules.

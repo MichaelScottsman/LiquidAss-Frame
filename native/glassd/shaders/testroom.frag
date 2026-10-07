@@ -7,10 +7,10 @@ uniform int uPattern;
 uniform int uHole;
 uniform vec3 uCenter;
 uniform int uNQ;
-uniform vec3 uQO[16];
-uniform vec3 uQU[16];
-uniform vec3 uQV[16];
-uniform vec4 uQE[16];
+uniform vec3 uQO[24];
+uniform vec3 uQU[24];
+uniform vec3 uQV[24];
+uniform vec4 uQE[24];
 out vec4 oColor;
 
 void main() {
@@ -18,7 +18,7 @@ void main() {
   vec3 c = testRoom(dir, uPattern);
   float known = 1.0;
   if (uHole == 1) {
-    for (int i = 0; i < 16; i++) {
+    for (int i = 0; i < 24; i++) {
       if (i >= uNQ) break;
       vec3 n = cross(uQU[i], uQV[i]);
       float dn = dot(dir, n);

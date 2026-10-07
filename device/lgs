@@ -3,4 +3,6 @@
 # Steam runtime's library overrides in the environment; drop them so the
 # system python3 (which ships aiohttp) loads cleanly.
 unset LD_LIBRARY_PATH LD_PRELOAD PYTHONHOME PYTHONPATH
+# Nothing of ours is written next to the code (no __pycache__ from the toggle).
+export PYTHONDONTWRITEBYTECODE=1
 exec /usr/bin/python3 "$(dirname "$(readlink -f "$0")")/lgs.py" "$@"

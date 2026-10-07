@@ -2,65 +2,99 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Glass Shell P2 — Volume HUD and notification banner (dashboard closed)</title>
+<title>Glass Shell P2 — Volume HUD and notification banners (dashboard closed)</title>
 <link rel="stylesheet" href="kit.css">
 <link rel="stylesheet" href="control-center.css">
 <style>
-  /* volume HUD: volumelevel quad, 0.059 deg per px (m = 0.52): 1 HUD px = 1.92 view px */
+  /* Angles: the view is drawn at 0.0307 deg per view px (one main-window px at the conservative distance, DESIGN2 §2.1).
+     volumelevel quad (hp): 0.92 mm per hp. At Steam's placement (0.89 m) 1 hp = 0.059 deg = 1.93 view px; at the
+     flagged 0.82 m placement 1 hp = 0.064 deg = 2.09 view px. notifications quad (tp): 0.034 deg = 1.107 view px. */
+
+  /* PLAN §1.6 edges: conic arc + radial lobe at 26 % of the width, no linear top layer (WN D-15) */
+  .lgk-view .lgk-glass::before {
+    background:
+      conic-gradient(from var(--lg-light),
+        rgb(255 255 255 / calc(.62 * var(--rim, 1))) 0deg, rgb(255 255 255 / calc(.20 * var(--rim, 1))) 38deg,
+        transparent 72deg, transparent 148deg, rgb(255 255 255 / calc(.16 * var(--rim, 1))) 180deg,
+        transparent 214deg, transparent 288deg, rgb(255 255 255 / calc(.22 * var(--rim, 1))) 322deg,
+        rgb(255 255 255 / calc(.62 * var(--rim, 1))) 360deg),
+      radial-gradient(70% 120% at 26% 0%, rgb(255 255 255 / calc(.18 * var(--rim, 1))) 0, rgb(255 255 255 / calc(.06 * var(--rim, 1))) 46%, transparent 75%);
+  }
+
+  /* volume HUD: Steam's VolumePopin as a 224 x 40 hp capsule. The capsule is the track; the value is a white .86 fill
+     from the leading edge (min 40 hp: the glyph zone) with Steam's glyph inside, dark; the number trails, white.
+     The clip rect is the content box, so nothing is drawn outside the capsule (no outer shadow). */
   .vhud { position: relative; width: 224px; height: 40px; --r: 20px; overflow: hidden; }
   .vhud > .fill { position: absolute; inset: 0 auto 0 0; width: var(--v, 50%); min-width: 40px; border-radius: 20px; background: rgb(255 255 255 / .86);
-                  display: flex; align-items: center; color: #1b1c20; }
+                  display: flex; align-items: center; color: #0d0e12; }
   .vhud > .fill > .lgk-i { --is: 15px; margin-left: 13px; stroke-width: 2.4; }
-  .vhud > .num { position: absolute; right: 14px; top: 0; bottom: 0; display: flex; align-items: center; font: 600 13px/1 var(--lg-font); font-variant-numeric: tabular-nums; }
-  /* toast: the whole 340 x 80 notifications quad, 0.034 deg per px (m = 0.90): 1 toast px = 1.107 view px */
-  .toast { position: relative; width: 336px; height: 76px; margin: 2px; --r: 30px; display: flex; align-items: center; gap: 14px; padding: 0 20px 0 14px; box-sizing: border-box; }
-  .toast .ic { width: 48px; height: 48px; border-radius: 50%; flex: none; background-size: cover; display: grid; place-items: center; color: #fff; --is: 24px;
-               box-shadow: 0 2px 6px rgb(0 0 0 / .3); }
-  .toast .tx { min-width: 0; display: flex; flex-direction: column; }
+  .vhud > .num { position: absolute; right: 14px; top: 0; bottom: 0; display: flex; align-items: center; font: 600 13px/1 var(--lg-font);
+                 font-variant-numeric: tabular-nums; color: var(--lg-text-1); }
+
+  /* toast: Steam's 340 x 80 notifications quad (no clip rect). %{GamepadToastPopup} keeps its inset 0 0 0 20px, so the
+     320 x 76 card sits at x 20, y 2 of the quad (WN §5.5 size, adopted by PLAN §1.1). No time label: Steam's template has none. */
+  .tquad { position: relative; width: 340px; height: 80px; }
+  .toast { position: absolute; left: 20px; top: 2px; width: 320px; height: 76px; --r: 30px; display: flex; align-items: center; gap: 14px;
+           padding: 0 18px 0 14px; box-sizing: border-box; }
+  .toast .ic { position: relative; width: 48px; height: 48px; border-radius: 50%; flex: none; background-size: cover; display: grid; place-items: center;
+               color: #fff; --is: 24px; }
+  .toast .ic.dk { color: #0d0e12; }
+  /* friend toasts: Steam's %{ShortTemplate>AvatarStatus} becomes a 3 px ring in the presence colour (WN §5.5) */
+  .toast .ic.online::after { content: ""; position: absolute; inset: -5px; border-radius: 50%; box-shadow: inset 0 0 0 3px rgb(76 180 255); }
+  .toast .tx { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
   .toast .tx b { font: 600 20px/1.25 var(--lg-font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .toast .tx span { font: 500 18px/1.3 var(--lg-font); color: var(--lg-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .toast .t { position: absolute; right: 20px; top: 13px; font: 500 15px/1 var(--lg-font); color: var(--lg-text-3); }
-  .lab { width: 420px; white-space: normal; }
-  .reticle { position: absolute; left: 954px; top: 534px; width: 12px; height: 12px; border-radius: 50%; box-shadow: 0 0 0 2px rgb(255 255 255 / .55); }
+
+  .lab { width: 430px; white-space: normal; }
+  .lab .tag { display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 8px; font: 600 13px/18px var(--lg-font); vertical-align: 2px;
+              background: rgb(255 255 255 / .16); color: rgb(255 255 255 / .86); }
+  .lab .tag.off { background: rgb(255 146 48 / .30); }
+  .reticle { position: absolute; left: 954px; top: 144px; width: 12px; height: 12px; border-radius: 50%; box-shadow: 0 0 0 2px rgb(255 255 255 / .55); }
 </style>
 </head>
 <body>
 <div class="lgk-view" data-room="studio">
 
-  <!-- notification banner: Steam's 340 x 80 notifications window; SteamVR keeps placing it -->
-  <div class="lgk-pop" style="left:772px; top:178px; --pop-scale:1.107">
-    <div class="lgk-glass toast" data-mat="panel" data-lens>
-      <span class="ic lgk-art" data-art="avatar:6:M"></span>
-      <span class="tx"><b>Mara</b><span>Joining tonight?</span></span>
-      <span class="t">now</span>
-    </div>
-  </div>
-  <div class="lab plate" style="left:1196px; top:186px">Notification banner<small>Steam's toast window (340 × 80) used whole: panel glass card, radius 30, 48 px circular icon, 20 px title, 18 px body. Materializes in place; SteamVR still places it.</small></div>
-
-  <!-- second banner style for system events: whole-fill colour on the icon only -->
-  <div class="lgk-pop" style="left:772px; top:298px; --pop-scale:1.107">
-    <div class="lgk-glass toast" data-mat="panel" data-lens>
-      <span class="ic" style="background:var(--lg-orange); color:var(--cc-dark)"><i data-i="wand"></i></span>
-      <span class="tx"><b>Right Controller</b><span>Battery low · 9 %</span></span>
-      <span class="t">now</span>
-    </div>
-  </div>
-  <div class="lab plate" style="left:1196px; top:310px">System banner<small>Colour lives in the icon disc (orange low, red critical), never in the text. The glyph is dark on orange (8.6:1), white only on blue and red.</small></div>
-
-  <!-- gaze centre, for reading the head-locked placement -->
+  <!-- gaze centre, for reading the head-locked placements -->
   <div class="reticle"></div>
-  <div class="lab plate" style="left:984px; top:520px; width:250px">eye direction<small>(not drawn in the headset)</small></div>
+  <div class="lab plate" style="left:990px; top:128px; width:260px">eye direction<small>(not drawn in the headset)</small></div>
 
-  <!-- volume HUD: head-locked capsule, 12 deg below the eye direction (stock: 27 deg) -->
-  <div class="lgk-pop" style="left:745px; top:893px; --pop-scale:1.92">
-    <div class="lgk-glass vhud" data-mat="panel" data-lens style="--v:55%">
+  <!-- notification banners: Steam's notifications window, placed by SteamVR (unchanged) -->
+  <div class="lgk-pop" style="left:440px; top:236px; --pop-scale:1.107">
+    <div class="tquad">
+      <div class="lgk-glass toast" data-mat="panel" data-lens data-id="toast">
+        <span class="ic lgk-art online" data-art="avatar:6:M" data-id="toast-icon"></span>
+        <span class="tx"><b data-id="toast-title">Mara</b><span data-id="toast-body">Joining tonight?</span></span>
+      </div>
+    </div>
+  </div>
+  <div class="lgk-pop" style="left:440px; top:346px; --pop-scale:1.107">
+    <div class="tquad">
+      <div class="lgk-glass toast" data-mat="panel" data-lens>
+        <span class="ic dk" style="background:var(--lg-orange)"><i data-i="wand"></i></span>
+        <span class="tx"><b>Right Controller</b><span>Battery low · 9 %</span></span>
+      </div>
+    </div>
+  </div>
+  <div class="lab plate" style="left:864px; top:236px">Notification banners<small>Steam's 340 × 80 toast window, placed by SteamVR. Card 320 × 76 at Steam's x 20: panel glass, radius 30, no outline; 48 px icon circle, title 20, body 18. Materializes in place.</small></div>
+  <div class="lab plate" style="left:864px; top:372px">System banner<small>Colour lives in the icon disc (orange low, red critical), never in the text. Dark glyph on orange; white only on blue and red.</small></div>
+
+  <!-- volume HUD, OPTION behind the flag hudPlacement (off): 12 deg below the eye direction at 0.82 m -->
+  <div class="lgk-pop" style="left:726px; top:499px; --pop-scale:2.09">
+    <div class="lgk-glass vhud" data-mat="panel" data-lens data-id="hud-flag" style="--v:55%">
       <span class="fill"><i data-i="speaker"></i></span><span class="num">55</span>
     </div>
   </div>
-  <div class="lab plate" style="left:1196px; top:880px">Volume HUD<small>Control Center slider as a HUD: white value fill with the glyph inside, number trailing. 224 × 40 HUD px = 14.4° × 2.6° at its new 0.82 m (0.92 mm per HUD px), head-locked 12° below the eye direction instead of 27°.</small></div>
+  <div class="lab plate" style="left:1236px; top:490px">Option: 12° below<span class="tag off">flag hudPlacement · off</span><small>Head-locked at y −0.17 m, z −0.8 m, pitch −12° (0.82 m): 14.4° × 2.6°. Off until a wearer judges comfort (PLAN §1.17 S21).</small></div>
 
-  <!-- stock placement, for comparison -->
-  <div class="lab plate" style="left:240px; top:880px; width:440px; text-align:right">Stock: 250 × 34 capsule, 6 px track, no number,<small>27° below the eye direction (off this frame)</small></div>
+  <!-- volume HUD, DEFAULT: Steam's own head-locked placement (y -0.4 m, z -0.8 m, pitch -20 deg: 27 deg below), new look -->
+  <div class="lgk-pop" style="left:744px; top:990px; --pop-scale:1.93">
+    <div class="lgk-glass vhud" data-mat="panel" data-lens data-id="hud" style="--v:55%">
+      <span class="fill" data-id="hud-fill"><i data-i="speaker"></i></span><span class="num" data-id="hud-num">55</span>
+    </div>
+  </div>
+  <div class="lab plate" style="left:1236px; top:916px">Volume HUD, as it ships<span class="tag">default</span><small>Steam's placement, 27° below the eye direction (0.89 m), 13.2° × 2.4°. The capsule is the track: white fill, glyph inside, number trailing. Steam's 1 s timer.</small></div>
+  <div class="lab plate" style="left:236px; top:984px; width:484px; text-align:right">Stock at the same place<small>250 × 34 opaque capsule, 6 px blue track, no number</small></div>
 </div>
 <script src="kit.js"></script>
 <script src="control-center-icons.js"></script>

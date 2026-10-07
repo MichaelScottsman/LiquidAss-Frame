@@ -165,11 +165,12 @@
   function disable(quiet) {
     state.enabled = false;
     clearInterval(state.timer);
-    try {
-      const cbs = g_PopupManager.m_rgPopupCreatedCallbacks;
-      const i = cbs.indexOf(state.created);
-      if (i >= 0) cbs.splice(i, 1);
-    } catch (_) { /* nothing registered */ }
+    // The runtime (device/rt) never outlives the theme. lgs.py removes it first
+    // and awaits the report; this covers any other caller of disable().
+    try { if (W.__LGS_RT && typeof W.__LGS_RT.teardown === 'function') W.__LGS_RT.teardown('theme off'); } catch (_) { /* stale */ }
+    try { if (state.createdHandle) state.createdHandle.Unregister(); } catch (_) { /* gone */ }
+    state.createdHandle = null;
+    purgeStale(null);
     if (lens) lens.stop();
     for (const { win } of popups()) {
       try { strip(win.document); if (lens) lens.strip(win.document); } catch (_) { /* closing */ }
@@ -200,8 +201,24 @@
   const api = { disable, status, toast, sweep, state };
   W.__LGS = api;
 
+  // Before the fix below, every "on" left its popup-created callback behind
+  // (the list is a CallbackList, not an array, so the old splice never ran).
+  // Drop those stale, inert copies so the subscriber count stays flat.
+  function purgeStale(keep) {
+    try {
+      const v = g_PopupManager.m_rgPopupCreatedCallbacks.m_vecCallbacks;
+      if (!Array.isArray(v)) return 0;
+      let n = 0;
+      for (let i = v.length - 1; i >= 0; i--) {
+        const f = v[i];
+        if (f !== keep && typeof f === 'function' && String(f) === '() => setTimeout(sweep, 0)') { v.splice(i, 1); n++; }
+      }
+      return n;
+    } catch (_) { return 0; }
+  }
   state.created = () => setTimeout(sweep, 0);
-  try { g_PopupManager.AddPopupCreatedCallback(state.created); } catch (_) { /* sweep covers it */ }
+  state.purged = purgeStale(null);
+  try { state.createdHandle = g_PopupManager.AddPopupCreatedCallback(state.created); } catch (_) { /* sweep covers it */ }
   sweep();
   state.timer = setInterval(sweep, SWEEP_MS);
   if (!payload.quiet) toast('Liquid Glass  ·  On');

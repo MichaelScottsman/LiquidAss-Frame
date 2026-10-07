@@ -10,9 +10,16 @@ or hvgrab frames; look, measure, then delete hvgrab frames).
       quarter, i.e. a light-dependent lobe, never a line of constant brightness.
 
   python docs/phase2/concepts/window-nav-measure.py dl SHOT  rect|circle  rect|circle
-      Mean luminance difference between two regions, e.g. the gamepad-focused item and the
-      current-route item of the tab bar (AT-8b) or a focused and a checked menu row (AT-8c).
+      Mean luminance difference between two regions, e.g. a focused and a checked menu row (AT-8c).
       Region syntax: rect:x0,y0,x1,y1  or  circle:cx,cy,r.  Pass: |dL| >= 25.
+
+  python docs/phase2/concepts/window-nav-measure.py focus SHOT rest=R focus=R [sel=R] [hover=R]
+      G-FOCUS criteria (PLAN §1.4, VP P-14, P-15; AT-8b = PLAN-1a-2) on one capture, each region
+      inset by 6 shot px by the caller (VP §6 SHOT definition):
+        focus >= rest + 40 L;  focus >= sel + 15 L;  sel >= hover + 12 L.
+
+Luminance is VP §6's SHOT luma, L = 0.299 R + 0.587 G + 0.114 B (0-255), the definition P10's
+`glass.py focus` uses (revision 3; revision 2 used Rec. 709 weights).
 
   python docs/phase2/concepts/window-nav-measure.py ring SHOT_WITH SHOT_WITHOUT X Y
       Pointer-proxy check (AT-0b): two captures of the same surface, one with the synthetic
@@ -27,7 +34,7 @@ from PIL import Image
 
 def lum(path):
     a = np.asarray(Image.open(path).convert('RGB')).astype(float)
-    return 0.2126 * a[..., 0] + 0.7152 * a[..., 1] + 0.0722 * a[..., 2]
+    return 0.299 * a[..., 0] + 0.587 * a[..., 1] + 0.114 * a[..., 2]
 
 
 def region(L, spec):
@@ -62,6 +69,24 @@ def dl(path, a, b):
     return abs(la - lb) >= 25
 
 
+def focus(path, specs):
+    L = lum(path)
+    v = {}
+    for sp in specs:
+        k, reg = sp.split('=', 1)
+        v[k] = region(L, reg)
+        print(f'L({k}) = {v[k]:.1f}   [{reg}]')
+    checks = [('focus - rest', 'focus', 'rest', 40), ('focus - sel', 'focus', 'sel', 15), ('sel - hover', 'sel', 'hover', 12)]
+    ok = True
+    for name, a, b, need in checks:
+        if a in v and b in v:
+            d = v[a] - v[b]
+            good = d >= need
+            ok &= good
+            print(f'{name:13s} = {d:6.1f}  (need >= {need})  ->', 'PASS' if good else 'FAIL')
+    return ok
+
+
 def ring(path_with, path_without, x, y):
     d = np.abs(lum(path_with) - lum(path_without))
     yy, xx = np.mgrid[0:d.shape[0], 0:d.shape[1]]
@@ -83,6 +108,8 @@ if __name__ == '__main__':
         ok = edge(shot, int(sys.argv[3]), int(sys.argv[4]), int(sys.argv[5]))
     elif cmd == 'dl':
         ok = dl(shot, sys.argv[3], sys.argv[4])
+    elif cmd == 'focus':
+        ok = focus(shot, sys.argv[3:])
     elif cmd == 'ring':
         ok = ring(shot, sys.argv[3], float(sys.argv[4]), float(sys.argv[5]))
     else:

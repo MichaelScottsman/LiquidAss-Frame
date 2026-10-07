@@ -1,7 +1,7 @@
 // Development helpers evaluated in SharedJSContext (prepended with
 // lgs_index.js). Installs window.__LGS_LAB; lives in memory only.
 (function () {
-  if (window.__LGS_LAB && window.__LGS_LAB.v === 11) return;
+  if (window.__LGS_LAB && window.__LGS_LAB.v === 12) return;
   // SteamVR's own pages (vrwebhelper) are single documents with no popup
   // manager; every helper then works on this page.
   const SINGLE = typeof window.g_PopupManager === 'undefined';
@@ -336,6 +336,9 @@
         x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height),
         vis: visibleIn(w, el), pe: cs.pointerEvents,
       };
+      // Phase 2 (P10): PLAN 1.16 exemption of this element, for `gates` (audit ignores it)
+      const g = window.__LGS_LAB && window.__LGS_LAB.gates;
+      if (g) { try { const ex = g.exemptId(alias, el); if (ex) rec.ex = ex; } catch (_) { /* none */ } }
       if (kind === 'text') {
         const fg = parseColor(cs.color) || [255, 255, 255, 1];
         const size = parseFloat(cs.fontSize), weight = parseInt(cs.fontWeight, 10) || 400;
@@ -430,5 +433,5 @@
     };
   }
 
-  window.__LGS_LAB = { v: 11, single: SINGLE, mark, restore, openThings, perf, surface, sel, q, qa, click, clickText, sleep, pad, focused, nav, back, route, outline, styles, classes, surfaces, readable, index, snap, diff };
+  window.__LGS_LAB = { v: 12, single: SINGLE, mark, restore, openThings, perf, surface, sel, q, qa, click, clickText, sleep, pad, focused, nav, back, route, outline, styles, classes, surfaces, readable, index, snap, diff };
 })();

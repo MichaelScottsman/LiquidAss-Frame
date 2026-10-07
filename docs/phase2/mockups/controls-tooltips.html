@@ -2,79 +2,38 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Glass Shell P2 — controls: tooltips in context (laser on the window, gamepad on the bar)</title>
+<title>Glass Shell P2 — controls: an in-window tooltip (laser hover on an icon-only circle, 0.8 s)</title>
 <link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="window-nav-shared.css">
 <link rel="stylesheet" href="controls.css">
 <style>
-  /* Page-specific layout only. Every size is a DESIGN2 token or derived from one. */
-  .win { left: 0; top: 0; width: 1280px; height: 664px; }          /* glass inset: 56 px ornament margin below */
-  .hdr-title { position: absolute; left: 40px; top: 25px; }
-  .hdr-sub { position: absolute; left: 42px; top: 82px; }
-  .hdr-search { position: absolute; left: 380px; top: 22px; width: 520px; }
-  .hdr-avatar { position: absolute; right: 24px; top: 24px; }
-  .tabs { position: absolute; left: 40px; top: 118px; }
-  .grid { position: absolute; left: 0; top: 206px; right: 0; bottom: 0; overflow: hidden; border-radius: 0 0 var(--lg-r-window) var(--lg-r-window);
-          /* scroll edge: content fades under the bottom ornament instead of a hard clip */
-          -webkit-mask-image: linear-gradient(180deg, #000 0, #000 calc(100% - 120px), rgb(0 0 0 / .25) calc(100% - 36px), transparent 100%);
-                  mask-image: linear-gradient(180deg, #000 0, #000 calc(100% - 120px), rgb(0 0 0 / .25) calc(100% - 36px), transparent 100%); }
+  .grid { position: absolute; left: 0; top: 212px; right: 0; bottom: 0; }
   .grid .lgk-poster { width: 220px; height: 330px; }
+  .tabs { position: absolute; left: 40px; top: 120px; }
   .chip-update { position: absolute; left: 14px; top: 14px; height: 32px; padding: 0 14px; border-radius: 16px; display: grid; place-items: center;
                  background: var(--lg-blue); font: 600 18px/1 var(--lg-font); }
-  .dl { position: absolute; left: 16px; right: 16px; bottom: 16px; height: 44px; border-radius: 22px; background: rgb(0 0 0 / .52);
-        display: flex; align-items: center; gap: 10px; padding: 0 16px; font: 600 18px/1 var(--lg-font); }
-  .dl .bar { flex: 1; height: 8px; border-radius: 4px; background: rgb(255 255 255 / .22); overflow: hidden; }
-  .dl .bar > i { display: block; height: 100%; width: 62%; border-radius: 4px; background: #fff; }
-  .toolbar { left: 192px; top: 636px; width: 896px; }               /* <= 70 % of the glass, centred */
-  .menu { left: 204px; width: 392px; bottom: 98px; }              /* 720 - 636 + 14: opens upward from its source */
+  /* the More circle (the shell's helper, PLAN §1.11): 60 px, black .38 + 10 px blur, inside its card at the top right, inset 10 */
+  .more { position: absolute; width: 60px; height: 60px; border-radius: 50%; display: grid; place-items: center; z-index: 6;
+          background: rgb(0 0 0 / .38); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); color: #fff; --is: 26px;
+          box-shadow: 0 4px 12px rgb(0 0 0 / .30); isolation: isolate; }
+  .more::after { content: ""; position: absolute; inset: 0; border-radius: 50%; z-index: -1; pointer-events: none;
+          background: radial-gradient(circle at 58% 62%, rgb(255 255 255 / .12) 0, rgb(255 255 255 / 0) 75%), rgb(255 255 255 / .08); }
+  /* the in-window tooltip (P3's layer, one per window): a thick-glass capsule 48 px, 20 px Semibold, 12 px below its owner */
+  .tip { position: absolute; z-index: 7; translate: -50% 0; }
 </style>
 </head>
 <body>
-<div class="lgk-view" data-room="lounge">
+<div class="lgk-view" data-room="lounge" data-lgs-vr-mode="laser">
 
-  <!-- ============ VR main menu as the tab-bar ornament (frame.menu popup, its own quad: 0.034 deg per popup px = main px x 1.10) -->
-  <div class="lgk-pop" style="left:212px; top:28px; --pop-scale:1.10" data-dz="25" data-tier="T3/T4 frame.menu">
-    <div class="lgk-glass lgk-tabbar" data-mat="liquid" data-lens style="position:relative; --r:40px; --dz:25; gap:16px; padding:12px; width:80px; --lg-btn:56px">
-      <div class="lgk-tab"><i data-i="home"></i></div>
-      <div class="lgk-tab is-nav-selected" style="background:var(--lg-fill-nav)"><i data-i="library"></i></div>
-      <div class="lgk-tab"><i data-i="store"></i></div>
-      <div class="lgk-tab"><i data-i="friends"></i></div>
-      <div class="lgk-tab"><i data-i="media"></i></div>
-      <div class="lgk-tab"><i data-i="download"></i></div>
-    </div>
-    <div class="lgk-glass lgk-tabbar" data-mat="liquid" data-lens style="position:relative; margin-top:16px; --r:40px; --dz:25; gap:16px; padding:12px; width:80px; --lg-btn:56px">
-      <div class="lgk-tab"><i data-i="gear"></i></div>
-      <div class="lgk-tab"><i data-i="vr"></i></div>
-      <div class="lgk-tab"><i data-i="power"></i></div>
-    </div>
-  </div>
+  <!-- tab-bar ornament (the shell's): Library is the current route -->
+  <div data-wn="tabbar" data-right="302" data-cy="426" data-sel="library" data-pitch="58"></div>
 
-  <!-- ============ Steam's main window: 1280 x 720 overlay at 1:1 -->
   <div class="lgk-overlay" style="left:320px; top:66px">
-
-    <div class="lgk-glass win" data-mat="window" data-dz="0" data-tier="T5 window">
-      <div class="hdr-title t-large">Library</div>
-      <div class="hdr-sub t-subhead v2">350 games · 18 installed</div>
-
-      <div class="lgk-search hdr-search">
-        <i data-i="search"></i><span class="ph">Search your library</span>
-        
-      </div>
-      <div class="lgk-btn circle hdr-avatar lgk-art is-hover" id="av" data-art="avatar:2:B" style="background-size:cover; --hx:58%; --hy:62%"></div>
-
-      <div class="lgk-seg tabs">
-        <span class="is-selected">All Games</span>
-        <span>Great on Frame</span>
-        <span>Ready to Play</span>
-        <span>Collections</span>
-        <span>Non-Steam</span>
-      </div>
-
-      <div class="grid">
+    <div class="lgk-glass wn-win" data-mat="window" data-dz="0" data-tier="T5 window cover; T1 smoky tint">
+      <div class="grid wn-fade-bottom">
         <div class="lgk-poster lgk-art" data-art="poster:0:Starfall Drift" style="left:42px; top:0"></div>
-        <div class="lgk-poster lgk-art" data-art="poster:1:Hollow Peaks" style="left:286px; top:0"></div>
-        <div class="lgk-poster lgk-art" data-art="poster:2:Neon Orchard" style="left:530px; top:0">
-          <div class="dl"><i data-i="download" style="--is:22px"></i><span class="bar"><i></i></span><span class="t-num">62%</span></div>
-        </div>
+        <div class="lgk-poster lgk-art is-hover" data-art="poster:1:Hollow Peaks" style="left:286px; top:0" data-dz="15" data-tier="focused card: +15 mm non-interactive crop"></div>
+        <div class="lgk-poster lgk-art" data-art="poster:2:Neon Orchard" style="left:530px; top:0"></div>
         <div class="lgk-poster lgk-art" data-art="poster:3:Tidebreaker" style="left:774px; top:0"><span class="chip-update">Update</span></div>
         <div class="lgk-poster lgk-art" data-art="poster:4:Lumen Vale" style="left:1018px; top:0"></div>
         <div class="lgk-poster lgk-art" data-art="poster:8:Echo Station" style="left:42px; top:354px"></div>
@@ -83,75 +42,29 @@
         <div class="lgk-poster lgk-art" data-art="poster:5:Glasswing" style="left:774px; top:354px"></div>
         <div class="lgk-poster lgk-art" data-art="poster:9:Deep Field" style="left:1018px; top:354px"></div>
       </div>
+      <div class="wn-edge-top" style="height:118px; opacity:.6"></div>
+      <div data-wn="toolbar" data-back="root" data-title="Library" data-search="idle"></div>
+      <div class="c-seg2 compact tabs"><span class="on"><b>All Games</b></span><span><b>Great on Frame</b></span><span><b>Ready to Play</b></span><span><b>Collections</b></span><span><b>Non-Steam</b></span></div>
     </div>
 
-    <!-- in-window tooltip (T2 layer): after 0.8 s of hover or focus, below its owner, owner + 5 mm -->
-    <div class="lgk-glass c-tip" data-mat="liquid" data-lens data-dz="5" style="--dz:5; right:24px; top:96px">Account &amp; Profile</div>
+    <!-- the More circle on the hovered poster (an icon-only circle), hovered by the laser for 0.8 s: its tooltip names it -->
+    <div class="more" id="more" style="left:426px; top:222px" data-id="more"><i data-i="more"></i></div>
+    <div class="lgk-glass c-tip tip" data-mat="thick" data-dz="0" style="left:456px; top:294px; --dz:3" data-id="tip"
+         data-tier="P3 tooltip layer: thick glass, CSS shadow only (no pop)"><span>Options</span></div>
 
-    <!-- bottom ornament: straddles the glass's bottom edge by 28 px; Steam's footer actions as real buttons -->
-    <div class="lgk-glass lgk-toolbar toolbar" data-mat="liquid" data-lens style="--dz:25" data-dz="25" data-tier="T1 layout + T4 pop">
-      <span class="lgk-btn capsule plain"><i data-i="sort"></i>Recently Played<span class="lgk-glyph">Y</span></span>
-      <span class="lgk-btn capsule plain"><i data-i="filter"></i>Filter<span class="lgk-badge inline" style="background:rgb(255 255 255 / .22)">2</span><span class="lgk-glyph">X</span></span>
-      <span class="lgk-seg compact" style="height:60px; background:rgb(0 0 0 / .22); margin-left:12px">
-        <span class="is-selected">All</span><span>VR</span><span>Non-VR</span>
-      </span>
-      <span class="lgk-btn circle plain" style="margin-left:auto"><i data-i="more"></i></span>
-    </div>
+    <!-- bottom ornament, laser mode (the shell's contract): glyph badges are not drawn in laser mode -->
+    <div data-wn="ornament" data-mode="laser" data-legends="sf-sort:Alphabetical|sf-filter:Filter|menu:Options@Hollow Peaks|A:Select|B:Back"></div>
   </div>
 
-  <!-- ============ SteamVR frame controls (systemui panel: 0.023 deg per px = main px x 0.75), idle-dim -->
-  <div class="lgk-pop" id="fc" style="left:849px; top:802px; --pop-scale:.75; opacity:.72" data-tier="T1 vr:systemui">
-    <div class="lgk-glass lgk-toolbar" data-mat="panel" style="position:relative; height:80px; gap:8px; padding:0 8px; --r:40px">
-      <span class="lgk-btn circle plain" style="--s:64px"><i data-i="keyboard"></i></span>
-      <span class="lgk-btn circle plain" style="--s:64px"><i data-i="float"></i></span>
-      <span class="lgk-btn circle plain" style="--s:64px"><i data-i="theater"></i></span>
-      <span class="lgk-btn circle plain" style="--s:64px"><i data-i="more"></i></span>
-    </div>
-  </div>
+  <div data-wn="winbar" data-cx="960" data-y="806" data-dim=".85"></div>
+  <div data-wn="bar" data-cx="960" data-y="904"></div>
+  <div data-wn="laser" data-to="792,321" data-from="1690,1100"></div>
 
-  <!-- ============ the dashboard bar: a system ornament, 13 cm nearer (popup px x 1.20 = 0.037 deg per px) -->
-  <div class="lgk-pop" id="bar" style="left:578px; top:878px; --pop-scale:1.20; display:flex; gap:16px" data-dz="0" data-tier="bar quad (T1 + T5 slabs)">
-    <div class="lgk-glass lgk-toolbar" data-mat="liquid" data-lens style="position:relative; height:80px; gap:8px; padding:0 8px; --r:40px">
-      <span class="lgk-btn circle" style="--s:64px; background:rgb(255 255 255 / .16)"><i data-i="controller"></i></span>
-      <span class="lgk-btn circle lgk-art" data-art="poster:0:" style="--s:64px; background-size:cover; background-position:50% 35%"></span>
-      <span class="lgk-btn circle lgk-art" data-art="poster:3:" style="--s:64px; background-size:cover; background-position:50% 35%"></span>
-      <span class="lgk-btn circle plain" style="--s:64px"><i data-i="plus"></i></span>
-    </div>
-    <div class="lgk-glass lgk-toolbar" data-mat="liquid" data-lens style="position:relative; height:80px; gap:8px; padding:0 8px 0 20px; --r:40px">
-      <span class="t-headline t-num" style="font-size:24px">4:56</span>
-      <span style="display:inline-flex; align-items:center; gap:6px; height:36px; padding:0 12px; border-radius:18px; background:rgb(255 255 255 / .14); font:600 18px/1 var(--lg-font)" class="t-num">
-        <span style="width:22px; height:11px; border-radius:3px; box-shadow:inset 0 0 0 2px rgb(255 255 255 / .8); position:relative; display:inline-block"><span style="position:absolute; left:3px; top:3px; bottom:3px; width:13px; border-radius:1px; background:var(--lg-green)"></span></span>82%</span>
-      <span class="lgk-btn circle plain" style="--s:64px"><i data-i="bell"></i><span class="lgk-badge" style="right:4px; top:6px; min-width:24px; height:24px; font-size:15px; padding:0 6px">3</span></span>
-      <span class="lgk-btn circle plain is-focus" style="--s:64px"><i data-i="grid"></i></span>
-    </div>
-  </div>
-
-  <!-- bar tooltip: Steam's tooltip popup (400 x 40 host, its own quad below the bar), shown on gamepad focus after 0.8 s -->
-  <div class="lgk-pop" style="left:1222px; top:984px; --pop-scale:1.20">
-    <div class="lgk-glass c-tip" data-mat="panel" style="position:relative; height:40px; padding:0 16px; font-size:18px; --r:20px">Quick Access</div>
-  </div>
-
-  <!-- SteamVR grab handle under the bar, as the visionOS window bar -->
-  <div class="lgk-windowbar" style="left:870px; top:996px"></div>
-
-  <!-- laser from the right controller to the hovered menu row (SteamVR draws beam and dot) -->
-  <svg style="position:absolute; inset:0; width:1920px; height:1080px; pointer-events:none; z-index:40" viewBox="0 0 1920 1080">
-    <defs><linearGradient id="beam" x1="1" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".35" stop-color="#dbe8ff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity=".9"/></linearGradient></defs>
-    <polygon id="beamp" points="0,0" fill="url(#beam)" opacity=".5"/>
-  </svg>
-  <div class="lgk-laser-dot" id="dot"></div>
+  <div class="c-note" style="left:1622px; top:150px; width:270px"><b>Laser hover, 0.8 s:</b> the icon-only circle names itself in a thick-glass capsule 48 px tall, 20 px Semibold, 12 px below it. The text is the circle's <span class="k">aria-label</span>, Steam's own string. It leaves 0.2 s after the laser does.</div>
+  <div class="c-note" style="left:1622px; top:420px; width:270px"><b>Gamepad focus</b> on the same circle shows the same tooltip after the same 0.8 s. Bar tooltips are Steam's own popup, restyled by the control-center concept and delayed to 0.8 s. Controls that show their text never get one.</div>
 </div>
+<script src="window-nav-shared.js"></script>
 <script src="kit.js"></script>
 <script src="controls-icons.js"></script>
-<script>
-  addEventListener('DOMContentLoaded', () => requestAnimationFrame(() => {
-    const h = document.getElementById('av').getBoundingClientRect();
-    const x = h.left + h.width * .58, y = h.top + h.height * .62;
-    const d = document.getElementById('dot'); d.style.left = x + 'px'; d.style.top = y + 'px';
-    document.getElementById('beamp').setAttribute('points', `1840,1095 1852,1095 ${x + 1},${y} ${x - 1},${y}`);
-  }));
-</script>
-<div class="c-note" style="left:1622px; top:236px; width:262px"><b>Laser hover, 0.8 s:</b> the icon-only circle names itself. In-window tooltips are a T2 layer: one capsule per window, placed under the hovered or focused circle.</div>
-<div class="c-note" style="left:1622px; top:880px; width:262px"><b>Gamepad focus on the bar:</b> Steam's own tooltip popup, restyled, after the same 0.8 s.</div>
 </body>
 </html>

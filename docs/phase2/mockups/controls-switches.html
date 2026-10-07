@@ -4,36 +4,39 @@
 <meta charset="utf-8">
 <title>Glass Shell P2 — controls: switches, check circles, sliders</title>
 <link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="window-nav-shared.css"><!-- the E3 edge without the linear top layer (PLAN §1.6, WN D-15) -->
 <link rel="stylesheet" href="controls.css">
 <style>
-  .pl { left: 40px; width: 470px; top: 136px; height: 160px; right: auto; }
-  .pr { left: 526px; width: 354px; top: 136px; height: 160px; right: auto; }
-  .pc { top: 348px; height: 80px; }
-  .ps { top: 480px; height: 216px; }
+  /* the /zoo spec board inside `window` glass 1280 x 656; content runs y 108..632 */
+  .pl { left: 40px; width: 470px; top: 140px; height: 160px; right: auto; }
+  .pr { left: 526px; width: 354px; top: 140px; height: 160px; right: auto; }
+  .pc { top: 344px; height: 80px; }
+  .ps { top: 468px; height: 164px; }
   .strip { position: absolute; inset: 0; display: flex; justify-content: space-evenly; align-items: flex-end; padding-bottom: 26px; }
   .strip > div { display: flex; flex-direction: column; align-items: center; gap: 22px; }
-  .hdrs { position: absolute; top: 320px; display: flex; font: 600 18px/1 var(--lg-font); color: var(--lg-text-2); }
+  .hdrs { position: absolute; top: 316px; display: flex; font: 600 18px/1 var(--lg-font); color: var(--lg-text-2); }
   .hdrs > span { position: absolute; width: 80px; text-align: center; }
-  .checks { position: absolute; right: 18px; top: 20px; display: flex; }
-  .checks > span { width: 80px; display: grid; place-items: center; }
+  .checks { position: absolute; right: 18px; top: 0; display: flex; }
+  .checks > span { width: 80px; height: 80px; display: grid; place-items: center; }
   .sl { position: absolute; left: 24px; right: 112px; }
   .slv { position: absolute; right: 24px; width: 72px; text-align: right; }
 </style>
 </head>
 <body>
 <div class="lgk-view" data-room="lounge">
-  <div class="lgk-overlay" style="left:320px; top:180px">
-    <div class="lgk-glass cg-win" data-mat="window" data-dz="0" data-tier="T5 window">
+  <div class="lgk-overlay" style="left:320px; top:66px">
+    <div class="lgk-glass cg-win" data-mat="window" data-dz="0" data-tier="T5 window cover; T1 smoky tint" data-id="window">
       <div class="cg-side" data-sel="Switches & Sliders"></div>
 
       <div class="cg-main">
         <div class="cg-head"><span class="t-title2">Switches &amp; Sliders</span>
           <span class="lgk-btn circle" style="right:24px"><i data-i="more"></i></span></div>
 
-        <div class="cg-sec" style="top:104px">Switches <span class="v3">· 66 × 40, hit 88 × 80</span></div>
+        <div class="cg-sec" style="top:112px">Switches <span class="v3">· 66 × 40, hit 88 × 80</span></div>
         <div class="cg-list c-list pl">
-          <div class="c-row is-focus"><span class="pill"></span>Wi-Fi<span class="trail"><span class="c-switch on"><span class="knob"></span></span></span></div>
-          <div class="c-row">Battery Percentage<span class="trail"><span class="c-switch is-hover" id="hov" style="--hx:72%; --hy:46%"><span class="knob"></span></span></span></div>
+          <!-- gamepad focus on the switch: its single-control row carries the focus, the switch is lifted (C-D14) -->
+          <div class="c-row is-within"><span class="pill"></span><span class="lab">Wi-Fi</span><span class="trail"><span class="c-switch on is-lifted" data-id="switch-focus"><span class="knob"></span></span></span></div>
+          <div class="c-row"><span class="pill"></span><span class="lab">Battery Percentage</span><span class="trail"><span class="c-switch is-hover" id="hov" style="--hx:72%; --hy:46%"><span class="knob"></span></span></span></div>
         </div>
         <div class="cg-platter pr">
           <div class="strip">
@@ -44,24 +47,25 @@
           </div>
         </div>
 
-        <div class="cg-sec" style="top:316px">Check Circles</div>
+        <div class="cg-sec" style="top:316px">Check Circles <span class="v3">· 40 in 80 px cells</span></div>
         <div class="hdrs" style="left:582px; right:58px"><span style="left:0">Email</span><span style="left:80px">Toast</span><span style="left:160px">Mobile</span><span style="left:240px">Feed</span></div>
         <div class="cg-platter pc">
-          <div class="c-row" style="position:absolute; left:0; top:0; right:0">Wishlist Item on Sale</div>
+          <!-- a multi-control row: the row warms (white .06); the focused circle carries the focus (glow on its blue fill) -->
+          <div class="c-row is-within-multi" style="position:absolute; left:0; top:0; right:0"><span class="pill"></span><span class="lab">Wishlist Item on Sale</span></div>
           <div class="checks">
             <span><span class="c-check on"><i data-i="check"></i></span></span>
             <span><span class="c-check"></span></span>
-            <span><span class="c-check on is-focus"><i data-i="check"></i></span></span>
+            <span><span class="c-check on is-focus" data-id="check-focus"><i data-i="check"></i></span></span>
             <span><span class="c-check is-disabled"></span></span>
           </div>
         </div>
 
-        <div class="cg-sec" style="top:448px">Sliders <span class="v3">· the value is the white fill; the knob shows on hover, focus and drag</span></div>
+        <div class="cg-sec" style="top:440px">Sliders <span class="v3">· the value is the white fill; the knob shows on hover, focus and drag</span></div>
         <div class="cg-platter ps">
-          <div class="c-slider sl is-hover" id="vol" style="top:24px; --v:.62; --hx:62%; --hy:50%"><span class="fill"></span><i data-i="speaker" class="glyph"></i><span class="knob"></span></div>
-          <div class="c-val slv" style="top:45px">62 %</div>
-          <div class="c-slider sl is-drag" style="top:128px; --v:.38"><span class="fill"></span><i data-i="sun" class="glyph"></i><span class="knob"></span></div>
-          <div class="c-val slv" style="top:149px; color:var(--lg-text-1)">38 %</div>
+          <div class="c-slider sl is-hover" id="vol" style="top:9px; --v:.62; --hx:62%; --hy:50%"><span class="fill"></span><i data-i="speaker" class="glyph"></i><span class="knob"></span></div>
+          <div class="c-val slv" style="top:30px">62 %</div>
+          <div class="c-slider sl is-drag" style="top:91px; --v:.38"><span class="fill"></span><i data-i="sun" class="glyph"></i><span class="knob"></span></div>
+          <div class="c-val slv" style="top:112px; color:var(--lg-text-1)">38 %</div>
         </div>
       </div>
     </div>
@@ -72,6 +76,9 @@
     <polygon id="beamp" points="0,0" fill="url(#beam)" opacity=".5"/>
   </svg>
   <div class="lgk-laser-dot" id="dot"></div>
+
+  <div class="c-note" style="left:1622px; top:150px; width:270px"><b>Focus inside a row.</b> Steam focuses the switch; its row carries the light (white .28, spot, arc) and the switch is lifted. In the check matrix the row only warms and the focused circle carries the focus.</div>
+  <div class="c-note" style="left:1622px; top:420px; width:270px"><b>Sliders.</b> 64 px capsules; the knob (Steam's handle, 64) shows on hover, focus and drag, and turns into clear glass while dragged. The value text is Steam's, or a number formatted for the UI language.</div>
 </div>
 <script src="controls-gallery.js"></script>
 <script src="kit.js"></script>

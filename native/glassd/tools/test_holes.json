@@ -1,0 +1,107 @@
+{
+ "seq": 1,
+ "dial": 0.5,
+ "unitM": 0.369,
+ "surfaces": [
+  {
+   "name": "main",
+   "overlayKey": "valve.steam.gamepadui.main",
+   "texW": 1920,
+   "texH": 1080,
+   "radius": 81,
+   "material": "window",
+   "visible": true,
+   "shapes": [
+    {
+     "x": 0,
+     "y": 0,
+     "w": 1920,
+     "h": 1080,
+     "r": 81
+    }
+   ],
+   "slabs": [
+    {
+     "id": "play",
+     "x": 150,
+     "y": 780,
+     "w": 420,
+     "h": 120,
+     "r": 60,
+     "material": "liquid",
+     "dz": 0.041,
+     "tint": [
+      0.19,
+      0.78,
+      0.35,
+      0.6
+     ],
+     "hole": {
+      "fill": "rgb(40 34 36 / 0.92)"
+     }
+    },
+    {
+     "id": "from",
+     "x": 594,
+     "y": 795,
+     "w": 90,
+     "h": 90,
+     "r": 45,
+     "material": "none",
+     "dz": 0.027,
+     "hole": {
+      "fill": "rgb(40 34 36 / 0.92)"
+     }
+    },
+    {
+     "id": "input",
+     "x": 714,
+     "y": 795,
+     "w": 90,
+     "h": 90,
+     "r": 45,
+     "material": "none",
+     "dz": 0.027,
+     "hole": true
+    },
+    {
+     "id": "manage",
+     "x": 834,
+     "y": 795,
+     "w": 90,
+     "h": 90,
+     "r": 45,
+     "material": "clear",
+     "dz": 0.027,
+     "hole": {
+      "fill": "rgb(40 34 36 / 0.92)",
+      "shadow": 0.35
+     }
+    },
+    {
+     "id": "install",
+     "x": 1350,
+     "y": 795,
+     "w": 330,
+     "h": 105,
+     "r": 52,
+     "material": "liquid",
+     "dz": 0.027,
+     "tint": "#2f7cf6cc"
+    },
+    {
+     "id": "moved",
+     "x": 1500,
+     "y": 180,
+     "w": 300,
+     "h": 90,
+     "r": 45,
+     "material": "liquid",
+     "dz": 0.068,
+     "ox": -60,
+     "oy": 0
+    }
+   ]
+  }
+ ]
+}

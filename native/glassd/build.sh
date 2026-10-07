@@ -5,6 +5,8 @@
 #
 #   sh build.sh            # release build
 #   DEBUG=1 sh build.sh    # -O0 -g
+#   NOINSTALL=1 sh build.sh  # build/glassd only (tests before replacing the shared binary)
+#   NOTOOLS=1 sh build.sh    # skip the verification tools
 set -e
 cd "$(dirname "$0")"
 
@@ -35,11 +37,16 @@ if [ -n "$DEBUG" ]; then OPT="-O0 -g"; else OPT="-O2"; fi
 VRLIB="-L/opt/steamvr/bin/linuxarm64 -lopenvr_api -Wl,-rpath,/opt/steamvr/bin/linuxarm64"
 # shellcheck disable=SC2046
 g++ -std=c++17 $OPT -Wall -Wno-missing-field-initializers -Wno-unused-function \
-    -I"$INC" -Isrc -Ithird_party -Ibuild $(pkg-config --cflags egl glesv2 gbm) \
+    -I"$INC" -Isrc -Ithird_party -Ibuild -I../shared $(pkg-config --cflags egl glesv2 gbm) \
     src/glassd.cpp -o build/glassd \
     $(pkg-config --libs egl glesv2 gbm) $VRLIB -lpthread
-install -m755 build/glassd glassd
-echo "built $(pwd)/glassd"
+if [ -n "$NOINSTALL" ]; then
+    echo "built $(pwd)/build/glassd (NOINSTALL: ./glassd left as it was)"
+else
+    install -m755 build/glassd glassd
+    echo "built $(pwd)/glassd"
+fi
+[ -n "$NOTOOLS" ] && exit 0
 
 # Verification tools (optional, see README "Verifying without the headset"):
 #   ovgrab     reads an overlay back from SteamVR

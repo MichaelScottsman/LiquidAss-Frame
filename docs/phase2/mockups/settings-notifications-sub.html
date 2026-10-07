@@ -13,39 +13,36 @@
   <div data-wn="tabbar" data-right="302" data-cy="426" data-sel="steam settings"></div>
 
   <div class="lgk-overlay" style="left:320px; top:66px">
-    <div class="lgk-glass st-win" data-mat="window" data-dz="0" data-tier="T5 window (T1: smoky tint)">
+    <div class="lgk-glass st-win" data-mat="window" data-dz="0" data-tier="T5 window cover (T1: smoky tint + edge cues)">
       <div data-st="sidebar" data-sel="notifications" data-scroll="930"></div>
       <div data-st="toolbar" data-back data-title="Personal Activity"></div>
 
       <div class="st-scroll top">
         <div class="st-col" style="top:116px">
-          <!-- Steam's sticky %{CheckboxHeaders}: title case, 18 px Semibold, aligned with the 80 px check-circle columns -->
+          <!-- Steam's section header stays visible; then Steam's sticky %{CheckboxHeaders}: upright, title case, 18 px Semibold,
+               aligned with the 80 px check-circle columns -->
+          <div class="st-sh first">Personal Activity</div>
           <div style="display:flex; align-items:flex-end; height:26px; margin-bottom:10px">
-            <span style="flex:1; padding:0 24px; font:600 22px/26px var(--lg-font); color:var(--lg-text-2)">Notify me via</span>
+            <span style="flex:1; padding:0 26px; font:500 20px/26px var(--lg-font); color:var(--lg-text-2)">Notify me via</span>
             <span class="st-cols" style="margin-right:12px"><span class="st-colhdr">Email</span><span class="st-colhdr">Toast</span><span class="st-colhdr">Mobile</span><span class="st-colhdr">Feed</span></span>
           </div>
+          <!-- a multi-control row: gamepad focus on one check circle, so the row warms (.06) and the circle carries the focus as
+               Steam's FocusRing light plate, 12 px larger than the circle (CTL C-D14, §4.5) -->
           <div class="st-plat">
-            <div class="st-r first"><span class="lab">I receive a friend invitation</span>
-              <span class="st-cols" style="margin-right:-12px"><span class="st-ckcell"><span class="st-ck on"><i data-si="check"></i></span></span><span class="st-ckcell"><span class="st-ck on"><i data-si="check"></i></span></span><span class="st-ckcell"><span class="st-ck on"><i data-si="check"></i></span></span><span class="st-ckcell"><span class="st-ck dis"></span></span></span></div>
-            <div class="st-r"><span class="lab">Someone replies to my discussion</span>
-              <span class="st-cols" style="margin-right:-12px"><span class="st-ckcell"><span class="st-ck"></span></span><span class="st-ckcell is-focus"><span class="st-ck"></span></span><span class="st-ckcell"><span class="st-ck on"><i data-si="check"></i></span></span><span class="st-ckcell"><span class="st-ck on"><i data-si="check"></i></span></span></span></div>
-            <div class="st-r"><span class="lab">I receive a new inventory item</span>
-              <span class="st-cols" style="margin-right:-12px"><span class="st-ckcell"><span class="st-ck"></span></span><span class="st-ckcell"><span class="st-ck on"><i data-si="check"></i></span></span><span class="st-ckcell"><span class="st-ck on"><i data-si="check"></i></span></span><span class="st-ckcell"><span class="st-ck dis"></span></span></span></div>
-            <div class="st-r"><span class="lab">I receive a gift</span>
-              <span class="st-cols" style="margin-right:-12px"><span class="st-ckcell"><span class="st-ck on"><i data-si="check"></i></span></span><span class="st-ckcell"><span class="st-ck on"><i data-si="check"></i></span></span><span class="st-ckcell"><span class="st-ck on"><i data-si="check"></i></span></span><span class="st-ckcell"><span class="st-ck dis"></span></span></span></div>
-            <div class="st-r"><span class="lab">I receive a trade offer</span>
-              <span class="st-cols" style="margin-right:-12px"><span class="st-ckcell"><span class="st-ck"></span></span><span class="st-ckcell"><span class="st-ck on"><i data-si="check"></i></span></span><span class="st-ckcell"><span class="st-ck on"><i data-si="check"></i></span></span><span class="st-ckcell"><span class="st-ck dis"></span></span></span></div>
-            <div class="st-r last"><span class="lab">Steam Support replies to my ticket</span>
-              <span class="st-cols" style="margin-right:-12px"><span class="st-ckcell"><span class="st-ck on"><i data-si="check"></i></span></span><span class="st-ckcell"><span class="st-ck on"><i data-si="check"></i></span></span><span class="st-ckcell"><span class="st-ck on"><i data-si="check"></i></span></span><span class="st-ckcell"><span class="st-ck dis"></span></span></span></div>
+            <div class="st-r first"><span class="lab">I receive a friend invitation</span><span class="st-cols" style="margin-right:-14px"><span class="st-ckcell"><span class="st-ck on"><i data-si="check"></i></span></span><span class="st-ckcell"><span class="st-ck on"><i data-si="check"></i></span></span><span class="st-ckcell"><span class="st-ck on"><i data-si="check"></i></span></span><span class="st-ckcell"><span class="st-ck dis"></span></span></span></div>
+            <div class="st-r warm"><span class="lab">Someone replies to my discussion</span><span class="st-cols" style="margin-right:-14px"><span class="st-ckcell"><span class="st-ck"></span></span><span class="st-ckcell is-focus"><span class="st-ck"></span></span><span class="st-ckcell"><span class="st-ck on"><i data-si="check"></i></span></span><span class="st-ckcell"><span class="st-ck on"><i data-si="check"></i></span></span></span></div>
+            <div class="st-r"><span class="lab">I receive a new inventory item</span><span class="st-cols" style="margin-right:-14px"><span class="st-ckcell"><span class="st-ck"></span></span><span class="st-ckcell"><span class="st-ck on"><i data-si="check"></i></span></span><span class="st-ckcell"><span class="st-ck on"><i data-si="check"></i></span></span><span class="st-ckcell"><span class="st-ck dis"></span></span></span></div>
+            <div class="st-r"><span class="lab">I receive a gift</span><span class="st-cols" style="margin-right:-14px"><span class="st-ckcell"><span class="st-ck on"><i data-si="check"></i></span></span><span class="st-ckcell"><span class="st-ck on"><i data-si="check"></i></span></span><span class="st-ckcell"><span class="st-ck on"><i data-si="check"></i></span></span><span class="st-ckcell"><span class="st-ck dis"></span></span></span></div>
+            <div class="st-r"><span class="lab">I receive a trade offer</span><span class="st-cols" style="margin-right:-14px"><span class="st-ckcell"><span class="st-ck"></span></span><span class="st-ckcell"><span class="st-ck on"><i data-si="check"></i></span></span><span class="st-ckcell"><span class="st-ck on"><i data-si="check"></i></span></span><span class="st-ckcell"><span class="st-ck dis"></span></span></span></div>
+            <div class="st-r last"><span class="lab">Steam Support replies to my ticket</span><span class="st-cols" style="margin-right:-14px"><span class="st-ckcell"><span class="st-ck on"><i data-si="check"></i></span></span><span class="st-ckcell"><span class="st-ck on"><i data-si="check"></i></span></span><span class="st-ckcell"><span class="st-ck on"><i data-si="check"></i></span></span><span class="st-ckcell"><span class="st-ck dis"></span></span></span></div>
           </div>
         </div>
       </div>
     </div>
+    <div data-st="legend" data-mode="pad" data-legends="A:Select|B:Back"></div>
   </div>
 
-  <div data-wn="frame" data-cx="960" data-y="806" data-dim=".72"></div>
   <div data-wn="bar" data-cx="960" data-y="904"></div>
-  <div data-wn="pill" data-cx="960" data-y="1018"></div>
 </div>
 <script src="settings-shared.js"></script>
 <script src="settings-icons.js"></script>

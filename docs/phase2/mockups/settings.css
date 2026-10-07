@@ -1,14 +1,32 @@
 /* Settings concept (docs/phase2/concepts/settings.md): layout shared by mockups/settings-*.html.
- * Builds on kit.css; every number is a DESIGN2 token or derived from one. Main-window CSS px
+ * Builds on kit.css; every number is a DESIGN2 token, a PLAN §1 value or derived from one. Main-window CSS px
  * unless a rule says otherwise (SteamVR's page uses the same rules x 1.44, see .st-vr below).
  *
- *   window glass 1280 x 656, radius 54; the bottom ornament (y 628-712) appears only when Steam's legend
- *                carries a page-specific action (X, Y, Menu, a renamed B such as "Done")
- *   sidebar      x 0..400, full height, black .14 (one material step darker), no line
+ * Revision 3 (M0, PLAN §1 conformance, 2026-10-07):
+ *   window glass 1280 x 656, radius 54 on every settings page (route mode "window", PLAN §1.2); the 64 px margin
+ *                under it always holds Steam's legend: a quiet legend (A/B only) or a capsule ornament (any other
+ *                action), never hidden (PLAN §1.10)
+ *   sidebar      x 0..400, full height, black .14 (one material step darker), no line. Selection = white .18 pill +
+ *                specular top arc + Semibold; laser hover on a navigation row = the light spot only (PLAN §1.4, S18)
+ *   focus        gamepad focus adds white .28 (P4 tunes .28-.32), a .16 spot in the upper third, the arc x1.5 (§1.4)
  *   toolbar row  y 0..108: sidebar part = Back circle + "Settings" Large Title; detail part = Back circle (sub-views),
- *                inline title (Title 2, once the hero has scrolled under the edge), Steam's search as a 60 px magnifier circle
- *   detail pane  x 400..1280; content column 760 px centred (x 460..1220); compact hero 56 px
+ *                inline title (Title 2), Steam's search as a 60 px magnifier circle (PLAN §1.9)
+ *   detail pane  x 400..1280; content column 760 px centred (x 460..1220); compact hero 60 px circle (pops +10 mm)
+ *   rows         80 px contiguous, hover pill inset 6, separators 2 px white .08 inset 26, hidden next to a lit row (§1.3)
+ *
+ * kit.css still carries DESIGN2's pre-PLAN focus add (.14). The settings mockups use the PLAN §1.4 values through the
+ * local --st-* tokens below until P4 brings the kit to parity (then these become aliases).
  */
+:root {
+  --st-focus: .28;               /* gamepad focus add (PLAN §1.4; P4 sets the final value in .28-.32) */
+  --st-focus-spot: .16;          /* focus light spot, upper third */
+  --st-hover: .08;               /* laser hover add on controls and platter rows */
+  --st-hover-spot: .12;          /* laser light spot at the pointer */
+  --st-nav-sel: .18;             /* navigation selection (sidebar row) */
+  --st-red-label: rgb(255 130 125);  /* destructive label at rest (CTL R7: 3.1-3.9:1 on glass) */
+  --st-on-fill: #0d0e12;         /* text on a coloured whole fill is dark (PLAN §1.12, CC §7) */
+  --st-badge-red: rgb(204 32 40);    /* count badge: white digits on the deeper red (CC §7, 5.5:1) */
+}
 
 /* ------------------------------------------------------------------ window + split view */
 .st-win { left: 0; top: 0; width: 1280px; height: 656px; overflow: hidden; }
@@ -23,21 +41,24 @@
                        mask-image: linear-gradient(180deg, #000 0, #000 calc(100% - 72px), rgb(0 0 0 / .2) calc(100% - 20px), transparent 100%); }
 .st-inert { opacity: .5; }
 
-/* sidebar rows: 72 px capsules at 80 px pitch.
-   Selection = the brighter pill (white .24) + its own specular top arc + Semibold label.
-   Hover = light spot + white .05, capped so a hovered row never outshines the selected one (settings.md §3.3, T-SEL). */
+/* sidebar rows: 72 px capsules at 80 px pitch (navigation rows).
+   Selected = white .18 pill + its own specular top arc + Semibold label (PLAN §1.4 "Navigation selected", S18).
+   Laser hover = the light spot only, no fill (PLAN §1.4 "Hover on navigation rows").
+   Gamepad focus = selection (Steam's sidebar selects the focused page) + white .28, a .16 spot in the upper third and the arc x1.5. */
 .st-nav { position: relative; display: flex; align-items: center; gap: 16px; height: 72px; margin-bottom: 8px; padding: 0 16px;
   box-sizing: border-box; border-radius: 36px; font: 500 24px/1.2 var(--lg-font); color: var(--lg-text-1); white-space: nowrap; }
 .st-nav .lab { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .st-nav .trail { margin-left: auto; display: flex; align-items: center; gap: 10px; color: var(--lg-text-2); font-size: 22px; }
-.st-nav.is-nav-selected { background: rgb(255 255 255 / .26); font-weight: 600;
-  box-shadow: 0 4px 12px rgb(0 0 0 / .14); }
-.st-nav.is-nav-selected::before { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; padding: 1.5px;
-  background: conic-gradient(from var(--lg-light), rgb(255 255 255 / .60) 0deg, rgb(255 255 255 / .14) 40deg, transparent 75deg, transparent 285deg, rgb(255 255 255 / .14) 320deg, rgb(255 255 255 / .60) 360deg);
+.st-nav > * { position: relative; z-index: 1; }   /* the light paints under the label (VP P-10) */
+.st-nav.is-nav-selected { background: rgb(255 255 255 / var(--st-nav-sel)); font-weight: 600; }
+.st-nav.is-nav-selected::before { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; padding: 1.5px; z-index: 0;
+  background: conic-gradient(from var(--lg-light), rgb(255 255 255 / calc(.60 * var(--arc, 1))) 0deg, rgb(255 255 255 / calc(.14 * var(--arc, 1))) 40deg, transparent 75deg, transparent 285deg, rgb(255 255 255 / calc(.14 * var(--arc, 1))) 320deg, rgb(255 255 255 / calc(.60 * var(--arc, 1))) 360deg);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
-.st-nav.is-hover::after { opacity: 1; --lift: .03; --spot: .07; --spot-r: 55%; }
-.st-nav.is-nav-selected.is-hover::after { --lift: .02; }
-.st-nav.is-focus::after { opacity: 1; --lift: .06; --spot: .14; --hx: 50%; --hy: 28%; }
+/* the navigation-row spot: peak +.12, no fill (PLAN §1.4, SM-D13). Radius 240 px on these 368 px rows: SM-D13's 108 px measured
+   +5.4 L over rest (VP P-03 needs +10); 240 px gives +10.3 / +11.7 L while selection stays >= hover + 16.5 (T-SEL, settings.md §3.3) */
+.st-nav.is-hover::after { opacity: 1; background: radial-gradient(circle var(--st-nav-spot-r, 240px) at var(--hx) var(--hy), rgb(255 255 255 / var(--st-hover-spot)) 0, rgb(255 255 255 / 0) 100%); }
+.st-nav.is-focus::after { opacity: 1; --lift: var(--st-focus); --spot: var(--st-focus-spot); --hx: 50%; --hy: 30%; }
+.st-nav.is-focus { --arc: 1.5; }
 .st-gap { height: 16px; }                               /* + the row's 8 px margin = 24 px between groups */
 
 /* coloured icon circles (T2 decoration keyed by data-lgs-page) */
@@ -45,7 +66,7 @@
   background: linear-gradient(180deg, rgb(255 255 255 / .24), rgb(255 255 255 / 0) 62%), var(--c, var(--lg-gray));
   box-shadow: inset 0 1px 1px rgb(255 255 255 / .35), inset 0 -2px 3px rgb(0 0 0 / .14), 0 1px 3px rgb(0 0 0 / .28); }
 .st-chip svg { stroke-width: 2.3; }
-.st-chip.md { width: 56px; height: 56px; --is: 32px; }
+.st-chip.md { width: 60px; height: 60px; --is: 34px; }
 .st-chip.lg { width: 72px; height: 72px; --is: 40px; }
 .st-chip.sm { width: 32px; height: 32px; --is: 18px; }
 [data-c="blue"] { --c: var(--lg-blue); }      [data-c="green"] { --c: rgb(40 190 80); }
@@ -57,111 +78,158 @@
 /* ------------------------------------------------------------------ detail toolbar (x 400..1280, y 0..108) */
 .st-tb { position: absolute; left: 400px; top: 0; width: 880px; height: 108px; z-index: 4; }
 .st-tb-back { position: absolute !important; left: 24px; top: 24px; }
-.st-tb-lead { position: absolute !important; left: 24px; top: 24px; --s: 60px; font: 600 24px/1 var(--lg-font); }
+/* the list page's Cancel: Steam's menu Cancel item as the 56 px quiet capsule (PLAN §1.12, HA-11), centred on the row */
+.st-tb-lead { position: absolute !important; left: 24px; top: 26px; --s: 56px; padding: 0 30px !important; background: rgb(255 255 255 / .08) !important;
+  color: var(--lg-text-2) !important; font: 500 22px/1 var(--lg-font) !important; }
 .st-tb-title { position: absolute; left: 100px; right: 100px; top: 35px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .st-tb-find { position: absolute !important; right: 24px; top: 24px; color: var(--lg-text-2); }
 
 /* ------------------------------------------------------------------ detail pane */
 .st-scroll { position: absolute; left: 400px; right: 0; top: 0; bottom: 0; overflow: hidden;
-  /* scroll edges: content fades under the toolbar row and, with no ornament, over the last 48 px of the glass */
+  /* scroll edges: content fades under the toolbar row and, with the quiet legend (no capsule), over the last 48 px of the glass */
   -webkit-mask-image: linear-gradient(180deg, transparent 0, transparent 92px, #000 124px, #000 calc(100% - 48px), transparent 100%);
           mask-image: linear-gradient(180deg, transparent 0, transparent 92px, #000 124px, #000 calc(100% - 48px), transparent 100%); }
 .st-scroll.top { -webkit-mask-image: linear-gradient(180deg, #000 0, #000 calc(100% - 48px), transparent 100%);
                          mask-image: linear-gradient(180deg, #000 0, #000 calc(100% - 48px), transparent 100%); }
-/* with an ornament, the bottom edge fades over 96 px so content passes under it */
+/* with the capsule ornament, the bottom edge fades over 96 px so content passes under it */
 .st-scroll.orn { -webkit-mask-image: linear-gradient(180deg, transparent 0, transparent 92px, #000 124px, #000 calc(100% - 96px), rgb(0 0 0 / .22) calc(100% - 30px), transparent 100%);
                          mask-image: linear-gradient(180deg, transparent 0, transparent 92px, #000 124px, #000 calc(100% - 96px), rgb(0 0 0 / .22) calc(100% - 30px), transparent 100%); }
 .st-scroll.top.orn { -webkit-mask-image: linear-gradient(180deg, #000 0, #000 calc(100% - 96px), rgb(0 0 0 / .22) calc(100% - 30px), transparent 100%);
                              mask-image: linear-gradient(180deg, #000 0, #000 calc(100% - 96px), rgb(0 0 0 / .22) calc(100% - 30px), transparent 100%); }
 .st-col { position: absolute; left: 60px; width: 760px; }
 
-/* compact page hero: 56 px icon circle + Title 1 on one line, centred; 72 px with its gap (settings.md §3.5) */
-.st-hero { display: flex; align-items: center; justify-content: center; gap: 16px; height: 56px; margin-bottom: 16px; }
+/* compact page hero: a 60 px icon circle + Title 1 on one line, centred; 72 px with its gap (settings.md §3.5).
+   The circle is the page's one decorative pop: +10 mm (PLAN §1.7), so it casts the depth shadow (0.4 px y, 1.2 px blur per mm, VP P-48) */
+.st-hero { display: flex; align-items: center; justify-content: center; gap: 16px; height: 60px; margin-bottom: 12px; }
 .st-hero .t-title1 { line-height: 1; }
+.st-hero .st-chip { box-shadow: inset 0 1px 1px rgb(255 255 255 / .35), inset 0 -2px 3px rgb(0 0 0 / .14), 0 4px 12px rgb(0 0 0 / .30); }
 
-/* section header above a platter: 60 px block (24 + 26 + 10) */
-.st-sh { font: 600 22px/26px var(--lg-font); color: var(--lg-text-2); padding: 0 24px; margin: 24px 0 10px; }
+/* section header above a platter: 60 px block (24 + 26 + 10), its text 26 px in from the platter edge like the rows */
+.st-sh { font: 600 22px/26px var(--lg-font); color: var(--lg-text-2); padding: 0 26px; margin: 24px 0 10px; }
 .st-sh.first { margin-top: 0; }
 .st-gap20 { height: 20px; }
-.st-foot { font: 500 20px/1.35 var(--lg-font); color: var(--lg-text-2); padding: 12px 24px 0; }
+.st-foot { font: 500 20px/1.35 var(--lg-font); color: var(--lg-text-2); padding: 12px 26px 0; }
 
-/* grouped platter: recessed (black .14), radius 30 (54 - 24); rows 80 px contiguous */
+/* grouped platter: recessed (black .14), radius 30 (54 - 24); rows 80 px contiguous (PLAN §1.3, CTL §10) */
 .st-plat { position: relative; border-radius: 30px; background: rgb(0 0 0 / .14); }
-.st-r { position: relative; display: flex; align-items: center; gap: 18px; min-height: 80px; padding: 0 24px; box-sizing: border-box;
+.st-r { position: relative; display: flex; align-items: center; gap: 18px; min-height: 80px; padding: 0 26px; box-sizing: border-box;
   font: 500 24px/1.25 var(--lg-font); color: var(--lg-text-1); border-radius: 30px; }
-.st-r + .st-r { border-radius: 0; background: linear-gradient(rgb(255 255 255 / .08), rgb(255 255 255 / .08)) 24px 0 / calc(100% - 48px) 2px no-repeat; }
+/* separators: 2 px white .08 inset 26 on both sides, none at the platter ends, hidden on both sides of a lit row */
+.st-r + .st-r { border-radius: 0; background: linear-gradient(rgb(255 255 255 / .08), rgb(255 255 255 / .08)) 26px 0 / calc(100% - 52px) 2px no-repeat; }
+.st-r:is(.is-hover, .is-focus, .warm), .st-r:is(.is-hover, .is-focus, .warm) + .st-r { background-image: none; }
 .st-r.first { border-radius: 30px 30px 0 0; }
 .st-r.last { border-radius: 0 0 30px 30px; }
-.st-r.two { min-height: 104px; padding-top: 16px; padding-bottom: 16px; }
+.st-r.first.last { border-radius: 30px; }
+.st-r.two { min-height: 100px; padding-top: 14px; padding-bottom: 14px; }
 .st-r .lab { flex: 1; min-width: 0; }
 .st-r .desc { display: block; margin-top: 4px; font: 500 20px/1.3 var(--lg-font); color: var(--lg-text-2); }
 .st-r .val { color: var(--lg-text-2); font: 500 22px/1.25 var(--lg-font); text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .st-r .chev { color: var(--lg-text-3); --is: 22px; margin-left: -6px; }
 .st-r .lead { --is: 24px; color: var(--lg-text-2); }
 .st-r.disabled > * { opacity: .4; }
-/* states: the hover / focus pill is inset 6 px with radius 24 (DESIGN2 §7.7); never a ring */
+/* states: the hover / focus pill is inset 6 px with radius 24; never a ring.
+   Hover (laser) = + white .08 and the .12 light spot at the pointer.
+   Focus (gamepad) on a single-control row or a navigation row = + white .28, a .16 spot in the upper third, the inset top highlight.
+   Focus on one control of a multi-control row = the row warms (.06) and the control carries the focus (CTL C-D14). */
 .st-r::after { content: ""; position: absolute; inset: 6px; border-radius: 24px; pointer-events: none; opacity: 0; mix-blend-mode: plus-lighter;
-  background: radial-gradient(circle at var(--hx, 50%) var(--hy, 30%), rgb(255 255 255 / var(--spot, .12)) 0, rgb(255 255 255 / 0) 70%), rgb(255 255 255 / var(--lift, 0)); }
-.st-r.is-hover::after { opacity: 1; --lift: .08; }
-.st-r.is-focus::after { opacity: 1; --lift: .14; --spot: .16; }
+  background: radial-gradient(circle at var(--hx, 50%) var(--hy, 30%), rgb(255 255 255 / var(--spot, .12)) 0, rgb(255 255 255 / 0) 75%), rgb(255 255 255 / var(--lift, 0)); }
+.st-r.is-hover::after { opacity: 1; --lift: var(--st-hover); --spot: var(--st-hover-spot); }
+.st-r.is-focus::after { opacity: 1; --lift: var(--st-focus); --spot: var(--st-focus-spot); --hx: 50%; --hy: 30%;
+  box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / .55); }
+.st-r.warm::after { opacity: 1; --lift: .06; --spot: 0; }
 /* the row's light paints UNDER its controls (the Field's ::after at z-index 0, its children at 1),
    so a focused row never washes a tinted control */
 .st-r > * { position: relative; z-index: 1; }
 .st-r::after { z-index: 0; }
 
-/* trailing value capsule (Steam's dropdown button): 60 px, value + up/down chevrons */
-.st-pop { position: relative; display: inline-flex; align-items: center; justify-content: space-between; gap: 14px; flex: none; box-sizing: border-box;
-  height: 60px; min-width: 250px; padding: 0 18px 0 24px; border-radius: 30px; background: var(--lg-fill-thin);
-  font: 500 22px/1 var(--lg-font); color: var(--lg-text-1); white-space: nowrap; }
-.st-pop > svg { --is: 22px; color: var(--lg-text-2); }
-.st-pop.is-selected > svg { color: rgb(13 14 18 / .6); }
-.st-pop::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0; mix-blend-mode: plus-lighter;
-  background: radial-gradient(circle at var(--hx, 50%) var(--hy, 30%), rgb(255 255 255 / .16) 0, transparent 75%), rgb(255 255 255 / .14); }
-.st-pop.is-focus::after { opacity: 1; }
+/* gamepad focus on a control (a control "lifted" inside a focused single-control row, or the focused control of a
+   multi-control row): + light, its own specular arc; on a white or coloured fill an outer glow instead (VP P-16) */
+.st-arc::before { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; padding: 1.5px;
+  background: conic-gradient(from var(--lg-light), rgb(255 255 255 / .9) 0deg, rgb(255 255 255 / .24) 40deg, transparent 75deg, transparent 145deg, rgb(255 255 255 / .26) 180deg, transparent 215deg, transparent 285deg, rgb(255 255 255 / .24) 320deg, rgb(255 255 255 / .9) 360deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+.st-glow { box-shadow: 0 0 18px 2px rgb(255 255 255 / .30) !important; }
+/* the kit's focus layer, raised to the PLAN §1.4 add inside the settings mockups */
+.lgk-btn.is-focus::after { --lift: var(--st-focus); --spot: var(--st-focus-spot); }
 
-/* Control Center capsule slider: recessed track, value = white fill from the leading edge, glyph inside */
-.st-slider { position: relative; flex: 1; height: 64px; border-radius: 32px; background: var(--lg-fill-thick); box-shadow: inset 0 2px 5px rgb(0 0 0 / .26); overflow: hidden; }
-.st-slider > .fill { position: absolute; left: 0; top: 0; bottom: 0; width: var(--v, 50%); min-width: 64px; border-radius: 32px;
-  background: rgb(255 255 255 / .86); box-shadow: 0 0 10px rgb(255 255 255 / .12); }
-.st-slider > svg { position: absolute; left: 20px; top: 18px; --is: 28px; color: #1b1c20; }
-.st-slider > .knob { position: absolute; top: 2px; left: calc(var(--v, 50%) - 62px); width: 60px; height: 60px; border-radius: 50%; background: #fff;
-  box-shadow: 0 0 0 1.5px rgb(0 0 0 / .10), 0 2px 12px rgb(0 0 0 / .45), inset 0 -3px 4px rgb(0 0 0 / .10); }
-.st-r.is-focus .st-slider { background: rgb(255 255 255 / .10); box-shadow: inset 0 2px 5px rgb(0 0 0 / .22), 0 0 0 2px rgb(255 255 255 / .10), 0 0 22px rgb(255 255 255 / .16); }
-.st-r.is-focus .st-slider > .fill { background: rgb(255 255 255 / .80); }
-.st-pct { flex: none; width: 76px; text-align: right; font: 600 22px/1 var(--lg-font); color: var(--lg-text-2); font-variant-numeric: tabular-nums; }
-/* Steam's notched slider (Quick Access Refresh Rate) restyled: label + value on one line, capsule below, bookend labels under its ends */
+/* trailing value capsule (Steam's dropdown button): 60 px, value + Steam's caret (CTL §8.1) */
+.st-pop { position: relative; display: inline-flex; align-items: center; justify-content: space-between; gap: 14px; flex: none; box-sizing: border-box;
+  height: 60px; min-width: 200px; padding: 0 20px 0 24px; border-radius: 30px; background: var(--lg-fill-thin);
+  box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / .22);
+  font: 500 22px/1 var(--lg-font); color: var(--lg-text-1); white-space: nowrap; }
+.st-pop.rich { height: 76px; min-width: 300px; }      /* two-line value (Timezone): 76 px, radius 30, in a 96 px row */
+.st-pop .sub { font-size: 18px; color: var(--lg-text-2); }
+.st-pop > svg { --is: 22px; color: var(--lg-text-2); }
+.st-pop.is-selected > svg, .st-pop.is-selected .sub { color: rgb(13 14 18 / .6); }
+.st-pop::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0; mix-blend-mode: plus-lighter;
+  background: radial-gradient(circle at var(--hx, 50%) var(--hy, 30%), rgb(255 255 255 / .16) 0, transparent 75%), rgb(255 255 255 / .10); }
+.st-pop.is-focus::after { opacity: 1; }
+.st-pop.is-focus { overflow: visible; }
+.st-pop.is-focus::before { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; padding: 1.5px;
+  background: conic-gradient(from var(--lg-light), rgb(255 255 255 / .9) 0deg, rgb(255 255 255 / .24) 40deg, transparent 75deg, transparent 285deg, rgb(255 255 255 / .24) 320deg, rgb(255 255 255 / .9) 360deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+
+/* switch inside a focused single-control row: lifted (a glow on the knob, + .10 light on the track; CTL §4.3) */
+.st-r.is-focus .lgk-toggle { box-shadow: inset 0 0 0 40px rgb(255 255 255 / .10); }
+.st-r.is-focus .lgk-toggle::after { box-shadow: 0 2px 5px rgb(0 0 0 / .3), 0 0 14px 3px rgb(255 255 255 / .42); }
+
+/* Control Center capsule slider (CTL §7.2): recessed 64 px track; the value is a white fill from Steam's origin (0 here) that is
+   always >= 64 px wide, so the inert glyph (G>FieldIcon) sits on white; the 64 px handle carries a 58 px white disc, shown on
+   hover, focus or drag. --v is the value as a fraction 0..1 */
+.st-slider { position: relative; flex: 1; height: 64px; border-radius: 32px; background: var(--lg-fill-thick); box-shadow: inset 0 2px 5px rgb(0 0 0 / .30); }
+.st-slider > .fill { position: absolute; left: 0; top: 0; bottom: 0; width: calc(64px + var(--v, .5) * (100% - 64px)); border-radius: 32px;
+  background: linear-gradient(180deg, rgb(255 255 255 / .92), rgb(255 255 255 / .84)); }
+.st-slider > svg { position: absolute; left: 19px; top: 19px; --is: 26px; color: #1b1c20; pointer-events: none; }
+.st-slider > .knob { position: absolute; top: 3px; left: calc(var(--v, .5) * (100% - 64px) + 3px); width: 58px; height: 58px; border-radius: 50%; background: #fff;
+  box-shadow: 0 2px 8px rgb(0 0 0 / .32); }
+.st-r.is-focus .st-slider { box-shadow: inset 0 2px 5px rgb(0 0 0 / .26), inset 0 0 0 64px rgb(255 255 255 / .10), inset 0 1.5px 1.5px -1px rgb(255 255 255 / .55); }
+.st-pct { flex: none; width: 72px; text-align: right; font: 600 22px/1 var(--lg-font); color: var(--lg-text-2); font-variant-numeric: tabular-nums; }
+/* stepped slider (Steam's Quick Access notched slider, CTL §7.3): label and value on one line, the capsule below, bookend labels
+   under its ends; notch cells 64 px wide so every tick sits at its value; the knob (a 50 px disc) is always shown at the current
+   notch and the fill ends at its centre. --n = notches - 1, --i = the current notch */
 .st-r.stack { flex-direction: column; align-items: stretch; gap: 10px; padding-top: 16px; padding-bottom: 12px; }
 .st-r.stack .head { display: flex; align-items: center; }
-.st-r.stack .ends { display: flex; justify-content: space-between; padding: 0 22px; font: 500 18px/1 var(--lg-font); color: var(--lg-text-2); font-variant-numeric: tabular-nums; }
-.st-slider.notched { flex: none; }
-.st-slider.notched > .tick { position: absolute; top: 28px; width: 8px; height: 8px; border-radius: 50%; background: rgb(255 255 255 / .30); translate: -4px 0; }
-.st-slider.notched > .tick.on { background: rgb(13 14 18 / .30); }
+.st-r.stack .ends { display: flex; justify-content: space-between; padding: 0 20px; font: 600 18px/1 var(--lg-font); color: var(--lg-text-2); font-variant-numeric: tabular-nums; }
+.st-slider.notched { flex: none; --v: calc(var(--i) / var(--n)); }
+.st-slider.notched > .fill { width: calc(32px + var(--v) * (100% - 64px)); }
+.st-slider.notched > .tick { position: absolute; top: 28px; width: 8px; height: 8px; border-radius: 50%; background: rgb(255 255 255 / .42); translate: -4px 0;
+  left: calc(32px + var(--t) / var(--n) * (100% - 64px)); }
+.st-slider.notched > .tick.on { background: rgb(13 14 18 / .28); }
+.st-slider.notched > .knob { width: 50px; height: 50px; top: 7px; left: calc(var(--v) * (100% - 64px) + 7px); box-shadow: 0 2px 10px rgb(0 0 0 / .40); }
 
-/* check circle (Notifications matrix): 40 px, 80 px column pitch */
+/* check circle (Notifications matrix, Storage selection; CTL §6.2): 40 px in an 80 px cell, column pitch 80.
+   Off = a shallow well with the "circle" symbol ring; on = blue whole fill + a white check (stroke 3) */
 .st-ck { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; flex: none; box-sizing: border-box;
-  background: rgb(0 0 0 / .30); box-shadow: inset 0 2px 4px rgb(0 0 0 / .3), inset 0 0 0 2.5px rgb(255 255 255 / .28); color: transparent; --is: 24px; }
+  background: rgb(0 0 0 / .22); box-shadow: inset 0 0 0 2.5px rgb(255 255 255 / .34), inset 0 2px 4px rgb(0 0 0 / .30); color: transparent; --is: 24px; }
 .st-ck.on { background: linear-gradient(180deg, rgb(255 255 255 / .2), rgb(255 255 255 / 0) 60%), var(--lg-blue); box-shadow: 0 1px 3px rgb(0 0 0 / .3); color: #fff; }
-.st-ck.dis { opacity: .4; }
+.st-ck.dis { background: rgb(0 0 0 / .088); box-shadow: inset 0 0 0 2.5px rgb(255 255 255 / .14); }
 .st-ck svg { stroke-width: 3; }
-.st-ckcell { position: relative; display: grid; place-items: center; width: 80px; height: 80px; border-radius: 50%; }
-.st-ckcell.is-focus { background: rgb(255 255 255 / .16); box-shadow: 0 0 22px rgb(255 255 255 / .14); }
-.st-ckcell.is-focus .st-ck:not(.on) { box-shadow: inset 0 2px 4px rgb(0 0 0 / .3), inset 0 0 0 2.5px rgb(255 255 255 / .6); }
+.st-ckcell { position: relative; display: grid; place-items: center; width: 80px; height: 80px; }
+/* focus on a check circle: Steam's FocusRing as a light plate 12 px larger than the circle (64 px), a radial bloom (CTL §4.5) */
+/* Steam draws the FocusRing above the control (z 10000), so the plate lights the well itself (plus-lighter over it) */
+.st-ckcell.is-focus::before { content: ""; position: absolute; left: 8px; top: 8px; width: 64px; height: 64px; border-radius: 50%; pointer-events: none; mix-blend-mode: plus-lighter; z-index: 2;
+  background: radial-gradient(circle, rgb(255 255 255 / .34) 0, rgb(255 255 255 / .22) 42%, transparent 72%); }
+.st-ckcell.is-focus .st-ck.on { box-shadow: 0 0 16px 3px rgb(255 255 255 / .38); }
 .st-cols { display: flex; }
 .st-colhdr { width: 80px; text-align: center; font: 600 18px/1.2 var(--lg-font); color: var(--lg-text-2); }
 
-/* the bottom ornament (only with a page-specific legend) */
-.st-orn .lgk-btn { font-size: 22px; padding: 0 20px 0 14px; gap: 12px; }
+/* segmented control (CTL §8.3): 64 px recessed track, padding 2, segments contiguous (each its full share of the track),
+   the visible fill inset 2 px; selected = white .94 pill with a dark label */
+.st-seg { display: inline-flex; height: 64px; padding: 2px; box-sizing: border-box; border-radius: 32px; background: var(--lg-fill-thick); box-shadow: inset 0 2px 5px rgb(0 0 0 / .26); }
+.st-seg > span { position: relative; display: inline-flex; align-items: center; justify-content: center; min-width: 140px; height: 60px; padding: 2px 26px; box-sizing: border-box;
+  border-radius: 30px; background-clip: content-box; font: 600 22px/1 var(--lg-font); color: var(--lg-text-1); white-space: nowrap; }
+.st-seg > span.is-selected { background: var(--lg-fill-selected) content-box; color: var(--lg-text-on-selected); }
+.st-seg > span.is-selected::before { content: ""; position: absolute; inset: 2px; border-radius: 28px; box-shadow: 0 2px 6px rgb(0 0 0 / .22); pointer-events: none; }
 
 /* radio circle (selection lists, current layout) */
 .st-radio { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; flex: none; box-sizing: border-box;
   box-shadow: inset 0 0 0 2.5px rgb(255 255 255 / .35); }
 .st-radio.on { background: var(--lg-blue); box-shadow: none; color: #fff; --is: 20px; }
 
-/* small badge on a sidebar row / drill-down row */
+/* count badge on a sidebar row / drill-down row: white digits on the deeper red (CC §7) */
 .st-badge { display: inline-grid; place-items: center; min-width: 30px; height: 30px; padding: 0 9px; box-sizing: border-box; border-radius: 15px;
-  background: var(--lg-red); color: #fff; font: 600 18px/1 var(--lg-font); font-variant-numeric: tabular-nums; }
+  background: var(--st-badge-red); color: #fff; font: 600 18px/1 var(--lg-font); font-variant-numeric: tabular-nums; }
 
-/* a dimming scrim over the window while an alert or sheet is up (Steam's own modal overlay, restyled to .35) */
+/* Steam's own modal overlay over the window while an alert or sheet is up, restyled to black .35 (PLAN §1.8; never the t1 tint) */
 .st-dim { position: absolute; inset: 0; border-radius: inherit; background: rgb(0 0 0 / .35); z-index: 6; }
 
 /* annotation callouts used by the mockups (not product UI) */
@@ -169,20 +237,34 @@
   font: 600 16px/1.3 var(--lg-font); box-shadow: 0 4px 14px rgb(0 0 0 / .3); }
 .st-note b { font-weight: 800; }
 
-/* destructive capsule: red label at rest, red whole fill when focused or hovered; on a tinted fill the
-   illumination is capped (+.04) and a glow in the tint carries the focus, so the label keeps its contrast */
-.st-danger { color: var(--lg-red); }
-.st-danger.is-focus, .st-danger.is-hover { color: #fff; background: linear-gradient(180deg, rgb(255 255 255 / .16), rgb(255 255 255 / 0) 55%), var(--lg-tint-danger);
-  box-shadow: 0 6px 18px rgb(0 0 0 / .30), 0 0 22px rgb(255 66 69 / .45); }
+/* destructive (settings.md §4.7, PLAN §1.12): a red Semibold label at rest; a red whole fill when focused or hovered, with a dark
+   label (text on coloured fills is dark, CC §7); a destructive CONFIRM inside an alert is the red whole fill at rest (S19).
+   On a tinted fill the illumination is capped (+.04) and a glow in the tint carries the focus */
+.st-danger { color: var(--st-red-label) !important; font-weight: 600; }
+.st-danger.is-focus, .st-danger.is-hover, .st-danger.confirm { color: var(--st-on-fill) !important;
+  background: linear-gradient(180deg, rgb(255 255 255 / .16), rgb(255 255 255 / 0) 55%), var(--lg-tint-danger) !important; }
+.st-danger.is-focus, .st-danger.is-hover { box-shadow: 0 6px 18px rgb(0 0 0 / .30), 0 0 22px rgb(255 66 69 / .45); }
 .lgk-btn.st-danger.is-focus::after, .lgk-btn.st-danger.is-hover::after { --lift: .04; --spot: .08; }
 
-/* long value lists (> 8 options) as a list page over the detail pane: Steam's same menu, re-placed (settings.md §4.5) */
-.st-lp-check { width: 28px; flex: none; display: grid; place-items: center; --is: 24px; color: var(--lg-blue); }
+/* long value lists (> 8 options) as a list page over the detail pane: Steam's same menu, re-placed (settings.md §4.5).
+   Single-choice list: the current value carries a trailing 26 px blue check (CTL §10) */
+.st-lp-check { width: 28px; flex: none; display: grid; place-items: center; --is: 26px; color: var(--lg-blue); }
 .st-lp-check svg { stroke-width: 3; }
+
+/* ------------------------------------------------------------------ Steam's footer legend in the 64 px margin under the glass (PLAN §1.10)
+   Built by settings-shared.js (data-st="legend") until window-nav-shared.js has the quiet variant (REQ C6a->C1a).
+   Quiet legend (only A and B): no capsule material, items 60 px tall at their place (y 640-700, WN §3.4.1), labels Medium white .70;
+   on window routes the labels sit in the margin, so their text gets the on-room shadow (VP P-41). Glyph badges only in gamepad
+   mode (VP P-26). */
+.st-qleg { position: absolute; left: 50%; translate: -50% 0; top: 640px; display: flex; align-items: center; gap: 4px; z-index: 5; }
+.st-qleg .wn-leg { color: var(--lg-text-2); font-weight: 500; text-shadow: 0 1px 3px rgb(0 0 0 / .55), 0 0 12px rgb(0 0 0 / .35); }
+.st-qleg .wn-leg .lgk-glyph { text-shadow: none; box-shadow: 0 1px 4px rgb(0 0 0 / .35); }
+.wn-leg.st-danger-leg { color: var(--st-red-label); }
 
 /* ================================================================== SteamVR's settings page (vr:systemui)
    Panel 1858 x 1045 SteamVR px (root unchanged). The frame shows it at Steam's size, so 1858 / 1280 = 1.4516 SteamVR px per main px
-   for the footprint; element sizes use DESIGN2's m = 1.44. Visible glass inset to Steam's footprint: 1858 x 952 (= 1280 x 656). */
+   for the footprint; element sizes use DESIGN2's m = 1.44. Visible glass inset to Steam's footprint: 1858 x 952 (= 1280 x 656).
+   Used by the C6b mockups settings-steamvr*.html. Revision 3 changed only the sidebar selection and hover to PLAN §1.4. */
 .st-vr { font-family: var(--lg-font); }
 .st-vr .win { left: 0; top: 0; width: 1858px; height: 952px; --r: 78px; overflow: hidden; --rim-w: 2.6px; --de-w: 22px; }
 .st-vr .side { position: absolute; left: 0; top: 0; bottom: 0; width: 576px; background: rgb(0 0 0 / .14); }
@@ -196,13 +278,12 @@
 .st-vr .nav { position: relative; display: flex; align-items: center; gap: 23px; height: 104px; margin-bottom: 11px; padding: 0 23px; box-sizing: border-box;
   border-radius: 52px; font: 500 35px/1.2 var(--lg-font); white-space: nowrap; }
 .st-vr .nav .st-chip { width: 58px; height: 58px; --is: 32px; }
-.st-vr .nav.is-nav-selected { background: rgb(255 255 255 / .26); font-weight: 600; box-shadow: 0 6px 17px rgb(0 0 0 / .14); }
+.st-vr .nav.is-nav-selected { background: rgb(255 255 255 / var(--st-nav-sel)); font-weight: 600; }
 .st-vr .nav.is-nav-selected::before { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; padding: 2px;
   background: conic-gradient(from var(--lg-light), rgb(255 255 255 / .60) 0deg, rgb(255 255 255 / .14) 40deg, transparent 75deg, transparent 285deg, rgb(255 255 255 / .14) 320deg, rgb(255 255 255 / .60) 360deg);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
-.st-vr .nav.is-hover { background: rgb(255 255 255 / .03); }
-.st-vr .nav.is-hover::after { content: ""; position: absolute; inset: 0; border-radius: inherit; mix-blend-mode: plus-lighter;
-  background: radial-gradient(circle at var(--hx) var(--hy), rgb(255 255 255 / .07), transparent 55%); }
+.st-vr .nav.is-hover::after { content: ""; position: absolute; inset: 0; border-radius: inherit; mix-blend-mode: plus-lighter; pointer-events: none;
+  background: radial-gradient(circle at var(--hx) var(--hy), rgb(255 255 255 / var(--st-hover-spot)), transparent 75%); }
 /* the detail pane */
 .st-vr .tbtitle { position: absolute; left: 576px; right: 0; top: 50px; text-align: center; font: 700 43px/1.25 var(--lg-font); }
 .st-vr .scroll { position: absolute; left: 576px; right: 0; top: 0; bottom: 0; overflow: hidden;

@@ -12,9 +12,10 @@
 
   <div data-wn="tabbar" data-right="302" data-cy="426" data-sel="steam settings"></div>
 
-  <!-- ============ /settings/system, sub-view "Updates" (Steam's Updates + Beta Participation sections; the rest of the page is display:none) -->
+  <!-- ============ /settings/system, sub-view "Updates" (Steam's Updates + Beta Participation sections; the rest of the page is
+       display:none, exemption E-DRILL). Gamepad mode, focus on Apply -->
   <div class="lgk-overlay" style="left:320px; top:66px">
-    <div class="lgk-glass st-win" data-mat="window" data-dz="0" data-tier="T5 window (T1: smoky tint)">
+    <div class="lgk-glass st-win" data-mat="window" data-dz="0" data-tier="T5 window cover (T1: smoky tint + edge cues)">
 
       <div data-st="sidebar" data-sel="system"></div>
       <!-- detail toolbar: Back circle (returns to System; B does the same), inline title = the drill-down row's label -->
@@ -22,12 +23,16 @@
 
       <div class="st-scroll top">
         <div class="st-col" style="top:116px">
-          <!-- Steam's "Updates" header is represented by the inline title; Steam's own rows follow -->
+          <!-- Steam's own section header stays visible (no node is hidden or moved; the toolbar title is our decorative copy) -->
+          <div class="st-sh first">Updates</div>
           <div class="st-plat">
-            <div class="st-r first two">
-              <span class="st-chip sm" data-c="orange"><i data-si="reset"></i></span>
+            <!-- single-control row: the row carries the focus (+.28, spot, top highlight); the primary is "lifted" with the
+                 outer glow, because light cannot brighten a coloured fill (VP P-16). Primary = 70 px capsule (PLAN §1.3),
+                 popped +10 mm as a non-interactive crop with a tinted slab (PLAN §1.7) -->
+            <div class="st-r first two is-focus">
+              <span class="st-chip sm" data-c="orange" style="font:800 20px/1 var(--lg-font)">!</span>
               <span class="lab">Software Updates<span class="desc">Update available: SteamOS 3.8.12</span></span>
-              <span class="lgk-btn capsule primary is-focus" style="--s:60px; --hx:46%; --hy:30%">Apply</span>
+              <span class="lgk-btn capsule lg primary st-glow" style="padding:0 34px" data-dz="10" data-tier="primary 70 px: +10 mm non-interactive crop + tinted slab (G3)">Apply</span>
             </div>
             <div class="st-r last"><span class="lab">Update available:</span><span class="val">SteamOS 3.8.12</span></div>
           </div>
@@ -39,11 +44,11 @@
         </div>
       </div>
     </div>
+    <!-- quiet legend in the margin; gamepad mode, so the glyph badges show (VP P-26) -->
+    <div data-st="legend" data-mode="pad" data-legends="A:Select|B:Back"></div>
   </div>
 
-  <div data-wn="frame" data-cx="960" data-y="806" data-dim=".72"></div>
   <div data-wn="bar" data-cx="960" data-y="904"></div>
-  <div data-wn="pill" data-cx="960" data-y="1018"></div>
 </div>
 <script src="settings-shared.js"></script>
 <script src="settings-icons.js"></script>

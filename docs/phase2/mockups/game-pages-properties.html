@@ -12,7 +12,8 @@
   .stitle { position: absolute; left: 100px; top: 34px; width: 284px; font: 700 30px/1.3 var(--lg-font); letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .pages { position: absolute; left: 16px; top: 108px; width: 368px; display: flex; flex-direction: column; gap: 8px; }
   .pages .lgk-row { height: 72px; padding: 0 16px; font-size: 24px; border-radius: 36px; }
-  .pages .lgk-row.is-nav-selected { background: var(--lg-fill-nav); }
+  /* navigation selection (PLAN §1.4): white .18 pill + specular top arc + Semibold label (game-pages.css .is-nav-selected);
+     laser hover on these navigation rows is the light spot only, no fill (SM-D13, SET T-SEL) */
   .pages .chip { --is: 22px; box-shadow: inset 0 2px 0 rgb(255 255 255 / .24); }
   .hero { position: absolute; left: 804px; top: 116px; width: 72px; height: 72px; border-radius: 50%; display: grid; place-items: center; --is: 40px; background: var(--lg-gray); box-shadow: inset 0 2px 0 rgb(255 255 255 / .24); }
   .ptitle { position: absolute; left: 400px; width: 880px; top: 200px; text-align: center; font: 700 38px/1.2 var(--lg-font); letter-spacing: -.015em; }
@@ -23,7 +24,10 @@
   .grp .lgk-row .lbl b { display: block; font: 500 24px/1.3 var(--lg-font); }
   .grp .lgk-row .lbl span { display: flex; align-items: center; gap: 8px; margin-top: 4px; font: 500 20px/1.3 var(--lg-font); color: var(--lg-text-2); }
   .grp .lgk-row .lbl .lgk-glyph { width: 28px; height: 28px; font-size: 15px; }
-  .grp .lgk-row.is-focus { background: rgb(255 255 255 / .14); }
+  /* a single-control row carries the gamepad focus (CTL C-D14): + white .28 (the kit's illumination layer, raised to
+     .28 in game-pages.css), the spot and the inset top arc; its switch is lifted (knob glow) */
+  .grp .lgk-row.is-focus { box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / .55); }
+  .grp .lgk-row.is-focus .lgk-toggle { box-shadow: 0 0 14px 3px rgb(255 255 255 / .42); border-radius: 999px; }
   .grp .lgk-row .trail { margin-left: auto; }
   .hdr { font: 600 22px/1.3 var(--lg-font); color: var(--lg-text-2); padding: 0 24px 12px; }
   .desc { font: 500 20px/1.3 var(--lg-font); color: var(--lg-text-2); padding: 0 24px 12px; }
@@ -42,8 +46,8 @@
         <div class="side"></div>
         <div class="stitle">Starfall Drift</div>
         <div class="pages">
-          <div class="lgk-row is-nav-selected"><span class="chip" style="background:var(--lg-gray)"><i data-i="gear"></i></span>General</div>
-          <div class="lgk-row"><span class="chip" style="background:var(--lg-blue)"><i data-i="shield-check"></i></span>Compatibility</div>
+          <div class="lgk-row gp-navrow is-nav-selected"><span class="chip" style="background:var(--lg-gray)"><i data-i="gear"></i></span>General</div>
+          <div class="lgk-row gp-navrow"><span class="chip" style="background:var(--lg-blue)"><i data-i="shield-check"></i></span>Compatibility</div>
           <div class="lgk-row"><span class="chip" style="background:var(--lg-green)"><i data-i="download"></i></span>Updates</div>
           <div class="lgk-row"><span class="chip" style="background:var(--lg-orange)"><i data-i="folder"></i></span>Installed Files</div>
           <div class="lgk-row"><span class="chip" style="background:var(--lg-purple)"><i data-i="branch"></i></span>Game Versions &amp; Betas</div>
@@ -51,7 +55,8 @@
           <div class="lgk-row"><span class="chip" style="background:var(--lg-teal)"><i data-i="box"></i></span>DLC</div>
         </div>
 
-        <span class="hero"><i data-i="gear"></i></span>
+        <!-- the page hero icon: +10 mm decorative crop (PLAN §1.7 "Settings hero icon"; no focusable inside, so no click cap) -->
+        <span class="hero" style="box-shadow: inset 0 2px 0 rgb(255 255 255 / .24), 0 4px 12px rgb(0 0 0 / .32)" data-dz="10" data-tier="hero icon +10 mm decorative crop"><i data-i="gear"></i></span>
         <div class="ptitle">General</div>
         <div class="pane" style="top:276px">
           <div class="grp"><div class="lgk-row is-focus"><div class="lbl"><b>Enable the Steam Overlay while in-game</b></div><span class="trail"><span class="lgk-toggle on"></span></span></div></div>
@@ -67,12 +72,15 @@
         </div>
       </div>
       <span class="lgk-btn circle" style="position:absolute; left:24px; top:24px"><i data-i="chevron-left" class="bold"></i></span>
-      <div class="lgk-search gp-search" style="position:absolute; left:560px; top:22px; width:560px"><i data-i="search"></i><span class="ph">Search for games or profiles…</span></div>
+      <!-- Steam's header search, collapsed to the 60 px circle in its 80 x 80 box, as on Steam Settings (PLAN §1.9);
+           the 640 capsule of a nested route would collide with the title beside Back (x 100-384). REQ C5a->C1a -->
+      <span class="lgk-btn circle" style="position:absolute; left:1196px; top:24px" data-tier="search circle 60 / 80 (C1a)"><i data-i="search"></i></span>
     </div>
 
-    <div class="lgk-glass gp-foot" data-mat="liquid" data-lens style="left:452px; top:628px; width:376px; --dz:0" data-dz="0" data-tier="footer: T1 + T5 inset slab">
-      <span class="lgk-btn capsule plain nav"><span class="lgk-glyph">A</span>Select</span>
-      <span class="lgk-btn capsule plain nav"><span class="lgk-glyph">B</span>Back</span>
+    <!-- only A and B: a quiet legend in the margin under the 656 glass (route mode window, PLAN §1.2, §1.10) -->
+    <div class="gp-foot quiet" style="left:640px; translate:-50% 0; top:628px" data-dz="0" data-tier="quiet legend (PLAN §1.10)">
+      <span class="lgk-btn capsule plain nav">Select<span class="lgk-glyph">A</span></span>
+      <span class="lgk-btn capsule plain nav">Back<span class="lgk-glyph">B</span></span>
     </div>
   </div>
 </div>

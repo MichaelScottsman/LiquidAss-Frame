@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <title>Glass Shell P2 — Control Center gamepad focus map (explicit neighbours, no horizontal move onto a slider)</title>
 <link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="window-nav-shared.css">
 <link rel="stylesheet" href="control-center.css">
 <style>
   .fm-tag { position: absolute; z-index: 60; font: 700 15px/1 var(--lg-font); color: #111; background: #ffd84a; padding: 4px 7px; border-radius: 7px; white-space: nowrap; }
@@ -13,16 +14,19 @@
 </head>
 <body>
 <!-- Spec sheet (documentation overlay, not UI). Yellow arrows: explicit onMoveRight / onMoveLeft maps at tile edges.
-     Salmon tags: sliders, where Left/Right change the value; they are reachable only vertically or by LB/RB.
-     Cyan: LB / RB jump to the previous / next tile's first control. White: Down from a tile's last control reaches Close. -->
+     Salmon tags: sliders, where Left/Right change the value and X mutes (Volume, Microphone); they are reachable only
+     vertically or by LB / RB. Cyan: LB / RB jump to the previous / next tile's first control. White: Down from a tile's last
+     control reaches Close. The mute zones are laser targets only; the gamepad mutes with X on the focused slider. -->
 <div class="lgk-view" data-room="lounge" data-dim>
+  <div data-wn="tabbar" data-right="302" data-cy="426" data-sel="library" data-pitch="58" data-badge data-dim=".5"></div>
   <div class="lgk-overlay" style="left:320px; top:66px">
     <div class="ccm" data-cc='{"focus":"return"}'></div>
+    <div class="cc-legend" data-legend='{"mode":"pad","items":[["A","Select"],["B","Close"]]}'></div>
   </div>
-  <div class="lgk-pop" style="left:0; top:878px; width:1600px; display:flex; justify-content:center; --pop-scale:1.2">
+  <div class="lgk-pop" style="left:0; top:904px; width:1600px; display:flex; justify-content:center; --pop-scale:1.2">
     <div class="bar2" data-bar='{"pill":{"state":"open","batt":{"mode":"num","v":82},"badge":3}}'></div>
   </div>
-  <div class="lab plate" style="left:28px; top:628px; width:372px">Explicit neighbours at tile edges<small>Geometric moves would take Right from Return to Game onto Volume and Right from 3 Notifications onto Microphone; the next Right would change the value. Every edge move is mapped to a non-slider target instead. Sliders are entered only with Up / Down or LB / RB; on a slider Left / Right change the value, as in Steam.</small></div>
+  <div class="lab plate" style="left:1536px; top:640px; width:368px">Explicit neighbours at tile edges<small>Geometric moves would take Right from Return to Game onto Volume and Right from 3 Notifications onto Microphone; the next Right would change the value. Every edge move is mapped to a non-slider target instead. Sliders are entered only with Up / Down or LB / RB; on a slider Left / Right change the value and X mutes, as in Steam.</small></div>
   <svg id="fm" style="position:absolute; inset:0; width:1920px; height:1080px; pointer-events:none; z-index:55" viewBox="0 0 1920 1080">
     <defs>
       <marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#ffd84a"/></marker>
@@ -31,6 +35,7 @@
     </defs>
   </svg>
 </div>
+<script src="window-nav-shared.js"></script>
 <script src="control-center-build.js"></script>
 <script>
 (() => {
@@ -67,19 +72,20 @@
   // LB / RB between tiles (above the tiles)
   const now = document.querySelector('.ccm .tile.now').getBoundingClientRect(), ctl = document.querySelector('.ccm .tile.ctl').getBoundingClientRect(),
         room = document.querySelector('.ccm .tile.room').getBoundingClientRect();
-  arrow([now.left + now.width / 2, now.top - 8], [ctl.left + ctl.width / 2, ctl.top - 8], '#7fe3ff', 'ahc', true, 40, true);
-  arrow([ctl.left + ctl.width / 2, ctl.top - 8], [room.left + room.width / 2, room.top - 8], '#7fe3ff', 'ahc', true, 40, true);
+  arrow([now.left + now.width / 2, now.top - 6], [ctl.left + ctl.width / 2, ctl.top - 6], '#7fe3ff', 'ahc', true, 34, true);
+  arrow([ctl.left + ctl.width / 2, ctl.top - 6], [room.left + room.width / 2, room.top - 6], '#7fe3ff', 'ahc', true, 34, true);
   // Down to Close
   const cl = R('close');
   arrow(pt(R('mic'), 'b'), [cl.left + cl.width / 2, cl.top + 2], '#fff', 'ahw', true, 0);
   arrow(pt(R('notif'), 'b'), [cl.left + 4, cl.top + cl.height / 2], '#fff', 'ahw', false, -30);
   arrow(pt(R('bri'), 'b'), [cl.right - 4, cl.top + cl.height / 2], '#fff', 'ahw', false, -30);
   // tags
-  ['vol', 'mic', 'env', 'bri'].forEach(id => tag(id, '◀ ▶ value', 's', 116, -14));
-  tag('wifi', 'first focus', 'v', 0, -30);
+  ['vol', 'mic'].forEach(id => tag(id, '◀ ▶ value · X mute', 's', 92, -14));
+  ['env', 'bri'].forEach(id => tag(id, '◀ ▶ value', 's', 150, -14));
+  tag('wifi', 'first focus', 'v', -6, -22);
   const t1 = document.createElement('div'); t1.className = 'fm-tag v'; t1.textContent = 'LB / RB: tile first control';
-  t1.style.left = (ctl.left + 70) + 'px'; t1.style.top = (ctl.top - 62) + 'px'; document.querySelector('.lgk-view').append(t1);
-  tag('close', 'B anywhere = close', 'v', 70, 16);
+  t1.style.left = (ctl.left + 80) + 'px'; t1.style.top = (ctl.top - 50) + 'px'; document.querySelector('.lgk-view').append(t1);
+  tag('close', 'B anywhere = close', 'v', 72, 18);
 })();
 </script>
 <script src="kit.js"></script>

@@ -2,86 +2,52 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Glass Shell P2 — controls: the visionOS keyboard with a controller (chat, accents, shift)</title>
+<title>Glass Shell P2 — keyboard (C4b): typing a chat message with a controller (accents, glyph badges)</title>
 <link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="window-nav-shared.css">
+<link rel="stylesheet" href="social-media.css">
 <link rel="stylesheet" href="controls.css">
 <style>
-  /* View pitched ~14 deg down: the window centre sits 456 px above the view centre, the keyboard 17-27 deg below
-     the window centre (social-media audit §0.3): top edge at y 636, 1157 x 333 view px (854 x 280 kb px x 1.355 / 1.19). */
-  .win { left: 0; top: 0; width: 1280px; height: 664px; }
-  .res { position: absolute; top: 336px; left: 40px; right: 40px; display: flex; gap: 24px; }
-  .res .lgk-poster { position: relative; width: 168px; height: 252px; flex: none; }
-  .res-t { position: absolute; left: 40px; top: 290px; }
-  .scopes { left: 252px; top: 636px; width: 776px; }
+  /* View pitched about 14 deg down as in controls-keyboard.html: the keyboard's top edge at y 636, x1.355 / x1.19. */
   .kbpop { left: 382px; top: 636px; transform-origin: 0 0; transform: scale(1.355, 1.19); }
 </style>
 </head>
 <body>
 <div class="lgk-view" data-room="lounge">
 
-  <!-- Steam's main window: Friends & Chat, the compose field focused (gamepad) -->
+  <!-- Steam's main window on /chat (glass mode "window", 1280 x 656, PLAN §1.2), drawn by the social-media concept's
+       People builder (C7): the compose field has gamepad focus (the system's one focus ring) and the keyboard is up -->
   <div class="lgk-overlay" style="left:320px; top:-276px">
-    <div class="lgk-glass" data-mat="window" data-dz="0" style="left:0; top:0; width:1280px; height:720px">
-      <div style="position:absolute; left:0; top:0; bottom:0; width:456px; background:var(--lg-fill-regular); border-radius:54px 0 0 54px"></div>
-      <div class="c-row" style="position:absolute; left:16px; top:470px; width:424px"><span class="pill" style="background:rgb(255 255 255 / .18)"></span><span class="lgk-art" data-art="avatar:2:AV" style="width:56px; height:56px; border-radius:50%; flex:none"></span><span class="two">Aster Vale<span class="sub">Online</span></span></div>
-      <div class="c-row" style="position:absolute; left:16px; top:390px; width:424px"><span class="pill"></span><span class="lgk-art" data-art="avatar:5:RS" style="width:56px; height:56px; border-radius:50%; flex:none"></span><span class="two">Rin Sato<span class="sub">In a party of 3</span></span></div>
-      <div style="position:absolute; left:496px; top:420px; max-width:520px; padding:16px 22px; border-radius:26px; background:rgb(255 255 255 / .16); font:500 24px/1.3 var(--lg-font)">Perfect. I'll set up the lobby</div>
-      <div style="position:absolute; left:496px; top:496px; font:500 18px/1 var(--lg-font); color:var(--lg-text-2)">Aster Vale · 6:15 PM</div>
-      <div class="c-field is-focus" style="position:absolute; left:496px; right:112px; top:612px"><span class="txt">See you at 8, bring<span class="caret"></span></span></div>
-      <span class="lgk-btn circle primary" style="position:absolute; right:32px; top:614px"><i data-i="arrowright" style="rotate:-90deg"></i></span>
-    </div>
+    <div data-sm-people="compose"></div>
   </div>
 
-  <!-- SteamVR frame controls: the keyboard button is white (on) while the keyboard is shown -->
-  <div class="lgk-pop" style="left:810px; top:454px; --pop-scale:.75">
-    <div class="lgk-glass lgk-toolbar" data-mat="panel" style="position:relative; height:80px; gap:12px; padding:0 10px; --r:40px">
-      <span class="lgk-btn circle is-selected" style="--s:64px"><i data-i="keyboard"></i></span>
-      <span class="lgk-btn circle plain" style="--s:64px"><i data-i="float"></i></span>
-      <span class="lgk-btn circle plain" style="--s:64px"><i data-i="theater"></i></span>
-      <span class="lgk-btn circle plain" style="--s:64px"><i data-i="more"></i></span>
-    </div>
-  </div>
+  <!-- gamepad mode: SteamVR shows the window-bar row only with the laser on the dashboard or while the frame controls hold
+       focus (WN §3.5.1), so only the dashboard bar is here -->
+  <div data-wn="bar" data-cx="960" data-y="528"></div>
 
-  <!-- the dashboard bar (13 cm nearer than the window) -->
-  <div class="lgk-pop" style="left:578px; top:525px; --pop-scale:1.20; display:flex; gap:16px">
-    <div class="lgk-glass lgk-toolbar" data-mat="liquid" data-lens style="position:relative; height:80px; gap:8px; padding:0 8px; --r:40px">
-      <span class="lgk-btn circle" style="--s:64px; background:rgb(255 255 255 / .16)"><i data-i="controller"></i></span>
-      <span class="lgk-btn circle lgk-art" data-art="poster:0:" style="--s:64px; background-size:cover; background-position:50% 35%"></span>
-      <span class="lgk-btn circle lgk-art" data-art="poster:3:" style="--s:64px; background-size:cover; background-position:50% 35%"></span>
-      <span class="lgk-btn circle plain" style="--s:64px"><i data-i="plus"></i></span>
-    </div>
-    <div class="lgk-glass lgk-toolbar" data-mat="liquid" data-lens style="position:relative; height:80px; gap:8px; padding:0 8px 0 20px; --r:40px">
-      <span class="t-headline t-num" style="font-size:24px">4:56</span>
-      <span style="display:inline-flex; align-items:center; gap:6px; height:36px; padding:0 12px; border-radius:18px; background:rgb(255 255 255 / .14); font:600 18px/1 var(--lg-font)" class="t-num">
-        <span style="width:22px; height:11px; border-radius:3px; box-shadow:inset 0 0 0 2px rgb(255 255 255 / .8); position:relative; display:inline-block"><span style="position:absolute; left:3px; top:3px; bottom:3px; width:13px; border-radius:1px; background:var(--lg-green)"></span></span>82%</span>
-      <span class="lgk-btn circle plain" style="--s:64px"><i data-i="bell"></i></span>
-      <span class="lgk-btn circle plain" style="--s:64px"><i data-i="grid"></i></span>
-    </div>
-  </div>
-
-  <!-- the keyboard: Steam's 854 x 280 quad, keys at its plane, a glassd thick platter (cover at the quad plane first; 10 mm behind once K-G6 exists) -->
+  <!-- the keyboard in gamepad mode: Steam's virtual focus moves over the keys; A held on "e" (pressed, white) opened the
+       accent bubble, where focus sits on "é"; controller glyph badges show (X delete, Y space, LT shift, RT enter) -->
   <div class="lgk-pop kbpop">
-    <div class="kb">
-      <div class="lgk-glass kb-plat" data-mat="thick" data-lens data-lens-bezel="14" data-dz="0" style="--dz:12"></div>
-      <div class="kb-echo"><span class="lbl"><i data-i="message"></i>Message to Aster Vale</span><span class="txt">See you at 8, bring<span class="caret"></span></span></div>
-      <div class="kb-keys" data-state='{"pressed":"e","shift":true,"enter":"Send","badges":true}'></div>
-      <div class="kb-accents" style="left:150px; top:41px"><span class="c-key">È</span><span class="c-key is-focus">É</span><span class="c-key">Ê</span><span class="c-key">Ë</span><span class="c-key">Ē</span></div>
-    </div>
+    <div data-vkb='{"tier":"t5","mode":"pad","echo":{"icon":"message","label":"Message to Aster Vale","text":"See you at the caf"},"enter":"Send","pressed":"e","accents":{"on":"e","keys":["è","é","ê","ë","ē"],"focus":"é"}}'></div>
   </div>
 
   <!-- annotations (not product UI) -->
-  <div class="c-note" style="left:28px; top:640px; width:300px"><b>Typing with a controller.</b> The D-pad moves Steam's virtual focus over the keys; holding A on a letter opens the accent bubble, where the focused accent lights from within.</div>
-  <div class="c-note" style="right:24px; top:640px; width:300px"><b>Shift is on: white.</b> One-shot shift (LT) is the “on” state of a key, so it is white with a dark glyph; caps lock adds a bar under it. Enter reads <span class="k">Send</span> in chat.</div>
-
-  <svg style="position:absolute; inset:0; width:1920px; height:1080px; pointer-events:none; z-index:40" viewBox="0 0 1920 1080">
-    <defs><linearGradient id="beam" x1="1" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".35" stop-color="#dbe8ff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity=".9"/></linearGradient></defs>
-    
-  </svg>
-  
+  <div class="c-note" style="left:28px; top:640px; width:300px"><b>Typing with a controller.</b> The D-pad moves Steam's virtual focus over the keys. Holding A on a letter opens the accent bubble; the focused accent is lit from within (+ white .28, a light in its upper third, a brighter top highlight).</div>
+  <div class="c-note" style="right:24px; top:640px; width:300px"><b>Glyph badges in gamepad mode only.</b> Steam's own key glyphs, restyled: X deletes, Y types a space, LT shifts, RT sends. With the laser they are hidden (PLAN §1.4, VP P-26). Enter reads <span class="k">Send</span> in chat.</div>
+  <div class="c-note" style="left:28px; top:858px; width:300px"><b>The echo names the field.</b> “Message to …” is the social-media concept's context string, drawn from Steam's localization (PLAN §1.15). The pressed key is white with a dark label; keys never scale.</div>
 </div>
 <script src="controls-keyboard.js"></script>
+<script src="window-nav-shared.js"></script>
 <script src="kit.js"></script>
-<script src="controls-icons.js"></script>
-
+<script src="social-media.js"></script>
+<script>
+  /* context only: the field shows the same text as the echo, and Steam's legend is in gamepad mode (glyph badges) */
+  (() => {
+    const t = document.querySelector('.sm-compose .typed');
+    if (t) t.innerHTML = 'See you at the caf<span style="display:inline-block; width:2px; height:28px; background:var(--lg-blue); vertical-align:-6px; margin-left:3px"></span>';
+    const o = document.querySelector('[data-id="ornament"]');
+    if (o && window.LGK && LGK.smOrn) o.outerHTML = LGK.smOrn('Y:Start Voice Chat|A:Select|B:Back', 'pad');
+  })();
+</script>
 </body>
 </html>

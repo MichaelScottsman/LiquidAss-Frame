@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — keyboard (C4b): SteamVR's own keyboard (vr:keyboard) for OpenVR apps</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="window-nav-shared.css">
+<link rel="stylesheet" href="controls.css">
+<style>
+  /* SteamVR's keyboard page (keyboard.html, 1920 x 1080 page px; inventory steamvr.md §4) drawn into the view as wide as
+     Steam's keyboard (854 kb px = 1157 view px): x0.6027 across, x0.529 down (the same 50 deg tilt). One page px is
+     1/2.25 kb px, so every keyboard number of controls-keyboard.js is x2.25 here. CSS only: no glassd cover on this page,
+     so the platter is WN §8.4's degraded glass (tint, sheen, edge arc + lobe, dark inner edge). Laser only: SteamVR's
+     page has no gamepad focus ("Use Laser Mouse to Interact"), so there are no glyph badges. */
+  .vrkb { position: absolute; left: 382px; top: 318px; width: 1920px; height: 1080px; transform-origin: 0 0; transform: scale(.6027, .529); }
+  .vrkb .bg { position: absolute; left: 5px; top: 5px; right: 5px; bottom: 5px; --r: 45px;
+    -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+    background: linear-gradient(180deg, rgb(255 255 255 / .08), rgb(255 255 255 / 0) 30%), rgb(28 30 38 / .84) !important;
+    --de-w: 27px; --rim-w: 3.4px; }
+  /* preview (VRKBPreviewWrapper, 15 %): Steam keyboard's echo look x2.25 (recessed capsule, text 43, blue caret) */
+  .pv { position: absolute; left: 23px; right: 23px; top: 16px; height: 74px; border-radius: 37px; z-index: 2;
+    background: rgb(0 0 0 / .30); box-shadow: inset 0 4.5px 11px rgb(0 0 0 / .30), inset 0 -4.5px 7px -2px rgb(255 255 255 / .10);
+    display: flex; align-items: center; justify-content: center; font: 500 43px/1 var(--lg-font); color: var(--lg-text-1); }
+  .pv .caret { width: 4.5px; height: 48px; border-radius: 2px; background: var(--lg-blue); margin-left: 3px; }
+  .sg { position: absolute; left: 23px; right: 23px; top: 98px; height: 58px; display: flex; gap: 12px; z-index: 2; }
+  .sg span { flex: 1; border-radius: 29px; display: grid; place-items: center; font: 500 34px/1 var(--lg-font); color: var(--lg-text-1);
+    background: linear-gradient(180deg, rgb(255 255 255 / .07), rgb(255 255 255 / 0) 55%), rgb(255 255 255 / .10);
+    box-shadow: inset 0 3.4px 3.4px -2.2px rgb(255 255 255 / .22); }
+  .rows { position: absolute; left: 14px; right: 14px; top: 172px; bottom: 14px; display: flex; flex-direction: column; gap: 10px; z-index: 2; }
+  .row { flex: 1; display: flex; gap: 10px; }
+  .vk { position: relative; border-radius: 25px; display: grid; place-items: center; min-width: 0;
+    --base: rgb(255 255 255 / .15); --sheen: .07; --arc: .22; --add: 0; --spot: 0; --sx: 50%; --sy: 30%;
+    background:
+      radial-gradient(circle at var(--sx) var(--sy), rgb(255 255 255 / var(--spot)) 0, rgb(255 255 255 / 0) 75%),
+      linear-gradient(rgb(255 255 255 / var(--add)), rgb(255 255 255 / var(--add))),
+      linear-gradient(180deg, rgb(255 255 255 / var(--sheen)), rgb(255 255 255 / 0) 60%), var(--base);
+    box-shadow: inset 0 3.4px 3.4px -2.2px rgb(255 255 255 / var(--arc)), 0 4.5px 7px rgb(0 0 0 / .22);
+    font: 500 45px/1 var(--lg-font); color: var(--lg-text-1); }
+  .vk.mod { --base: rgb(255 255 255 / .075); --sheen: .05; font: 600 34px/1 var(--lg-font); }
+  .vk svg { width: 45px; height: 45px; }
+  .vk.done { --base: var(--lg-tint-primary); --sheen: .18; --arc: .38; color: #fff; font: 600 38px/1 var(--lg-font); }
+  .vk.hover { --add: .08; --spot: .12; --sx: var(--hx, 50%); --sy: var(--hy, 40%); }      /* .VRKBKey:hover: lit, never a ring */
+  .vk.press, .vk.on { --base: var(--lg-fill-selected); --sheen: 0; --arc: 0; color: var(--lg-text-on-selected); }   /* inline background:#000 overridden */
+  .vk.press { box-shadow: inset 0 2px 4.5px rgb(0 0 0 / .20), 0 0 27px 3.4px rgb(255 255 255 / .30); }
+  .dot { position: absolute; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: #fff; z-index: 52;
+    box-shadow: 0 0 0 3px rgb(255 255 255 / .25), 0 0 14px 4px rgb(160 200 255 / .55); }
+</style>
+</head>
+<body>
+<div class="lgk-view" data-room="lounge" data-tier="t1">
+  <div class="vrkb" data-id="vr-keyboard">
+    <div class="lgk-glass bg" data-mat="thick" data-dz="0" data-id="vrkb-platter" data-tier="CSS only: VRKBBackground recoloured (no glassd on SteamVR pages)"></div>
+    <div class="pv" data-id="vrkb-preview" data-tier="VRKBPreviewWrapper restyled as the echo (SteamVR's own preview)">Liquid Gl<span class="caret"></span></div>
+    <div class="sg" data-id="vrkb-suggestions"><span>Glass</span><span>Glasses</span><span>Glassy</span><span>Glasswing</span></div>
+    <div class="rows" id="rows"></div>
+  </div>
+
+  <div class="c-note" style="left:28px; top:330px; width:310px"><b>SteamVR's keyboard</b> (<span class="k">vr:keyboard</span>), used when an OpenVR app asks for text. The same key tokens as Steam's keyboard at this page's scale (×2.25): raised keys, the lit key under the laser, the pressed key white, Done the one blue key.</div>
+  <div class="c-note" style="right:24px; top:330px; width:310px"><b>Preview and suggestions</b> are SteamVR's own: the preview becomes the echo's recessed capsule with a blue caret; the four suggestions become 58 px capsules. Laser only, as today: this page has no gamepad focus, so no glyph badges.</div>
+  <div class="c-note" style="left:28px; top:880px; width:310px"><b>No ring on hover.</b> Phase 1 drew a 1.5 px rim on the hovered key (an outline, VP P-42). Now hover adds light at the pointer, and SteamVR's inline <span class="k">background:#000</span> on pressed and shift keys becomes white .94.</div>
+</div>
+<script>
+  /* SteamVR's rows (inventory steamvr.md §4, vrf_kb_after.png): flex-grow widths, the normal plane, "r" pressed, "g" hovered */
+  (() => {
+    const IC = {
+      del: '<svg viewBox="0 0 24 24"><path d="M8.4 5.4h10.4a2 2 0 0 1 2 2v9.2a2 2 0 0 1-2 2H8.4L2.8 12z M11.4 9.4l5.2 5.2 M16.6 9.4l-5.2 5.2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      ret: '<svg viewBox="0 0 24 24"><path d="M19.4 5.4v5.4a2.6 2.6 0 0 1-2.6 2.6H5.4 M9.4 9.4l-4 4 4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      shift: '<svg viewBox="0 0 24 24"><path d="M12 4.2 3.8 12.6h4.6v6.6h7.2v-6.6h4.6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>',
+    };
+    const R = [
+      [['1'], ['2'], ['3'], ['4'], ['5'], ['6', 1.3], ['7', 1.3], ['8'], ['9'], ['0'], ['-'], ['del', 1.65, 'mod']],
+      [['q', 1.65], ['w', 1.2], ['e', 1.2], ['r', 1.2], ['t', 1.65], ['y', 1.65], ['u', 1.2], ['i', 1], ['o', 1], ['p', 1.2]],
+      [['#%', 1.15, 'mod'], ['a', 1.15], ['s', 1.15], ['d', 1.15], ['f', 1.15], ['g', 1.3], ['h', 1.3], ['j', 1.15], ['k', 1.15], ['l', 1.15], ['ret', 1.3, 'mod']],
+      [['shift', 1.05, 'mod'], ['?'], ['z'], ['x'], ['c'], ['v', 1.3], ['b', 1.3], ['n', 1.05], ['m', 1.05], [','], ['.'], ['shift', 1.05, 'mod']],
+      [['space', 6.2], ['Done', 3.35, 'done']],
+    ];
+    document.getElementById('rows').innerHTML = R.map(row => '<div class="row">' + row.map(([id, g = 1, cls = '']) => {
+      const face = IC[id] || (id === 'space' ? '' : id);
+      const st = id === 'g' ? ' hover' : id === 'r' ? ' press' : '';
+      const hv = id === 'g' ? ' style="flex-grow:' + g + '; --hx:64%; --hy:70%" data-id="vrkb-hover"' : ` style="flex-grow:${g}"`;
+      return `<span class="vk ${cls}${st}"${hv}>${face}</span>`;
+    }).join('') + '</div>').join('');
+    addEventListener('DOMContentLoaded', () => requestAnimationFrame(() => {
+      const k = document.querySelector('[data-id="vrkb-hover"]').getBoundingClientRect();
+      const x = k.left + k.width * .64, y = k.top + k.height * .70, v = document.querySelector('.lgk-view');
+      v.insertAdjacentHTML('beforeend', `<svg style="position:absolute; inset:0; width:1920px; height:1080px; pointer-events:none; z-index:40" viewBox="0 0 1920 1080">
+        <defs><linearGradient id="vb" gradientUnits="userSpaceOnUse" x1="1240" y1="1100" x2="${x}" y2="${y}"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".45" stop-color="#dbe8ff" stop-opacity=".5"/><stop offset="1" stop-color="#fff" stop-opacity=".9"/></linearGradient></defs>
+        <polygon points="1233,1100 1247,1100 ${x + 1},${y} ${x - 1},${y}" fill="url(#vb)" opacity=".55"/></svg><div class="dot" style="left:${x}px; top:${y}px"></div>`);
+    }));
+  })();
+</script>
+<script src="kit.js"></script>
+</body>
+</html>

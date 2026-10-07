@@ -4,12 +4,14 @@
 <meta charset="utf-8">
 <title>Glass Shell P2 — Typing a message: keyboard echo row</title>
 <link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="window-nav-shared.css">
 <link rel="stylesheet" href="social-media.css">
 </head>
 <body>
-<!-- Concept: docs/phase2/concepts/social-media.md §3.3 (revision 2). The view is pitched down about 14 degrees (everything above the
-     keyboard moves up 460 px): the lower window, the frame controls, the dashboard bar and Steam's VR keyboard, which SteamVR
-     places 17-27 degrees below the window centre, tilted back 50 degrees (audit social-media §0.3). -->
+<!-- Concept: docs/phase2/concepts/social-media.md §3.3 (revision 3); the keyboard itself is CTL §12 (owner C4b). The view is pitched
+     down about 14 degrees (everything above the keyboard moves up 460 px): the lower window, the frame controls, the dashboard bar
+     and Steam's VR keyboard, which SteamVR places 17-27 degrees below the window centre, tilted back 50 degrees (audit SM §0.3).
+     Laser mode: the ornament shows labels only (VP P-26) and holds an action (Start Voice Chat), so it is a capsule. -->
 <div class="lgk-view" data-room="lounge">
  <div data-chrome-host data-chrome="bar" style="position:absolute; inset:0; translate:0 -460px">
   <div class="lgk-overlay" style="left:320px; top:66px">
@@ -17,22 +19,24 @@
   </div>
  </div>
 
-  <!-- Steam's VR keyboard quad (854 x 280 popup px; 0.0416 deg/px across, 0.0366 deg/px vertically: x1.355, x1.19 in this view).
-       Keys stay Steam's (geometry fixed); the echo row (T2) mirrors the field; the platter is a glassd thick slab 1 cm behind (T5). -->
-  <div class="lgk-pop" style="left:382px; top:548px; transform:scale(1.355, 1.19)" data-dz="-10" data-tier="keyboard quad + T5 platter">
-    <div class="lgk-glass" data-mat="thick" data-lens style="position:relative; width:854px; height:286px; --r:30px; top:-4px; --dz:20"></div>
-    <div class="sm-kb" data-kb data-go="Send" data-hot="/" style="left:0; top:0">
-      <div class="echo"><span class="lbl">Message to Aster Vale</span><span class="txt">See you at 8, bringing snacks</span><span class="caret"></span></div>
+  <!-- Steam's VR keyboard quad (854 x 280 keyboard px; 0.0416 deg/px across, 0.0366 deg/px vertically: x1.355, x1.19 in this view).
+       Keys stay Steam's (geometry fixed); the echo row (T2, C4b) mirrors the field; the platter is a glassd thick cover at the keys'
+       plane (0 mm; -10 mm only after K-G6), T1 fallback until K-G1..K-G5 pass. The key under the laser is lit (white .32), not white. -->
+  <div class="lgk-pop" style="left:382px; top:548px; transform:scale(1.355, 1.19)" data-dz="0" data-tier="keyboard quad (C4b): T1 now, T5 thick cover after K-G1..K-G5">
+    <div class="lgk-glass" data-mat="thick" data-lens style="position:relative; width:854px; height:286px; --r:30px; top:-4px; --dz:6"></div>
+    <div class="sm-kb" data-kb data-go="Send" data-hot="/" style="left:0; top:0" data-id="keyboard">
+      <div class="echo" data-id="echo"><i data-i="bubble" style="--is:18px; color:var(--lg-text-2)"></i><span class="lbl">Message to Aster Vale</span><span class="txt">See you at 8, bringing snacks</span><span class="caret"></span></div>
     </div>
   </div>
 
   <svg style="position:absolute; inset:0; width:1920px; height:1080px; pointer-events:none; z-index:40" viewBox="0 0 1920 1080">
-    <defs><linearGradient id="beam" x1="1" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".35" stop-color="#dbe8ff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity=".9"/></linearGradient></defs>
-    <polygon points="1700,1095 1712,1095 1291,775 1289,775" fill="url(#beam)" opacity=".5"/>
+    <defs><linearGradient id="beam" gradientUnits="userSpaceOnUse" x1="1700" y1="1100" x2="1324" y2="814"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".45" stop-color="#dbe8ff" stop-opacity=".5"/><stop offset="1" stop-color="#fff" stop-opacity=".9"/></linearGradient></defs>
+    <polygon points="1694,1100 1706,1100 1325,814 1323,814" fill="url(#beam)" opacity=".55"/>
   </svg>
-  <div class="lgk-laser-dot" style="left:1290px; top:775px"></div>
+  <div class="lgk-laser-dot" style="left:1324px; top:814px"></div>
 </div>
 <script src="kit.js"></script>
 <script src="social-media.js"></script>
+<script src="window-nav-shared.js"></script>
 </body>
 </html>

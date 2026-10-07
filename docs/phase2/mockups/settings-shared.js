@@ -10,6 +10,12 @@
  *       (Title 2, centred over the detail pane), Steam's search collapsed to a 60 px magnifier circle (trailing).
  *   <div data-st="vrside" data-sel="general" data-hover="dashboard"></div>
  *       SteamVR's sidebar, authored in SteamVR px (x 1.44 of main px).
+ *   <div data-st="legend" data-mode="laser|pad" data-legends="X:-Uninstall|Y:Move Content|A:Select|B:Back"></div>
+ *       Steam's footer legend in the window's 64 px margin (PLAN §1.10), inside .lgk-overlay. Material follows content:
+ *       only A / B legends -> the quiet legend (no capsule); any other action -> WN's capsule ornament with A / B as quiet
+ *       trailing members. Legends are never hidden; glyph badges show only in gamepad mode (data-mode="pad", VP P-26).
+ *       "-Label" marks a destructive action (red label). Prefixes as WN's builder: * hover, ~ gamepad focus.
+ *       Interim: replaced by window-nav-shared.js once it draws the quiet variant (REQ C6a->C1a in docs/phase2/wp/C6a.md).
  */
 (() => {
   'use strict';
@@ -58,6 +64,29 @@
     </div>`));
   }
 
+  function buildLegend(el) {
+    const d = el.dataset;
+    const pad = d.mode === 'pad';
+    const items = (d.legends || '').split('|').filter(Boolean).map((s) => {
+      let st = '';
+      while ('*~'.includes(s[0])) { st += s[0]; s = s.slice(1); }
+      const [g, ...l] = s.split(':'); let label = l.join(':');
+      const danger = label.startsWith('-'); if (danger) label = label.slice(1);
+      const nav = g === 'A' || g === 'B';
+      const cls = ['wn-leg']; if (nav) cls.push('nav'); if (danger) cls.push('st-danger-leg');
+      if (st.includes('*')) cls.push('is-hover'); if (st.includes('~')) cls.push('is-focus');
+      return { nav, html: `<span class="${cls.join(' ')}" style="--hx:40%;--hy:35%">${label}${pad ? `<span class="lgk-glyph">${g}</span>` : ''}</span>` };
+    });
+    const quiet = items.every((it) => it.nav);
+    let html = '', prev = null;
+    for (const it of items) { if (prev !== null && prev !== it.nav) html += '<span class="gsep"></span>'; prev = it.nav; html += it.html; }
+    if (quiet) {
+      el.replaceWith(h(`<div class="st-qleg" data-dz="0" data-tier="quiet legend: Steam's #Footer, no capsule material (PLAN §1.10)">${html}</div>`));
+    } else {
+      el.replaceWith(h(`<div class="lgk-glass lgk-toolbar wn-orn" data-mat="liquid" data-lens style="--dz:18; top:628px" data-dz="0" data-tier="capsule ornament: T1 #Footer + T5 liquid slab (inset, no pop)">${html}</div>`));
+    }
+  }
+
   function buildToolbar(el) {
     const d = el.dataset;
     let out = '';
@@ -90,6 +119,7 @@
 
   document.querySelectorAll('[data-st="sidebar"]').forEach(buildSidebar);
   document.querySelectorAll('[data-st="toolbar"]').forEach(buildToolbar);
+  document.querySelectorAll('[data-st="legend"]').forEach(buildLegend);
   document.querySelectorAll('[data-st="vrside"]').forEach(buildVrSide);
   // chips written inline by mockups: <span data-chip="system" data-cls="lg"></span>
   document.querySelectorAll('[data-chip]').forEach((e) => e.replaceWith(h(window.ST_CHIP(e.dataset.chip, e.dataset.cls || ''))));
