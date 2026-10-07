@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — controls: the Timezone value menu (64 options) beside its open pop-up button</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="window-nav-shared.css">
+<link rel="stylesheet" href="settings.css">
+<link rel="stylesheet" href="controls.css">
+<link rel="stylesheet" href="controls-real.css">
+<style>
+  .st-scroll.cr { -webkit-mask-image: linear-gradient(180deg, transparent 0, transparent 92px, #000 124px, #000 calc(100% - 64px), transparent 100%);
+                  mask-image: linear-gradient(180deg, transparent 0, transparent 92px, #000 124px, #000 calc(100% - 64px), transparent 100%); }
+
+</style>
+</head>
+<body>
+<div class="lgk-view" data-room="lounge">
+  <div data-wn="tabbar" data-right="302" data-cy="426" data-sel="steam settings"></div>
+
+  <!-- Steam's main window, /settings/system (Steam's rows; the vocabulary of controls.md) -->
+  <div class="lgk-overlay" style="left:320px; top:66px">
+    <div class="lgk-glass st-win" data-mat="window" data-dz="0" data-tier="T5 window (T1: smoky tint)">
+      <div data-st="sidebar" data-sel="system"></div>
+      <div data-st="toolbar" data-title="System"></div>
+      <div class="st-scroll cr">
+        <div data-cr="system" data-focus="open"></div>
+      </div>
+
+    </div>
+    <!-- the value menu: a sibling of the window glass in the main overlay (Steam's modal inside the main texture) -->
+    <div class="lgk-overlay" style="left:288px; top:108px; width:560px; height:520px"><div data-cr="tzmenu"></div></div>
+  </div>
+
+  <div data-wn="frame" data-cx="960" data-y="806" data-dim=".72"></div>
+  <div data-wn="bar" data-cx="960" data-y="904"></div>
+  <div data-wn="pill" data-cx="960" data-y="1018"></div>
+  <div class="c-note" style="left:1622px; top:150px; width:270px"><b>Long value list.</b> 64 timezones: a menu cannot show them without scrolling, so this is the one menu that scrolls (window-nav §5.1 keeps every shorter menu unscrolled). Two-line rows, 100 px; Steam's scroller inside a 560 × 520 slab with 24 px fades; the rail shows the position (row 20 of 64).</div>
+  <div class="c-note" style="left:1622px; top:452px; width:270px"><b>Placement.</b> It fits neither below nor above the source inside the modal box (y 108–628), so it opens <b>beside</b> it, 16 px to its left, clamped. The source turns white while open. Steam opens it on the current value: <b>check + focus</b>.</div>
+  <div class="c-note" style="left:28px; top:800px; width:300px"><b>Flat until a wearer checks crops.</b> The slab stays on the window plane (T1 thick glass; T5 a glassd slab 2 mm forward for the material only: 2.6 px parallax at 45°). +30 mm waits for the SP §12 check.</div>
+</div>
+<script src="controls-real.js"></script>
+<script src="settings-shared.js"></script>
+<script src="settings-icons.js"></script>
+<script src="window-nav-shared.js"></script>
+<script src="kit.js"></script>
+<script src="controls-icons.js"></script>
+
+</body>
+</html>

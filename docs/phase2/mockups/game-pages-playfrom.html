@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — game page, Play-from menu grown above its circle</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="game-pages.css">
+</head>
+<body>
+<div class="lgk-view" data-room="lounge" data-tab="library" data-fc="steam" data-bar="idle">
+  <div class="lgk-overlay" style="left:320px; top:66px" data-gp="title" data-state="installed" data-focus="none" data-open="playfrom"
+       data-private="1" data-cloud="1" data-dim=".46,.40,.35" data-foot="A:Select|B:Cancel">
+    <!-- rule 1: ABOVE the source, centred on it, bottom edge 12 px above its top (circle 336-416: slab 176-576, bottom 436) -->
+    <div class="lgk-glass lgk-menu gp-menu" data-mat="thick" data-lens style="left:176px; top:158px; width:400px; --dz:30; z-index:5" data-dz="30" data-tier="T1+T2 anchor (above)">
+      <div class="hdr">Play From</div>
+      <div class="lgk-row"><span class="lead"><i data-i="check" class="bold"></i></span>This Steam Frame</div>
+      <div class="lgk-row is-hover" style="--hx:62%; --hy:52%"><span class="lead"></span>Stream from: Ben-PC2<i data-i="desktop" class="chev"></i></div>
+      <span class="cancel">Cancel</span>
+    </div>
+  </div>
+  <svg style="position:absolute; inset:0; width:1920px; height:1080px; pointer-events:none; z-index:40" viewBox="0 0 1920 1080">
+    <defs><linearGradient id="beam" x1="1" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".35" stop-color="#dbe8ff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity=".9"/></linearGradient></defs>
+    <polygon points="1500,1095 1512,1095 791,392 789,392" fill="url(#beam)" opacity=".5"/>
+  </svg>
+  <div class="lgk-laser-dot" style="left:790px; top:392px"></div>
+</div>
+<script src="kit.js"></script>
+<script src="game-pages.js"></script>
+</body>
+</html>

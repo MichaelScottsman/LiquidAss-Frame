@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — why over-art pops wait for GQ8b: the hole beside a popped Play capsule, seen 30° off-axis</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="game-pages.css">
+<style>
+  /* An illustration, not a screen: the window region x 0-430, y 404-612 at 2x. Seen 30 deg off-axis, a crop at
+     +15 mm shifts about 11 px against the window plane (E2E §1). The base mosaic has a hole where Play was.
+     (a) today: the hole shows the window cover = frosted room. (b) GQ8b: glassd draws the capsule's own contact
+     shadow (black .35, 6 px y, 18 px blur) inside the hole, so the sliver reads as shadow. */
+  .panel { position: absolute; top: 150px; width: 860px; height: 416px; border-radius: 40px; overflow: hidden; box-shadow: 0 20px 60px rgb(0 0 0 / .45); }
+  .zoom { position: absolute; left: 0; top: 0; width: 1280px; height: 656px; transform-origin: 0 0; transform: scale(2) translate(0, -404px); }
+  .hole { position: absolute; left: 40px; top: 448px; width: 280px; height: 80px; border-radius: 40px; overflow: hidden; }
+  .hole.room { background: linear-gradient(180deg, #a59d93, #8e877f); }
+  .hole.room::after { content: ""; position: absolute; inset: 0; background: radial-gradient(120% 140% at 30% 20%, rgb(255 255 255 / .18), transparent 60%); }
+  .hole.shadow { background: linear-gradient(180deg, #8e877f, #7d766f); }
+  .hole.shadow::after { content: ""; position: absolute; left: 0; top: 6px; width: 280px; height: 80px; border-radius: 40px; background: rgb(0 0 0 / .80); filter: blur(9px); }
+  .cap { position: absolute; left: 51px; top: 448px; width: 280px; height: 80px; --r: 40px; --dz: 15; }
+  .cap2 { position: absolute; left: 347px; top: 448px; width: 80px; height: 80px; --r: 40px; --dz: 10; }
+  .hole.c2 { left: 336px; width: 80px; }
+  .hole.c2.shadow::after { width: 80px; }
+  .cap-lbl { position: absolute; top: 588px; width: 860px; box-sizing: border-box; padding: 16px 22px; border-radius: 24px; background: rgb(14 15 20 / .62); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); font: 600 26px/1.35 var(--lg-font); color: #fff; }
+  .cap-lbl span { display: block; font: 500 21px/1.4 var(--lg-font); color: rgb(255 255 255 / .86); }
+  .ttl { position: absolute; left: 80px; top: 40px; padding: 12px 22px; border-radius: 24px; background: rgb(14 15 20 / .55); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); font: 700 34px/1.25 var(--lg-font); color: #fff; text-shadow: 0 1px 3px rgb(0 0 0 / .6), 0 0 14px rgb(0 0 0 / .45); }
+  .ttl span { display: block; font: 500 22px/1.4 var(--lg-font); color: rgb(255 255 255 / .88); }
+</style>
+</head>
+<body>
+<div class="lgk-view" data-room="lounge" data-tab="none" data-fc="none" data-bar="none">
+  <div class="ttl">The hole a pop leaves behind, 30° off-axis, at 2×<span>Play at +15 mm and Play-from at +10 mm shift about 11 and 7 window px against the art; their original places are holes in Steam's base mosaic.</span></div>
+
+  <div class="panel" style="left:80px">
+    <div class="zoom">
+      <div class="gp-hero" style="position:absolute; inset:0; border-radius:0"><div class="art lgk-art" data-art="hero-clean:0:"></div><div class="dim" style="--dimL:.46; --dimB:.40"></div></div>
+      <div class="hole room"></div><div class="hole room c2"></div>
+      <div class="lgk-glass gp-ctl cap" data-mat="liquid" data-tint="play"><i data-i="play"></i>Play</div>
+      <div class="lgk-glass gp-ctl gp-overart gp-circ cap2" data-mat="clear"><i data-i="stream" style="--is:34px"></i></div>
+    </div>
+  </div>
+  <div class="cap-lbl" style="left:80px">(a) Today, without GQ8b<span>The hole shows the window cover: a bright sliver of frosted room beside each control. That is why the defaults stay at 0 mm.</span></div>
+
+  <div class="panel" style="left:980px">
+    <div class="zoom">
+      <div class="gp-hero" style="position:absolute; inset:0; border-radius:0"><div class="art lgk-art" data-art="hero-clean:0:"></div><div class="dim" style="--dimL:.46; --dimB:.40"></div></div>
+      <div class="hole shadow"></div><div class="hole shadow c2"></div>
+      <div class="lgk-glass gp-ctl cap" data-mat="liquid" data-tint="play"><i data-i="play"></i>Play</div>
+      <div class="lgk-glass gp-ctl gp-overart gp-circ cap2" data-mat="clear"><i data-i="stream" style="--is:34px"></i></div>
+    </div>
+  </div>
+  <div class="cap-lbl" style="left:980px">(b) With GQ8b (hole fill = contact shadow)<span>glassd draws the control's own shadow inside its hole: off-axis the sliver reads as the shadow of a floating capsule. AT-HV-OFFAXIS: no magenta debug fill wider than 2 px.</span></div>
+</div>
+<script src="kit.js"></script>
+<script src="game-pages.js"></script>
+</body>
+</html>

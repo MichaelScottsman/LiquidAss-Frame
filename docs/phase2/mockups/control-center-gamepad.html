@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — Control Center (CC-M) opened with the gamepad: first focus on Wi-Fi</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="control-center.css">
+</head>
+<body>
+<!-- CC-M opened with A on the status pill. Focus lands on Wi-Fi (first focus) in the MAIN window's navigation tree, the tree
+     agents can traverse today. Gamepad focus uses D-CC6: scale x1.10, +.26 white, doubled specular arc, contact shadow and a soft
+     white bloom on coloured fills. The laser is not in use, so the laser-only frame menu is not shown. Steam's floating footer
+     (restyled by the shell concept) shows our action descriptions. -->
+<div class="lgk-view" data-room="lounge">
+  <div class="lgk-overlay" style="left:320px; top:66px">
+    <div class="ccm" data-cc='{"focus":"wifi"}'></div>
+  </div>
+
+  <!-- Steam's floating footer legend (floatingfooter popup under the window) -->
+  <div class="lgk-pop" style="left:0; top:800px; width:1745px; display:flex; justify-content:center; --pop-scale:1.10">
+    <div class="lgk-glass legend" data-mat="liquid" style="position:relative">
+      <span><span class="lgk-glyph">A</span>Turn Off</span>
+      <span><span class="lgk-glyph">B</span>Close</span>
+      <span><span class="lgk-glyph" style="width:44px; border-radius:15px">LB</span><span class="lgk-glyph" style="width:44px; border-radius:15px">RB</span>Tiles</span>
+    </div>
+  </div>
+
+  <div class="lgk-pop" style="left:0; top:878px; width:1600px; display:flex; justify-content:center; --pop-scale:1.2">
+    <div class="bar2" data-bar='{"pill":{"state":"open","batt":{"mode":"num","v":82},"badge":3}}'></div>
+  </div>
+  <div class="lgk-windowbar" style="left:870px; top:996px"></div>
+</div>
+<script src="control-center-build.js"></script>
+<script src="kit.js"></script>
+<script src="control-center-icons.js"></script>
+</body>
+</html>

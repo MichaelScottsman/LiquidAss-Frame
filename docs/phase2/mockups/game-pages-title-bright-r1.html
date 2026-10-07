@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — game page, title view over a bright hero (EVIDENCE ONLY: revision-1 dimming (.50 to .26 at 40 %), labels .70 (fails AT-LEGIBLE))</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="game-pages.css">
+<style>.gp-hero .dim{background:linear-gradient(180deg,rgb(0 0 0/.35) 0,rgb(0 0 0/0) 150px),linear-gradient(90deg,rgb(0 0 0/.50) 0,rgb(0 0 0/.26) 40%,rgb(0 0 0/0) 64%),linear-gradient(0deg,rgb(0 0 0/.55) 0,rgb(0 0 0/.16) 40%,rgb(0 0 0/0) 66%)!important}.gp-onart.gp-stats span{color:rgb(255 255 255/.70)!important}</style>
+</head>
+<body>
+<!-- Worst case for legibility: a sunlit snowfield hero (assets/hero-bright.jpg, 1920 x 620 like Steam's
+     library_hero) and a logo PNG with no shadow (assets/logo-bright.png), both from make-bright-hero.py.
+     EVIDENCE ONLY: revision-1 dimming (.50 to .26 at 40 %), labels .70 (fails AT-LEGIBLE). Checked by legibility-check.py (AT-LEGIBLE prototype). -->
+<div class="lgk-view" data-room="lounge" data-tab="library" data-fc="steam" data-bar="idle">
+  <div class="lgk-overlay" style="left:320px; top:66px" data-gp="title" data-state="installed" data-focus="play" data-vr="1"
+       data-hero="img:assets/hero-bright.jpg" data-logo="img:assets/logo-bright.png" data-chip="VR Supported"
+       data-syn="Carve a frozen mountain at dawn with up to four friends. Every run is rebuilt from today's weather."
+       data-stats="Last Played|Sep 14;Play Time|31.5 hours" data-dim=".50,.55,.35" data-cloud="1" data-foot="A:Select|B:Back"></div>
+</div>
+<script src="kit.js"></script>
+<script src="game-pages.js"></script>
+</body>
+</html>

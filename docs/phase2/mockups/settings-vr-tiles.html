@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — Settings: VR Settings page with section tiles (only after P-S3 passes)</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="window-nav-shared.css">
+<link rel="stylesheet" href="settings.css">
+<style>
+  .tiles { display: grid; grid-template-columns: repeat(4, 176px); gap: 16px; justify-content: center; }
+  .tile { position: relative; height: 124px; border-radius: 30px; background: var(--lg-fill-thin); padding: 16px 18px; box-sizing: border-box;
+    display: flex; flex-direction: column; justify-content: space-between; font: 600 22px/1.15 var(--lg-font); }
+  .tile .st-chip { width: 48px; height: 48px; --is: 26px; }
+  .tile::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0; mix-blend-mode: plus-lighter;
+    background: radial-gradient(circle at var(--hx, 50%) var(--hy, 30%), rgb(255 255 255 / var(--spot, .12)) 0, transparent 75%), rgb(255 255 255 / var(--lift, 0)); }
+  .tile.is-focus::after { opacity: 1; --lift: .14; --spot: .16; }
+  .tile.is-focus::before { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; padding: 1.5px;
+    background: conic-gradient(from var(--lg-light), rgb(255 255 255 / .75) 0deg, rgb(255 255 255 / .2) 40deg, transparent 75deg, transparent 285deg, rgb(255 255 255 / .2) 320deg, rgb(255 255 255 / .75) 360deg);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+</style>
+</head>
+<body>
+<div class="lgk-view" data-room="lounge">
+
+  <div data-wn="tabbar" data-right="302" data-cy="426" data-sel="steam settings"></div>
+
+  <div class="lgk-overlay" style="left:320px; top:66px">
+    <div class="lgk-glass st-win" data-mat="window" data-dz="0" data-tier="T5 window (T1: smoky tint)">
+      <div data-st="sidebar" data-sel="vr" data-scroll="180"></div>
+      <div data-st="toolbar"></div>
+      <div class="st-scroll top">
+        <div class="st-col" style="top:116px">
+          <div class="st-hero"><span data-chip="vr" data-cls="md"></span><div class="t-title1">VR Settings</div></div>
+          <!-- SteamVR's eight sections as raised tiles (flow-children grid), each opening SteamVR's page AT that section (P-S3);
+               glyphs and colours = SteamVR's sidebar (settings.md §4.10). Labels: SteamVR's own section names -->
+          <div class="tiles" id="tiles"></div>
+          <div class="st-gap20"></div>
+          <div class="st-plat">
+            <div class="st-r first stack">
+              <div class="head"><span class="lab">Refresh Rate</span><span class="val" style="font-weight:600; color:var(--lg-text-1)">90</span></div>
+              <span class="st-slider notched" style="--v:33.3%"><span class="fill"></span></span>
+              <div class="ends"><span>72</span><span>144</span></div>
+            </div>
+            <div class="st-r last"><span class="lab">Motion Smoothing</span><i data-si="info" style="--is:26px; color:var(--lg-text-3)"></i><span class="lgk-toggle on"></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div data-wn="frame" data-cx="960" data-y="806" data-dim=".72"></div>
+  <div data-wn="bar" data-cx="960" data-y="904"></div>
+  <div data-wn="pill" data-cx="960" data-y="1018"></div>
+</div>
+<script src="settings-shared.js"></script>
+<script>
+  document.getElementById('tiles').innerHTML = window.ST_VRPAGES.map(([k, label], i) =>
+    `<div class="tile${i === 4 ? ' is-focus' : ''}" style="--hx:40%; --hy:30%">${window.ST_VRCHIP(k)}<span>${label}</span></div>`).join('');
+</script>
+<script src="settings-icons.js"></script>
+<script src="window-nav-shared.js"></script>
+<script src="kit.js"></script>
+</body>
+</html>

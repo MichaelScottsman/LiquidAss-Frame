@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — Control Center (CC-M): More Controls, Steam's Quick Access panels inside Control Center</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="control-center.css">
+</head>
+<body>
+<!-- "More Controls" widens the centre tile over the right tile's slot (716 x 528 px) into a split view: Steam's six Quick Access tabs
+     as a sidebar (navigation selection = lighter pill), the selected tab's Steam panel component on the right, restyled at window
+     scale. Nothing leaves Control Center and nothing is dropped: here Quick Settings > Other with the network row, the Bluetooth device
+     rows (two disabled, visibly) and Add Device. Laser on the network row. -->
+<div class="lgk-view" data-room="lounge">
+  <div class="lgk-pop" style="left:212px; top:28px; --pop-scale:1.10" data-dz="25">
+    <div class="lgk-glass lgk-tabbar" data-mat="liquid" data-lens style="position:relative; --r:40px; --dz:25; gap:16px; padding:12px; width:80px; --lg-btn:56px">
+      <div class="lgk-tab"><i data-i="home"></i></div>
+      <div class="lgk-tab is-nav-selected" style="background:var(--lg-fill-nav)"><i data-i="library"></i></div>
+      <div class="lgk-tab"><i data-i="store"></i></div>
+      <div class="lgk-tab"><i data-i="friends"></i></div>
+      <div class="lgk-tab"><i data-i="media"></i></div>
+      <div class="lgk-tab"><i data-i="download"></i></div>
+    </div>
+    <div class="lgk-glass lgk-tabbar" data-mat="liquid" data-lens style="position:relative; margin-top:16px; --r:40px; --dz:25; gap:16px; padding:12px; width:80px; --lg-btn:56px">
+      <div class="lgk-tab"><i data-i="gear"></i></div>
+      <div class="lgk-tab"><i data-i="vr"></i></div>
+      <div class="lgk-tab"><i data-i="power"></i></div>
+    </div>
+  </div>
+  <div class="lgk-overlay" style="left:320px; top:66px">
+    <div class="ccm" data-cc='{"centre":"more","tab":"tq","hover":"q-net","hx":"40%","hy":"50%"}'></div>
+  </div>
+  <div class="lgk-pop" style="left:0; top:878px; width:1600px; display:flex; justify-content:center; --pop-scale:1.2">
+    <div class="bar2" data-bar='{"pill":{"state":"open","batt":{"mode":"num","v":82},"badge":3}}'></div>
+  </div>
+  <div class="lgk-windowbar" style="left:870px; top:996px"></div>
+  <svg style="position:absolute; inset:0; width:1920px; height:1080px; pointer-events:none; z-index:40" viewBox="0 0 1920 1080">
+    <defs><linearGradient id="beam" x1="1" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".35" stop-color="#dbe8ff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity=".9"/></linearGradient></defs>
+    <polygon points="1660,1095 1672,1095 1241,352 1239,352" fill="url(#beam)" opacity=".5"/>
+  </svg>
+  <div class="lgk-laser-dot" style="left:1240px; top:352px"></div>
+</div>
+<script src="control-center-build.js"></script>
+<script src="kit.js"></script>
+<script src="control-center-icons.js"></script>
+</body>
+</html>

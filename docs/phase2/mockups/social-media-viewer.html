@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — Screenshot viewer (Photos)</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="social-media.css">
+<style>
+  .photo { position: absolute; left: 57px; top: 0; width: 1166px; height: 656px; border-radius: 40px; overflow: hidden; background-size: cover; background-position: center; }
+  .meta { position: absolute; left: 92px; top: 584px; font: 500 18px/1.3 var(--lg-font); color: rgb(255 255 255 / .82); text-shadow: 0 1px 3px rgb(0 0 0 / .5); }
+  .nav { position: absolute; top: 298px; }
+  .ov { box-shadow: 0 4px 14px rgb(0 0 0 / .28) !important; }
+  .nav .lgk-glyph { position: absolute; left: 15px; top: 70px; }
+</style>
+</head>
+<body>
+<!-- Concept: docs/phase2/concepts/social-media.md §3.7 (revision 2). Route /media/item/screenshot/:id, controls shown (Y).
+     The photo fills the 656 px glass; controls are clear glass over a 35 % dimming band (DESIGN2 §6.4) and stay at 0 mm: a crop of a
+     clear control would lift the photo's pixels with it, so this screen has no pops (crop budget 0). Search is the collapsed
+     magnifier circle (window-nav hero variant). The room dims to black .30 (T5). -->
+<div class="lgk-view" data-room="lounge" data-tab="media" data-chrome="bar">
+  <div class="sm-roomdim"></div>
+  <div class="lgk-overlay" style="left:320px; top:66px">
+    <div class="lgk-glass sm-win" data-mat="window" data-dz="0" data-tier="T5 window / T1 tint" style="--lgk-tint:12 12 14; --lgk-tint-a:.45">
+      <div class="photo lgk-art" data-art="hero-clean:2:">
+        <div class="sm-media-dim-top"></div><div class="sm-media-dim-bot"></div>
+      </div>
+      <!-- Steam's Metadata line, kept verbatim, as an over-media caption -->
+      <div class="meta">Taken: Oct 5, 2026 @ 5:29 PM - 123 KB</div>
+    </div>
+
+    <!-- toolbar row over the photo: Back, then Steam's ScreenshotFormActions (trash, Share; DOM order kept) and the collapsed search
+         circle at the top-right (Image Playground, ref 2). Clear glass over media, 0 mm, CSS shadow only. -->
+    <span class="lgk-glass lgk-btn circle sm-back ov" data-mat="clear" data-lens style="background:rgb(0 0 0 / .18)" data-dz="0"><i data-i="chevron-left"></i></span>
+    <span class="lgk-glass lgk-btn circle ov" data-mat="clear" data-lens style="position:absolute; left:948px; top:24px; background:rgb(0 0 0 / .18)" data-dz="0"><i data-i="trash" style="color:var(--lg-red)"></i></span>
+    <span class="lgk-glass lgk-btn capsule is-hover ov" data-mat="clear" data-lens style="position:absolute; left:1032px; top:24px; width:144px; background:rgb(0 0 0 / .18); --hx:40%; --hy:40%" data-dz="0"><i data-i="share"></i>Share</span>
+    <span class="lgk-glass lgk-btn circle sm-mag ov" data-mat="clear" data-lens style="background:rgb(0 0 0 / .18)" data-dz="0"><i data-i="search"></i></span>
+
+    <!-- previous / next (Steam's %{ChangeItem}): visible whenever the controls are, 60 px clear circles with bumper badges -->
+    <div class="nav" style="left:16px"><span class="lgk-glass lgk-btn circle ov" data-mat="clear" data-lens style="position:relative; background:rgb(0 0 0 / .2)"><i data-i="chevron-left"></i></span><span class="lgk-glyph">LB</span></div>
+    <div class="nav" style="left:1204px"><span class="lgk-glass lgk-btn circle ov" data-mat="clear" data-lens style="position:relative; background:rgb(0 0 0 / .2)"><i data-i="chevron-right"></i></span><span class="lgk-glyph">RB</span></div>
+
+    <div class="lgk-glass lgk-toolbar sm-orn" data-mat="clear" data-lens style="background:rgb(0 0 0 / .22)" data-dz="0" data-tier="#Footer T1, 0 mm, no crop" data-sm-legend="Y:Hide|A:Select:quiet split|B:Back:quiet"></div>
+  </div>
+  <svg style="position:absolute; inset:0; width:1920px; height:1080px; pointer-events:none; z-index:40" viewBox="0 0 1920 1080">
+    <defs><linearGradient id="beam" x1="1" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".35" stop-color="#dbe8ff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity=".9"/></linearGradient></defs>
+    <polygon points="1700,1095 1712,1095 1425,124 1423,124" fill="url(#beam)" opacity=".5"/>
+  </svg>
+  <div class="lgk-laser-dot" style="left:1424px; top:124px"></div>
+</div>
+<script src="kit.js"></script>
+<script src="social-media.js"></script>
+</body>
+</html>

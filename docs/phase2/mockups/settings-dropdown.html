@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — Settings: Power, value menu grown out of its capsule (right-aligned)</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="window-nav-shared.css">
+<link rel="stylesheet" href="settings.css">
+</head>
+<body>
+<div class="lgk-view" data-room="lounge">
+
+  <div data-wn="tabbar" data-right="302" data-cy="426" data-sel="steam settings"></div>
+
+  <div class="lgk-overlay" style="left:320px; top:66px">
+    <div class="lgk-glass st-win" data-mat="window" data-dz="0" data-tier="T5 window (T1: smoky tint)">
+      <div data-st="sidebar" data-sel="power" data-scroll="400"></div>
+      <div data-st="toolbar"></div>
+      <div class="st-scroll top">
+        <div class="st-col" style="top:116px">
+          <div class="st-hero"><span data-chip="power" data-cls="md"></span><div class="t-title1">Power</div></div>
+          <div class="st-sh first">Battery</div>
+          <div class="st-plat">
+            <div class="st-r two"><span class="lab">Battery Percentage<span class="desc">Show battery percentage on dashboard bar</span></span><span class="lgk-toggle on"></span></div>
+          </div>
+          <div class="st-sh">When On Battery and Idle</div>
+          <div class="st-plat">
+            <!-- the source: white while its menu is open (hidden under the slab in this overlap placement) -->
+            <div class="st-r first"><span class="lab">Dim display after</span><span class="st-pop is-selected">5 minutes<i data-si="updown"></i></span></div>
+            <div class="st-r last"><span class="lab">Sleep after</span><span class="st-pop">15 minutes<i data-si="updown"></i></span></div>
+          </div>
+          <div class="st-sh">When Plugged In and Idle</div>
+          <div class="st-plat">
+            <div class="st-r first"><span class="lab">Dim display after</span><span class="st-pop">10 minutes<i data-si="updown"></i></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Steam's dropdown menu as the shell's menu slab (window-nav §5.1), right-aligned to its value capsule (x 824..1204).
+         Placement rule (settings.md §4.5): below the capsule if it fits above y 628, else above it if it fits below y 108,
+         else over it with the current value on the capsule, clamped to y 108..628 (this case: y 180..628).
+         Depth 0 until the wearer check (then +30 mm, growing from the capsule's +15 mm) -->
+    <div class="lgk-glass wn-menu" data-mat="thick" data-lens style="left:824px; top:180px; width:380px; --dz:0" data-dz="0" data-tier="T1 placement + T2 source rect + T5 thick shape (T4 pop behind the depth flag)">
+      <div class="hdr">Dim display after</div>
+      <div class="lgk-row"><span class="lead"></span>Never</div>
+      <div class="lgk-row"><span class="lead"></span>1 minute</div>
+      <div class="lgk-row"><span class="lead"><i data-si="check" style="--is:24px"></i></span>5 minutes</div>
+      <div class="lgk-row is-hover" style="--hx:58%; --hy:50%"><span class="lead"></span>10 minutes</div>
+      <div class="gap"></div>
+      <span class="lgk-btn capsule" style="align-self:center; background:rgb(255 255 255 / .08); color:var(--lg-text-2); font-weight:500; min-width:200px; --s:60px">Cancel</span>
+    </div>
+  </div>
+
+  <div data-wn="frame" data-cx="960" data-y="806" data-dim=".72"></div>
+  <div data-wn="bar" data-cx="960" data-y="904"></div>
+  <div data-wn="pill" data-cx="960" data-y="1018"></div>
+  <div data-wn="laser" data-to="1432,570" data-from="1640,1100"></div>
+</div>
+<script src="settings-shared.js"></script>
+<script src="settings-icons.js"></script>
+<script src="window-nav-shared.js"></script>
+<script src="kit.js"></script>
+</body>
+</html>

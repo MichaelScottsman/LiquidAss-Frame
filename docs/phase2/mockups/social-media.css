@@ -1,0 +1,206 @@
+/* Glass Shell Phase 2 — concept "People, Photos, Downloads, Store" (docs/phase2/concepts/social-media.md).
+ * Page-level layout for the social-media-*.html mockups. Every size is a DESIGN2 token or derived
+ * from one (main-window CSS px; 1 pt = 4/3 px). Glass stays in kit.css (.lgk-glass); this file only
+ * places things and draws fills, content and text on top of glass. No borders, no outlines.
+ *
+ * Revision 2: window, toolbar and bottom-ornament geometry are taken from concepts/window-nav.md
+ * §3.1-3.4 (glass 1280 x 656, ornament y 628-712 centred on x 640, Back box (14,14) 80 x 80 with the
+ * 60 px circle at (24,24), Large Title at x 100, search 520 x 64 centred on x 640, collapsed magnifier
+ * circle at the top-right inset). Nothing outside the window cover pops (native-e2e.md §1). */
+
+/* ------------------------------------------------------------------ window and toolbar row */
+.sm-win { left: 0; top: 0; width: 1280px; height: 656px; }          /* window-nav §3.1: 64 px ornament margin below */
+.sm-win.full { height: 720px; }                                       /* quiet-legend routes: the legend sits inside the glass */
+.sm-back { position: absolute !important; left: 24px; top: 24px; }  /* 60 px circle in Steam's 80 x 80 box at (14,14) */
+.sm-back > .lgk-i { --is: 28px; }
+.sm-back.root { background: transparent; color: var(--lg-text-2); } /* section roots: borderless (window-nav §3.2) */
+.sm-ltitle { position: absolute; left: 100px; top: 24px; height: 60px; display: flex; align-items: center; white-space: nowrap; }
+.sm-searchbar { position: absolute; top: 22px; left: 380px; width: 520px; }   /* Steam's %{SearchBox}, 64 px capsule centred on x 640 */
+.sm-mag { position: absolute !important; top: 24px; right: 24px; }          /* collapsed search (window-nav hero variant, AT-4 gate) */
+.sm-clear { background: rgb(0 0 0 / .32) !important; -webkit-backdrop-filter: blur(10px) saturate(1.4); backdrop-filter: blur(10px) saturate(1.4); }
+.sm-trail { position: absolute; top: 24px; right: 24px; display: flex; gap: 20px; }
+
+/* scroll edge under the toolbar row and over the bottom ornament (DESIGN2 §6.7): content fades, never clips hard */
+.sm-scroll { position: absolute; overflow: hidden;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 28px, #000 calc(100% - 64px), rgb(0 0 0 / .25) calc(100% - 18px), transparent 100%);
+          mask-image: linear-gradient(180deg, transparent 0, #000 28px, #000 calc(100% - 64px), rgb(0 0 0 / .25) calc(100% - 18px), transparent 100%); }
+.sm-scroll.bottom-only { -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 64px), rgb(0 0 0 / .25) calc(100% - 18px), transparent 100%);
+  mask-image: linear-gradient(180deg, #000 calc(100% - 64px), rgb(0 0 0 / .25) calc(100% - 18px), transparent 100%); }
+.sm-scroll.top-only { -webkit-mask-image: linear-gradient(180deg, transparent 0, rgb(0 0 0 / .35) 24px, #000 64px); mask-image: linear-gradient(180deg, transparent 0, rgb(0 0 0 / .35) 24px, #000 64px); }
+
+/* ------------------------------------------------------------------ bottom ornament = Steam's #Footer legend (window-nav §3.4)
+   84 px capsule at y 628-712, centred on x 640, 0 mm: a glassd liquid slab behind it (inset method), never a crop pop.
+   Items: 60 px capsules, leading glyph badge, 22 px Semibold; A and B are quieter (Medium, text-2) after a 14 px larger gap. */
+.sm-orn { left: 640px; translate: -50% 0; top: 628px; gap: 4px; padding: 0 12px;
+  box-shadow: inset 0 0 6px -1px rgb(0 0 0 / .12), inset 0 -2px 4px -1px rgb(0 0 0 / .12), 0 7px 22px rgb(0 0 0 / .22) !important; }
+.sm-leg.lgk-btn { background: transparent; padding: 0 22px 0 14px; gap: 12px; font: 600 22px/1 var(--lg-font); }
+.sm-leg.quiet { color: var(--lg-text-2); font-weight: 500; }
+.sm-leg.split { margin-left: 14px; }
+.sm-leg.danger { color: rgb(255 120 118); }
+.sm-leg .lgk-glyph { width: 28px; height: 28px; font-size: 15px; }
+.lgk-glyph .smi { width: 16px; height: 16px; }
+/* quiet legend: on routes whose legend only ever holds A/B hints the glass runs to 720 and the legend is a row of
+   quiet hints inside the window's bottom edge (no capsule, no slab, no extra chrome row under the window) */
+.sm-band { position: absolute; left: 640px; translate: -50% 0; top: 628px; height: 84px; display: flex; align-items: center; gap: 4px; padding: 0 12px; }
+
+/* ------------------------------------------------------------------ avatars (content discs; presence ring drawn on the image) */
+.sm-ava { position: relative; flex: none; width: var(--av, 48px); height: var(--av, 48px); border-radius: 50%; overflow: hidden;
+  box-shadow: 0 2px 6px rgb(0 0 0 / .28); }
+.sm-ava > .lgk-art { position: absolute; inset: 0; border-radius: 50%; background-size: cover; }
+.sm-ava::after { content: ""; position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
+  box-shadow: inset 0 0 0 3px var(--ring, transparent), inset 0 0 0 5px rgb(0 0 0 / .18); }
+.sm-ava[data-st="game"] { --ring: var(--lg-green); }
+.sm-ava[data-st="online"] { --ring: var(--lg-blue); }
+.sm-ava[data-st="away"] { --ring: rgb(0 145 255 / .55); }
+.sm-ava[data-st="offline"] { --ring: rgb(142 142 147 / .7); }
+.sm-ava[data-st="offline"] > .lgk-art { filter: grayscale(1) brightness(.75); }
+
+/* ------------------------------------------------------------------ People: sidebar, friend rows, segmented tabs */
+.sm-side { width: 456px; }
+.sm-stitle { position: absolute; left: 24px; top: 104px; height: 60px; display: flex; align-items: center; white-space: nowrap; }
+
+/* segmented control: 68 px recessed track, 60 px segments (G2: >= 60 visible; the tab element's 80 px box carries the hit) */
+.sm-seg { position: absolute; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; height: 68px; padding: 4px; box-sizing: border-box;
+  border-radius: 999px; background: var(--lg-fill-thick); box-shadow: inset 0 2px 5px rgb(0 0 0 / .26); }
+.sm-seg.fit { display: inline-flex; gap: 4px; }
+.sm-seg > span { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; height: 60px; border-radius: 999px;
+  font: 600 20px/1 var(--lg-font); color: var(--lg-text-2); white-space: nowrap; }
+.sm-seg.fit > span { padding: 0 26px; font-size: 22px; color: var(--lg-text-1); }
+.sm-seg > span.is-selected { box-shadow: 0 2px 6px rgb(0 0 0 / .22); }
+.sm-seg > span::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; mix-blend-mode: plus-lighter; opacity: 0;
+  background: radial-gradient(circle at var(--hx, 50%) var(--hy, 30%), rgb(255 255 255 / var(--spot, .12)) 0, rgb(255 255 255 / 0) var(--spot-r, 75%)), rgb(255 255 255 / var(--lift, 0)); }
+/* Steam's bumper glyph images (%{TabBumper}, non-interactive) as badges on the track's ends, overlapping by a third */
+.sm-bump { position: absolute; display: grid; place-items: center; width: 36px; height: 26px; border-radius: 13px; z-index: 2;
+  background: rgb(98 100 110 / .88); color: var(--lg-text-1); font: 700 14px/1 var(--lg-font); box-shadow: 0 2px 6px rgb(0 0 0 / .35); }
+
+.sm-grp { position: absolute; left: 12px; width: 432px; height: 72px; display: flex; align-items: center; gap: 14px; padding: 0 20px; box-sizing: border-box;
+  border-radius: var(--lg-r-row); font: 600 22px/1 var(--lg-font); color: var(--lg-text-2); }
+.sm-grp .count { color: var(--lg-text-3); font-weight: 500; }
+.sm-grp .chev { margin-left: auto; --is: 22px; color: var(--lg-text-3); }
+.sm-grp .gicon { width: 40px; height: 40px; border-radius: 10px; flex: none; background-size: cover; box-shadow: 0 2px 6px rgb(0 0 0 / .3); }
+
+.sm-frow { position: absolute; left: 12px; width: 432px; height: 72px; gap: 14px; padding: 0 6px 0 14px; }
+.sm-frow .lines { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sm-frow .nm { font: 600 24px/1.3 var(--lg-font); color: var(--lg-text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sm-frow .pr { font: 500 20px/1.3 var(--lg-font); color: var(--lg-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sm-frow .more { margin-left: auto; }
+.sm-frow .zz { font: 700 16px/1 var(--lg-font); color: var(--lg-text-3); margin-left: 6px; }
+/* the open conversation is the only filled row (white .18, Bold name); laser hover is the light spot alone */
+.sm-frow.cur .nm { font-weight: 700; }
+.is-spot::after { opacity: 1; --lift: 0; --spot: .12; --spot-r: 108px; }   /* DESIGN2 §10.1: radius 1.5 x the shorter side */
+
+/* conversation header lockup (Steam's %{ChatTab}, role=button) */
+.sm-chattab { position: absolute; top: 18px; left: 868px; translate: -50% 0; height: 72px; display: flex; align-items: center; gap: 14px;
+  padding: 0 24px 0 10px; border-radius: 36px; }
+.sm-chattab .nm { font: 600 24px/1.25 var(--lg-font); }
+.sm-chattab .pr { font: 500 20px/1.25 var(--lg-font); color: var(--lg-text-2); }
+
+/* bubbles: raised fills on glass; your own are the blue whole fill (DESIGN2 §6.5) */
+.sm-hist { left: 456px; top: 100px; width: 824px; height: 396px; }
+.sm-hist-in { position: absolute; left: 32px; right: 32px; bottom: 0; display: flex; flex-direction: column; gap: 8px; }
+.sm-day { align-self: center; font: 600 18px/1.35 var(--lg-font); color: var(--lg-text-2); margin: 6px 0 10px; }
+.sm-who { font: 500 18px/1.35 var(--lg-font); color: var(--lg-text-3); margin: 10px 0 0 60px; }
+.sm-who.me { align-self: flex-end; margin: 10px 8px 0 0; }
+.sm-msg { display: flex; align-items: flex-end; gap: 12px; }
+.sm-msg .sm-ava { --av: 36px; }
+.sm-msg .sm-ava.ghost { visibility: hidden; }
+.sm-bub { max-width: 560px; padding: 13px 20px 14px; border-radius: 26px; font: 500 24px/1.3 var(--lg-font); color: var(--lg-text-1);
+  background: rgb(255 255 255 / .16); box-shadow: 0 1px 2px rgb(0 0 0 / .12); }
+.sm-msg.first .sm-bub { border-bottom-left-radius: 10px; }
+.sm-msg.me { justify-content: flex-end; }
+.sm-msg.me .sm-bub { background: linear-gradient(180deg, rgb(255 255 255 / .14), rgb(255 255 255 / 0) 60%), var(--lg-blue); color: #fff; }
+.sm-msg.me.first .sm-bub { border-bottom-left-radius: 26px; border-bottom-right-radius: 10px; }
+.sm-typing { display: inline-flex; align-items: center; gap: 10px; padding: 12px 18px; border-radius: 22px; background: rgb(255 255 255 / .10);
+  font: 500 20px/1 var(--lg-font); color: var(--lg-text-2); }
+
+/* compose: recessed capsule, the one ring on focus (DESIGN2 §8.2); Send is a 60 px circle 2 px inside the capsule end */
+.sm-compose { position: absolute; left: 480px; top: 544px; width: 776px; padding-right: 2px !important; }
+.sm-compose .typed { flex: 1; font: 500 24px/1 var(--lg-font); color: var(--lg-text-1); white-space: nowrap; }
+.sm-compose .typed.ph { color: rgb(255 255 255 / .55); }
+.sm-send { --s: 60px !important; background: linear-gradient(180deg, rgb(255 255 255 / .18), rgb(255 255 255 / 0) 55%), var(--lg-blue) !important; color: #fff !important; }
+.sm-send.off { background: rgb(255 255 255 / .10) !important; color: rgb(255 255 255 / .4) !important; }
+.sm-hint { position: absolute; right: 48px; top: 506px; display: flex; align-items: center; gap: 8px; font: 500 18px/1 var(--lg-font); color: var(--lg-text-3); }
+.sm-hint .lgk-glyph { width: 26px; height: 26px; }
+
+/* menus: window-nav §5.1 header row (40 px, 22 px Bold text-2) with a 28 px avatar (T2 decoration); Cancel as a 60 px capsule */
+.sm-menu-hdr { display: flex; align-items: center; gap: 12px; height: 40px; padding: 0 16px; font: 700 22px/1 var(--lg-font); color: var(--lg-text-2); }
+.lgk-menu .lgk-row .trail .lgk-i { --is: 22px; }
+.lgk-menu .lgk-row.danger { color: var(--lg-red); }
+.lgk-menu .lgk-row.quiet { color: var(--lg-text-2); }
+.sm-cancel { align-self: center; margin-top: 2px; background: rgb(255 255 255 / .08) !important; color: var(--lg-text-2) !important; font-weight: 500 !important; }
+
+/* ------------------------------------------------------------------ grouped platters (Account, Downloads) */
+.sm-col { position: absolute; left: 260px; width: 760px; }
+.sm-platter { position: absolute; border-radius: var(--lg-r-platter); background: var(--lg-fill-regular); padding: 8px; box-sizing: border-box; }
+.sm-prow.lgk-row { height: 80px; font: inherit; }
+.sm-prow { position: relative; height: 80px; display: flex; align-items: center; gap: 16px; padding: 0 16px 0 24px; border-radius: 24px; }
+.sm-prow .lbl { font: 500 24px/1.25 var(--lg-font); }
+.sm-prow .sub { font: 500 18px/1.35 var(--lg-font); color: var(--lg-text-2); }
+.sm-prow .end { margin-left: auto; display: flex; align-items: center; gap: 16px; }
+.sm-chip { display: grid; place-items: center; flex: none; width: var(--cs, 48px); height: var(--cs, 48px); border-radius: 50%; color: #fff; --is: calc(var(--cs, 48px) * .5); }
+
+/* ------------------------------------------------------------------ media */
+.sm-tile { position: absolute; width: 389px; height: 212px; border-radius: var(--lg-r-card); overflow: hidden; background-size: cover; background-position: center;
+  box-shadow: 0 6px 18px rgb(0 0 0 / .30); }
+.sm-tile.is-focus { scale: 1.05; z-index: 3; box-shadow: 0 18px 44px rgb(0 0 0 / .48), 0 0 30px 2px rgb(255 255 255 / .22); }
+.sm-tile.is-focus::after { content: ""; position: absolute; inset: 0; border-radius: inherit; mix-blend-mode: plus-lighter;
+  background: linear-gradient(155deg, rgb(255 255 255 / .24) 0, rgb(255 255 255 / .05) 30%, transparent 55%); }
+.sm-tile .more { position: absolute; top: 12px; right: 12px; }
+.sm-dur { position: absolute; right: 12px; bottom: 12px; height: 36px; padding: 0 14px 0 10px; border-radius: 18px; display: flex; align-items: center; gap: 6px;
+  background: rgb(0 0 0 / .52); font: 600 18px/1 var(--lg-font); font-variant-numeric: tabular-nums; --is: 18px; }
+.sm-media-dim-top { position: absolute; left: 0; right: 0; top: 0; height: 132px; background: linear-gradient(180deg, rgb(0 0 0 / .42), rgb(0 0 0 / 0)); border-radius: inherit; }
+.sm-media-dim-bot { position: absolute; left: 0; right: 0; bottom: 0; height: 240px; background: linear-gradient(0deg, rgb(0 0 0 / .5), rgb(0 0 0 / 0)); }
+
+/* ------------------------------------------------------------------ downloads */
+.sm-drow { position: absolute; left: 24px; width: 1232px; height: 96px; display: flex; align-items: center; gap: 20px; padding: 0 16px; box-sizing: border-box;
+  border-radius: 24px; }
+.sm-drow .art { width: 144px; height: 68px; border-radius: 12px; flex: none; background-size: cover; background-position: center; box-shadow: 0 3px 10px rgb(0 0 0 / .3); }
+.sm-drow .nm { font: 600 24px/1.3 var(--lg-font); }
+.sm-drow .dt { font: 500 18px/1.35 var(--lg-font); color: var(--lg-text-2); }
+.sm-drow .st { margin-left: auto; font: 500 18px/1 var(--lg-font); color: var(--lg-text-2); font-variant-numeric: tabular-nums; }
+.sm-sec { position: absolute; left: 40px; right: 40px; display: flex; align-items: baseline; gap: 12px; }
+.sm-sec .ct { font: 600 24px/1 var(--lg-font); color: var(--lg-text-3); }
+.sm-sec .aux { margin-left: auto; display: flex; align-items: center; gap: 8px; font: 500 18px/1 var(--lg-font); color: var(--lg-text-2); --is: 20px; }
+.sm-track { position: relative; height: 12px; border-radius: 6px; background: var(--lg-fill-thick); box-shadow: inset 0 1px 3px rgb(0 0 0 / .3); overflow: hidden; }
+.sm-track > i { position: absolute; left: 0; top: 0; bottom: 0; width: var(--v, 40%); border-radius: 6px; background: rgb(255 255 255 / .9); }
+
+/* ------------------------------------------------------------------ keyboard (Steam's VR keyboard quad, popup px) */
+.sm-kb { position: absolute; width: 854px; height: 280px; }
+.sm-kb .echo { position: absolute; left: 14px; right: 14px; top: 0; height: 40px; display: flex; align-items: center; gap: 12px; padding: 0 16px;
+  border-radius: 20px; background: var(--lg-fill-thick); box-shadow: inset 0 2px 4px rgb(0 0 0 / .26); }
+.sm-kb .echo .lbl { font: 500 15px/1 var(--lg-font); color: var(--lg-text-2); white-space: nowrap; }
+.sm-kb .echo .txt { font: 500 19px/1 var(--lg-font); color: var(--lg-text-1); white-space: nowrap; }
+.sm-kb .echo .caret { width: 2px; height: 22px; background: var(--lg-blue); margin-left: -8px; }
+.sm-key { position: absolute; height: 44px; border-radius: 11px; background: rgb(255 255 255 / .16); color: var(--lg-text-1); display: grid; place-items: center;
+  font: 500 17px/1 var(--lg-font); box-shadow: 0 2px 3px rgb(0 0 0 / .22), inset 0 1px 0 rgb(255 255 255 / .12); --is: 18px; }
+.sm-key.mod { background: rgb(255 255 255 / .09); color: var(--lg-text-2); font-size: 15px; }
+.sm-key.go { background: linear-gradient(180deg, rgb(255 255 255 / .18), rgb(255 255 255 / 0) 55%), var(--lg-blue); color: #fff; font-weight: 600; }
+.sm-key.hot { background: #fff; color: #0d0e12; box-shadow: 0 2px 8px rgb(0 0 0 / .3), 0 0 14px rgb(255 255 255 / .35); }
+.sm-key .sh { position: absolute; left: 6px; top: 4px; font: 500 15px/1 var(--lg-font); color: rgb(255 255 255 / .6); }
+
+/* ------------------------------------------------------------------ store web content (content: opaque, never glass) */
+.sm-web { position: absolute; overflow: hidden; background: #16202d; color: #dfe6ee; }
+.sm-web .wh { font: 700 22px/1 var(--lg-font); color: #e6edf3; }
+.sm-web .cap { position: absolute; border-radius: 8px; background-size: cover; background-position: center; box-shadow: 0 4px 14px rgb(0 0 0 / .35); }
+
+/* ------------------------------------------------------------------ achievements */
+.sm-arow { position: absolute; left: 24px; width: 1232px; height: 88px; display: flex; align-items: center; gap: 20px; padding: 0 20px 0 14px; box-sizing: border-box;
+  border-radius: 24px; background: var(--lg-fill-regular); }
+.sm-arow .ic { width: 64px; height: 64px; border-radius: 14px; flex: none; background-size: cover; box-shadow: 0 3px 10px rgb(0 0 0 / .3); }
+.sm-arow.locked .ic { filter: grayscale(1) brightness(.55); }
+.sm-arow .nm { font: 600 24px/1.25 var(--lg-font); }
+.sm-arow .ds { font: 500 20px/1.3 var(--lg-font); color: var(--lg-text-2); }
+.sm-arow .end { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; font: 500 18px/1 var(--lg-font); color: var(--lg-text-2); }
+.sm-rare { width: 160px; height: 8px; border-radius: 4px; background: var(--lg-fill-thick); overflow: hidden; }
+.sm-rare > i { display: block; height: 100%; width: var(--v); background: rgb(255 255 255 / .55); border-radius: 4px; }
+
+/* the room behind the window dims while a photo or a clip is open (T5 glassd dim layer, black .30) */
+.sm-roomdim { position: absolute; inset: 0; background: rgb(0 0 0 / .30); pointer-events: none; }
+
+/* depth annotations for the depth plate (yellow = annotation, not UI) */
+.sm-note { position: absolute; z-index: 60; width: 286px; padding: 14px 16px; border-radius: 10px; background: #ffe27a; color: #111;
+  font: 600 15px/1.4 ui-monospace, Consolas, monospace; box-shadow: 0 4px 14px rgb(0 0 0 / .35); }
+.sm-note b { display: block; font-size: 16px; margin-bottom: 6px; }
+
+/* own icon renderer (social-media.js) */
+.smi { width: var(--is, 26px); height: var(--is, 26px); flex: none; display: block; }

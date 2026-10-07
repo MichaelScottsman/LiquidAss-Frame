@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — controls: pickers (segmented, stepped, option circles, pop-up buttons and their menu)</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="controls.css">
+<style>
+  .pa { left: 40px; width: 420px; right: auto; top: 136px; height: 192px; }
+  .pb { left: 40px; width: 420px; right: auto; top: 380px; height: 124px; }
+  .pc { left: 40px; width: 420px; right: auto; top: 556px; height: 128px; }
+  .pd { left: 490px; width: 430px; right: auto; top: 136px; height: 160px; }
+  .seg1 { position: absolute; left: 22px; top: 24px; }
+  .c-seg.compact > * { min-width: 120px; padding: 0 18px; }
+  .seg2 { position: absolute; left: 22px; top: 104px; }
+  .opts { position: absolute; left: 0; right: 0; top: 20px; display: flex; justify-content: center; gap: 24px; }
+  .opts > .c-opt { width: 60px; height: 60px; }
+  .optcap { position: absolute; left: 0; right: 0; top: 94px; text-align: center; }
+  /* the open value menu: thick glass at +30 mm, grown out of its source (right-aligned, opening below) */
+  .menu { left: 880px; top: 220px; width: 340px; }
+  .menu .cancel { align-self: center; margin-top: 8px; height: 60px; padding: 0 28px; background: rgb(255 255 255 / .08); color: var(--lg-text-2); font-weight: 500; }
+</style>
+</head>
+<body>
+<div class="lgk-view" data-room="lounge">
+  <div class="lgk-overlay" style="left:320px; top:180px">
+    <div class="lgk-glass cg-win" data-mat="window" data-dz="0" data-tier="T5 window">
+      <div class="cg-side" data-sel="Pickers"></div>
+      <div class="cg-main">
+        <div class="cg-head"><span class="t-title2">Pickers</span>
+          <span class="lgk-btn circle" style="right:24px"><i data-i="more"></i></span></div>
+
+        <div class="cg-sec" style="top:104px">Segmented <span class="v3">· rest, and the pill travelling</span></div>
+        <div class="cg-platter pa">
+          <div class="lgk-seg c-seg compact seg1"><span>Small</span><span class="is-selected">Default</span><span>Large</span></div>
+          <div class="lgk-seg c-seg compact seg2"><span>All</span><span class="is-lift">VR</span><span>Non-VR</span></div>
+        </div>
+
+        <div class="cg-platter pb">
+          <div class="c-slider stepped" style="position:absolute; left:22px; right:22px; top:18px; --v:.6667"><span class="fill"></span><span class="knob"></span>
+            <span class="notches"><i class="under" style="left:0%"></i><i class="under" style="left:33.33%"></i><i class="under" style="left:66.67%; opacity:0"></i><i style="left:100%"></i></span></div>
+          <div class="c-notchlabels" style="left:54px; right:54px; top:94px; height:18px"><span style="left:0%">72 Hz</span><span style="left:33.33%">90 Hz</span><span class="on" style="left:66.67%">120 Hz</span><span style="left:100%">144 Hz</span></div>
+        </div>
+        <div class="cg-sec" style="top:348px">Stepped Slider <span class="v3">· notches, title-case labels</span></div>
+
+        <div class="cg-sec" style="top:524px">Option Circles <span class="v3">· SteamVR</span></div>
+        <div class="cg-platter pc">
+          <div class="opts">
+            <span class="c-opt">72</span><span class="c-opt">90</span><span class="c-opt is-hover" id="hov" style="--hx:40%; --hy:40%">100</span><span class="c-opt is-selected">120</span><span class="c-opt">144</span>
+          </div>
+          <div class="cg-cap optcap">Refresh Rate · 60 circles at an 84 pitch (24 px clear)</div>
+        </div>
+
+        <div class="cg-sec" style="top:104px; left:516px">Pop-up Buttons <span class="v3">· open = white</span></div>
+        <div class="c-list pd">
+          <div class="c-row">Sleep After<span class="trail"><span class="c-popup is-open" id="src"><span class="val">5 Minutes</span><i data-i="updown"></i></span></span></div>
+          <div class="c-row">Language<span class="trail"><span class="c-popup"><span class="val">English</span><i data-i="updown"></i></span></span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="lgk-glass lgk-menu menu" data-mat="thick" data-lens style="--dz:8" data-dz="2" data-tier="T1 in-page thick; T5 slab at dz 2 mm (material only); +30 mm after the wearer check">
+      <div class="hdr">Sleep After</div>
+      <div class="lgk-row"><span class="lead"></span>Never</div>
+      <div class="lgk-row"><span class="lead"></span>3 Minutes</div>
+      <div class="lgk-row"><span class="lead"><i data-i="check" class="bold"></i></span>5 Minutes</div>
+      <div class="lgk-row is-hover" id="hrow" style="--hx:62%; --hy:52%"><span class="lead"></span>15 Minutes</div>
+      <span class="lgk-btn capsule cancel">Cancel</span>
+    </div>
+  </div>
+
+  <svg style="position:absolute; inset:0; width:1920px; height:1080px; pointer-events:none; z-index:40" viewBox="0 0 1920 1080">
+    <defs><linearGradient id="beam" x1="1" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".35" stop-color="#dbe8ff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity=".9"/></linearGradient></defs>
+    <polygon id="beamp" points="0,0" fill="url(#beam)" opacity=".5"/>
+  </svg>
+  <div class="lgk-laser-dot" id="dot"></div>
+</div>
+<script src="controls-gallery.js"></script>
+<script src="kit.js"></script>
+<script src="controls-icons.js"></script>
+<script>
+  addEventListener('DOMContentLoaded', () => requestAnimationFrame(() => {
+    const h = document.getElementById('hrow').getBoundingClientRect();
+    const x = h.left + h.width * .62, y = h.top + h.height * .52;
+    const d = document.getElementById('dot'); d.style.left = x + 'px'; d.style.top = y + 'px';
+    document.getElementById('beamp').setAttribute('points', `1760,1095 1772,1095 ${x + 1},${y} ${x - 1},${y}`);
+  }));
+</script>
+</body>
+</html>

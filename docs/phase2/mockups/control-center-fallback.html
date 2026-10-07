@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — CC-C: Steam's Quick Access in its Phase 2 restyle (non-Steam page shown, or no T3 view)</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="control-center.css">
+<style>
+  /* Steam's Quick Access popup (barpopup host, 300 x 1024 pp), T1 only: PanelOuterNav painted as the tile, the five tabs as a liquid
+     capsule straddling the card's bottom edge. Steam's rows, order and focus order are untouched; sizes come from padding and scale. */
+  .qam { width: 300px; }
+  .qam .card { position: relative; width: 300px; --r: 44px; overflow: hidden; }
+  .qam .card > * { position: absolute; }
+  .qam .tabs { position: relative; margin: -26px auto 0; width: 300px; height: 64px; --r: 32px; display: flex; align-items: center; justify-content: center; gap: 4px; z-index: 2; }
+  .qam .tab { --s: 52px; --is: 24px; }
+  .qam .tab.is-nav-selected { background: var(--lg-fill-nav); }
+  .sect { font: 600 17px/1 var(--lg-font); color: var(--lg-text-2); }
+  .qs { left: 14px; right: 14px; height: 60px; border-radius: 30px; background: var(--lg-fill-thick); box-shadow: inset 0 2px 5px rgb(0 0 0 / .26); }
+  .qs > .fill { position: absolute; left: 0; top: 0; bottom: 0; width: calc(60px + var(--v) * 212px); border-radius: 30px; background: rgb(255 255 255 / .86);
+                display: flex; align-items: center; color: #1b1c20; }
+  .qs > .fill > .lgk-i { --is: 24px; margin-left: 18px; }
+  .qrow { left: 14px; right: 14px; height: 60px; border-radius: 30px; display: flex; align-items: center; gap: 12px; padding: 0 12px 0 16px; box-sizing: border-box;
+          background: var(--lg-fill-regular); font: 600 19px/1 var(--lg-font); --is: 22px; }
+  .qrow .trail { margin-left: auto; display: flex; align-items: center; gap: 4px; color: var(--lg-text-2); font: 500 17px/1 var(--lg-font); --is: 20px; }
+  .qsw { position: relative; width: 55px; height: 32px; border-radius: 16px; background: var(--lg-green); }
+  .qsw::after { content: ""; position: absolute; top: 3px; left: 26px; width: 26px; height: 26px; border-radius: 50%; background: #fff; box-shadow: 0 2px 4px rgb(0 0 0 / .3); }
+  .frame { left: 0; top: 0; width: 1280px; height: 720px; }
+  /* glassd adapts to what it frosts: here the grey fill (104), pulled into the text band (L 70-90) */
+  .qam .lgk-glass { --lgk-adapt: .67 !important; }
+</style>
+</head>
+<body>
+<!-- CC-C. The dashboard shows a page that is not Steam's main window (here a desktop-window frame), so Control Center cannot be drawn
+     in the main window (CC-M) and CC-A is not shipped (gate not passed). The status pill then opens Steam's own Quick Access, exactly as
+     today, in its Phase 2 restyle (T1 only). Its gamepad path is Steam's own; nothing new needs proving. Also the floor if no T3 view loads. -->
+<div class="lgk-view" data-room="lounge" data-dim>
+  <!-- a desktop-window frame (another app's texture, shown by SteamVR), not Steam's main window -->
+  <div class="lgk-overlay" style="left:320px; top:66px">
+    <div class="lgk-glass frame" data-mat="window" style="--r:24px">
+      <div style="position:absolute; left:28px; top:22px; font:600 22px/1 ui-monospace, Consolas, monospace; color:rgb(255 255 255 / .55)">~ $ htop</div>
+      <div style="position:absolute; left:28px; top:62px; right:28px; bottom:28px; border-radius:12px; background:rgb(10 12 16 / .55)"></div>
+    </div>
+  </div>
+  <div class="lgk-pop" style="left:0; top:878px; width:1600px; display:flex; justify-content:center; --pop-scale:1.2">
+    <div class="bar2" id="barF" data-bar='{"sel":1,"pill":{"state":"open","batt":{"mode":"num","v":82},"badge":3}}'></div>
+  </div>
+  <div class="lgk-windowbar" style="left:870px; top:996px"></div>
+
+  <div class="lgk-pop qam" id="qa" style="--pop-scale:1.2" data-dz="25">
+    <div class="lgk-glass card" data-mat="panel" data-lens style="height:540px; --dz:25">
+      <div class="p-title2" style="left:22px; top:22px">Quick Settings</div>
+      <div class="sect" style="left:22px; top:72px">Brightness</div>
+      <div class="qs" style="top:94px; --v:.70"><span class="fill"><i data-i="sun"></i></span></div>
+      <div class="qs" style="top:162px; --v:.46"><span class="fill"><i data-i="mountain"></i></span></div>
+      <div class="sect" style="left:22px; top:238px">Audio</div>
+      <div class="qs is-focus" style="top:260px; --v:.55; box-shadow: inset 0 2px 5px rgb(0 0 0 / .26), var(--cc-bloom)"><span class="fill"><i data-i="speaker"></i></span>
+        <span style="position:absolute; top:3px; width:54px; height:54px; border-radius:50%; left:calc(60px + .55 * 212px - 57px); background:#fff; box-shadow:0 2px 8px rgb(0 0 0 / .3)"></span></div>
+      <div class="qs" style="top:328px; --v:.80"><span class="fill"><i data-i="mic"></i></span></div>
+      <div class="sect" style="left:22px; top:404px">Other</div>
+      <div class="qrow" style="top:426px"><i data-i="wifi"></i>Wi-Fi<span class="trail"><span class="qsw"></span></span></div>
+      <div class="qrow" style="top:490px; background:transparent">HomeNet<span class="trail">Connected<i data-i="chevron-right"></i></span></div>
+      <div style="left:0; right:0; bottom:0; height:80px; background:linear-gradient(180deg, transparent, rgb(30 30 34 / .55)); border-radius:0 0 44px 44px"></div>
+    </div>
+    <div class="lgk-glass tabs" data-mat="liquid" data-lens style="--dz:25">
+      <span class="lgk-btn circle plain tab"><i data-i="bell"></i></span>
+      <span class="lgk-btn circle plain tab is-nav-selected"><i data-i="sliders"></i></span>
+      <span class="lgk-btn circle plain tab"><i data-i="bolt"></i></span>
+      <span class="lgk-btn circle plain tab"><i data-i="battery"></i></span>
+      <span class="lgk-btn circle plain tab"><i data-i="help"></i></span>
+    </div>
+  </div>
+
+  <div class="lab plate" style="left:28px; top:250px; width:360px">CC-C: Steam's Quick Access, restyled<small>Shown when the dashboard is on a page other than Steam's main window (a desktop window, an overlay app, SteamVR's Now Playing or Settings) and CC-A is not shipped. Same nodes, rows, order and focus order as Steam; capsule sliders by padding, switches at scale 1.45, rows 60 pp, five tabs as a capsule over the bottom edge.</small></div>
+  <div class="lab plate" style="left:1532px; top:520px; width:360px">Honest material<small>In T5 the popup's panel glass frosts glassd's room map, in which the window is masked out; where nothing was captured behind the window it is a flat grey frost, as here. In T1 it is a tint (.78) with edges.</small></div>
+  <div class="lab plate" style="left:1532px; top:250px; width:360px">Why not Control Center here<small>CC-M draws in Steam's main window, which is not displayed on this page. Switching the dashboard to the Steam page just to show Control Center would hide the window the user is looking at (open question Q3).</small></div>
+</div>
+<script src="control-center-build.js"></script>
+<script>
+(() => { const a = document.querySelector('#barF [data-id="pill"]').getBoundingClientRect(), p = document.getElementById('qa');
+  p.style.left = (a.left + a.width / 2 - 150 * 1.2) + 'px'; p.style.top = (a.top - (540 + 38) * 1.2 - 18) + 'px'; p.style.zIndex = 7;
+  /* honest T5: glassd frosts its room map with Steam's window masked out (flat grey where nothing was captured), never the window */
+  p.querySelectorAll('.lgk-glass').forEach((g) => { const r = g.getBoundingClientRect(), m = document.createElement('div');
+    m.className = 'roommap'; Object.assign(m.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px',
+      borderRadius: (parseFloat(getComputedStyle(g).borderTopLeftRadius) * 1.2) + 'px', zIndex: 6 });
+    document.querySelector('.lgk-view').append(m); }); })();
+</script>
+<script src="kit.js"></script>
+<script src="control-center-icons.js"></script>
+</body>
+</html>

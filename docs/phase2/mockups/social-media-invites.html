@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — Add a Friend (one floating card, no window)</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="social-media.css">
+<style>
+  .card { left: 280px; top: 40px; width: 720px; height: 672px; --r: 44px; }
+  .card > * { position: absolute; }
+  .code { left: 40px; top: 240px; width: 640px; height: 112px; border-radius: 24px; background: var(--lg-fill-thick); box-shadow: inset 0 2px 5px rgb(0 0 0 / .26); }
+  .invp { left: 28px; top: 412px; width: 664px; height: 96px; border-radius: 30px; background: var(--lg-fill-regular); }
+  .inv { left: 36px; width: 648px; height: 80px; display: flex; align-items: center; gap: 14px; padding: 0 10px 0 12px; box-sizing: border-box; border-radius: 24px; }
+  .inv .nm { font: 600 24px/1.25 var(--lg-font); }
+  .inv .pr { font: 500 18px/1.3 var(--lg-font); color: var(--lg-text-2); }
+  .inv .acts { margin-left: auto; display: flex; align-items: center; }
+  .inv .lgk-btn.capsule { font-size: 22px; padding: 0 26px; }
+</style>
+</head>
+<body>
+<!-- Concept: docs/phase2/concepts/social-media.md §3.5 (revision 2). Route /invites. The window glass is off on this route (like Home):
+     the page is one thick-glass card, and everything lives inside it, so nothing sits outside a cover (native-e2e.md §1):
+     Steam's header Back and the collapsed search circle sit in the card's top corners, and the footer legend is a quiet row inside
+     the card's bottom edge. The invite row's Block / Accept / Ignore are Steam's own DialogButtons (module 71251, probe P5), kept in
+     DOM order. Code and names are invented. -->
+<div class="lgk-view" data-room="studio" data-tab="friends" data-chrome="bar">
+  <div class="lgk-overlay" style="left:320px; top:66px">
+    <div class="lgk-glass card" data-mat="thick" data-dz="0" data-tier="T5 thick shape (partial cover) / T1 tint">
+      <span class="lgk-btn circle" style="left:24px; top:24px"><i data-i="chevron-left"></i></span>
+      <span class="lgk-btn circle" style="left:636px; top:24px"><i data-i="search"></i></span>
+      <div class="t-title2" style="left:0; right:0; top:35px; text-align:center">Add a Friend</div>
+      <div class="t-subhead v2" style="left:40px; top:104px; width:640px">Enter your friend's Friend Code to invite them to connect.</div>
+      <!-- Steam's input (default focus on arrival: the one ring) and OK, side by side so Right still reaches OK -->
+      <div class="lgk-search is-focus" style="left:40px; top:148px; width:464px"><span class="ph t-num" style="font-size:26px">Friend Code</span></div>
+      <span class="lgk-btn capsule primary" style="left:524px; top:148px; --s:64px; width:156px; font-size:24px">OK</span>
+      <!-- Your Friend Code: a recessed platter, large tabular digits, caption in title case -->
+      <div class="code">
+        <div class="t-num" style="position:absolute; left:28px; top:18px; font:700 40px/1.1 var(--lg-font); letter-spacing:.02em">27182818</div>
+        <div style="position:absolute; left:28px; top:70px; font:500 18px/1.3 var(--lg-font); color:var(--lg-text-2)">Your Friend Code</div>
+      </div>
+      <!-- incoming invites (Steam's %{IncomingInvites} > %{InvitesRow}): the row is a Focusable with Steam's three DialogButtons -->
+      <div style="left:40px; top:378px; font:600 22px/1 var(--lg-font); color:var(--lg-text-2)">Pending Invites <span style="color:var(--lg-text-3); font-weight:500">1</span></div>
+      <div class="invp"></div>
+      <div class="inv lgk-row" style="top:420px">
+        <div class="sm-ava" data-st="online"><div class="lgk-art" data-art="avatar:9:TB"></div></div>
+        <div style="display:flex; flex-direction:column"><span class="nm">Theo Brandt</span><span class="pr">2 mutual friends</span></div>
+        <div class="acts">
+          <span class="lgk-btn circle" title="Block"><i data-i="xmark-circle" style="--is:26px; color:var(--lg-red)"></i></span>
+          <span class="lgk-btn capsule is-hover" style="margin-left:24px; --hx:40%; --hy:45%">Accept</span>
+          <span class="lgk-btn capsule" style="margin-left:20px">Ignore</span>
+        </div>
+      </div>
+      <!-- quiet legend inside the card (Steam's #Footer positioned at y 628-712 of the overlay = the card's bottom band) -->
+      <div class="sm-band" style="left:360px; top:588px" data-sm-legend="A:Select:quiet|B:Back:quiet"></div>
+    </div>
+  </div>
+  <svg style="position:absolute; inset:0; width:1920px; height:1080px; pointer-events:none; z-index:40" viewBox="0 0 1920 1080">
+    <defs><linearGradient id="beam" x1="1" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".35" stop-color="#dbe8ff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity=".9"/></linearGradient></defs>
+    <polygon points="1640,1095 1652,1095 1074,566 1072,566" fill="url(#beam)" opacity=".5"/>
+  </svg>
+  <div class="lgk-laser-dot" style="left:1073px; top:566px"></div>
+</div>
+<script src="kit.js"></script>
+<script src="social-media.js"></script>
+</body>
+</html>

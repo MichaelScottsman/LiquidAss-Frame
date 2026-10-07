@@ -1,15 +1,36 @@
-/* Glass Shell Phase 2 concept "window-nav": shared styles for the window-nav-*.html mockups.
- * Builds on kit.css (DESIGN2 tokens). Everything here is a size or rule from
- * docs/phase2/concepts/window-nav.md; numbers are main-window CSS px unless a block says
- * "popup px" (frame.menu, x1.10 in the view) or "systemui px" (frame controls, x0.75). */
+/* Glass Shell Phase 2 concept "window-nav" (the shell): shared styles for the window-nav-*.html
+ * mockups and for every area mockup that draws the shell's chrome. Builds on kit.css (DESIGN2
+ * tokens). Every number is a size or rule from docs/phase2/concepts/window-nav.md; numbers are
+ * main-window CSS px unless a block says "popup px" (frame.menu, x1.10 in the view) or
+ * "systemui px" (frame controls, x0.75). Revision 2 (critique pass). */
+
+/* ------------------------------------------------------------------ edges (WN §8.2, critique 4)
+   kit.css draws the E3 specular ring as a conic arc PLUS a full-width linear top layer. On wide
+   slabs (ornament, Power menu, window) that linear layer became a uniform 2 px line about +100 L
+   across the whole top: an outline. The shell replaces it with a light-dependent highlight: a
+   radial lobe centred at 26 % of the width under the key light (above, 20 deg left), fading to
+   nothing by 78 % of the width and down the sides. With the conic arc this gives "a band near the
+   top-left plus a faint top edge" (DESIGN2 §6.2 R3) and never a line of constant brightness. */
+.lgk-view .lgk-glass::before {
+  background:
+    conic-gradient(from var(--lg-light),
+      rgb(255 255 255 / calc(.62 * var(--rim, 1))) 0deg,
+      rgb(255 255 255 / calc(.20 * var(--rim, 1))) 38deg,
+      transparent 72deg, transparent 148deg,
+      rgb(255 255 255 / calc(.16 * var(--rim, 1))) 180deg,
+      transparent 214deg, transparent 288deg,
+      rgb(255 255 255 / calc(.22 * var(--rim, 1))) 322deg,
+      rgb(255 255 255 / calc(.62 * var(--rim, 1))) 360deg),
+    radial-gradient(70% 120% at 26% 0%, rgb(255 255 255 / calc(.18 * var(--rim, 1))) 0, rgb(255 255 255 / calc(.06 * var(--rim, 1))) 46%, transparent 75%);
+}
 
 /* ------------------------------------------------------------------ window glass */
-/* The window glass on routes with a bottom ornament ends at 656 (64 px ornament margin):
-   ornament 628-712 overlaps the glass by 28 and keeps 8 + 19 px clear of SteamVR's frame
-   controls (concept §3.1). Routes without an ornament use the full 720. */
+/* Glass ends at 656 on routes with a bottom ornament (64 px ornament margin): the ornament
+   628-712 overlaps the glass by 28 and keeps 8 + 19 px clear of SteamVR's window-bar row
+   (WN §3.1). Routes without an ornament use the full 720. */
 .wn-win { left: 0; top: 0; width: 1280px; height: 656px; overflow: hidden; }
 .wn-win.full { height: 720px; }
-.wn-win.dimmed::after {                       /* modal scrim .35 over the parent (DESIGN2 D13) */
+.wn-win.dimmed::after {
   content: ""; position: absolute; inset: 0; border-radius: inherit; background: rgb(0 0 0 / .35); z-index: 5; pointer-events: none; }
 
 /* scroll edge under the toolbar row: dimming dominates over dark content (DESIGN2 §6.7) */
@@ -19,89 +40,155 @@
                           mask-image: linear-gradient(180deg, #000 0, #000 calc(100% - 110px), rgb(0 0 0 / .2) calc(100% - 30px), transparent 100%); }
 
 /* ------------------------------------------------------------------ toolbar row (#header) */
-/* 108 px row: 24 + 60 + 24. Back is Steam's %{BackContainer}; search is %{SearchAndTitleContainer}. */
 .wn-toolbar { position: absolute; left: 0; top: 0; width: 1280px; height: 108px; z-index: 4; }
 .wn-back { position: absolute !important; left: 24px; top: 24px; }
-.wn-back.root { background: transparent; color: var(--lg-text-2); }          /* section roots: borderless */
+.wn-back.root { background: transparent; color: var(--lg-text-2); }
 .wn-back > .lgk-i { --is: 28px; }
 .wn-back.grown { width: auto !important; padding: 0 22px 0 16px; gap: 6px; font: 500 20px/1 var(--lg-font); }
 .wn-title { position: absolute; left: 100px; top: 25px; white-space: nowrap; }
 .wn-title.centered { left: 0; right: 0; top: 36px; text-align: center; }
-.wn-search { position: absolute !important; top: 22px; width: 560px; left: 360px; }
+.wn-search { position: absolute !important; top: 22px; width: 520px; left: 380px; }
 .wn-search.wide { width: 640px; left: 320px; }
 .wn-search .typed { flex: 1; font: 500 24px/1 var(--lg-font); color: var(--lg-text-1); white-space: nowrap; }
 .wn-search .caret { display: inline-block; width: 2px; height: 28px; margin-left: 2px; vertical-align: -6px; background: #fff; border-radius: 1px; }
 .wn-search .clear { --s: 44px; background: rgb(255 255 255 / .16) !important; color: var(--lg-text-1) !important; }
 .wn-search .clear .lgk-i { --is: 20px; }
-.wn-search.dim, .wn-back.dim, .wn-title.dim { opacity: .45; }                 /* recessed while a modal is up */
+.wn-search.dim, .wn-back.dim, .wn-title.dim { opacity: .45; }
 .wn-icon-circle { position: absolute !important; top: 24px; right: 24px; }
 
-/* ------------------------------------------------------------------ bottom ornament (#Footer) */
-.wn-orn { left: 50%; translate: -50% 0; top: 628px; gap: 4px; padding: 0 12px; }
-.wn-leg { position: relative; display: inline-flex; align-items: center; gap: 12px; height: 60px; padding: 0 22px 0 14px;
+/* ------------------------------------------------------------------ bottom ornament (#Footer): the ornament contract (WN §3.4)
+   One capsule, y 628-712, centred, width fit-content <= 960. Members in this order:
+   [Steam's laser-mode Sort/Filter buttons] [action legends, label first, controller glyph trailing]
+   [area slot: one segmented control] [nav legends A/B: gamepad mode only, quiet]. */
+.wn-orn { left: 50%; translate: -50% 0; top: 628px; gap: 4px; padding: 0 12px; max-width: 960px; }
+.wn-leg { position: relative; display: inline-flex; align-items: center; gap: 12px; height: 60px; padding: 0 14px 0 22px;
   border-radius: 999px; font: 600 22px/1 var(--lg-font); color: var(--lg-text-1); white-space: nowrap; }
+.wn-leg .lgk-glyph { width: 30px; height: 30px; font-size: 15px; background: rgb(255 255 255 / .16); color: var(--lg-text-2); }
+.wn-leg .tgt { margin-left: -4px; color: var(--lg-text-2); font-weight: 500; max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
 .wn-leg.nav { color: var(--lg-text-2); font-weight: 500; }
-.wn-leg.split { margin-left: 14px; }
-.wn-leg.is-selected .lgk-glyph { background: rgb(13 14 18 / .14); color: var(--lg-text-on-selected); }
+.wn-leg.sf { padding: 0 24px 0 18px; gap: 10px; }                  /* Steam's %{SortAndFilterButton} */
+.wn-leg.sf > .lgk-i { --is: 24px; color: var(--lg-text-2); }
+.wn-leg.sf .val { color: var(--lg-text-1); }
+.wn-orn .gsep { width: 14px; flex: none; }
+.wn-leg.is-open { background: var(--lg-fill-selected); color: var(--lg-text-on-selected); }
+.wn-leg.is-open .lgk-glyph, .wn-leg.is-open > .lgk-i, .wn-leg.is-open .tgt { background: rgb(13 14 18 / .12); color: rgb(13 14 18 / .7); }
+.wn-leg.is-open > .lgk-i { background: transparent; }
+.wn-leg.is-open .val { color: var(--lg-text-on-selected); }
 .wn-menu-glyph { position: relative; }
-.wn-menu-glyph::before { content: ""; width: 14px; height: 2.5px; border-radius: 2px; background: currentColor;
-  box-shadow: 0 -5px 0 currentColor, 0 5px 0 currentColor; }
-.wn-view-glyph { width: 40px !important; border-radius: 15px !important; }
-.wn-view-glyph::before { content: ""; width: 7px; height: 7px; border: 2px solid currentColor; border-radius: 2px;
-  box-shadow: 6px 4px 0 -2px rgb(255 255 255 / 0); }
-.wn-leg::after, .wn-tab::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+.wn-menu-glyph::before { content: ""; width: 13px; height: 2.4px; border-radius: 2px; background: currentColor;
+  box-shadow: 0 -4.6px 0 currentColor, 0 4.6px 0 currentColor; }
+.wn-leg::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
   mix-blend-mode: plus-lighter; opacity: 0;
   background: radial-gradient(circle at var(--hx, 50%) var(--hy, 30%), rgb(255 255 255 / var(--spot, .12)) 0, rgb(255 255 255 / 0) var(--spot-r, 75%)), rgb(255 255 255 / var(--lift, 0)); }
-.wn-leg.is-hover::after, .wn-tab.is-hover::after { opacity: 1; --lift: .08; }
-.wn-leg.is-focus::after, .wn-tab.is-focus::after { opacity: 1; --lift: .14; --spot: .16; }
+.wn-leg.is-hover::after { opacity: 1; --lift: .10; }
+.wn-leg.is-focus::after { opacity: 1; --lift: .30; --spot: .18; }
+.wn-leg.is-focus::before { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; padding: 1.5px;
+  background: conic-gradient(from var(--lg-light), rgb(255 255 255 / .8) 0deg, rgb(255 255 255 / .22) 40deg, transparent 75deg, transparent 145deg, rgb(255 255 255 / .2) 180deg, transparent 215deg, transparent 285deg, rgb(255 255 255 / .22) 320deg, rgb(255 255 255 / .8) 360deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+.wn-orn .lgk-seg { height: 60px; }
+.wn-orn .lgk-seg > * { padding: 0 20px; }
 
-/* ------------------------------------------------------------------ tab-bar ornament (frame.menu, popup px) */
-/* 56 px circles at 66 px pitch, 8 px capsule ends, 12 px between capsules (concept §3.3) */
-.wn-tabbar { display: flex; flex-direction: column; align-items: flex-end; gap: 12px; }
-.wn-tabcap { position: relative !important; display: flex; flex-direction: column; gap: 10px; padding: 8px 12px; width: 80px; --r: 40px; box-sizing: border-box; }
-.wn-tabbar.expanded .wn-tabcap { width: 292px; --r: 40px; }
-.wn-tab { position: relative; display: flex; align-items: center; height: 56px; border-radius: 999px; color: var(--lg-text-1); }
-.wn-tab > .lgk-i { --is: 27px; margin: 0 14.5px; flex: none; }
-.wn-tab > span { font: 600 22px/1 var(--lg-font); white-space: nowrap; opacity: 0; width: 0; overflow: hidden; }
-.wn-tabbar.expanded .wn-tab > span { opacity: 1; width: auto; }
-.wn-tab.is-nav-selected { background: rgb(255 255 255 / .18); }
-.wn-tab.is-selected { background: var(--lg-fill-selected); color: var(--lg-text-on-selected); }
-.wn-tab .wn-badge { position: absolute; left: 36px; top: 4px; width: 14px; height: 14px; border-radius: 50%; background: var(--lg-yellow);
-  box-shadow: 0 0 0 2px rgb(30 30 34 / .5); }
+/* ------------------------------------------------------------------ tab-bar ornament (frame.menu, popup px; WN §3.3)
+   Pitch p and circle d come from the live sizing rule (WN §3.3.2). On this device (Console on,
+   developer mode, r = 1): p 58, d 50, two capsules (6 sections; Console, Steam Settings,
+   VR Settings, a 10 px section gap, Power). Selected = a circle only; gamepad focus = a pill
+   spanning icon and label at +.30 with its own specular arc; the two never share a shape. */
+.wn-tabbar { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; --p: 58px; --d: 50px; }
+.wn-tabcap { position: relative !important; display: flex; flex-direction: column; padding: 6px 12px; width: calc(var(--d) + 24px);
+  --r: calc((var(--d) + 24px) / 2); box-sizing: border-box; }
+.wn-tabbar.expanded .wn-tabcap { width: 272px; }
+.wn-tab { position: relative; display: flex; align-items: center; height: var(--p); color: var(--lg-text-2); flex: none; }
+.wn-tab.secgap { margin-top: 10px; }
+.wn-tab > .ic { position: relative; z-index: 1; display: grid; place-items: center; flex: none; width: var(--d); height: var(--d); border-radius: 50%; }
+.wn-tab > .ic > .lgk-i { --is: calc(var(--d) * .52); }
+.wn-tab > .lbl { position: relative; z-index: 1; display: none; margin-left: 10px; font: 600 22px/1 var(--lg-font); color: var(--lg-text-1); white-space: nowrap; }
+.wn-tabbar.expanded .wn-tab > .lbl { display: block; }
+.wn-tab .wn-badge { position: absolute; left: calc(var(--d) * .66); top: calc((var(--p) - var(--d)) / 2 + 2px); width: 13px; height: 13px; border-radius: 50%;
+  background: var(--lg-yellow); box-shadow: 0 0 0 2px rgb(30 30 34 / .5); z-index: 2; }
+/* current route: a .16 circle behind a heavier white glyph; no label pill */
+.wn-tab.is-nav-selected { color: #fff; background: transparent; }   /* kit's .is-nav-selected fill would paint the whole row */
+.wn-tab.is-nav-selected > .ic { background: rgb(255 255 255 / .16); }
+.wn-tab.is-nav-selected > .ic > .lgk-i { stroke-width: 2.8; }
+/* laser hover (pill in the expanded bar, circle in the collapsed one) and gamepad focus (always the expanded pill) */
+.wn-tab::after { content: ""; position: absolute; left: 0; right: 0; top: calc((var(--p) - var(--d)) / 2); height: var(--d); border-radius: 999px;
+  pointer-events: none; opacity: 0; mix-blend-mode: plus-lighter;
+  background: radial-gradient(circle at var(--hx, 22%) var(--hy, 30%), rgb(255 255 255 / var(--spot, .10)) 0, transparent 70%), rgb(255 255 255 / var(--lift, 0)); }
+.wn-tabbar:not(.expanded) .wn-tab::after { right: auto; width: var(--d); }
+.wn-tab.is-hover { color: var(--lg-text-1); }
+.wn-tab.is-hover::after { opacity: 1; --lift: .10; --spot: .10; }
+.wn-tab.is-focus { color: #fff; }
+.wn-tab.is-focus::after { opacity: 1; --lift: .30; --spot: .20; }
+.wn-tab.is-focus::before { content: ""; position: absolute; left: 0; right: 0; top: calc((var(--p) - var(--d)) / 2); height: var(--d); border-radius: 999px; pointer-events: none; padding: 1.5px; z-index: 2;
+  background: conic-gradient(from var(--lg-light), rgb(255 255 255 / .85) 0deg, rgb(255 255 255 / .22) 40deg, transparent 75deg, transparent 145deg, rgb(255 255 255 / .22) 180deg, transparent 215deg, transparent 285deg, rgb(255 255 255 / .24) 320deg, rgb(255 255 255 / .85) 360deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+.wn-tabbar:not(.expanded) .wn-tab.is-focus::before { right: auto; width: var(--d); }
+/* the source of an open menu is white (Power while the Power menu shows) */
+.wn-tab.is-open > .ic { background: var(--lg-fill-selected); color: var(--lg-text-on-selected); }
 
-/* ------------------------------------------------------------------ SteamVR frame controls (systemui px) */
+/* a receding ornament darkens (scene-graph tint / CSS scrim); it never fades to transparent */
+.wn-dimmed::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: rgb(0 0 0 / .35); z-index: 4; pointer-events: none; }
+
+/* ------------------------------------------------------------------ SteamVR window-bar row (systemui px; WN §3.5)
+   The frame controls (keyboard, float, theater, more [, close]) in one panel-glass capsule, sitting
+   left of the visionOS window-bar pill (SteamVR's grab handle moved up from under the dashboard bar):
+   one row directly under the window instead of two separate strata. */
 .wn-frame { display: flex; align-items: center; gap: 14px; }
-.wn-framecap { position: relative !important; display: flex; align-items: center; gap: 20px; height: 100px; padding: 0 10px; --r: 50px; box-sizing: border-box; }
+.wn-framecap { position: relative !important; display: flex; align-items: center; gap: 27px; height: 100px; padding: 0 10px; --r: 50px; box-sizing: border-box; }
 .wn-framecap .lgk-btn { --s: 80px; background: rgb(255 255 255 / .10); }
 .wn-framecap .lgk-btn .lgk-i { --is: 36px; }
 .wn-framecap .sep { width: 10px; }
 .wn-framecap .lgk-btn.danger.is-focus { background: var(--lg-tint-danger) !important; }
+.wn-framecap .lgk-btn.is-focus::after { --lift: .30; --spot: .2; }
 .wn-tip { position: absolute; white-space: nowrap; padding: 0 30px; height: 60px; display: flex; align-items: center;
   font: 600 30px/1 var(--lg-font); --r: 30px; }
-
-/* the visionOS window bar: SteamVR's grab handle (hit area >= 80 px tall stays SteamVR's 132 px) */
-.wn-pill { position: absolute; width: 180px; height: 14px; border-radius: 7px; background: rgb(255 255 255 / .46);
+/* the visionOS window bar = SteamVR's grab handle: 467 x 32 grab px (140 x 9.6 mm) -> 183 x 12.5 view px */
+.wn-pill { position: absolute; width: 183px; height: 12.5px; border-radius: 7px; background: rgb(255 255 255 / .46);
   box-shadow: 0 1px 4px rgb(0 0 0 / .28), inset 0 1px 1px rgb(255 255 255 / .5); }
 .wn-pill.hover { background: rgb(255 255 255 / .92); width: 198px; }
 
-/* ------------------------------------------------------------------ dashboard bar (bar px, x1.20) */
+/* ------------------------------------------------------------------ dashboard bar (bar px, x1.20; system concept owns its content) */
 .wn-bar { display: flex; gap: 16px; }
 .wn-barcap { position: relative !important; height: 80px; gap: 8px; padding: 0 8px; --r: 40px; }
 .wn-barcap .lgk-btn { --s: 64px; }
 
-/* ------------------------------------------------------------------ menus (DESIGN2 §3.7) */
+/* ------------------------------------------------------------------ the pointer proxy (T2, WN §3.7)
+   Drawn by the shell inside Steam's own DOM at the laser's hit point, so it is part of the texture
+   that every base crop and popped crop shows, whatever SteamVR does with its own dot. */
+/* a 16 px ring with a 6 px core: where SteamVR's own dot also shows, the ring reads as its halo */
+.wn-proxy { position: absolute; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; box-sizing: border-box; z-index: 52; pointer-events: none;
+  border: 2.5px solid rgb(255 255 255 / .95);
+  background: radial-gradient(circle, #fff 0 3px, transparent 3.5px);
+  box-shadow: 0 0 0 1.5px rgb(0 0 0 / .30), inset 0 0 0 1px rgb(0 0 0 / .18), 0 0 14px 4px rgb(255 255 255 / .40); }
+
+/* ------------------------------------------------------------------ the item "More" circle (T2 helper owned by the shell, WN §3.4.4) */
+.wn-more { width: 52px; height: 52px; display: grid; place-items: center; --r: 26px; z-index: 6; }
+.wn-more .lgk-i { --is: 26px; }
+.wn-more.is-open { background: var(--lg-fill-selected) !important; color: var(--lg-text-on-selected); -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+
+/* ------------------------------------------------------------------ menus (DESIGN2 §3.7, layout by item count: WN §5.1) */
 .wn-menu { padding: 8px; display: flex; flex-direction: column; gap: 6px; box-sizing: border-box; --r: 32px; }
-.wn-menu .hdr { display: flex; align-items: center; height: 56px; padding: 0 20px; font: 700 22px/1 var(--lg-font); color: var(--lg-text-2); }
-.wn-menu .lgk-row { height: 72px; padding: 0 22px 0 18px; gap: 18px; font-weight: 500; }
+.wn-menu .hdr { display: flex; align-items: center; height: 40px; padding: 4px 20px 0; font: 700 22px/1 var(--lg-font); color: var(--lg-text-2); flex: none; }
+.wn-menu .ihdr { display: flex; align-items: flex-end; height: 30px; padding: 0 0 4px 18px; font: 600 19px/1 var(--lg-font); color: var(--lg-text-3); flex: none; }
+.wn-menu .lgk-row { height: 72px; padding: 0 22px 0 18px; gap: 18px; font-weight: 500; flex: none; }
+.wn-menu.compact { gap: 4px; }
+.wn-menu.compact .lgk-row { height: 60px; border-radius: 22px; }   /* 60 visible on a contiguous 64 px pitch */
 .wn-menu .lgk-row .lead { width: 28px; display: grid; place-items: center; --is: 26px; flex: none; color: var(--lg-text-1); }
 .wn-menu .lgk-row .trail .lgk-i { --is: 22px; }
+.wn-menu .lgk-row .chk { margin-left: auto; --is: 24px; color: var(--lg-text-1); }
 .wn-menu .gap { height: 8px; flex: none; }
-.wn-menu .lgk-row.danger { color: var(--lg-red); }
+.wn-menu.compact .gap { height: 6px; }
+.wn-menu .lgk-row.is-focus::after { --lift: .30; --spot: .18; }
+.wn-menu .lgk-row.danger { color: var(--lg-red); font-weight: 600; }
 .wn-menu .lgk-row.danger .lead { color: var(--lg-red); }
-.wn-menu .lgk-row.danger.is-focus { background: var(--lg-tint-danger); color: #fff; }
-.wn-menu .lgk-row.danger.is-focus .lead { color: #fff; }
+.wn-menu .lgk-row.danger-glyph .lead { color: var(--lg-red); }          /* many destructive rows: red glyph, white label */
+.wn-menu .lgk-row:is(.danger, .danger-glyph).is-focus { background: var(--lg-tint-danger); color: #fff; }
+.wn-menu .lgk-row:is(.danger, .danger-glyph).is-focus .lead { color: #fff; }
+.wn-menu .lgk-row:is(.danger, .danger-glyph).is-focus::after { --lift: .08; }
 .wn-menu .lgk-row.primary { background: linear-gradient(180deg, rgb(255 255 255 / .16), rgb(255 255 255 / 0) 60%), var(--lg-tint-play); }
-.wn-menu .lgk-row.quiet { color: var(--lg-text-2); justify-content: center; }
+.wn-menu .cancel { align-self: center; flex: none; margin-top: 4px; --s: 56px; padding: 0 44px; background: rgb(255 255 255 / .08); color: var(--lg-text-2); font-weight: 500; font-size: 22px; }
+.wn-menu .cols2 { display: grid; grid-template-columns: 1fr 1fr; grid-auto-flow: column; gap: 6px 8px; }
+.wn-menu .cols2 .lgk-row { min-width: 0; }
+.wn-menu .cols2 .lgk-row .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ------------------------------------------------------------------ alerts and sheets */
 .wn-alert { padding: 36px 36px 28px; --r: 44px; box-sizing: border-box; }
@@ -111,9 +198,14 @@
 .wn-alert .btns .lgk-btn { flex: 1; }
 .wn-sheet { --r: 44px; box-sizing: border-box; }
 
+/* ------------------------------------------------------------------ search sheet (WN §4) */
+.wn-snap { position: absolute; inset: 0; pointer-events: none; }        /* the context snapshot: inert decorative clone */
+.wn-ssheet { --r: 44px; box-sizing: border-box; }
+.wn-ssheet .sh { position: absolute; left: 40px; font: 700 26px/1 var(--lg-font); letter-spacing: -.01em; }
+
 /* ------------------------------------------------------------------ keyboard (Steam VR keyboard, keyboard px x0.74) */
-.wn-kb { position: relative !important; width: 854px; padding: 10px; --r: 30px; box-sizing: border-box; }
-.wn-kb .echo { display: flex; align-items: center; gap: 12px; height: 52px; margin: 0 4px 10px; padding: 0 22px; border-radius: 26px;
+.wn-kb { position: relative !important; width: 854px; padding: 8px; --r: 30px; box-sizing: border-box; }
+.wn-kb .echo { display: flex; align-items: center; gap: 12px; height: 46px; margin: 0 4px 6px; padding: 0 22px; border-radius: 26px;
   background: rgb(0 0 0 / .30); box-shadow: inset 0 2px 5px rgb(0 0 0 / .26); font: 500 26px/1 var(--lg-font); }
 .wn-kb .echo .lbl { color: var(--lg-text-2); font-size: 22px; font-weight: 600; }
 .wn-kb .echo .ph { color: rgb(255 255 255 / .5); }

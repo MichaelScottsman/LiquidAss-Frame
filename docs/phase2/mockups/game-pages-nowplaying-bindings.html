@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — Now Playing > VR Controller Bindings as a sheet</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="game-pages.css">
+<style>
+  /* Authored in Now Playing CSS px (main px x 1.44, DESIGN2 §2.5); panel styles live in game-pages.css. */
+  .sh { left: 314px; top: 92px; width: 1230px; height: 860px; --r: 64px; z-index: 6; }
+  .sh .close { position: absolute; left: 34px; top: 34px; width: 86px; height: 86px; border-radius: 50%; background: var(--lg-fill-thin); display: grid; place-items: center; --is: 38px; }
+  .sh h2 { position: absolute; left: 0; right: 0; top: 50px; margin: 0; text-align: center; font: 700 43px/1.2 var(--lg-font); letter-spacing: -.01em; }
+  .sh .grp { position: absolute; left: 72px; width: 1086px; padding: 8px; box-sizing: border-box; border-radius: 44px; background: var(--lg-fill-regular); }
+  .sh .r { position: relative; display: flex; align-items: center; gap: 22px; height: 115px; padding: 0 30px 0 32px; border-radius: 36px; font: 500 35px/1 var(--lg-font); }
+  .sh .r + .r::before { content: ""; position: absolute; left: 32px; right: 30px; top: -1px; height: 3px; background: rgb(255 255 255 / .08); }
+  .sh .r .v { margin-left: auto; display: flex; align-items: center; gap: 14px; color: var(--lg-text-2); }
+  .sh .r .v .lgk-i { --is: 28px; }
+  .sh .r.is-hover { background: rgb(255 255 255 / .08); }
+  .sh .seg2 { display: inline-flex; gap: 6px; padding: 6px; border-radius: 46px; background: var(--lg-fill-thick); box-shadow: inset 0 3px 6px rgb(0 0 0 / .22); }
+  .sh .seg2 span { display: grid; place-items: center; min-width: 150px; height: 80px; padding: 0 30px; box-sizing: border-box; border-radius: 40px; font: 600 32px/1 var(--lg-font); color: var(--lg-text-1); }
+  .sh .seg2 span.on { background: var(--lg-fill-selected); color: var(--lg-text-on-selected); }
+  .sh .tog { position: relative; width: 95px; height: 58px; border-radius: 29px; background: var(--lg-green); }
+  .sh .tog::after { content: ""; position: absolute; top: 4px; right: 4px; width: 50px; height: 50px; border-radius: 50%; background: #fff; box-shadow: 0 3px 7px rgb(0 0 0 / .3); }
+  .sh .btns { position: absolute; left: 72px; right: 72px; bottom: 48px; display: flex; gap: 29px; }
+  .sh .btns span { flex: 1; display: flex; align-items: center; justify-content: center; gap: 16px; height: 86px; border-radius: 43px; background: var(--lg-fill-thin); font: 600 34px/1 var(--lg-font); }
+  .sh .btns .lgk-i { --is: 28px; color: var(--lg-text-2); }
+</style>
+</head>
+<body>
+<div class="lgk-view" data-room="studio" data-tab="none" data-fc="game" data-bar="running" data-barart="poster:6:">
+  <div class="lgk-pop" style="left:315px; top:66px; --pop-scale:.694" data-tier="vr:systemui panel">
+    <div class="lgk-glass np" data-mat="window" data-dz="0" data-tier="T1 (T5 if systemui covers land)">
+      <div class="np-glow lgk-art" data-art="poster:6:"></div>
+      <div class="np-art lgk-art" data-art="poster:6:Aurora Lab"></div>
+      <div class="np-col">
+        <div class="np-cap">Now Playing</div>
+        <div class="np-title">Aurora Lab</div>
+      </div>
+      <div class="np-grp" data-tier="rows 116 NP px (≥ 115)">
+        <div class="np-row"><span class="chip" style="background:var(--lg-indigo)"><i data-i="vrbind"></i></span>VR Controller Bindings<i data-i="chevron-right" class="chev"></i></div>
+        <div class="np-row"><span class="chip" style="background:var(--lg-blue)"><i data-i="eye"></i></span>VR Video Settings<i data-i="chevron-right" class="chev"></i></div>
+      </div>
+      <div class="np-exit" data-lgs-np="exit" style="top:780px" data-tier="Exit: red label only with the T2 key"><i data-i="exit"></i>Exit Game</div>
+    </div>
+    <div class="lgk-glass gp-ctl np-resume" data-mat="liquid" data-tint="play" data-lens style="--dz:15" data-dz="15" data-tier="T1 + T4 (systemui crop)"><i data-i="play"></i>Resume Game</div>
+    <div class="gp-scrim" style="left:0; top:0; width:1858px; height:1045px; border-radius:78px; --a:.35; z-index:5"></div>
+    <div class="lgk-glass sh" data-mat="thick" data-lens style="--dz:50" data-dz="30→50" data-tier="SteamVR modal: T1 (T4 crop if GQ6)">
+      <span class="close"><i data-i="xmark" class="bold"></i></span>
+      <h2>VR Controller Bindings</h2>
+      <div class="grp" style="top:150px">
+        <div class="r">Controller<span class="v">Frame Controller<i data-i="chevron-updown"></i></span></div>
+        <div class="r is-hover">Current Binding<span class="v">Default<i data-i="chevron-right"></i></span></div>
+      </div>
+      <div class="grp" style="top:424px">
+        <div class="r">Dominant Hand<span class="v"><span class="seg2"><span>Left</span><span class="on">Right</span></span></span></div>
+        <div class="r">Show Binding Callouts<span class="v"><span class="tog"></span></span></div>
+      </div>
+      <div class="btns"><span>Edit Binding<i data-i="arrow-up-right"></i></span><span>Choose Another<i data-i="arrow-up-right"></i></span></div>
+    </div>
+  </div>
+  <svg style="position:absolute; inset:0; width:1920px; height:1080px; pointer-events:none; z-index:40" viewBox="0 0 1920 1080">
+    <defs><linearGradient id="beam" x1="1" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".35" stop-color="#dbe8ff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity=".9"/></linearGradient></defs>
+    <polygon points="1720,1095 1732,1095 1251,363 1249,363" fill="url(#beam)" opacity=".5"/>
+  </svg>
+  <div class="lgk-laser-dot" style="left:1250px; top:363px"></div>
+</div>
+<script src="kit.js"></script>
+<script src="game-pages.js"></script>
+</body>
+</html>

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — Settings: System › About, Change Hostname alert (flat, depth 0)</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="window-nav-shared.css">
+<link rel="stylesheet" href="settings.css">
+</head>
+<body>
+<div class="lgk-view" data-room="lounge">
+
+  <!-- the tab bar darkens while a dialog is up (window-nav §5.3); it stays operable -->
+  <div data-wn="tabbar" data-right="302" data-cy="426" data-sel="steam settings" data-dim=".5"></div>
+
+  <div class="lgk-overlay" style="left:320px; top:66px">
+    <div class="lgk-glass st-win" data-mat="window" data-dz="0" data-tier="T5 window (T1: smoky tint)">
+      <div data-st="sidebar" data-sel="system"></div>
+      <div data-st="toolbar" data-back data-title="About"></div>
+      <div class="st-scroll top">
+        <div class="st-col" style="top:116px">
+          <div class="st-plat">
+            <div class="st-r first"><span class="lab">Hostname</span><span class="lgk-btn capsule" style="--s:60px">steamframe</span></div>
+            <div class="st-r"><span class="lab">OS Name</span><span class="val">SteamOS</span></div>
+            <div class="st-r"><span class="lab">Codename</span><span class="val">holo</span></div>
+            <div class="st-r"><span class="lab">Variant</span><span class="val">steamframe</span></div>
+            <div class="st-r"><span class="lab">Version</span><span class="val">3.8.12</span></div>
+            <div class="st-r last"><span class="lab">Build</span><span class="val">20261006.1</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Steam's own modal overlay, restyled to black .35 (DESIGN2 D13). It is in Steam's texture, so it dims the
+           sidebar, the toolbar and the page together; the alert itself is not under it -->
+      <div class="st-dim"></div>
+    </div>
+
+    <!-- the alert (window-nav §5.3): Steam's GenericConfirmDialog card as thick glass, 640 px, radius 44.
+         Depth 0 by default (settings.md §5): it is only popped to +30 mm after the wearer check, and an alert with a
+         destructive button (this one: Change & Restart) is never popped -->
+    <div class="lgk-glass" data-mat="thick" data-lens style="left:320px; top:150px; width:640px; --r:44px; --dz:0; padding:36px 36px 28px; z-index:8" data-dz="0" data-tier="T1 + T5 thick shape at the window plane (no crop)">
+      <div class="t-title3" style="font-size:28px; font-weight:700">Change Hostname</div>
+      <div class="t-callout v2" style="margin-top:10px">This name identifies your Steam Frame on your network. Steam Frame restarts to apply it.</div>
+      <div class="lgk-search is-focus" style="margin-top:24px; padding-left:24px; padding-right:10px">
+        <span class="ph" style="color:var(--lg-text-1)">steamframe<span style="display:inline-block; width:2.5px; height:28px; margin-left:2px; vertical-align:-5px; background:var(--lg-blue); border-radius:2px"></span></span>
+        <span class="lgk-btn circle" style="--s:44px; background:rgb(255 255 255 / .16)"><i data-i="xmark" style="--is:22px"></i></span>
+      </div>
+      <div style="display:flex; gap:20px; margin-top:28px">
+        <span class="lgk-btn capsule" style="flex:1">Cancel</span>
+        <span class="lgk-btn capsule st-danger" style="flex:1; background:var(--lg-fill-thin)">Change &amp; Restart</span>
+      </div>
+    </div>
+    <!-- no ornament: the alert's own buttons carry Cancel and Change & Restart; Steam's legend (Select / Cancel) stays hidden -->
+  </div>
+
+  <div data-wn="frame" data-cx="960" data-y="806" data-dim=".5"></div>
+  <div data-wn="bar" data-cx="960" data-y="904"></div>
+  <div data-wn="pill" data-cx="960" data-y="1018"></div>
+</div>
+<script src="settings-shared.js"></script>
+<script src="settings-icons.js"></script>
+<script src="window-nav-shared.js"></script>
+<script src="kit.js"></script>
+</body>
+</html>

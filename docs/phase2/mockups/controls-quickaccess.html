@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — controls: Quick Access at m 0.83 (Steam's own popup, T1 restyle)</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="window-nav-shared.css">
+<link rel="stylesheet" href="settings.css">
+<link rel="stylesheet" href="controls.css">
+<link rel="stylesheet" href="controls-real.css">
+</head>
+<body>
+<div class="lgk-view" data-room="lounge">
+  <div data-wn="tabbar" data-right="302" data-cy="426" data-sel="library"></div>
+
+  <!-- the main window behind: Quick Access is a separate quad 13 cm nearer -->
+  <div class="lgk-overlay" style="left:320px; top:66px">
+    <div class="lgk-glass st-win" data-mat="window" data-dz="0" style="height:656px">
+      <div style="position:absolute; left:40px; top:40px" class="t-large">Library</div>
+      <div style="position:absolute; left:40px; top:130px; display:flex; gap:24px">
+        <div class="lgk-poster lgk-art" data-art="poster:1:Hollow Peaks" style="position:relative; width:180px; height:270px"></div>
+        <div class="lgk-poster lgk-art" data-art="poster:6:Starfall Drift" style="position:relative; width:180px; height:270px"></div>
+        <div class="lgk-poster lgk-art" data-art="poster:3:Neon Tide" style="position:relative; width:180px; height:270px"></div>
+        <div class="lgk-poster lgk-art" data-art="poster:8:Ember Road" style="position:relative; width:180px; height:270px"></div>
+        <div class="lgk-poster lgk-art" data-art="poster:4:Quiet Orbit" style="position:relative; width:180px; height:270px"></div>
+      </div>
+    </div>
+  </div>
+  <div data-wn="frame" data-cx="960" data-y="806" data-dim=".72"></div>
+  <div data-wn="bar" data-cx="960" data-y="904"></div>
+  <div data-wn="pill" data-cx="960" data-y="1018"></div>
+
+  <!-- Quick Access, Quick Settings tab, at its real place above the bar's status capsule (popup px x1.2) -->
+  <div class="lgk-pop" style="left:1018px; top:332px; --pop-scale:1.2" data-tier="barpopup quad: T1 restyle; T5 panel cover">
+    <div class="lgk-glass qp" data-mat="panel" data-dz="0" style="position:relative">
+      <div class="qhd">Quick Settings</div>
+      <div class="qsc"><div class="qin">
+        <div class="qsh">Brightness</div>
+        <div class="c-slider is-hover" id="bri" style="--v:.06; --hx:20%; --hy:50%"><span class="fill"></span><i data-i="sun" class="glyph"></i><span class="knob"></span></div>
+        <div class="c-slider" style="--v:1; --d:1"><span class="fill"></span><i data-i="mountain" class="glyph"></i><span class="dtick"></span></div>
+        <div class="qsh">Audio</div>
+        <div class="c-slider mz" style="--v:.52"><span class="zone"><i data-i="speaker"></i></span><span class="fill"></span></div>
+        <div class="c-slider mz muted" style="--v:.8"><span class="zone"><i data-i="micslash"></i></span><span class="fill"></span></div>
+        <div class="qsh">Other</div>
+        <div class="qrow"><i data-i="wifi" style="--is:22px"></i>Wi-Fi<span class="sw"><span class="c-switch on"><span class="knob"></span></span></span></div>
+      </div></div>
+      <div class="qtabs"><span><i data-i="bell"></i></span><span class="sel"><i data-i="gear"></i></span><span><i data-i="bolt"></i></span><span><i data-i="battery"></i></span><span><i data-i="question"></i></span></div>
+    </div>
+  </div>
+
+  <!-- the same popup on its Performance tab, beside it for comparison (one popup exists at a time) -->
+  <div class="lgk-pop" style="left:570px; top:332px; --pop-scale:1.2" data-tier="barpopup quad: T1 restyle">
+    <div class="lgk-glass qp" data-mat="panel" data-dz="0" style="position:relative">
+      <div class="qhd">Performance</div>
+      <div class="qsc"><div class="qin" id="perf" style="top:-336px">
+        <div class="qlab">System Profile</div>
+        <div class="c-slider stepped" style="--v:0.0000"><span class="fill"></span><span class="notches"><i class="" style="left:100.00%"></i></span><span class="knob"></span></div>
+        <div class="qnl"><span class="on l" style="left:0.0px">Performance</span><span class="r" style="left:268.0px">Playtime</span></div>
+        <div class="qcap">Basic View</div>
+        <div class="qsh">Common Settings</div>
+        <div class="qrow"><i data-i="gauge" style="--is:22px; color:var(--lg-text-2)"></i>Manual GPU Clock<span class="sw"><span class="c-switch"><span class="knob"></span></span></span></div>
+        <div class="qsh">Non-VR Settings</div>
+        <div class="qlab">Performance Overlay Level</div>
+        <div class="c-slider stepped" style="--v:0.0000"><span class="fill"></span><span class="notches"><i class="" style="left:25.00%"></i><i class="" style="left:50.00%"></i><i class="" style="left:75.00%"></i><i class="" style="left:100.00%"></i></span><span class="knob"></span></div>
+        <div class="qnl"><span class="on" style="left:27.0px">Off</span><span class="" style="left:80.5px">1</span><span class="" style="left:134.0px">2</span><span class="" style="left:187.5px">3</span><span class="" style="left:241.0px">4</span></div>
+        <div class="qlab">Scaling Mode</div>
+        <div class="c-slider stepped" style="--v:0.2500"><span class="fill"></span><span class="notches"><i class="under" style="left:0.00%"></i><i class="" style="left:50.00%"></i><i class="" style="left:75.00%"></i><i class="" style="left:100.00%"></i></span><span class="knob"></span></div>
+        <div class="qnl"><span class="" style="left:27.0px">Auto</span><span class="on" style="left:80.5px">Integer</span><span class="" style="left:134.0px">Fit</span><span class="" style="left:187.5px">Stretch</span><span class="" style="left:241.0px">Fill</span></div>
+        <div class="qlab">Scaling Filter</div>
+        <div class="c-slider stepped" style="--v:0.0000"><span class="fill"></span><span class="notches"><i class="" style="left:50.00%"></i><i class="" style="left:100.00%"></i></span><span class="knob"></span></div>
+        <div class="qnl"><span class="on" style="left:27.0px">Linear</span><span class="" style="left:134.0px">Pixel</span><span class="" style="left:241.0px">Sharp</span></div>
+</div></div>
+      <div class="qtabs"><span><i data-i="bell"></i></span><span><i data-i="gear"></i></span><span class="sel"><i data-i="bolt"></i></span><span><i data-i="battery"></i></span><span><i data-i="question"></i></span></div>
+    </div>
+  </div>
+
+  <div class="c-note" style="left:28px; top:110px; width:240px"><b>Quick Access, true size.</b> 300 popup px = 360 view px (m 0.83). Capsules 54 popup px = 65 main px; switches 55 &times; 32; notch labels <b>15 popup px = 18 main px</b>, title case.</div>
+  <div class="c-note" id="lblnote" style="left:28px; top:310px; width:240px"><b>Labels fit.</b></div>
+  <div class="c-note" style="left:1468px; top:60px; width:420px"><b>Glyphs.</b> Brightness: the sun is inert (<span class="k">pointer-events: none</span>), so the low-value knob is dragged over it. Volume and Microphone, when Steam renders its clickable mute icon: a separate 54 px glyph zone before the track, never under the knob. The zone is a toggle: white (on) while muted, the level dimmed; at level 0 the white disappears entirely. Environment Brightness keeps Steam's default-value marker (&#9662;).</div>
+  <div data-wn="laser" data-to="1085,482" data-from="1500,1100"></div>
+</div>
+<script src="controls-real.js"></script>
+<script src="settings-shared.js"></script>
+<script src="settings-icons.js"></script>
+<script src="window-nav-shared.js"></script>
+<script src="kit.js"></script>
+<script src="controls-icons.js"></script>
+<script>
+  // live check: Steam's real notch labels at 15 popup px Semibold in the 268 px track; report overlaps and the smallest gap
+  addEventListener('DOMContentLoaded', () => requestAnimationFrame(() => setTimeout(() => {
+    let overlaps = 0, minGap = 1e9;
+    document.querySelectorAll('#perf .qnl').forEach((row) => {
+      const r = [...row.children].map((e) => e.getBoundingClientRect());
+      for (let i = 1; i < r.length; i++) { const g = (r[i].left - r[i - 1].right) / 1.2; if (g < 0) overlaps++; minGap = Math.min(minGap, g); }
+    });
+    document.getElementById('lblnote').innerHTML = '<b>Labels fit.</b> Steam\'s real notch labels (Off 1 2 3 4; Auto Integer Fit Stretch Fill; Linear Pixel Sharp; Performance / Playtime at the ends) in this render: <b>' + overlaps + ' overlaps</b>, smallest gap <b>' + minGap.toFixed(1) + ' popup px</b>. Below a 6 px gap, T2 keeps only the current and the end labels.';
+  }, 300)));
+</script>
+</body>
+</html>

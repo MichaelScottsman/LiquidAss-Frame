@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — Control Center as a popup (CC-A, gated): honest glassd look over the dimmed window</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="control-center.css">
+<style>
+  .win { left: 0; top: 0; width: 1280px; height: 664px; }
+  .hdr-title { position: absolute; left: 40px; top: 25px; }
+  .hdr-sub { position: absolute; left: 42px; top: 82px; }
+  .hdr-search { position: absolute; left: 380px; top: 22px; width: 520px; }
+  .hdr-avatar { position: absolute; right: 24px; top: 24px; }
+  .tabs { position: absolute; left: 40px; top: 118px; }
+  .grid { position: absolute; left: 0; top: 206px; right: 0; bottom: 0; overflow: hidden; border-radius: 0 0 var(--lg-r-window) var(--lg-r-window);
+          -webkit-mask-image: linear-gradient(180deg, #000 0, #000 calc(100% - 120px), rgb(0 0 0 / .25) calc(100% - 36px), transparent 100%); }
+  .grid .lgk-poster { width: 220px; height: 330px; }
+  .toolbar { left: 192px; top: 636px; width: 896px; }
+  .roommap { border-radius: 54px; z-index: 6; }
+  /* glassd adapts to what it frosts: here the grey fill (104), pulled into the text band (L 70-90) */
+  .lgk-pop .ccm .lgk-glass { --lgk-adapt: .67 !important; }
+</style>
+</head>
+<body>
+<!-- CC-A (ships only after its gamepad gate passes). The same Control Center component in Steam's type-7 popup host, request scale
+     0.83 (so 1 CSS px has the same angle as in the main window), +25 mm in front of the bar plane, content box 1088 x 616 px with its
+     bottom edge 40 pp above the bar. HONEST MATERIAL: glassd frosts its room map, in which Steam's window is masked out; where the room
+     behind the window has never been captured, today's glassd fills it flat grey (native-e2e.md §3), so tiles over the window read as
+     grey frosted slabs, not as frosted posters. The window is dimmed to 0.6 by the proven t1 tint node while Control Center is open. -->
+<div class="lgk-view" data-room="lounge">
+  <div class="lgk-overlay" style="left:320px; top:66px">
+    <div class="lgk-glass win" data-mat="window" data-dz="0">
+      <div class="hdr-title t-large">Library</div>
+      <div class="hdr-sub t-subhead v2">350 games · 18 installed</div>
+      <div class="lgk-search hdr-search"><i data-i="search"></i><span class="ph">Search your library</span><span class="lgk-btn circle"><i data-i="mic"></i></span></div>
+      <div class="lgk-btn circle hdr-avatar lgk-art" data-art="avatar:2:B" style="background-size:cover"></div>
+      <div class="lgk-seg tabs"><span class="is-selected">All Games</span><span>Great on Frame</span><span>Ready to Play</span><span>Collections</span><span>Non-Steam</span></div>
+      <div class="grid">
+        <div class="lgk-poster lgk-art" data-art="poster:0:Starfall Drift" style="left:42px; top:0"></div>
+        <div class="lgk-poster lgk-art" data-art="poster:1:Hollow Peaks" style="left:286px; top:0"></div>
+        <div class="lgk-poster lgk-art" data-art="poster:2:Neon Orchard" style="left:530px; top:0"></div>
+        <div class="lgk-poster lgk-art" data-art="poster:3:Tidebreaker" style="left:774px; top:0"></div>
+        <div class="lgk-poster lgk-art" data-art="poster:4:Lumen Vale" style="left:1018px; top:0"></div>
+        <div class="lgk-poster lgk-art" data-art="poster:8:Echo Station" style="left:42px; top:354px"></div>
+        <div class="lgk-poster lgk-art" data-art="poster:6:Ironwood" style="left:286px; top:354px"></div>
+        <div class="lgk-poster lgk-art" data-art="poster:7:Paper Comets" style="left:530px; top:354px"></div>
+        <div class="lgk-poster lgk-art" data-art="poster:5:Glasswing" style="left:774px; top:354px"></div>
+        <div class="lgk-poster lgk-art" data-art="poster:9:Deep Field" style="left:1018px; top:354px"></div>
+      </div>
+    </div>
+    <div class="lgk-glass lgk-toolbar toolbar" data-mat="liquid" data-lens style="--dz:25" data-dz="25">
+      <span class="lgk-btn capsule plain"><i data-i="sort"></i>Recently Played<span class="lgk-glyph">Y</span></span>
+      <span class="lgk-btn capsule plain"><i data-i="filter"></i>Filter<span class="lgk-glyph">X</span></span>
+      <span class="lgk-seg compact" style="height:60px; background:rgb(0 0 0 / .22); margin-left:12px"><span class="is-selected">All</span><span>VR</span><span>Non-VR</span></span>
+      <span class="lgk-btn circle plain" style="margin-left:auto"><i data-i="more"></i></span>
+    </div>
+    <!-- t1 tint x0.6 on the whole Steam window (SP §5, E4) -->
+    <div style="position:absolute; left:0; top:0; width:1280px; height:720px; border-radius:54px; background:rgb(0 0 0 / .40); z-index:5"></div>
+  </div>
+
+  <!-- glassd's room map under each tile (window rect masked: flat grey), so the tiles cannot frost the window -->
+  <div class="roommap" style="left:416px; top:214px; width:344px; height:528px"></div>
+  <div class="roommap" style="left:788px; top:214px; width:344px; height:528px"></div>
+  <div class="roommap" style="left:1160px; top:214px; width:344px; height:528px"></div>
+  <div class="roommap" style="left:932px; top:762px; width:56px; height:56px; border-radius:50%"></div>
+
+  <!-- the type-7 host's content box: 1088 x 616 px at request scale 0.83 (drawn 1:1 here), bottom edge 40 pp above the bar -->
+  <div class="lgk-pop" style="left:416px; top:214px; width:1088px; height:616px; --pop-scale:1.0; z-index:7" data-dz="25">
+    <div class="ccm" style="left:-96px; top:-40px" data-cc='{"vol":0.55}'></div>
+  </div>
+
+  <div class="lgk-pop" style="left:0; top:878px; width:1600px; display:flex; justify-content:center; --pop-scale:1.2">
+    <div class="bar2" data-bar='{"pill":{"state":"open","batt":{"mode":"num","v":82},"badge":3}}'></div>
+  </div>
+  <div class="lgk-windowbar" style="left:870px; top:996px"></div>
+  <div class="lab plate" style="left:24px; top:262px; width:372px">CC-A, honest glassd look<small>Each tile frosts glassd's room map, which masks Steam's window out. Behind the window nothing has been captured, so the glass is a flat grey frost (today's glassd fill), never the window's posters. The window itself is dimmed to 0.6 by the proven t1 tint.</small></div>
+  <div class="lab plate" style="left:1528px; top:640px; width:372px">Clearance<small>Content box bottom (the close circle's 80 px hit region) sits 40 pp ≈ 34 mm ≈ 1.9° above the bar's top edge; Room View, the bar slot under the bar's centre, is never under the ×.</small></div>
+</div>
+<script src="control-center-build.js"></script>
+<script src="kit.js"></script>
+<script src="control-center-icons.js"></script>
+</body>
+</html>

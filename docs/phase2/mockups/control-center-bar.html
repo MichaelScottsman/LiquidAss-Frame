@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — Dashboard bar: Home circle, apps capsule, system capsule (states, true size)</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="control-center.css">
+<style>
+  .row { position: absolute; left: 0; width: 1600px; display: flex; justify-content: center; --pop-scale: 1.2; }
+  .lab { left: 24px; width: 330px; }
+</style>
+</head>
+<body>
+<!-- The bar keeps Steam's nodes, order and handlers. Three glass pieces instead of five: the Steam (Home) circle, the apps capsule
+     (running apps as art discs + "+"), and ONE system capsule painted on Steam's %{Tray} (room controls, the status pill, the avatar).
+     56 pp discs at 64 pp pitch; ~740 pp wide with two apps (today 700). Numbers on coloured fills are dark. -->
+<div class="lgk-view" data-room="studio">
+
+  <div class="lab plate" style="top:206px">Playspace Menu open<small>The source turns white; the menu is thick glass that grows up out of it (64 pp rows, +25 mm).</small></div>
+  <div class="lgk-pop row" style="top:270px"><div class="bar2" id="barA" data-bar='{"room":{"play":"open","view":"on"},"pill":{"batt":{"mode":"num","v":82}}}'></div></div>
+  <div class="lgk-pop" id="menuA" style="--pop-scale:1.2" data-dz="25">
+    <div class="lgk-glass lgk-menu" data-mat="thick" data-lens style="position:relative; width:290px; min-width:0; --r:28px; --dz:25; padding:8px; gap:4px">
+      <div class="mrow" style="--rh:64px; --fs:20px; --rr:20px"><span class="lead"><i data-i="playspace"></i></span>Playspace Setup</div>
+      <div class="mrow is-hover" style="--rh:64px; --fs:20px; --rr:20px; --hx:30%; --hy:50%"><span class="lead"><i data-i="sort"></i></span>Adjust Floor Height</div>
+      <div class="mrow" style="--rh:64px; --fs:20px; --rr:20px"><span class="lead"><i data-i="recenter"></i></span>Recenter</div>
+    </div>
+  </div>
+
+  <div class="lab plate" style="top:400px">At rest<small>Steam selected (lighter disc + dot) · Room View off · Battery Percentage off: level capsule, no number</small></div>
+  <div class="lgk-pop row" style="top:410px"><div class="bar2" data-bar='{"apps":["program:3:window"],"room":{"view":"off"},"pill":{"batt":{"mode":"level","v":80}}}'></div></div>
+
+  <div class="lab plate" style="top:540px">Laser on +<small>Hover light follows the pointer; no scale, no ring. Tooltip capsule below the bar (Steam's placement and delay).</small></div>
+  <div class="lgk-pop row" style="top:550px"><div class="bar2" id="barC" data-bar='{"apps":["poster:0:"],"hover":"plus","hx":"40%","hy":"42%","pill":{"batt":{"mode":"num","v":82}}}'></div></div>
+  <div class="lgk-pop" id="tipC" style="--pop-scale:1.2"><div class="lgk-glass tip" data-mat="panel" style="position:relative">Launch Program</div></div>
+
+  <div class="lab plate" style="top:712px">Gamepad focus on the status pill<small>D-CC6: scale 1.06, +.26 white, doubled arc, bloom. 3 unread · headset 14 % (orange, dark number 8.6:1) · a download running.</small></div>
+  <div class="lgk-pop row" style="top:730px"><div class="bar2" data-bar='{"apps":["poster:0:"],"dl":"62%","pill":{"state":"focus","batt":{"mode":"num","v":14,"st":"low"},"badge":3}}'></div></div>
+
+  <div class="lab plate" style="top:878px">Gamepad focus on Room View (on)<small>A white "on" disc cannot get lighter, so focus shows as scale 1.10 + bloom + contact shadow.</small></div>
+  <div class="lgk-pop row" style="top:880px"><div class="bar2" data-bar='{"apps":["poster:0:","program:8:terminal"],"focus":"view","pill":{"batt":{"mode":"num","v":82},"badge":3}}'></div></div>
+  <div class="lgk-windowbar" style="left:870px; top:996px"></div>
+</div>
+<script src="control-center-build.js"></script>
+<script>
+(() => {
+  const place = (popId, anchor, how) => {
+    const a = document.querySelector(anchor).getBoundingClientRect(), p = document.getElementById(popId);
+    const w = p.firstElementChild.offsetWidth * 1.2, h = p.firstElementChild.offsetHeight * 1.2;
+    p.style.left = (a.left + a.width / 2 - w / 2) + 'px';
+    p.style.top = (how === 'above' ? a.top - h - 14 : a.bottom + 10) + 'px';
+  };
+  place('menuA', '#barA [data-id="play"]', 'above');
+  place('tipC', '#barC [data-id="plus"]', 'below');
+  const dot = document.createElement('div'); dot.className = 'lgk-laser-dot';
+  const r = document.querySelector('#barC [data-id="plus"]').getBoundingClientRect();
+  dot.style.left = (r.left + r.width * .4) + 'px'; dot.style.top = (r.top + r.height * .42) + 'px';
+  document.querySelector('.lgk-view').append(dot);
+})();
+</script>
+<script src="kit.js"></script>
+<script src="control-center-icons.js"></script>
+</body>
+</html>

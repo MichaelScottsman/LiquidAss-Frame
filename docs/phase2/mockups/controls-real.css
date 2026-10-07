@@ -1,0 +1,47 @@
+/* Real-page cases for the control vocabulary (controls.md §19; controls-real.js). Main-window CSS px. */
+
+/* content column inside the settings detail pane (settings.css .st-scroll: x 400..1280) */
+.cr-col { position: absolute; left: 60px; width: 760px; }
+.cr-sh { font: 600 22px/26px var(--lg-font); color: var(--lg-text-2); padding: 0 26px; margin: 26px 0 12px; }
+.cr-plat { position: relative; border-radius: var(--lg-r-platter); background: var(--lg-fill-regular); }
+.cr-plat > .c-row { border-radius: 0; }
+.cr-plat > .c-row:first-child { border-radius: 30px 30px 0 0; }
+.cr-plat > .c-row:last-child { border-radius: 0 0 30px 30px; }
+/* soft separators between rows of a platter (2 px white .08, inset 26 px; DESIGN2 §6.2 last rule, as settings.md); hidden next to a lit row */
+.cr-plat > .c-row + .c-row { background: linear-gradient(rgb(255 255 255 / .08), rgb(255 255 255 / .08)) 26px 0 / calc(100% - 52px) 2px no-repeat; }
+.cr-plat > .c-row:is(.is-within, .is-focus) + .c-row, .cr-plat > .c-row + .c-row:is(.is-within, .is-focus) { background: none; }
+.c-row.cr-r96 { height: 96px; }
+.c-row .lab { flex: 1; min-width: 0; }
+
+/* Notifications matrix: four 80 px check columns (Steam's %{CheckboxColumn} 50 -> 80), sticky header under the toolbar */
+.cr-cells { margin-left: auto; display: flex; flex: none; margin-right: -10px; }
+.cr-cell { width: 80px; height: 80px; display: grid; place-items: center; flex: none; }
+.c-row.cr-mrow { height: auto; min-height: 80px; padding-top: 10px; padding-bottom: 10px; align-items: center; }
+.c-row.cr-mrow .lab { line-height: 1.25; padding-right: 8px; }
+.cr-sticky { position: absolute; left: 460px; width: 760px; top: 104px; height: 48px; box-sizing: border-box; display: flex; align-items: center; justify-content: flex-end; padding-right: 16px; z-index: 6; }
+.cr-sticky .via { font: 500 20px/1 var(--lg-font); color: var(--lg-text-2); margin-right: 18px; }
+.cr-colh { width: 80px; text-align: center; font: 600 18px/1 var(--lg-font); color: var(--lg-text-1); }
+
+/* Timezone value menu: 560 x 520 slab, beside its source (it fits neither below nor above inside the modal box y 108..628) */
+.cr-tzmenu { width: 560px; height: 520px; --r: 32px; }
+
+/* Quick Access (Steam's bar popup, 300 popup px wide, m 0.83: authored in popup px, scaled x1.2 into the view) */
+.qp { width: 300px; height: 452px; --r: 30px; }
+.qp .qhd { position: absolute; left: 20px; top: 16px; font: 700 26px/34px var(--lg-font); }
+.qp .qsc { position: absolute; left: 0; right: 0; top: 62px; bottom: 76px; overflow: hidden;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 18px, #000 calc(100% - 36px), transparent 100%); mask-image: linear-gradient(180deg, transparent 0, #000 18px, #000 calc(100% - 36px), transparent 100%); }
+.qp .qin { position: absolute; left: 16px; right: 16px; top: 8px; display: flex; flex-direction: column; gap: 10px; }
+.qp .qsh { font: 600 16px/20px var(--lg-font); color: var(--lg-text-2); padding: 6px 4px 0; }
+.qp .qlab { font: 500 19px/22px var(--lg-font); color: var(--lg-text-1); padding: 0 4px; display: flex; justify-content: space-between; }
+.qp .c-slider { position: relative; width: 268px; flex: none; }
+.qp .qnl { position: relative; height: 22px; margin-top: -4px; font: 600 15px/22px var(--lg-font); color: var(--lg-text-2); flex: none; }
+.qp .qnl > span { position: absolute; top: 0; white-space: nowrap; translate: -50% 0; }
+.qp .qnl > span.on { color: var(--lg-text-1); }
+.qp .qnl > span.l { translate: 0 0; } .qp .qnl > span.r { translate: -100% 0; }
+.qp .qrow { position: relative; display: flex; align-items: center; height: 64px; padding: 0 8px 0 12px; border-radius: 22px; font: 500 19px/1.2 var(--lg-font); gap: 12px; flex: none; }
+.qp .qrow .sw { margin-left: auto; display: flex; }
+.qp .qrow .sw .c-switch { scale: .83; transform-origin: 100% 50%; }
+.qp .qcap { height: 52px; border-radius: 26px; display: grid; place-items: center; font: 600 19px/1 var(--lg-font); background: var(--c-raised-bg); box-shadow: var(--c-raised-sh); flex: none; }
+.qp .qtabs { position: absolute; left: 10px; right: 10px; bottom: 10px; height: 60px; display: flex; justify-content: space-between; align-items: center; padding: 0 4px; }
+.qp .qtabs > span { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; --is: 24px; color: var(--lg-text-2); }
+.qp .qtabs > span.sel { background: var(--lg-fill-nav); color: var(--lg-text-1); }

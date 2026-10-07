@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 home-apps: Home, Collections (real collections, empties grouped)</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="window-nav-shared.css">
+<link rel="stylesheet" href="home-apps.css">
+</head>
+<body>
+<div class="lgk-view" data-room="lounge" data-dim>
+  <div data-wn="tabbar" data-right="302" data-cy="426" data-sel="home"></div>
+  <div class="lgk-overlay" style="left:320px; top:66px">
+    <div class="lgk-glass ha-back" data-mat="liquid" data-lens data-dz="0"><i data-i="chevron-left"></i></div>
+    <div class="lgk-glass ha-seg" data-mat="liquid" data-lens style="left:640px; translate:-50% 0" data-dz="0">
+      <span>Recent</span><span class="is-selected">Collections</span><span>Apps</span>
+    </div>
+    <div class="lgk-glass ha-wn" data-mat="liquid" data-lens style="right:104px" data-dz="0"><i data-i="sparkle"></i>What's New</div>
+    <div class="lgk-glass ha-find" data-mat="liquid" data-lens data-dz="0"><i data-i="search"></i></div>
+    <!-- Collections: Steam's system sets first, then user collections with games, then ONE folder holding the
+         8 empty collections (DS, Epic, GameCube, Nintendo Switch - Yuzu, PORTS, PSP - Standalone PPSSPP, Wii, Xbox 360).
+         Favorites is not shown while it is empty. One page, so no page dots. -->
+    <div class="ha-cell" style="--x:304px; --y:196px">
+      <div class="lgk-glass ha-disc" data-mat="liquid" data-lens><div class="ha-folder"><i class="ha-mini" data-app="1125240"></i><i class="ha-mini" data-app="2897700"></i><i class="ha-mini" data-app="2379780"></i><i class="ha-mini" data-app="620980"></i><i class="ha-mini" data-app="8870"></i><i class="ha-mini" data-app="504230"></i><i class="ha-mini" data-app="1931770"></i><i class="ha-mini" data-app="588650"></i><i class="ha-mini" data-app="488310"></i></div></div>
+      <div class="ha-label">Great On Frame</div>
+    </div>
+    <div class="ha-cell" style="--x:528px; --y:196px">
+      <div class="lgk-glass ha-disc" data-mat="liquid" data-lens><div class="ha-folder"><i class="ha-mini" data-app="1125240"></i><i class="ha-mini" data-app="4103250"></i><i class="ha-mini" data-app="3977540"></i><i class="ha-mini" data-app="2897700"></i><i class="ha-mini" data-app="805550"></i><i class="ha-mini" data-app="2379780"></i><i class="ha-mini" data-app="2807960"></i><i class="ha-mini" data-app="284160"></i><i class="ha-mini" data-app="620980"></i></div></div>
+      <div class="ha-label">Ready To Play</div>
+    </div>
+    <div class="ha-cell" style="--x:752px; --y:196px">
+      <div class="lgk-glass ha-disc" data-mat="liquid" data-lens><div class="ha-folder"><i class="ha-mini" data-app="1125240"></i><i class="ha-mini" data-app="4103250"></i><i class="ha-mini" data-app="3977540"></i><i class="ha-mini" data-app="2379780"></i><i class="ha-mini" data-app="620980"></i><i class="ha-mini" data-app="488310"></i><i class="ha-mini" data-app="1575520"></i><i class="ha-mini" data-app="2177750"></i><i class="ha-mini" data-app="546560"></i></div></div>
+      <div class="ha-label">Installed</div>
+    </div>
+    <div class="ha-cell" style="--x:976px; --y:196px">
+      <div class="lgk-glass ha-disc" data-mat="liquid" data-lens><div class="ha-folder"><i class="ha-mini" data-app="2258399336"></i><i class="ha-mini" data-app="3663894404"></i><i class="ha-mini" data-app="3872831802"></i><i class="ha-mini" data-app="4121704426"></i><i class="ha-mini" data-app="2524165965"></i><i class="ha-mini" data-app="2173430304"></i><i class="ha-mini" data-app="3554078061"></i><i class="ha-mini" data-app="3060000444"></i><i class="ha-mini" data-app="3798379561"></i></div></div>
+      <div class="ha-label">Non-Steam</div>
+    </div>
+    <div class="ha-cell" style="--x:192px; --y:384px">
+      <div class="lgk-glass ha-disc" data-mat="liquid" data-lens><div class="ha-folder"><i class="ha-mini" data-app="1819150"></i><i class="ha-mini" data-app="1495710"></i><i class="ha-mini" data-app="209771"></i><i class="ha-mini" data-app="209772"></i><i class="ha-mini" data-app="1806260"></i><i class="ha-mini" data-app="1003800"></i><i class="ha-mini" data-app="408710"></i><i class="ha-mini" data-app="1278250"></i><i class="ha-mini" data-app="583670"></i></div></div>
+      <div class="ha-label">Soundtracks</div>
+    </div>
+    <div class="ha-cell" style="--x:416px; --y:384px">
+      <div class="lgk-glass ha-disc" data-mat="liquid" data-lens><div class="ha-folder"><i class="ha-mini" data-app="751630"></i><i class="ha-mini" data-app="2320910"></i><i class="ha-mini" data-app="629730"></i><i class="ha-mini" data-app="963930"></i><i class="ha-mini" data-app="1484280"></i><i class="ha-mini" data-app="611670"></i><i class="ha-mini" data-app="1575520"></i><i class="ha-mini" data-app="1910860"></i><i class="ha-mini" data-app="2177750"></i></div></div>
+      <div class="ha-label">VR</div>
+    </div>
+    <div class="ha-cell empty is-focus" style="--x:640px; --y:384px">
+      <div class="lgk-glass ha-disc" data-mat="liquid" data-lens style="--dz:15" data-dz="15" data-tier="T3 folder of empty collections"><div class="ha-folder empty-stack"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+    </div>
+    <div class="lgk-glass ha-plate two" data-mat="liquid" data-lens style="left:640px; top:458px; translate:-50% 0; --dz:15" data-dz="15">
+      <span class="n">Empty Collections</span><span class="s">8 collections with no games</span>
+    </div>
+  </div>
+  <div data-wn="frame" data-cx="960" data-y="806" data-dim=".72"></div>
+  <div data-wn="bar" data-cx="960" data-y="904"></div>
+  <div data-wn="pill" data-cx="960" data-y="1018"></div>
+  <div data-wn="laser" data-to="958,458" data-from="1640,1100"></div>
+</div>
+<script src="../../refs/library/library.js"></script>
+<script src="home-apps.js"></script>
+<script src="window-nav-shared.js"></script>
+<script src="kit.js"></script>
+<script src="home-apps-icons.js"></script>
+</body>
+</html>

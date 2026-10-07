@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 home-apps: Library Filters as a visionOS sheet (Steam's real options)</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="window-nav-shared.css">
+<link rel="stylesheet" href="home-apps.css">
+<style>
+  /* window-nav §5.4 sheet frame: 960 wide (75 % of the glass), radius 44, thick glass, +50 mm; content: this concept */
+  .sheet { left: 160px; top: 24px; width: 960px; height: 600px; --r: 44px; overflow: hidden; }
+  .sheet .close { position: absolute !important; left: 24px; top: 24px; }
+  .sheet .ttl { position: absolute; left: 0; right: 0; top: 34px; text-align: center; }
+  .sheet .reset { position: absolute !important; right: 24px; top: 24px; }
+  .body { position: absolute; left: 24px; right: 24px; top: 104px; bottom: 92px; overflow: hidden;
+    -webkit-mask-image: linear-gradient(180deg, #000 0, #000 calc(100% - 56px), transparent 100%); }
+  .lab { font: 700 22px/1 var(--lg-font); color: var(--lg-text-2); margin: 0 0 12px 12px; display: flex; align-items: center; gap: 10px; }
+  .sec { margin-bottom: 22px; }
+  .compat { display: flex; width: 100%; }
+  .compat > span { flex: auto; gap: 8px; padding: 0 12px !important; }
+  .ci { display: inline-flex; gap: 3px; }
+  .ci b { width: 16px; height: 16px; border-radius: 50%; display: inline-grid; place-items: center; font: 800 11px/1 var(--lg-font); }
+  .ci .v { background: var(--lg-green); color: #07240f; } .ci .p { background: var(--lg-yellow, #ffd60a); color: #1b1300; }
+  .ci .u { background: transparent; box-shadow: inset 0 0 0 1.5px currentColor; } .ci .x { background: transparent; box-shadow: inset 0 0 0 1.5px currentColor; }
+  .chips { display: flex; flex-wrap: wrap; gap: 12px; }
+  .chip { position: relative; display: inline-flex; align-items: center; gap: 8px; height: 60px; padding: 0 24px; border-radius: 30px;
+    background: var(--lg-fill-thin); font: 600 22px/1 var(--lg-font); white-space: nowrap; }
+  .chip.more { color: var(--lg-text-2); }
+  .chip .lgk-i { --is: 20px; }
+  .rows { border-radius: 30px; background: var(--lg-fill-regular); padding: 6px; display: flex; flex-direction: column; gap: 0; }
+  .rows .lgk-row { height: 72px; }
+  .foot { position: absolute; left: 36px; right: 24px; bottom: 18px; height: 60px; display: flex; align-items: center; justify-content: space-between; }
+</style>
+</head>
+<body>
+<div class="lgk-view" data-room="studio">
+
+  <div data-wn="tabbar" data-right="302" data-cy="426" data-sel="library" data-dim></div>
+
+  <div class="lgk-overlay" style="left:320px; top:66px">
+    <div class="lgk-glass wn-win dimmed" data-mat="window" data-dz="0">
+      <div data-wn="toolbar" data-back="root" data-title="Library" data-search="idle" data-dim></div>
+      <span class="ha-poster" style="left:40px; top:270px" data-app="735580"></span>
+      <span class="ha-poster" style="left:236px; top:270px" data-app="793460"></span>
+      <span class="ha-poster" style="left:1020px; top:270px" data-app="954280"></span>
+    </div>
+
+    <div class="lgk-glass sheet" data-mat="thick" data-lens style="--dz:50" data-dz="50" data-tier="Steam's filter dialog: T3 re-render (chips) / T1 restyle (rows)">
+      <span class="lgk-btn circle close"><i data-i="xmark" class="bold"></i></span>
+      <div class="ttl t-title2">Library Filters</div>
+      <span class="lgk-btn capsule reset">Reset</span>
+      <div class="body">
+        <div class="sec">
+          <div class="lab">Steam Frame Compatibility</div>
+          <div class="lgk-seg compat">
+            <span>Verified Only</span>
+            <span>Verified and Playable</span>
+            <span>Verified, Playable, and Untested</span>
+            <span class="is-selected">All Games</span>
+          </div>
+        </div>
+        <div class="sec">
+          <div class="lab">Players</div>
+          <div class="chips"><span class="chip">Single player</span><span class="chip">Multiplayer</span><span class="chip">Cooperative</span><span class="chip">Local Multiplayer</span></div>
+        </div>
+        <div class="sec">
+          <div class="lab">Play state</div>
+          <div class="chips"><span class="chip">Ready to play</span><span class="chip">Installed</span><span class="chip">Played</span><span class="chip">Unplayed</span><span class="chip more"><i data-i="more"></i>1 More</span></div>
+        </div>
+        <div class="sec">
+          <div class="rows">
+            <div class="lgk-row is-hover" style="--hx:40%;--hy:50%">Hardware support<span class="trail">Gamepad Support<i data-i="chevron-right"></i></span></div>
+            <div class="lgk-row">Features<span class="trail">Any<i data-i="chevron-right"></i></span></div>
+            <div class="lgk-row">Language<span class="trail">Any language<i data-i="chevron-right"></i></span></div>
+          </div>
+        </div>
+      </div>
+      <div class="foot">
+        <span class="t-callout v2">Showing all 350 games</span>
+        <span class="lgk-btn capsule"><i data-i="sparkle"></i>Save as Dynamic Collection</span>
+      </div>
+    </div>
+    <div data-wn="ornament" data-legends="Y:Reset|A:Select|B:Done"></div>
+  </div>
+
+  <div data-wn="frame" data-cx="960" data-y="806" data-dim=".72"></div>
+  <div data-wn="bar" data-cx="960" data-y="904"></div>
+  <div data-wn="pill" data-cx="960" data-y="1018"></div>
+  <div data-wn="laser" data-to="900,646" data-from="1660,1100"></div>
+</div>
+<script src="../../refs/library/library.js"></script>
+<script src="home-apps.js"></script>
+<script src="window-nav-shared.js"></script>
+<script src="kit.js"></script>
+<script src="home-apps-icons.js"></script>
+</body>
+</html>

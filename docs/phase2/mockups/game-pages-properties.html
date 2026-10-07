@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — game Properties as visionOS Settings</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="game-pages.css">
+<style>
+  /* Same geometry as the Settings concept (concepts/settings.md §3): 400 px sidebar, 72/80 rows,
+     title beside the Back circle, page hero, 760 px platter column centred in the detail pane. */
+  .side { position: absolute; left: 0; top: 0; bottom: 0; width: 400px; background: var(--lg-fill-regular); border-radius: 54px 0 0 54px; }
+  .stitle { position: absolute; left: 100px; top: 34px; width: 284px; font: 700 30px/1.3 var(--lg-font); letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pages { position: absolute; left: 16px; top: 108px; width: 368px; display: flex; flex-direction: column; gap: 8px; }
+  .pages .lgk-row { height: 72px; padding: 0 16px; font-size: 24px; border-radius: 36px; }
+  .pages .lgk-row.is-nav-selected { background: var(--lg-fill-nav); }
+  .pages .chip { --is: 22px; box-shadow: inset 0 2px 0 rgb(255 255 255 / .24); }
+  .hero { position: absolute; left: 804px; top: 116px; width: 72px; height: 72px; border-radius: 50%; display: grid; place-items: center; --is: 40px; background: var(--lg-gray); box-shadow: inset 0 2px 0 rgb(255 255 255 / .24); }
+  .ptitle { position: absolute; left: 400px; width: 880px; top: 200px; text-align: center; font: 700 38px/1.2 var(--lg-font); letter-spacing: -.015em; }
+  .pane { position: absolute; left: 460px; width: 760px; }
+  .grp { border-radius: 30px; background: var(--lg-fill-regular); padding: 0; }
+  .grp .lgk-row { height: 80px; padding: 0 18px 0 24px; border-radius: 24px; }
+  .grp .lgk-row.two { height: 104px; }
+  .grp .lgk-row .lbl b { display: block; font: 500 24px/1.3 var(--lg-font); }
+  .grp .lgk-row .lbl span { display: flex; align-items: center; gap: 8px; margin-top: 4px; font: 500 20px/1.3 var(--lg-font); color: var(--lg-text-2); }
+  .grp .lgk-row .lbl .lgk-glyph { width: 28px; height: 28px; font-size: 15px; }
+  .grp .lgk-row.is-focus { background: rgb(255 255 255 / .14); }
+  .grp .lgk-row .trail { margin-left: auto; }
+  .hdr { font: 600 22px/1.3 var(--lg-font); color: var(--lg-text-2); padding: 0 24px 12px; }
+  .desc { font: 500 20px/1.3 var(--lg-font); color: var(--lg-text-2); padding: 0 24px 12px; }
+  .dd { display: inline-flex; align-items: center; gap: 12px; height: 60px; padding: 0 18px 0 24px; border-radius: 30px; background: var(--lg-fill-thin); font: 500 22px/1 var(--lg-font); color: var(--lg-text-1); white-space: nowrap; }
+  .dd .lgk-i { --is: 20px; color: var(--lg-text-2); }
+  .field { height: 64px; border-radius: 32px; background: var(--lg-fill-thick); box-shadow: inset 0 2px 5px rgb(0 0 0 / .26); }
+  .clip { position: absolute; inset: 0; border-radius: inherit; overflow: hidden;
+    -webkit-mask-image: linear-gradient(180deg, #000 0, #000 calc(100% - 96px), transparent 100%); mask-image: linear-gradient(180deg, #000 0, #000 calc(100% - 96px), transparent 100%); }
+</style>
+</head>
+<body>
+<div class="lgk-view" data-room="lounge" data-tab="library" data-fc="steam" data-bar="idle">
+  <div class="lgk-overlay" style="left:320px; top:66px">
+    <div class="lgk-glass gp-win" data-mat="window" data-dz="0" data-tier="T5 window (T1 tint)">
+      <div class="clip">
+        <div class="side"></div>
+        <div class="stitle">Starfall Drift</div>
+        <div class="pages">
+          <div class="lgk-row is-nav-selected"><span class="chip" style="background:var(--lg-gray)"><i data-i="gear"></i></span>General</div>
+          <div class="lgk-row"><span class="chip" style="background:var(--lg-blue)"><i data-i="shield-check"></i></span>Compatibility</div>
+          <div class="lgk-row"><span class="chip" style="background:var(--lg-green)"><i data-i="download"></i></span>Updates</div>
+          <div class="lgk-row"><span class="chip" style="background:var(--lg-orange)"><i data-i="folder"></i></span>Installed Files</div>
+          <div class="lgk-row"><span class="chip" style="background:var(--lg-purple)"><i data-i="branch"></i></span>Game Versions &amp; Betas</div>
+          <div class="lgk-row"><span class="chip" style="background:var(--lg-indigo)"><i data-i="controller"></i></span>Controller</div>
+          <div class="lgk-row"><span class="chip" style="background:var(--lg-teal)"><i data-i="box"></i></span>DLC</div>
+        </div>
+
+        <span class="hero"><i data-i="gear"></i></span>
+        <div class="ptitle">General</div>
+        <div class="pane" style="top:276px">
+          <div class="grp"><div class="lgk-row is-focus"><div class="lbl"><b>Enable the Steam Overlay while in-game</b></div><span class="trail"><span class="lgk-toggle on"></span></span></div></div>
+        </div>
+        <div class="pane" style="top:388px">
+          <div class="hdr">Maximum Game Resolution</div>
+          <div class="grp"><div class="lgk-row two"><div class="lbl"><b>Maximum Game Resolution</b><span>Press <span class="lgk-glyph">Y</span> for more info</span></div><span class="trail"><span class="dd">Global Setting (1280×720)<i data-i="chevron-updown"></i></span></span></div></div>
+        </div>
+        <div class="pane" style="top:560px">
+          <div class="hdr">Launch Options</div>
+          <div class="desc">Advanced users may choose to enter modifications to their launch options.</div>
+          <div class="field"></div>
+        </div>
+      </div>
+      <span class="lgk-btn circle" style="position:absolute; left:24px; top:24px"><i data-i="chevron-left" class="bold"></i></span>
+      <div class="lgk-search gp-search" style="position:absolute; left:560px; top:22px; width:560px"><i data-i="search"></i><span class="ph">Search for games or profiles…</span></div>
+    </div>
+
+    <div class="lgk-glass gp-foot" data-mat="liquid" data-lens style="left:452px; top:628px; width:376px; --dz:0" data-dz="0" data-tier="footer: T1 + T5 inset slab">
+      <span class="lgk-btn capsule plain nav"><span class="lgk-glyph">A</span>Select</span>
+      <span class="lgk-btn capsule plain nav"><span class="lgk-glyph">B</span>Back</span>
+    </div>
+  </div>
+</div>
+<script src="kit.js"></script>
+<script src="game-pages.js"></script>
+</body>
+</html>

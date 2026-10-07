@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — Settings: System › Timezone, a long value menu shown as a list page</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="window-nav-shared.css">
+<link rel="stylesheet" href="settings.css">
+</head>
+<body>
+<div class="lgk-view" data-room="lounge">
+
+  <div data-wn="tabbar" data-right="302" data-cy="426" data-sel="steam settings"></div>
+
+  <div class="lgk-overlay" style="left:320px; top:66px">
+    <div class="lgk-glass st-win" data-mat="window" data-dz="0" data-tier="T5 window (T1: smoky tint)">
+      <!-- Steam's modal is up: the sidebar is inert (a click outside the menu cancels it), drawn at 50 % -->
+      <div data-st="sidebar" data-sel="system" data-dim></div>
+      <!-- Steam's menu Cancel item, re-placed as the leading capsule of the toolbar (visionOS sheet "Cancel");
+           the title is the source row's label (T2, as in the slab header) -->
+      <div data-st="toolbar" data-lead="Cancel" data-title="Timezone" data-search="none"></div>
+
+      <!-- Steam's same context menu (64 MenuItems), positioned and sized by T1 over the detail pane; the page under it is
+           visibility:hidden while it is open. Rows 80 px in a 760 px platter; the current value is scrolled into view by Steam -->
+      <div class="st-scroll">
+        <div class="st-col" style="top:44px">
+          <div class="st-plat">
+            <div class="st-r first"><span class="st-lp-check"></span><span class="lab">Atlantic/Reykjavik</span><span class="val">UTC+00:00</span></div>
+            <div class="st-r"><span class="st-lp-check"></span><span class="lab">Europe/Dublin</span><span class="val">UTC+01:00</span></div>
+            <div class="st-r"><span class="st-lp-check"></span><span class="lab">Europe/Lisbon</span><span class="val">UTC+01:00</span></div>
+            <div class="st-r"><span class="st-lp-check"><i data-si="check"></i></span><span class="lab">Europe/London</span><span class="val">UTC+01:00</span></div>
+            <div class="st-r"><span class="st-lp-check"></span><span class="lab">Europe/Amsterdam</span><span class="val">UTC+02:00</span></div>
+            <div class="st-r is-hover" style="--hx:62%; --hy:50%"><span class="st-lp-check"></span><span class="lab">Europe/Berlin</span><span class="val">UTC+02:00</span></div>
+            <div class="st-r"><span class="st-lp-check"></span><span class="lab">Europe/Brussels</span><span class="val">UTC+02:00</span></div>
+            <div class="st-r"><span class="st-lp-check"></span><span class="lab">Europe/Madrid</span><span class="val">UTC+02:00</span></div>
+            <div class="st-r last"><span class="st-lp-check"></span><span class="lab">Europe/Paris</span><span class="val">UTC+02:00</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div data-wn="frame" data-cx="960" data-y="806" data-dim=".72"></div>
+  <div data-wn="bar" data-cx="960" data-y="904"></div>
+  <div data-wn="pill" data-cx="960" data-y="1018"></div>
+  <div data-wn="laser" data-to="1262,550" data-from="1640,1100"></div>
+</div>
+<script src="settings-shared.js"></script>
+<script src="settings-icons.js"></script>
+<script src="window-nav-shared.js"></script>
+<script src="kit.js"></script>
+</body>
+</html>

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — controller entry: Steam Input empty state with a VR bindings link</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="game-pages.css">
+<style>
+  .empty { position: absolute; left: 0; right: 0; top: 176px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+  .empty .disc { display: grid; place-items: center; width: 128px; height: 128px; border-radius: 50%; background: var(--lg-fill-thin); --is: 64px; color: var(--lg-text-2); }
+  .empty h2 { margin: 28px 0 0; font: 700 28px/1.25 var(--lg-font); letter-spacing: -.01em; }
+  .empty .gp-btn { position: static; margin-top: 40px; height: 64px; font-size: 22px; padding: 0 22px 0 18px; }
+  .empty .gp-btn .lead { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--lg-indigo); color: #fff; --is: 24px; }
+</style>
+</head>
+<body>
+<div class="lgk-view" data-room="lounge" data-tab="library" data-fc="steam" data-bar="idle">
+  <div class="lgk-overlay" style="left:320px; top:66px">
+    <!-- %{BasicHome}%{TrueBlackBackground} (Steam paints #000 on this route) is made transparent, so the window glass shows -->
+    <div class="lgk-glass gp-win" data-mat="window" data-dz="0" data-tier="T5 window (T1 tint); TrueBlackBackground cleared">
+      <span class="lgk-btn circle" style="position:absolute; left:24px; top:24px"><i data-i="chevron-left" class="bold"></i></span>
+      <div style="position:absolute; left:0; right:0; top:34px; text-align:center; font:700 30px/1.25 var(--lg-font); letter-spacing:-.01em">Starfall Drift Controller Settings</div>
+      <div class="empty">
+        <span class="disc"><i data-i="controller"></i></span>
+        <h2>No controller connected.</h2>
+        <span class="gp-btn is-focus" style="background:rgb(255 255 255 / .22)" data-dz="0" data-tier="T3 route override of /app/:appid/controllerconfigurator [PLAUSIBLE]; label SteamVR #VR_Controller_Bindings"><span class="lead"><i data-i="vrbind"></i></span>VR Controller Bindings<i data-i="arrow-up-right" class="trail"></i></span>
+      </div>
+    </div>
+    <div class="lgk-glass gp-foot" data-mat="liquid" data-lens style="left:452px; top:628px; width:376px; --dz:0" data-dz="0" data-tier="footer: T1 + T5 inset slab">
+      <span class="lgk-btn capsule plain nav"><span class="lgk-glyph">A</span>Select</span>
+      <span class="lgk-btn capsule plain nav"><span class="lgk-glyph">B</span>Back</span>
+    </div>
+  </div>
+</div>
+<script src="kit.js"></script>
+<script src="game-pages.js"></script>
+</body>
+</html>

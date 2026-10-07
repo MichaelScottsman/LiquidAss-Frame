@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — achievements page as a split view</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="game-pages.css">
+<style>
+  .side { position: absolute; left: 0; top: 0; bottom: 0; width: 400px; background: var(--lg-fill-regular); border-radius: 54px 0 0 54px; }
+  .por { position: absolute; left: 40px; top: 108px; width: 150px; height: 225px; border-radius: 20px; overflow: hidden; box-shadow: 0 6px 18px rgb(0 0 0 / .3); }
+  .stats { position: absolute; left: 28px; top: 340px; width: 344px; padding: 12px; box-sizing: border-box; border-radius: 26px; }
+  .stats .t { font: 700 30px/1.25 var(--lg-font); letter-spacing: -.01em; }
+  .stats .p { margin-top: 6px; font: 500 20px/1.3 var(--lg-font); color: var(--lg-text-2); }
+  .stats .gp-prog { margin: 12px 0 16px; }
+  .stats .kv { display: flex; justify-content: space-between; font: 500 20px/1.6 var(--lg-font); }
+  .stats .kv span { color: var(--lg-text-2); }
+  .stats .kv b { font-weight: 600; }
+  .seg { position: absolute; left: 440px; top: 116px; }
+  .seg > * { padding: 0 24px; }
+  .asearch { position: absolute; left: 440px; top: 204px; width: 800px; }
+  .list { position: absolute; left: 440px; top: 292px; width: 800px; border-radius: 30px; background: var(--lg-fill-regular); padding: 8px; box-sizing: border-box; }
+  .row { position: relative; display: flex; align-items: center; gap: 20px; height: 96px; padding: 0 24px 0 16px; border-radius: 24px; box-sizing: border-box; }
+  .row + .row::before { content: ""; position: absolute; left: 100px; right: 24px; top: -1px; height: 2px; background: rgb(255 255 255 / .08); }
+  .row .ic { width: 64px; height: 64px; border-radius: 14px; overflow: hidden; flex: none; }
+  .row .ic.locked { filter: grayscale(1) brightness(.6); }
+  .row .tx { min-width: 0; flex: 1; }
+  .row .tx b { display: block; font: 600 24px/1.25 var(--lg-font); }
+  .row .tx span { display: block; font: 500 20px/1.3 var(--lg-font); color: var(--lg-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .tr { text-align: right; font: 500 18px/1.4 var(--lg-font); color: var(--lg-text-2); white-space: nowrap; }
+  .row .tr b { display: block; font: 600 20px/1.3 var(--lg-font); color: var(--lg-text-1); }
+  .row.is-focus { background: rgb(255 255 255 / .14); }
+  .row.is-focus::after { content: ""; position: absolute; inset: 0; border-radius: inherit; mix-blend-mode: plus-lighter; pointer-events: none;
+    background: radial-gradient(circle at 50% 28%, rgb(255 255 255 / .14) 0, transparent 70%); }
+  .lockhdr { height: 64px; display: flex; align-items: flex-end; padding: 0 16px 10px; font: 600 22px/1 var(--lg-font); color: var(--lg-text-2); }
+  .clip { position: absolute; left: 0; right: 0; top: 0; bottom: 0; border-radius: inherit; overflow: hidden;
+    -webkit-mask-image: linear-gradient(180deg, #000 0, #000 calc(100% - 110px), rgb(0 0 0 / .25) calc(100% - 34px), transparent 100%);
+            mask-image: linear-gradient(180deg, #000 0, #000 calc(100% - 110px), rgb(0 0 0 / .25) calc(100% - 34px), transparent 100%); }
+</style>
+</head>
+<body>
+<div class="lgk-view" data-room="lounge" data-tab="library" data-fc="steam" data-bar="idle">
+  <div class="lgk-overlay" style="left:320px; top:66px">
+    <div class="lgk-glass gp-win" data-mat="window" data-dz="0" data-tier="T5 window (T1 tint)">
+      <div class="clip">
+        <!-- leading pane: the game and your progress (Steam's HeaderContainer, laid out as a sidebar; sticky) -->
+        <div class="side"></div>
+        <div class="por lgk-art" data-art="poster:0:Starfall Drift"></div>
+        <div class="stats">
+          <div class="t">Starfall Drift</div>
+          <div class="p">12 of 26 unlocked · 46 %</div>
+          <div class="gp-prog" style="--v:46%"><i></i></div>
+          <div class="kv"><span>Play Time</span><b>10.2 hours</b></div>
+          <div class="kv"><span>Last Two Weeks</span><b>53 min</b></div>
+        </div>
+        <span class="gp-btn" style="left:40px; top:560px; width:320px; justify-content:space-between"><span style="display:inline-flex; gap:12px; align-items:center"><i data-i="list"></i>Leaderboards</span><i data-i="chevron-updown" class="trail"></i></span>
+
+        <!-- trailing pane: tabs, search, the list -->
+        <div class="lgk-seg seg"><span class="is-selected">My Achievements</span><span>Global</span></div>
+        <div class="lgk-search asearch"><i data-i="search"></i><span class="ph">Search achievements</span></div>
+        <div class="list">
+          <div class="row"><span class="ic lgk-art" data-art="program:3:star2"></span><div class="tx"><b>Supernova</b><span>Finish any track without missing a beat</span></div><div class="tr"><b>Oct 2</b>4.1 % of players</div></div>
+          <div class="row is-focus"><span class="ic lgk-art" data-art="program:1:trophy"></span><div class="tx"><b>First Light</b><span>Complete the opening flight</span></div><div class="tr"><b>Sep 28</b>78.3 % of players</div></div>
+          <div class="row"><span class="ic lgk-art" data-art="program:4:sparkle"></span><div class="tx"><b>Constellation</b><span>Unlock ten tracks</span></div><div class="tr"><b>Sep 30</b>35.0 % of players</div></div>
+          <div class="lockhdr">Locked Achievements</div>
+          <div class="row"><span class="ic lgk-art locked" data-art="program:6:sun"></span><div class="tx"><b>Solar Flare</b><span>Score one million points in a single run</span></div><div class="tr"><b><i data-i="lock" style="--is:20px; display:inline-block; color:var(--lg-text-2)"></i></b>12.6 % of players</div></div>
+          <div class="row"><span class="ic lgk-art locked" data-art="program:2:airplane"></span><div class="tx"><b>Long Haul</b><span>Fly for ten hours in total</span></div><div class="tr"><b><i data-i="lock" style="--is:20px; display:inline-block; color:var(--lg-text-2)"></i></b>9.8 % of players</div></div>
+        </div>
+      </div>
+      <span class="lgk-btn circle" style="position:absolute; left:24px; top:24px"><i data-i="chevron-left" class="bold"></i></span>
+      <div class="lgk-search gp-search" style="position:absolute; left:560px; top:22px; width:560px"><i data-i="search"></i><span class="ph">Search for games or profiles…</span></div>
+    </div>
+
+    <div class="lgk-glass gp-foot" data-mat="liquid" data-lens style="left:452px; top:628px; width:376px; --dz:0" data-dz="0" data-tier="footer: T1 + T5 inset slab">
+      <span class="lgk-btn capsule plain"><span class="lgk-glyph">A</span>Open</span>
+      <span class="lgk-btn capsule plain nav"><span class="lgk-glyph">B</span>Back</span>
+    </div>
+  </div>
+</div>
+<script src="kit.js"></script>
+<script src="game-pages.js"></script>
+</body>
+</html>

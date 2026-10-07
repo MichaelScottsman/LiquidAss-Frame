@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — game page, details (Activity, focused event card)</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="game-pages.css">
+<style>
+  /* revision 2: Post is its own 60 px capsule beside the field (no nested target); Like/Comment 60 px, 24 apart;
+     the event "⋯" is a 60 px circle with an 80 px transparent hit box */
+  .post { position: absolute; left: 40px; top: 204px; width: 1046px; height: 64px; display: flex; align-items: center; gap: 14px; padding: 0 24px; box-sizing: border-box;
+          border-radius: 32px; background: var(--lg-fill-thick); box-shadow: inset 0 2px 5px rgb(0 0 0 / .26); font: 500 24px/1 var(--lg-font); color: rgb(255 255 255 / .55); }
+  .post .lgk-i { --is: 26px; }
+  .postbtn { left: 1120px; top: 206px; width: 120px; }
+  .day { position: absolute; left: 40px; font: 600 24px/1.3 var(--lg-font); color: var(--lg-text-2); }
+  .ev { position: absolute; left: 40px; width: 1200px; border-radius: 30px; background: rgb(255 255 255 / .08); display: flex; gap: 28px; padding: 16px; box-sizing: border-box; }
+  .ev .img { flex: none; width: 352px; border-radius: 20px; overflow: hidden; }
+  .ev .col { display: flex; flex-direction: column; min-width: 0; padding-top: 6px; padding-right: 96px; }
+  .ev .kind { font: 600 18px/1.35 var(--lg-font); color: var(--lg-text-2); }
+  .ev h3 { margin: 4px 0 8px; font: 600 28px/1.25 var(--lg-font); letter-spacing: -.01em; }
+  .ev p { margin: 0; font: 500 22px/1.32 var(--lg-font); color: var(--lg-text-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .ev .rate { display: flex; gap: 24px; margin-top: auto; }
+  .ev .rate .gp-btn { position: static; height: 60px; padding: 0 22px; font-size: 22px; }
+  .ev .opt { position: absolute; right: 16px; top: 16px; width: 60px; height: 60px; border-radius: 30px; background: var(--lg-fill-thin); display: grid; place-items: center; --is: 28px; }
+  .ev.is-focus { background: rgb(255 255 255 / .16); box-shadow: 0 6px 18px rgb(0 0 0 / .30), 0 0 30px 2px rgb(255 255 255 / .16); }
+</style>
+</head><body>
+<div class="lgk-view" data-room="lounge" data-tab="library" data-fc="steam" data-bar="idle">
+  <div class="lgk-overlay" style="left:320px; top:66px" data-gp="details" data-tab="activity" data-name="Starfall Drift" data-hero="hero-clean:0:" data-foot="A:Open|≡:Options|B:Back">
+    <div class="gp-content">
+      <div class="post"><i data-i="pencil"></i>Say something about this game to your friends…</div>
+      <span class="gp-btn postbtn">Post</span>
+      <div class="day" style="top:296px">September 29</div>
+      <div class="ev is-focus" style="top:336px; height:248px" data-dz="15" data-tier="card lift T4">
+        <div class="img lgk-art" data-art="hero-clean:2:"></div>
+        <div class="col">
+          <span class="kind">Major Update</span>
+          <h3>Starfall Drift 1.4: The Aurora Update</h3>
+          <p>Twelve new tracks, a remixed campaign and hand-tracking support arrive today. Here is everything that changed in the biggest update since launch.</p>
+          <div class="rate"><span class="gp-btn"><i data-i="like"></i>128</span><span class="gp-btn"><i data-i="bubble"></i>14</span></div>
+        </div>
+        <span class="opt"><i data-i="more"></i></span>
+      </div>
+      <div class="day" style="top:616px">September 12</div>
+      <div class="ev" style="top:656px; height:160px"><div class="img lgk-art" data-art="hero-clean:8:"></div><div class="col"><span class="kind">Patch Notes</span><h3>Hotfix 1.3.2</h3></div></div>
+    </div>
+  </div>
+</div>
+<script src="kit.js"></script>
+<script src="game-pages.js"></script>
+</body>
+</html>

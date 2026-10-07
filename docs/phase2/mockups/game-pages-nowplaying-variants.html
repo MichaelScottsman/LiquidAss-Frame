@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — SteamVR Now Playing: the four button-list variants (AT-NP-VARIANTS)</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="game-pages.css">
+<style>
+  /* Four Now Playing panels at 0.46 of their size. Exit is red only where T2 keyed it (data-lgs-np="exit");
+     nothing is ever coloured by its position in the list. */
+  .vlab { position: absolute; z-index: 5; font: 700 22px/1.3 var(--lg-font); color: #fff; text-shadow: 0 1px 3px rgb(0 0 0 / .6), 0 0 12px rgb(0 0 0 / .4); }
+  .vlab span { display: block; font: 500 17px/1.35 var(--lg-font); color: rgb(255 255 255 / .86); }
+  .np-title { font-size: 84px; }
+</style>
+</head>
+<body>
+<div class="lgk-view" data-room="studio" data-tab="none" data-fc="none" data-bar="none">
+
+  <div class="vlab" style="left:60px; top:14px">1 · Normal, T2 keyed<span>Resume · Bindings · Video Settings · Exit (red label: data-lgs-np="exit")</span></div>
+  <div class="lgk-pop" style="left:60px; top:70px; --pop-scale:.46">
+    <div class="lgk-glass np" data-mat="window">
+      <div class="np-glow lgk-art" data-art="poster:6:"></div><div class="np-art lgk-art" data-art="poster:6:Aurora Lab"></div>
+      <div class="np-col"><div class="np-cap">Now Playing</div><div class="np-title">Aurora Lab</div></div>
+      <div class="np-grp">
+        <div class="np-row"><span class="chip" style="background:var(--lg-indigo)"><i data-i="vrbind"></i></span>VR Controller Bindings<i data-i="chevron-right" class="chev"></i></div>
+        <div class="np-row"><span class="chip" style="background:var(--lg-blue)"><i data-i="eye"></i></span>VR Video Settings<i data-i="chevron-right" class="chev"></i></div>
+      </div>
+      <div class="np-exit" data-lgs-np="exit" style="top:780px"><i data-i="exit"></i>Exit Game</div>
+    </div>
+    <div class="lgk-glass gp-ctl np-resume" data-mat="liquid" data-tint="play" data-lens style="--dz:15"><i data-i="play"></i>Resume Game</div>
+  </div>
+
+  <div class="vlab" style="left:990px; top:14px">2 · Arcade mode<span>Resume · Exit only; the platter is absent</span></div>
+  <div class="lgk-pop" style="left:990px; top:70px; --pop-scale:.46">
+    <div class="lgk-glass np" data-mat="window">
+      <div class="np-glow lgk-art" data-art="poster:3:"></div><div class="np-art lgk-art" data-art="poster:3:Tidal Arcade"></div>
+      <div class="np-col"><div class="np-cap">Now Playing</div><div class="np-title">Tidal Arcade</div></div>
+      <div class="np-exit" data-lgs-np="exit" style="top:484px"><i data-i="exit"></i>Exit Game</div>
+    </div>
+    <div class="lgk-glass gp-ctl np-resume" data-mat="liquid" data-tint="play" data-lens style="--dz:15"><i data-i="play"></i>Resume Game</div>
+  </div>
+
+  <div class="vlab" style="left:60px; top:552px">3 · Quitting not allowed<span>No Exit: the last row (Video Settings) stays neutral</span></div>
+  <div class="lgk-pop" style="left:60px; top:608px; --pop-scale:.46">
+    <div class="lgk-glass np" data-mat="window">
+      <div class="np-glow lgk-art" data-art="poster:8:"></div><div class="np-art lgk-art" data-art="poster:8:Moss Hollow"></div>
+      <div class="np-col"><div class="np-cap">Now Playing</div><div class="np-title">Moss Hollow</div></div>
+      <div class="np-grp">
+        <div class="np-row"><span class="chip" style="background:var(--lg-indigo)"><i data-i="vrbind"></i></span>VR Controller Bindings<i data-i="chevron-right" class="chev"></i></div>
+        <div class="np-row is-focus"><span class="chip" style="background:var(--lg-blue)"><i data-i="eye"></i></span>VR Video Settings<i data-i="chevron-right" class="chev"></i></div>
+      </div>
+    </div>
+    <div class="lgk-glass gp-ctl np-resume" data-mat="liquid" data-tint="play" data-lens style="--dz:15"><i data-i="play"></i>Resume Game</div>
+  </div>
+
+  <div class="vlab" style="left:990px; top:552px">4 · Developer setting, no T2 key<span>Perf row present; Exit neutral (thin fill, white label)</span></div>
+  <div class="lgk-pop" style="left:990px; top:608px; --pop-scale:.46">
+    <div class="lgk-glass np" data-mat="window">
+      <div class="np-glow lgk-art" data-art="poster:1:"></div><div class="np-art lgk-art" data-art="poster:1:Orbit Shop"></div>
+      <div class="np-col"><div class="np-cap">Now Playing</div><div class="np-title">Orbit Shop</div></div>
+      <div class="np-grp">
+        <div class="np-row"><span class="chip" style="background:var(--lg-indigo)"><i data-i="vrbind"></i></span>VR Controller Bindings<i data-i="chevron-right" class="chev"></i></div>
+        <div class="np-row"><span class="chip" style="background:var(--lg-blue)"><i data-i="eye"></i></span>VR Video Settings<i data-i="chevron-right" class="chev"></i></div>
+        <div class="np-row"><span class="chip" style="background:var(--lg-gray)"><i data-i="gauge"></i></span>Clear Performance Assessment Status<i data-i="chevron-right" class="chev"></i></div>
+      </div>
+      <div class="np-exit" style="top:888px"><i data-i="exit"></i>Exit Game</div>
+    </div>
+    <div class="lgk-glass gp-ctl np-resume" data-mat="liquid" data-tint="play" data-lens style="--dz:15"><i data-i="play"></i>Resume Game</div>
+  </div>
+</div>
+<script src="kit.js"></script>
+<script src="game-pages.js"></script>
+</body>
+</html>

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — Settings: SteamVR › Play Area, the Environment Style block re-flowed at x1.44</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="window-nav-shared.css">
+<link rel="stylesheet" href="settings.css">
+</head>
+<body>
+<div class="lgk-view" data-room="lounge">
+
+  <div data-wn="tabbar" data-right="302" data-cy="426" data-sel="vr settings"></div>
+
+  <!-- live reference: shots/p2_settings_live_vr_playarea.png (2026-10-07). Today the block is 1195 x 919 SteamVR px; re-flowed into
+       the 1094 px column it is 1097 px tall, so the page scrolls (it already scrolls today: scrollHeight 1722 in a 1045 panel) -->
+  <div class="lgk-pop st-vr" style="left:320px; top:66px; --pop-scale:.6889" data-tier="T1 theme/vr + T2 labels and Back + T5 systemui cover">
+    <div class="lgk-glass win" data-mat="window" data-dz="0">
+      <div data-st="vrside" data-sel="playarea"></div>
+      <div class="tbtitle">Play Area</div>
+      <div class="scroll under">
+        <div class="col" style="left:94px; top:-160px">
+          <div class="hero"><span data-vrchip="playarea"></span><div class="ttl">Play Area</div></div>
+          <div class="sh" style="margin-top:0">Chaperone</div>
+          <div class="plat"><div class="r"><span class="lab"></span><span class="btn">Edit Chaperone Appearance</span></div></div>
+          <div class="sh">Environment</div>
+          <div class="plat">
+            <div class="r"><span class="lab">Environment Style</span><span class="pop">Aurora<i data-si="updown"></i></span></div>
+            <!-- SteamVR's SubsectionStem: a nested recessed platter (a fill on a fill, never glass on glass) -->
+            <div class="plat">
+              <div class="r" style="min-height:150px"><span class="lab">Background</span><span class="swatch">Edit<span class="wheel"></span></span></div>
+              <div class="r"><span class="lab">Height</span><span class="vslider" style="--v:50%"><span class="fill"></span><span class="knob">1.00</span></span></div>
+              <div class="r"><span class="lab">Rainbow Speed</span><span class="vslider zero" style="--v:0%"><span class="fill"></span><span class="knob">0.00</span></span></div>
+              <div class="r"><span class="lab">Light Shafts</span><span class="sw on"></span></div>
+              <div class="plat" style="margin-top:0">
+                <div class="r"><span class="lab">Speed</span><span class="vslider" style="--v:50%; width:540px"><span class="fill"></span><span class="knob">1.00</span></span></div>
+              </div>
+            </div>
+            <div class="r"><span class="lab">Content-Aware Aurora Color</span><span class="sw on"></span></div>
+            <div class="r"><span class="lab">Content-Aware Camera Tint</span><span class="sw"></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="lgk-glass orn" data-mat="liquid" data-lens>
+      <span class="lbl">Advanced Settings</span><span class="seg"><span>Hide</span><span class="is-selected">Show</span></span>
+    </div>
+  </div>
+
+  <div data-wn="frame" data-cx="860" data-y="806" data-dim=".72"></div>
+  <div class="lgk-pop" style="left:1068px; top:818px; --pop-scale:.75">
+    <div class="lgk-glass lgk-toolbar" data-mat="panel" style="position:relative; height:64px; padding:0 14px 0 26px; gap:14px; --r:32px">
+      <span style="font:500 26px/1 var(--lg-font); color:var(--lg-text-2)">Use Laser Mouse to Interact</span><span class="lgk-glyph">A</span>
+    </div>
+  </div>
+  <div data-wn="bar" data-cx="960" data-y="904"></div>
+  <div data-wn="pill" data-cx="960" data-y="1018"></div>
+</div>
+<script src="settings-shared.js"></script>
+<script src="settings-icons.js"></script>
+<script src="window-nav-shared.js"></script>
+<script src="kit.js"></script>
+</body>
+</html>

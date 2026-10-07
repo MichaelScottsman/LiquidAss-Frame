@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 window-nav: sheet over a dimmed window</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="window-nav-shared.css">
+<style>
+  .tabs { position: absolute; left: 40px; top: 120px; }
+  .tabs .n { font-weight: 500; color: var(--lg-text-2); margin-left: 2px; }
+  .tabs .is-selected .n { color: rgb(13 14 18 / .55); }
+  .grid { position: absolute; left: 0; top: 212px; right: 0; bottom: 0; }
+  .grid .lgk-poster { width: 220px; height: 330px; }
+  .sheet { left: 160px; top: 128px; width: 960px; height: 488px; }
+  .sheet .x { position: absolute !important; left: 24px; top: 24px; }
+  .sheet .ttl { position: absolute; left: 0; right: 0; top: 36px; text-align: center; }
+  .sheet .rst { position: absolute !important; right: 24px; top: 24px; }
+  .sheet .body { position: absolute; left: 40px; right: 40px; top: 112px; bottom: 0; overflow: hidden; }
+  .sheet .h { margin: 0 0 12px 4px; }
+  .sheet .chips { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 26px; }
+  .sheet .chips .lgk-btn { font-weight: 500; font-size: 22px; padding: 0 22px; }
+  .sheet .chips .lgk-btn .lgk-i { --is: 22px; }
+  .sheet .foot { position: absolute; left: 0; right: 0; bottom: 0; height: 92px; display: flex; align-items: center; gap: 18px; padding: 0 24px 0 40px; border-radius: 0 0 44px 44px;
+                 background: linear-gradient(180deg, transparent, rgb(0 0 0 / .18) 40%); }
+</style>
+</head>
+<body>
+<div class="lgk-view" data-room="lounge">
+
+  <div data-wn="tabbar" data-right="302" data-cy="426" data-sel="library" data-dim=".5" data-pitch="58" data-badge></div>
+
+  <div class="lgk-overlay" style="left:320px; top:66px">
+    <div class="lgk-glass wn-win" data-mat="window" data-dz="0" data-tier="scrim .35 (CSS); T4 option: t1 recede">
+      <div class="grid wn-fade-bottom">
+        <div class="lgk-poster lgk-art" data-art="poster:0:Starfall Drift" style="left:42px; top:0"></div>
+        <div class="lgk-poster lgk-art" data-art="poster:1:Hollow Peaks" style="left:286px; top:0"></div>
+        <div class="lgk-poster lgk-art" data-art="poster:2:Neon Orchard" style="left:530px; top:0"></div>
+        <div class="lgk-poster lgk-art" data-art="poster:3:Tidebreaker" style="left:774px; top:0"></div>
+        <div class="lgk-poster lgk-art" data-art="poster:4:Lumen Vale" style="left:1018px; top:0"></div>
+        <div class="lgk-poster lgk-art" data-art="poster:8:Echo Station" style="left:42px; top:354px"></div>
+        <div class="lgk-poster lgk-art" data-art="poster:6:Ironwood" style="left:286px; top:354px"></div>
+        <div class="lgk-poster lgk-art" data-art="poster:7:Paper Comets" style="left:530px; top:354px"></div>
+        <div class="lgk-poster lgk-art" data-art="poster:5:Glasswing" style="left:774px; top:354px"></div>
+        <div class="lgk-poster lgk-art" data-art="poster:9:Deep Field" style="left:1018px; top:354px"></div>
+      </div>
+      <div data-wn="toolbar" data-back="root" data-title="Library" data-search="idle"></div>
+      <div class="lgk-seg tabs">
+        <span class="is-selected">All Games <span class="n t-num">350</span></span>
+        <span>Great on Frame <span class="n t-num">21</span></span>
+        <span>Ready to Play <span class="n t-num">68</span></span>
+        <span>Collections <span class="n t-num">9</span></span>
+        <span>Non-Steam <span class="n t-num">54</span></span>
+      </div>
+      <div class="lgk-scrim" style="z-index:3"></div>
+    </div>
+
+    <!-- the sheet: a large Steam dialog (here the library Filters dialog), thick glass, +30 -> +50 mm -->
+    <div class="lgk-glass wn-sheet sheet" data-mat="thick" style="--dz:10" data-dz="10" data-tier="T1 card + T2 close + non-interactive pop 10 mm (+30 to +50 behind the wearer flag) + T5 thick">
+      <span class="lgk-btn circle x"><i data-i="xmark" class="bold"></i></span>
+      <div class="ttl t-title2">Filters</div>
+      <span class="lgk-btn capsule rst">Reset</span>
+      <div class="body wn-fade-bottom" style="bottom:70px">
+        <div class="h t-headline">Steam Frame Compatibility</div>
+        <div class="lgk-seg" style="margin-bottom:26px"><span>All</span><span class="is-selected">Verified</span><span>Playable</span><span>Unknown</span></div>
+        <div class="h t-headline">Ready to Play</div>
+        <div class="chips">
+          <span class="lgk-btn capsule is-selected"><i data-i="check" class="bold"></i>Installed</span>
+          <span class="lgk-btn capsule is-focus" style="--hx:40%;--hy:30%">VR Only</span>
+          <span class="lgk-btn capsule">Played</span>
+          <span class="lgk-btn capsule">Unplayed</span>
+          <span class="lgk-btn capsule">Streamable</span>
+        </div>
+        <div class="h t-headline">Features</div>
+        <div class="chips">
+          <span class="lgk-btn capsule">Achievements</span>
+          <span class="lgk-btn capsule is-selected"><i data-i="check" class="bold"></i>Steam Cloud</span>
+          <span class="lgk-btn capsule">Controller Support</span>
+          <span class="lgk-btn capsule">Co-op</span>
+        </div>
+      </div>
+      <div class="foot">
+        <span class="t-callout v2 t-num" style="flex:1">Showing 21 of 350 games</span>
+        <span class="lgk-btn capsule">Save as Dynamic Collection</span>
+      </div>
+    </div>
+
+    <div data-wn="ornament" data-legends="Y:Reset|A:Select|B:Done"></div>
+  </div>
+
+  <!-- gamepad mode, no laser: no window-bar row -->
+  <div data-wn="bar" data-cx="960" data-y="904"></div>
+
+  <div class="wn-cap" style="left:1612px; top:300px; width:290px">Sheet 960 px (75 % of the glass), radius 44, +10 mm static (+30 &rarr; +50 only behind the wearer flag).<br><span class="m">Close circle (laser) = Steam's click-outside cancel; B for the gamepad. Content: library concept.</span></div>
+</div>
+<script>
+  // the toolbar recedes while a modal is up (it stays clickable, only quieter)
+  document.querySelectorAll('[data-wn="toolbar"]').forEach(e => e.dataset.dim = '');
+</script>
+<script src="window-nav-shared.js"></script>
+<script src="kit.js"></script>
+</body>
+</html>

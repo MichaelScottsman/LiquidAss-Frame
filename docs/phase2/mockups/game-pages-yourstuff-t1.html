@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — game page, details, T1 fallback (no glassd: tinted window, room unblurred)</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="game-pages.css">
+<style>
+  .ach-ic { position: absolute; width: 80px; height: 80px; border-radius: 17px; overflow: hidden; box-shadow: 0 4px 12px rgb(0 0 0 / .28); }
+  .ach-ic.locked { filter: grayscale(1) brightness(.62); }
+  .ach-ic.locked::after { content: ""; position: absolute; inset: 0; background: rgb(0 0 0 / .18); }
+  .ach-det { position: absolute; width: 659px; height: 97px; border-radius: 24px; background: rgb(255 255 255 / .16); display: flex; align-items: center; gap: 17px; padding: 0 22px 0 9px; box-sizing: border-box; }
+  .ach-det .ach-ic { position: relative; flex: none; }
+  .ach-det b { display: block; font: 600 24px/1.2 var(--lg-font); }
+  .ach-det span { display: block; font: 500 19px/1.3 var(--lg-font); color: var(--lg-text-2); }
+  .ach-det .pct { margin-left: auto; text-align: right; font: 600 19px/1.3 var(--lg-font); color: var(--lg-text-2); white-space: nowrap; }
+  .dlc { position: absolute; width: 190px; height: 89px; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 12px rgb(0 0 0 / .28); }
+  .more { position: absolute; width: 190px; height: 89px; border-radius: 14px; background: var(--lg-fill-thin); display: flex; align-items: center; justify-content: center; gap: 10px; font: 600 22px/1 var(--lg-font); }
+  .more .lgk-i { --is: 22px; color: var(--lg-text-2); }
+</style>
+</head>
+<body>
+<!-- T1 only: the window is a smoky tint (backdrop-filter cannot see the room), the blurred art still shows
+     through it at .40 (it is Steam's own page content), the inline title is T2 (kept: T2 needs no daemon) -->
+<div class="lgk-view" data-room="lounge" data-tier="t1" data-tab="library" data-fc="steam" data-bar="idle">
+  <div class="lgk-overlay" style="left:320px; top:66px" data-gp="details" data-tab="yourstuff" data-name="Starfall Drift" data-hero="hero-clean:0:" data-foot="A:Open|B:Back">
+    <div class="gp-content">
+      <div class="gp-h2" style="top:204px">Achievements<span class="trail">12 of 26 unlocked · 46%</span></div>
+      <div class="gp-prog" style="position:absolute; left:40px; top:254px; width:520px; --v:46%"><i></i></div>
+      <div class="ach-det gp-card wide is-focus" style="left:34px; top:282px; position:absolute" data-dz="15">
+        <span class="ach-ic lgk-art" data-art="program:3:star2"></span>
+        <div><b>Supernova</b><span>Finish any track without missing a beat</span></div>
+        <div class="pct">Oct 2<br>4.1 % of players</div>
+      </div>
+      <span class="ach-ic lgk-art" data-art="program:1:trophy" style="left:708px; top:290px"></span>
+      <span class="ach-ic lgk-art" data-art="program:4:sparkle" style="left:801px; top:290px"></span>
+      <span class="ach-ic lgk-art" data-art="program:8:moon" style="left:894px; top:290px"></span>
+      <span class="ach-ic lgk-art locked" data-art="program:6:sun" style="left:987px; top:290px"></span>
+      <span class="ach-ic lgk-art locked" data-art="program:2:airplane" style="left:1080px; top:290px"></span>
+      <span class="ach-ic lgk-art locked" data-art="program:9:star" style="left:1173px; top:290px"></span>
+      <div class="gp-h2" style="top:418px">Downloadable Content<span class="trail">6 owned</span></div>
+      <div class="dlc lgk-art" data-art="hero-clean:3:" style="left:40px; top:466px"></div>
+      <div class="dlc lgk-art" data-art="hero-clean:6:" style="left:246px; top:466px"></div>
+      <div class="dlc lgk-art" data-art="hero-clean:8:" style="left:452px; top:466px"></div>
+      <div class="dlc lgk-art" data-art="hero-clean:4:" style="left:658px; top:466px"></div>
+      <div class="dlc lgk-art" data-art="hero-clean:9:" style="left:864px; top:466px"></div>
+      <div class="more" style="left:1070px; top:466px">+ 9 More<i data-i="chevron-right" class="bold"></i></div>
+      <div class="gp-h2" style="top:588px">Media</div>
+      <span class="gp-btn" style="left:40px; top:636px"><i data-i="media"></i>Go to My Media Library</span>
+    </div>
+  </div>
+</div>
+<script src="kit.js"></script>
+<script src="game-pages.js"></script>
+</body>
+</html>

@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — controls: the keyboard in the CSS-only fallback (T1), typing into a password field</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="controls.css">
+<style>
+  /* View pitched ~14 deg down as in controls-keyboard.html: the keyboard's top edge at y 636, 854 x 280 kb px x (1.355, 1.19). */
+  .win { left: 0; top: 0; width: 1280px; height: 664px; }
+  .page { position: absolute; inset: 0; opacity: .5; }
+  .page .t-title2 { position: absolute; left: 460px; top: 40px; }
+  .page .rows { position: absolute; left: 460px; top: 110px; width: 760px; border-radius: 30px; background: var(--lg-fill-regular); height: 400px; }
+  .scrim { position: absolute; inset: 0; border-radius: var(--lg-r-window); background: rgb(0 0 0 / .35); }
+  .sheet { left: 300px; top: 236px; width: 680px; height: 400px; --r: 44px; }
+  .sheet .ttl { position: absolute; left: 0; right: 0; top: 30px; text-align: center; }
+  .sheet .f { position: absolute; left: 40px; right: 40px; display: flex; flex-direction: column; gap: 10px; }
+  .sheet .btns { position: absolute; left: 40px; right: 40px; bottom: 28px; display: flex; gap: 24px; justify-content: center; }
+  .kbpop { left: 382px; top: 636px; transform-origin: 0 0; transform: scale(1.355, 1.19); }
+  /* T1 keyboard: no glassd platter. Steam's DefaultTheme background recoloured: a dark tint, a top sheen, inset edge cues (no outline) */
+  .kb-t1 { position: absolute; left: 0; top: 0; width: 854px; height: 280px; border-radius: 24px;
+    background: linear-gradient(180deg, rgb(255 255 255 / .07), rgb(255 255 255 / 0) 30%), rgb(28 30 38 / .84);
+    box-shadow: inset 0 0 10px -1.5px rgb(0 0 0 / .20), inset 0 -2px 4px -1px rgb(0 0 0 / .14), inset 0 1.5px 1.5px -1px rgb(255 255 255 / .22); }
+  .kb.t1 .kb-keys { top: 2px; }
+  .kb.t1 .kb-echo { top: auto; bottom: 5px; }
+  .kb-echo .lock { --is: 15px; }
+</style>
+</head>
+<body>
+<div class="lgk-view" data-room="lounge" data-tier="t1">
+
+  <!-- Steam's main window (T1: smoky tint, no room blur): Developer > Change User Password, a modal sheet with two secure fields -->
+  <div class="lgk-overlay" style="left:320px; top:-196px">
+    <div class="lgk-glass win" data-mat="window" data-dz="0">
+      <div class="page"><div class="t-title2">Developer</div><div class="rows"></div></div>
+      <div class="scrim"></div>
+    </div>
+    <div class="lgk-glass sheet" data-mat="thick" data-dz="0" data-tier="T1 thick (in-page blur)">
+      <div class="ttl t-title3">Change User Password</div>
+      <div class="f" style="top:96px"><span class="c-fieldlabel">New Password</span>
+        <span class="c-field is-focus"><i data-i="lock" class="lead"></i><span class="txt"><span style="letter-spacing:.2em; font-weight:700">&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;</span><span class="caret"></span></span></span></div>
+      <div class="f" style="top:204px"><span class="c-fieldlabel">Confirm Password</span>
+        <span class="c-field"><i data-i="lock" class="lead"></i><span class="txt ph">Enter the password again</span></span></div>
+      <div class="btns"><span class="lgk-btn capsule" style="min-width:200px">Cancel</span><span class="lgk-btn capsule lg primary is-disabled" style="min-width:240px">Change</span></div>
+    </div>
+  </div>
+
+  <!-- SteamVR frame controls: the keyboard button is white (on) while the keyboard is shown -->
+  <div class="lgk-pop" style="left:810px; top:454px; --pop-scale:.75">
+    <div class="lgk-glass lgk-toolbar" data-mat="panel" style="position:relative; height:80px; gap:12px; padding:0 10px; --r:40px">
+      <span class="lgk-btn circle is-selected" style="--s:64px"><i data-i="keyboard"></i></span>
+      <span class="lgk-btn circle plain" style="--s:64px"><i data-i="float"></i></span>
+      <span class="lgk-btn circle plain" style="--s:64px"><i data-i="theater"></i></span>
+      <span class="lgk-btn circle plain" style="--s:64px"><i data-i="more"></i></span>
+    </div>
+  </div>
+
+  <!-- the dashboard bar -->
+  <div class="lgk-pop" style="left:578px; top:525px; --pop-scale:1.20; display:flex; gap:16px">
+    <div class="lgk-glass lgk-toolbar" data-mat="liquid" style="position:relative; height:80px; gap:8px; padding:0 8px; --r:40px">
+      <span class="lgk-btn circle" style="--s:64px; background:rgb(255 255 255 / .16)"><i data-i="controller"></i></span>
+      <span class="lgk-btn circle lgk-art" data-art="poster:0:" style="--s:64px; background-size:cover; background-position:50% 35%"></span>
+      <span class="lgk-btn circle lgk-art" data-art="poster:3:" style="--s:64px; background-size:cover; background-position:50% 35%"></span>
+      <span class="lgk-btn circle plain" style="--s:64px"><i data-i="plus"></i></span>
+    </div>
+    <div class="lgk-glass lgk-toolbar" data-mat="liquid" style="position:relative; height:80px; gap:8px; padding:0 8px 0 20px; --r:40px">
+      <span class="t-headline t-num" style="font-size:24px">4:56</span>
+      <span class="lgk-btn circle plain" style="--s:64px"><i data-i="bell"></i></span>
+      <span class="lgk-btn circle plain" style="--s:64px"><i data-i="grid"></i></span>
+    </div>
+  </div>
+
+  <!-- the keyboard, CSS only: Steam's quad and key geometry untouched (keys unmoved), the echo in Steam's empty bottom band -->
+  <div class="lgk-pop kbpop">
+    <div class="kb t1">
+      <div class="kb-t1"></div>
+      <div class="kb-keys" data-state='{"hover":"k","hx":"38%","hy":"40%","enter":"Done","badges":false}'></div>
+      <div class="kb-echo"><span class="lbl"><i data-i="lock" class="lock"></i>New Password</span><span class="txt"><span class="dots">&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;</span><span class="caret"></span></span></div>
+    </div>
+  </div>
+
+  <div class="c-note" style="left:28px; top:640px; width:300px"><b>CSS only (T1).</b> No glassd: Steam's keyboard background is recoloured (dark tint, top sheen, inset edge cues). Keys stay where Steam puts them; nothing moves.</div>
+  <div class="c-note" style="right:24px; top:640px; width:300px"><b>Secret field, masked echo.</b> The echo shows the field's name and <b>dots, never characters</b>: <span class="k">type=password</span>, one-time-code and PIN fields, and every field in a password, PIN or Steam Guard dialog (§12.3). Enter reads “Done”.</div>
+  <div class="c-note" style="left:28px; top:858px; width:300px"><b>Echo in the bottom band.</b> Without the key-block move (T1 fallback, or whenever an IME, emoji or Steam's own buffered text row is shown) the echo sits in the 41 kb px band Steam leaves empty under the keys.</div>
+
+  <svg style="position:absolute; inset:0; width:1920px; height:1080px; pointer-events:none; z-index:40" viewBox="0 0 1920 1080">
+    <defs><linearGradient id="beam" x1="1" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".35" stop-color="#dbe8ff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity=".9"/></linearGradient></defs>
+    <polygon id="beamp" points="0,0" fill="url(#beam)" opacity=".55"/>
+  </svg>
+  <div class="lgk-laser-dot" id="dot"></div>
+</div>
+<script src="controls-keyboard.js"></script>
+<script src="kit.js"></script>
+<script src="controls-icons.js"></script>
+<script>
+  addEventListener('DOMContentLoaded', () => requestAnimationFrame(() => {
+    const k = document.querySelector('.c-key[data-key="k"]').getBoundingClientRect();
+    const x = k.left + k.width * .38, y = k.top + k.height * .40;
+    const d = document.getElementById('dot'); d.style.left = x + 'px'; d.style.top = y + 'px';
+    document.getElementById('beamp').setAttribute('points', `1180,1095 1196,1095 ${x + 1},${y} ${x - 1},${y}`);
+  }));
+</script>
+</body>
+</html>

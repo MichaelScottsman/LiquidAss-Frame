@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — Volume HUD and notification banner (dashboard closed)</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="control-center.css">
+<style>
+  /* volume HUD: volumelevel quad, 0.059 deg per px (m = 0.52): 1 HUD px = 1.92 view px */
+  .vhud { position: relative; width: 224px; height: 40px; --r: 20px; overflow: hidden; }
+  .vhud > .fill { position: absolute; inset: 0 auto 0 0; width: var(--v, 50%); min-width: 40px; border-radius: 20px; background: rgb(255 255 255 / .86);
+                  display: flex; align-items: center; color: #1b1c20; }
+  .vhud > .fill > .lgk-i { --is: 15px; margin-left: 13px; stroke-width: 2.4; }
+  .vhud > .num { position: absolute; right: 14px; top: 0; bottom: 0; display: flex; align-items: center; font: 600 13px/1 var(--lg-font); font-variant-numeric: tabular-nums; }
+  /* toast: the whole 340 x 80 notifications quad, 0.034 deg per px (m = 0.90): 1 toast px = 1.107 view px */
+  .toast { position: relative; width: 336px; height: 76px; margin: 2px; --r: 30px; display: flex; align-items: center; gap: 14px; padding: 0 20px 0 14px; box-sizing: border-box; }
+  .toast .ic { width: 48px; height: 48px; border-radius: 50%; flex: none; background-size: cover; display: grid; place-items: center; color: #fff; --is: 24px;
+               box-shadow: 0 2px 6px rgb(0 0 0 / .3); }
+  .toast .tx { min-width: 0; display: flex; flex-direction: column; }
+  .toast .tx b { font: 600 20px/1.25 var(--lg-font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .toast .tx span { font: 500 18px/1.3 var(--lg-font); color: var(--lg-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .toast .t { position: absolute; right: 20px; top: 13px; font: 500 15px/1 var(--lg-font); color: var(--lg-text-3); }
+  .lab { width: 420px; white-space: normal; }
+  .reticle { position: absolute; left: 954px; top: 534px; width: 12px; height: 12px; border-radius: 50%; box-shadow: 0 0 0 2px rgb(255 255 255 / .55); }
+</style>
+</head>
+<body>
+<div class="lgk-view" data-room="studio">
+
+  <!-- notification banner: Steam's 340 x 80 notifications window; SteamVR keeps placing it -->
+  <div class="lgk-pop" style="left:772px; top:178px; --pop-scale:1.107">
+    <div class="lgk-glass toast" data-mat="panel" data-lens>
+      <span class="ic lgk-art" data-art="avatar:6:M"></span>
+      <span class="tx"><b>Mara</b><span>Joining tonight?</span></span>
+      <span class="t">now</span>
+    </div>
+  </div>
+  <div class="lab plate" style="left:1196px; top:186px">Notification banner<small>Steam's toast window (340 × 80) used whole: panel glass card, radius 30, 48 px circular icon, 20 px title, 18 px body. Materializes in place; SteamVR still places it.</small></div>
+
+  <!-- second banner style for system events: whole-fill colour on the icon only -->
+  <div class="lgk-pop" style="left:772px; top:298px; --pop-scale:1.107">
+    <div class="lgk-glass toast" data-mat="panel" data-lens>
+      <span class="ic" style="background:var(--lg-orange); color:var(--cc-dark)"><i data-i="wand"></i></span>
+      <span class="tx"><b>Right Controller</b><span>Battery low · 9 %</span></span>
+      <span class="t">now</span>
+    </div>
+  </div>
+  <div class="lab plate" style="left:1196px; top:310px">System banner<small>Colour lives in the icon disc (orange low, red critical), never in the text. The glyph is dark on orange (8.6:1), white only on blue and red.</small></div>
+
+  <!-- gaze centre, for reading the head-locked placement -->
+  <div class="reticle"></div>
+  <div class="lab plate" style="left:984px; top:520px; width:250px">eye direction<small>(not drawn in the headset)</small></div>
+
+  <!-- volume HUD: head-locked capsule, 12 deg below the eye direction (stock: 27 deg) -->
+  <div class="lgk-pop" style="left:745px; top:893px; --pop-scale:1.92">
+    <div class="lgk-glass vhud" data-mat="panel" data-lens style="--v:55%">
+      <span class="fill"><i data-i="speaker"></i></span><span class="num">55</span>
+    </div>
+  </div>
+  <div class="lab plate" style="left:1196px; top:880px">Volume HUD<small>Control Center slider as a HUD: white value fill with the glyph inside, number trailing. 224 × 40 HUD px = 14.4° × 2.6° at its new 0.82 m (0.92 mm per HUD px), head-locked 12° below the eye direction instead of 27°.</small></div>
+
+  <!-- stock placement, for comparison -->
+  <div class="lab plate" style="left:240px; top:880px; width:440px; text-align:right">Stock: 250 × 34 capsule, 6 px track, no number,<small>27° below the eye direction (off this frame)</small></div>
+</div>
+<script src="kit.js"></script>
+<script src="control-center-icons.js"></script>
+</body>
+</html>

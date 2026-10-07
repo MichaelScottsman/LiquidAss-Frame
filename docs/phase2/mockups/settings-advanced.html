@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — Settings: System › Advanced (sub-view, gamepad on Factory Reset)</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="window-nav-shared.css">
+<link rel="stylesheet" href="settings.css">
+</head>
+<body>
+<div class="lgk-view" data-room="lounge">
+
+  <div data-wn="tabbar" data-right="302" data-cy="426" data-sel="steam settings"></div>
+
+  <!-- ============ /settings/system, sub-view "Advanced": destructive tools behind one more level, at depth 0 -->
+  <div class="lgk-overlay" style="left:320px; top:66px">
+    <div class="lgk-glass st-win" data-mat="window" data-dz="0" data-tier="T5 window (T1: smoky tint)">
+      <div data-st="sidebar" data-sel="system"></div>
+      <div data-st="toolbar" data-back data-title="Advanced"></div>
+
+      <div class="st-scroll top">
+        <div class="st-col" style="top:116px">
+          <div class="st-plat">
+            <div class="st-r first"><span class="lab">Steam Runtime System Information</span><span class="lgk-btn capsule" style="--s:60px">Run Diagnostics</span></div>
+            <div class="st-r"><span class="lab">System Report</span><span class="lgk-btn capsule" style="--s:60px">Create Report</span></div>
+            <div class="st-r two"><span class="lab">Run storage device maintenance tasks<span class="desc">Can take several minutes</span></span><span class="lgk-btn capsule" style="--s:60px">Run</span></div>
+            <!-- destructive: red label at rest; gamepad focus = red whole fill + glow; stays on the window plane (never popped) -->
+            <div class="st-r last is-focus" style="--hx:30%; --hy:50%"><span class="lab">Reset to factory state</span><span class="lgk-btn capsule st-danger is-focus" style="--s:60px; --hx:50%; --hy:30%">Factory Reset</span></div>
+          </div>
+          <div class="st-foot">Destructive actions keep Steam's own confirmation dialog.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div data-wn="frame" data-cx="960" data-y="806" data-dim=".72"></div>
+  <div data-wn="bar" data-cx="960" data-y="904"></div>
+  <div data-wn="pill" data-cx="960" data-y="1018"></div>
+</div>
+<script src="settings-shared.js"></script>
+<script src="settings-icons.js"></script>
+<script src="window-nav-shared.js"></script>
+<script src="kit.js"></script>
+</body>
+</html>

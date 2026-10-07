@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — Settings: SteamVR's own page in the same window footprint and language</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="window-nav-shared.css">
+<link rel="stylesheet" href="settings.css">
+</head>
+<body>
+<div class="lgk-view" data-room="lounge">
+
+  <!-- the tab bar shows VR Settings selected; on a SteamVR system page it stays visible without the laser (systemui source) -->
+  <div data-wn="tabbar" data-right="302" data-cy="426" data-sel="vr settings"></div>
+
+  <!-- SteamVR's settings panel (vr:systemui, root 1858 x 1045 SteamVR px, unchanged). The frame shows it at the size of Steam's
+       1280 x 720 overlay, so the pop scales by 1280 / 1858. Visible glass = 1858 x 952 = Steam's 1280 x 656 footprint -->
+  <div class="lgk-pop st-vr" style="left:320px; top:66px; --pop-scale:.6889" data-tier="T1 theme/vr + T2 labels and Back + T5 systemui cover">
+    <div class="lgk-glass win" data-mat="window" data-dz="0">
+      <div data-st="vrside" data-sel="general" data-hover="dashboard"></div>
+      <div class="scroll">
+        <div class="col" style="left:94px; top:168px">
+          <div class="hero"><span data-vrchip="general"></span><div class="ttl">General</div></div>
+          <div class="plat">
+            <div class="r stack"><span class="lab">Refresh Rate (Hz)</span>
+              <span class="hz"><span>72</span><span>80</span><span class="is-selected">90</span><span class="is-hover">96</span><span>108</span><span>120</span><span>144</span></span></div>
+            <div class="r"><span class="lab">Display Brightness</span><span class="vslider" style="--v:80%"><span class="fill"></span><span class="knob">125%</span></span></div>
+            <!-- SteamVR's two-option Off / On groups drawn as switches (T1: the selected option hidden and inert, the other stretched
+                 transparent over the track, so a click anywhere toggles; the knob on the On side when On) -->
+            <div class="r"><span class="lab">Motion Smoothing</span><span class="sw on"></span></div>
+            <div class="r"><span class="lab">Notifications</span><span class="sw on"></span></div>
+            <div class="r"><span class="lab"><span class="adv-dot"></span>IPD HUD</span><span class="sw"></span></div>
+            <div class="r"><span class="lab"><span class="adv-dot"></span>Eye Tracking</span><span class="sw on"></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- the bottom ornament in the panel's own margin: SteamVR's Advanced Settings toggle, re-placed by T1 (same node) -->
+    <div class="lgk-glass orn" data-mat="liquid" data-lens data-tier="T1 re-placement of .Bottom.AdvancedSettingsToggle + T5 liquid shape">
+      <span class="lbl">Advanced Settings</span><span class="seg"><span>Hide</span><span class="is-selected">Show</span></span>
+    </div>
+  </div>
+
+  <!-- SteamVR frame controls + the gamepad-mode pill "Use Laser Mouse to Interact" (systemui; A turns the laser on) -->
+  <div data-wn="frame" data-cx="860" data-y="806" data-dim=".72"></div>
+  <div class="lgk-pop" style="left:1068px; top:818px; --pop-scale:.75" data-tier="T1 vr:systemui %{ButtonPill}">
+    <div class="lgk-glass lgk-toolbar" data-mat="panel" style="position:relative; height:64px; padding:0 14px 0 26px; gap:14px; --r:32px">
+      <span style="font:500 26px/1 var(--lg-font); color:var(--lg-text-2)">Use Laser Mouse to Interact</span><span class="lgk-glyph">A</span>
+    </div>
+  </div>
+  <div data-wn="bar" data-cx="960" data-y="904"></div>
+  <div data-wn="pill" data-cx="960" data-y="1018"></div>
+  <div data-wn="laser" data-to="1081,355" data-from="1640,1100"></div>
+</div>
+<script src="settings-shared.js"></script>
+<script src="settings-icons.js"></script>
+<script src="window-nav-shared.js"></script>
+<script src="kit.js"></script>
+</body>
+</html>

@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — Settings: the new VR Settings page (default state, before P-S3)</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="window-nav-shared.css">
+<link rel="stylesheet" href="settings.css">
+</head>
+<body>
+<div class="lgk-view" data-room="lounge">
+
+  <div data-wn="tabbar" data-right="302" data-cy="426" data-sel="steam settings"></div>
+
+  <div class="lgk-overlay" style="left:320px; top:66px">
+    <div class="lgk-glass st-win" data-mat="window" data-dz="0" data-tier="T5 window (T1: smoky tint)">
+      <div data-st="sidebar" data-sel="vr" data-scroll="180"></div>
+      <div data-st="toolbar"></div>
+
+      <div class="st-scroll top">
+        <div class="st-col" style="top:116px">
+          <div class="st-hero"><span data-chip="vr" data-cls="md"></span><div class="t-title1">VR Settings</div></div>
+
+          <!-- one row into SteamVR's own page (T3 Focusable; A or click = SteamClient.SteamVR.DashboardTabClicked, as the tab bar's
+               VR Settings item does). Trailing laser glyph: that page is laser-only -->
+          <div class="st-plat">
+            <div class="st-r is-hover" style="--hx:56%; --hy:50%"><span class="st-chip" data-c="gray"><i data-si="headset"></i></span><span class="lab">SteamVR</span><i data-si="laser" style="--is:26px; color:var(--lg-text-2)"></i><i data-si="chevr" class="chev"></i></div>
+          </div>
+          <div class="st-gap20"></div>
+
+          <!-- Steam's own Quick Access › Performance › VR components (module 862 via 51008), rendered unchanged and restyled by
+               the same settings rules. Live (2026-10-07): five render; Custom Render Resolution only when SteamVR reports it -->
+          <div class="st-plat">
+            <div class="st-r first stack">
+              <div class="head"><span class="lab">Refresh Rate</span><span class="val" style="font-weight:600; color:var(--lg-text-1)">90</span></div>
+              <span class="st-slider notched" style="--v:33.3%"><span class="fill"></span></span>
+              <div class="ends"><span>72</span><span>144</span></div>
+            </div>
+            <div class="st-r last"><span class="lab">Motion Smoothing</span><i data-si="info" style="--is:26px; color:var(--lg-text-3)"></i><span class="lgk-toggle on"></span></div>
+          </div>
+          <div class="st-sh">Performance</div>
+          <div class="st-plat">
+            <div class="st-r first"><span class="lab">Show Perf Overlay in VR</span><span class="lgk-toggle"></span></div>
+            <div class="st-r"><span class="lab">Record VR Performance</span><span class="lgk-toggle"></span></div>
+            <div class="st-r last"><span class="lab">Record Tracking</span><span class="lgk-toggle"></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div data-wn="frame" data-cx="960" data-y="806" data-dim=".72"></div>
+  <div data-wn="bar" data-cx="960" data-y="904"></div>
+  <div data-wn="pill" data-cx="960" data-y="1018"></div>
+  <div data-wn="laser" data-to="1205,294" data-from="1640,1100"></div>
+</div>
+<script src="settings-shared.js"></script>
+<script src="settings-icons.js"></script>
+<script src="window-nav-shared.js"></script>
+<script src="kit.js"></script>
+</body>
+</html>

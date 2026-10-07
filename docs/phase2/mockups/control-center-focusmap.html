@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — Control Center gamepad focus map (explicit neighbours, no horizontal move onto a slider)</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="control-center.css">
+<style>
+  .fm-tag { position: absolute; z-index: 60; font: 700 15px/1 var(--lg-font); color: #111; background: #ffd84a; padding: 4px 7px; border-radius: 7px; white-space: nowrap; }
+  .fm-tag.v { background: #7fe3ff; }
+  .fm-tag.s { background: #ff9d7a; }
+</style>
+</head>
+<body>
+<!-- Spec sheet (documentation overlay, not UI). Yellow arrows: explicit onMoveRight / onMoveLeft maps at tile edges.
+     Salmon tags: sliders, where Left/Right change the value; they are reachable only vertically or by LB/RB.
+     Cyan: LB / RB jump to the previous / next tile's first control. White: Down from a tile's last control reaches Close. -->
+<div class="lgk-view" data-room="lounge" data-dim>
+  <div class="lgk-overlay" style="left:320px; top:66px">
+    <div class="ccm" data-cc='{"focus":"return"}'></div>
+  </div>
+  <div class="lgk-pop" style="left:0; top:878px; width:1600px; display:flex; justify-content:center; --pop-scale:1.2">
+    <div class="bar2" data-bar='{"pill":{"state":"open","batt":{"mode":"num","v":82},"badge":3}}'></div>
+  </div>
+  <div class="lab plate" style="left:28px; top:628px; width:372px">Explicit neighbours at tile edges<small>Geometric moves would take Right from Return to Game onto Volume and Right from 3 Notifications onto Microphone; the next Right would change the value. Every edge move is mapped to a non-slider target instead. Sliders are entered only with Up / Down or LB / RB; on a slider Left / Right change the value, as in Steam.</small></div>
+  <svg id="fm" style="position:absolute; inset:0; width:1920px; height:1080px; pointer-events:none; z-index:55" viewBox="0 0 1920 1080">
+    <defs>
+      <marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#ffd84a"/></marker>
+      <marker id="ahc" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#7fe3ff"/></marker>
+      <marker id="ahw" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#fff"/></marker>
+    </defs>
+  </svg>
+</div>
+<script src="control-center-build.js"></script>
+<script>
+(() => {
+  const svg = document.getElementById('fm'), NS = 'http://www.w3.org/2000/svg';
+  const R = (id) => document.querySelector(`.ccm [data-id="${id}"]`).getBoundingClientRect();
+  const pt = (r, side) => side === 'r' ? [r.right - 6, r.top + r.height / 2] : side === 'l' ? [r.left + 6, r.top + r.height / 2]
+    : side === 'b' ? [r.left + r.width / 2, r.bottom - 4] : [r.left + r.width / 2, r.top + 4];
+  function arrow(a, b, col, mk, both, bend = 0, dash) {
+    const p = document.createElementNS(NS, 'path');
+    const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2 - bend;
+    p.setAttribute('d', `M${a[0]} ${a[1]} Q${mx} ${my} ${b[0]} ${b[1]}`);
+    p.setAttribute('fill', 'none'); p.setAttribute('stroke', col); p.setAttribute('stroke-width', '3.5');
+    p.setAttribute('stroke-linecap', 'round'); p.setAttribute('marker-end', `url(#${mk})`);
+    if (both) p.setAttribute('marker-start', `url(#${mk})`);
+    if (dash) p.setAttribute('stroke-dasharray', '9 7');
+    p.style.filter = 'drop-shadow(0 1px 2px rgb(0 0 0 / .7))';
+    svg.append(p);
+  }
+  function tag(id, text, cls, dx = 0, dy = 0) {
+    const r = R(id), t = document.createElement('div'); t.className = 'fm-tag ' + (cls || ''); t.textContent = text;
+    t.style.left = (r.left + dx) + 'px'; t.style.top = (r.top + dy) + 'px'; document.querySelector('.lgk-view').append(t);
+  }
+  const Y = '#ffd84a';
+  // pairs (both directions) and one-way edge moves
+  arrow(pt(R('power'), 'r'), pt(R('wifi'), 'l'), Y, 'ah', true, 26);
+  arrow(pt(R('batt'), 'r'), pt(R('rr'), 'l'), Y, 'ah', true, 18);
+  arrow(pt(R('stream'), 'l'), [R('batt').right - 30, R('batt').bottom - 6], Y, 'ah', false, -10);
+  arrow(pt(R('more'), 'l'), pt(R('return'), 'r'), Y, 'ah', true, -14);
+  arrow(pt(R('notif'), 'r'), [R('more').left + 30, R('more').bottom - 8], Y, 'ah', false, 24);
+  arrow(pt(R('ms'), 'r'), pt(R('recenter'), 'l'), Y, 'ah', true, 26);
+  arrow(pt(R('rr'), 'r'), [R('recenter').left + 14, R('recenter').bottom - 6], Y, 'ah', false, 12);
+  arrow(pt(R('stream'), 'r'), pt(R('off'), 'l'), Y, 'ah', true, 10);
+  arrow(pt(R('more'), 'r'), [R('off').left + 20, R('off').bottom - 8], Y, 'ah', false, -8);
+  // LB / RB between tiles (above the tiles)
+  const now = document.querySelector('.ccm .tile.now').getBoundingClientRect(), ctl = document.querySelector('.ccm .tile.ctl').getBoundingClientRect(),
+        room = document.querySelector('.ccm .tile.room').getBoundingClientRect();
+  arrow([now.left + now.width / 2, now.top - 8], [ctl.left + ctl.width / 2, ctl.top - 8], '#7fe3ff', 'ahc', true, 40, true);
+  arrow([ctl.left + ctl.width / 2, ctl.top - 8], [room.left + room.width / 2, room.top - 8], '#7fe3ff', 'ahc', true, 40, true);
+  // Down to Close
+  const cl = R('close');
+  arrow(pt(R('mic'), 'b'), [cl.left + cl.width / 2, cl.top + 2], '#fff', 'ahw', true, 0);
+  arrow(pt(R('notif'), 'b'), [cl.left + 4, cl.top + cl.height / 2], '#fff', 'ahw', false, -30);
+  arrow(pt(R('bri'), 'b'), [cl.right - 4, cl.top + cl.height / 2], '#fff', 'ahw', false, -30);
+  // tags
+  ['vol', 'mic', 'env', 'bri'].forEach(id => tag(id, '◀ ▶ value', 's', 116, -14));
+  tag('wifi', 'first focus', 'v', 0, -30);
+  const t1 = document.createElement('div'); t1.className = 'fm-tag v'; t1.textContent = 'LB / RB: tile first control';
+  t1.style.left = (ctl.left + 70) + 'px'; t1.style.top = (ctl.top - 62) + 'px'; document.querySelector('.lgk-view').append(t1);
+  tag('close', 'B anywhere = close', 'v', 70, 16);
+})();
+</script>
+<script src="kit.js"></script>
+<script src="control-center-icons.js"></script>
+</body>
+</html>

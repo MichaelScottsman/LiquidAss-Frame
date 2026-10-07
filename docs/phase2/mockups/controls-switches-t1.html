@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — controls: switches, check circles, sliders (T1 CSS-only fallback, no glassd)</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="controls.css">
+<style>
+  .pl { left: 40px; width: 470px; top: 136px; height: 160px; right: auto; }
+  .pr { left: 526px; width: 354px; top: 136px; height: 160px; right: auto; }
+  .pc { top: 348px; height: 80px; }
+  .ps { top: 480px; height: 216px; }
+  .strip { position: absolute; inset: 0; display: flex; justify-content: space-evenly; align-items: flex-end; padding-bottom: 26px; }
+  .strip > div { display: flex; flex-direction: column; align-items: center; gap: 22px; }
+  .hdrs { position: absolute; top: 320px; display: flex; font: 600 18px/1 var(--lg-font); color: var(--lg-text-2); }
+  .hdrs > span { position: absolute; width: 80px; text-align: center; }
+  .checks { position: absolute; right: 18px; top: 20px; display: flex; }
+  .checks > span { width: 80px; display: grid; place-items: center; }
+  .sl { position: absolute; left: 24px; right: 112px; }
+  .slv { position: absolute; right: 24px; width: 72px; text-align: right; }
+</style>
+</head>
+<body>
+<div class="lgk-view" data-room="lounge" data-tier="t1">
+  <div class="lgk-overlay" style="left:320px; top:180px">
+    <div class="lgk-glass cg-win" data-mat="window" data-dz="0" data-tier="T5 window">
+      <div class="cg-side" data-sel="Switches & Sliders"></div>
+
+      <div class="cg-main">
+        <div class="cg-head"><span class="t-title2">Switches &amp; Sliders</span>
+          <span class="lgk-btn circle" style="right:24px"><i data-i="more"></i></span></div>
+
+        <div class="cg-sec" style="top:104px">Switches <span class="v3">· 66 × 40, hit 88 × 80</span></div>
+        <div class="cg-list c-list pl">
+          <div class="c-row is-focus"><span class="pill"></span>Wi-Fi<span class="trail"><span class="c-switch on"><span class="knob"></span></span></span></div>
+          <div class="c-row">Battery Percentage<span class="trail"><span class="c-switch is-hover" id="hov" style="--hx:72%; --hy:46%"><span class="knob"></span></span></span></div>
+        </div>
+        <div class="cg-platter pr">
+          <div class="strip">
+            <div><span class="c-switch"><span class="knob"></span></span><span class="cg-cap"><b>Off</b></span></div>
+            <div><span class="c-switch on"><span class="knob"></span></span><span class="cg-cap"><b>On</b></span></div>
+            <div><span class="c-switch on is-pressed"><span class="knob"></span></span><span class="cg-cap"><b>Pressed</b></span></div>
+            <div><span class="c-switch on is-disabled"><span class="knob"></span></span><span class="cg-cap"><b>Disabled</b></span></div>
+          </div>
+        </div>
+
+        <div class="cg-sec" style="top:316px">Check Circles</div>
+        <div class="hdrs" style="left:582px; right:58px"><span style="left:0">Email</span><span style="left:80px">Toast</span><span style="left:160px">Mobile</span><span style="left:240px">Feed</span></div>
+        <div class="cg-platter pc">
+          <div class="c-row" style="position:absolute; left:0; top:0; right:0">Wishlist Item on Sale</div>
+          <div class="checks">
+            <span><span class="c-check on"><i data-i="check"></i></span></span>
+            <span><span class="c-check"></span></span>
+            <span><span class="c-check on is-focus"><i data-i="check"></i></span></span>
+            <span><span class="c-check is-disabled"></span></span>
+          </div>
+        </div>
+
+        <div class="cg-sec" style="top:448px">Sliders <span class="v3">· the value is the white fill; the knob shows on hover, focus and drag</span></div>
+        <div class="cg-platter ps">
+          <div class="c-slider sl is-hover" id="vol" style="top:24px; --v:.62; --hx:62%; --hy:50%"><span class="fill"></span><i data-i="speaker" class="glyph"></i><span class="knob"></span></div>
+          <div class="c-val slv" style="top:45px">62 %</div>
+          <div class="c-slider sl is-drag" style="top:128px; --v:.38"><span class="fill"></span><i data-i="sun" class="glyph"></i><span class="knob"></span></div>
+          <div class="c-val slv" style="top:149px; color:var(--lg-text-1)">38 %</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <svg style="position:absolute; inset:0; width:1920px; height:1080px; pointer-events:none; z-index:40" viewBox="0 0 1920 1080">
+    <defs><linearGradient id="beam" x1="1" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".35" stop-color="#dbe8ff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity=".9"/></linearGradient></defs>
+    <polygon id="beamp" points="0,0" fill="url(#beam)" opacity=".5"/>
+  </svg>
+  <div class="lgk-laser-dot" id="dot"></div>
+</div>
+<script src="controls-gallery.js"></script>
+<script src="kit.js"></script>
+<script src="controls-icons.js"></script>
+<script>
+  addEventListener('DOMContentLoaded', () => requestAnimationFrame(() => {
+    const k = document.querySelector('#vol .knob').getBoundingClientRect();
+    const x = k.left + k.width / 2, y = k.top + k.height / 2;
+    const d = document.getElementById('dot'); d.style.left = x + 'px'; d.style.top = y + 'px';
+    document.getElementById('beamp').setAttribute('points', `1700,1095 1712,1095 ${x + 1},${y} ${x - 1},${y}`);
+  }));
+</script>
+</body>
+</html>

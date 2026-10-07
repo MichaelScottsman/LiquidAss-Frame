@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — SteamVR binding UI: binding list as a visionOS window</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="game-pages.css">
+<!-- Authored in binding-UI CSS px: the page is 2400 x 1350 and 1 px = 0.0164 deg, so every main-window size is
+     multiplied by 1.87 (DESIGN2 §2.5): 60 -> 112 visible, 80 -> 150 hit, 21 -> 40 clear gap, 24 -> 45 text.
+     Revision 2: community bindings are rows in one platter (Steam's .BindingEntry restyled; .FlexRowWithWrap
+     becomes one column: the page is laser-only, no D-pad mapping to keep). View and Activate sit side by side,
+     40 px apart, each 112 visible / 150 hit. Rows are 236 tall, so hit boxes of neighbouring rows are 86 apart. -->
+</head>
+<body>
+<div class="lgk-view" data-room="lounge" data-tab="vrpage" data-fc="steam" data-bar="running" data-barart="poster:6:">
+  <div class="lgk-pop" style="left:318px; top:66px; --pop-scale:.535" data-tier="vr:controllerbindingui page (laser only)">
+    <div class="lgk-glass bw" data-mat="window" data-dz="0" data-tier="T1 window (InputContainer)">
+      <div class="clip">
+        <div class="b-title">Change bindings for Aurora Lab</div>
+
+        <div class="b-plat" style="left:75px; top:232px; width:1290px; height:290px; padding:36px 40px">
+          <div class="b-lbl">Current Binding</div>
+          <div class="b-name" style="margin-top:6px; width:880px">Default bindings for Steam Frame Controller</div>
+          <div class="b-desc" style="margin-top:4px; width:900px">Published by the developer of this application</div>
+          <span class="b-cap" style="right:40px; top:89px">Edit</span>
+        </div>
+        <div class="b-plat" style="left:1410px; top:232px; width:915px; height:290px; padding:36px 40px">
+          <div class="b-lbl">Current Controller</div>
+          <div style="display:flex; align-items:center; gap:30px; margin-top:42px">
+            <span style="display:grid; place-items:center; width:112px; height:112px; border-radius:50%; background:var(--lg-fill-thin); --is:58px"><i data-i="vrbind"></i></span>
+            <span class="b-name">Frame Controller</span>
+            <i data-i="chevron-updown" style="--is:40px; margin-left:auto; color:var(--lg-text-2)"></i>
+          </div>
+        </div>
+
+        <div class="b-h2" style="top:596px">Community Bindings</div>
+        <span class="b-cap" style="right:75px; top:582px"><i data-i="plus"></i>Create New Binding</span>
+        <div class="b-list" style="top:744px">
+          <div class="b-row">
+            <span class="av lgk-art" data-art="avatar:3:IC"></span>
+            <div class="tx"><div class="b-name">Improved Controls</div><div class="b-desc">Improved default controls with a quicker teleport and a snap turn on the left stick.</div><div class="b-meta" style="margin-top:6px">Updated 10/3/2026 · 1,880 min in 30 days</div></div>
+            <div class="ac"><span class="b-cap is-hover" style="--hx:46%; --hy:52%; width:220px; padding:0">View</span><span class="b-cap" style="width:260px; padding:0">Activate</span></div>
+          </div>
+          <div class="b-row">
+            <span class="av lgk-art" data-art="avatar:1:DQ"></span>
+            <div class="tx"><div class="b-name">Disabled quick recenter</div><div class="b-desc">Removes the recenter gesture from the left grip.</div><div class="b-meta" style="margin-top:6px">Updated 8/23/2026 · 64,234 min in 30 days</div></div>
+            <div class="ac"><span class="b-cap" style="width:220px; padding:0">View</span><span class="b-cap" style="width:260px; padding:0">Activate</span></div>
+          </div>
+          <div class="b-row">
+            <span class="av lgk-art" data-art="avatar:7:BL"></span>
+            <div class="tx"><div class="b-name">Bumper laser pointer</div><div class="b-desc">Uses bumpers instead of grips for the laser pointer, so the grips work as buttons in flat games.</div><div class="b-meta" style="margin-top:6px">Updated 10/4/2026 · 204 min in 30 days</div></div>
+            <div class="ac"><span class="b-cap" style="width:220px; padding:0">View</span><span class="b-cap" style="width:260px; padding:0">Activate</span></div>
+          </div>
+        </div>
+      </div>
+      <span class="b-circ" style="left:45px; top:45px"><i data-i="chevron-left" class="bold"></i></span>
+      <span class="b-cap" style="right:45px; top:45px; padding:0 40px 0 32px"><i data-i="more"></i>Options</span>
+    </div>
+  </div>
+  <svg style="position:absolute; inset:0; width:1920px; height:1080px; pointer-events:none; z-index:40" viewBox="0 0 1920 1080">
+    <defs><linearGradient id="beam" x1="1" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".35" stop-color="#dbe8ff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity=".9"/></linearGradient></defs>
+    <polygon points="1700,1095 1712,1095 1317,532 1315,532" fill="url(#beam)" opacity=".5"/>
+  </svg>
+  <div class="lgk-laser-dot" style="left:1316px; top:532px"></div>
+</div>
+<script src="kit.js"></script>
+<script src="game-pages.js"></script>
+</body>
+</html>

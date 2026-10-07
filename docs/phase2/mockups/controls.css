@@ -1,0 +1,348 @@
+/* Shared control vocabulary v2 (docs/phase2/concepts/controls.md), rendered on top of kit.css.
+ *
+ * Every size is a main-window CSS px (1 pt = 4/3 px, DESIGN2 §2.1) unless a block says otherwise.
+ * Nothing in this file draws an outline on glass. The only ring is the text-field focus ring (§F of the concept).
+ * State classes follow the kit: is-hover (with --hx/--hy), is-focus, is-pressed, is-selected, is-disabled,
+ * plus is-drag (slider), is-open (pop-up button), is-lift (selection pill while travelling).
+ */
+
+:root {
+  /* recessed: darker than the glass, lit on its lower inner lip (light from above), never a ring */
+  --c-recess: inset 0 2px 5px rgb(0 0 0 / .30), inset 0 -2px 3px -1px rgb(255 255 255 / .10);
+  /* raised: lighter than the glass, a soft top sheen and a faint contact shadow */
+  --c-raised-bg: linear-gradient(180deg, rgb(255 255 255 / .07), rgb(255 255 255 / 0) 55%), rgb(255 255 255 / .10);
+  --c-raised-sh: inset 0 1.5px 1.5px -1px rgb(255 255 255 / .22), 0 1px 2px rgb(0 0 0 / .10);
+  --c-arc: conic-gradient(from var(--lg-light), rgb(255 255 255 / .75) 0deg, rgb(255 255 255 / .2) 40deg, transparent 75deg,
+           transparent 145deg, rgb(255 255 255 / .22) 180deg, transparent 215deg, transparent 285deg, rgb(255 255 255 / .2) 320deg,
+           rgb(255 255 255 / .75) 360deg);
+}
+
+/* ===================================================================== gallery window (spec board) */
+.cg-win { left: 0; top: 0; width: 1280px; height: 720px; }
+.cg-side { position: absolute; left: 0; top: 0; bottom: 0; width: 320px; background: var(--lg-fill-regular);
+  border-radius: var(--lg-r-window) 0 0 var(--lg-r-window); }
+.cg-side > .t-large { position: absolute; left: 32px; top: 26px; }
+.cg-nav { position: absolute; left: 12px; right: 12px; top: 106px; display: flex; flex-direction: column; gap: 8px; }
+.cg-nav .lgk-row { height: 72px; padding: 0 14px; gap: 16px; font-size: 24px; }
+.cg-main { position: absolute; left: 320px; top: 0; right: 0; bottom: 0; }
+.cg-head { position: absolute; left: 0; right: 0; top: 0; height: 108px; display: flex; align-items: center; justify-content: center; }
+.cg-head > .lgk-btn { position: absolute; top: 24px; }
+.cg-sec { position: absolute; left: 66px; font: 600 22px/1 var(--lg-font); color: var(--lg-text-2); white-space: nowrap; }
+.cg-sec .v3 { font-weight: 500; }
+.cg-platter { position: absolute; left: 40px; right: 40px; border-radius: var(--lg-r-platter); background: var(--lg-fill-regular); }
+.cg-spec { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.cg-cap { font: 500 18px/1.2 var(--lg-font); color: var(--lg-text-2); white-space: nowrap; text-align: center; }
+.cg-cap b { font-weight: 600; color: var(--lg-text-1); }
+.cg-row { position: absolute; display: flex; align-items: center; }
+
+/* ===================================================================== buttons (raised fill on glass) */
+.lgk-btn:not(.plain):not(.primary):not(.play):not(.danger):not(.is-selected):not(.c-glassbtn) { background: var(--c-raised-bg); box-shadow: var(--c-raised-sh); }
+.lgk-btn.primary, .lgk-btn.play, .lgk-btn.danger { box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / .35), 0 3px 8px rgb(0 0 0 / .22); color: #fff; }
+.lgk-btn.danger { background: linear-gradient(180deg, rgb(255 255 255 / .18), rgb(255 255 255 / 0) 55%), var(--lg-tint-danger); }
+.lgk-btn.danger-label { color: rgb(255 130 125); }   /* >= 3:1 (large text) on text-bearing glass L 70-90 */
+.lgk-btn.is-selected { box-shadow: 0 2px 6px rgb(0 0 0 / .22); }
+.lgk-btn.is-disabled { opacity: .4; }
+.lgk-btn.mini { --s: 38px; --is: 18px; }
+.lgk-btn.sm { --is: 20px; }
+.lgk-btn.lg.circle { --is: 30px; }
+.lgk-btn.xl.circle { --is: 36px; }
+.lgk-btn.capsule.lg { padding: 0 28px; }
+.lgk-btn.capsule.xl { padding: 0 34px; }
+.lgk-btn.play-80 { --s: 80px; font-size: 28px; padding: 0 40px; gap: 12px; }
+.lgk-btn .lgk-glyph { margin-right: -8px; }
+/* a button floating in space (no glass behind it) is its own small glass */
+.c-glassbtn { background: linear-gradient(180deg, rgb(255 255 255 / .16), rgb(255 255 255 / .04) 60%), rgb(90 92 100 / .22);
+  -webkit-backdrop-filter: blur(14px) saturate(1.7) brightness(.86); backdrop-filter: blur(14px) saturate(1.7) brightness(.86);
+  box-shadow: inset 0 0 6px -1px rgb(0 0 0 / .14), inset 0 -2px 4px -1px rgb(0 0 0 / .12), 0 8px 22px rgb(0 0 0 / .30); }
+.c-glassbtn::before { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; padding: 1.5px;
+  background: var(--c-arc); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; opacity: .8; }
+
+/* illumination on every control class below (hover light, focus glow, press glow; DESIGN2 §10) */
+.c-switch::after, .c-check::after, .c-popup::after, .c-field::after, .c-row::after, .c-key::after, .c-opt::after, .c-slider::after {
+  content: ""; position: absolute; inset: var(--lit-inset, 0); border-radius: inherit; pointer-events: none; mix-blend-mode: plus-lighter; opacity: 0;
+  background: radial-gradient(circle at var(--hx, 50%) var(--hy, 30%), rgb(255 255 255 / var(--spot, .12)) 0, rgb(255 255 255 / 0) var(--spot-r, 75%)),
+              rgb(255 255 255 / var(--lift, 0)); z-index: 2; }
+:is(.c-switch, .c-check, .c-popup, .c-field, .c-row, .c-key, .c-opt, .c-slider).is-hover::after { opacity: 1; --lift: .08; }
+:is(.c-switch, .c-check, .c-popup, .c-field, .c-row, .c-key, .c-opt, .c-slider).is-focus::after { opacity: 1; --lift: .14; --spot: .16; }
+:is(.c-switch, .c-check, .c-popup, .c-field, .c-row, .c-key, .c-opt, .c-slider).is-pressed::after { opacity: 1; --lift: .06; --spot: .22; --spot-r: 120%; }
+/* focus: the control lifts into glass, i.e. it gets its own specular arc (never a ring) */
+:is(.c-switch, .c-popup, .c-row, .c-key, .c-opt, .c-slider).is-focus::before {
+  content: ""; position: absolute; inset: var(--lit-inset, 0); border-radius: inherit; pointer-events: none; padding: 1.5px; z-index: 3;
+  background: var(--c-arc); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+
+/* ===================================================================== switch (visionOS 51 x 31 pt ~ 66 x 40 px) */
+.c-switch { position: relative; width: 66px; height: 40px; border-radius: 20px; flex: none; background: rgb(255 255 255 / .16);
+  box-shadow: inset 0 1px 3px rgb(0 0 0 / .22); }
+.c-switch.on { background: linear-gradient(180deg, rgb(255 255 255 / .14), rgb(255 255 255 / 0) 60%), var(--lg-green); box-shadow: inset 0 1px 2px rgb(0 0 0 / .12); }
+.c-switch > .knob { position: absolute; top: 3px; left: 3px; width: 34px; height: 34px; border-radius: 50%; background: #fff; z-index: 4;
+  box-shadow: 0 2px 5px rgb(0 0 0 / .30), 0 0 1px rgb(0 0 0 / .25); }
+.c-switch.on > .knob { left: 29px; }
+/* press: the knob lifts into clear glass (x1.3 wide, x1.2 high) on `interactive`, MO §4.15 */
+.c-switch.is-pressed > .knob { width: 44px; height: 41px; top: -.5px; left: 22px; border-radius: 21px;
+  background: linear-gradient(180deg, rgb(255 255 255 / .45), rgb(255 255 255 / .18)); -webkit-backdrop-filter: blur(1.5px) saturate(1.8); backdrop-filter: blur(1.5px) saturate(1.8);
+  box-shadow: 0 3px 8px rgb(0 0 0 / .30), inset 0 0 4px rgb(255 255 255 / .35), inset 0 -2px 3px rgb(0 0 0 / .10); }
+.c-switch.is-pressed > .knob::before { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1.5px; background: var(--c-arc);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+.c-switch.is-disabled { opacity: .4; }
+
+/* ===================================================================== check circle (40 px, 80 px hit cell) */
+.c-check { position: relative; width: 40px; height: 40px; border-radius: 50%; flex: none; background: rgb(0 0 0 / .22);
+  box-shadow: inset 0 0 0 2.5px rgb(255 255 255 / .34), inset 0 2px 4px rgb(0 0 0 / .30); }   /* empty = the "circle" symbol in a shallow well */
+.c-check.on { background: linear-gradient(180deg, rgb(255 255 255 / .16), rgb(255 255 255 / 0) 60%), var(--lg-blue);
+  box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / .35), 0 1px 3px rgb(0 0 0 / .25); display: grid; place-items: center; color: #fff; }
+.c-check.on > .lgk-i { --is: 24px; stroke-width: 3; }
+.c-check.is-disabled { opacity: .4; }
+
+/* ===================================================================== capsule slider (64 px; value = white fill, glyph inside) */
+.c-slider { position: relative; height: 64px; border-radius: 32px; background: var(--lg-fill-thick); box-shadow: var(--c-recess); --v: .5; }
+.c-slider > .fill { position: absolute; left: 0; top: 0; bottom: 0; width: calc(64px + var(--v) * (100% - 64px)); border-radius: 32px;
+  background: linear-gradient(180deg, rgb(255 255 255 / .92), rgb(255 255 255 / .84)); box-shadow: 0 1px 3px rgb(0 0 0 / .18); }
+.c-slider > .glyph { position: absolute; left: 19px; top: 19px; --is: 26px; color: #1b1c20; z-index: 3; }
+/* the knob appears only on hover, focus or drag, at the fill's end (Steam's SliderHandle, 64 via --slider-handle-width) */
+.c-slider > .knob { position: absolute; top: 3px; width: 58px; height: 58px; left: calc(3px + var(--v) * (100% - 64px)); border-radius: 50%; z-index: 4;
+  background: #fff; box-shadow: 0 2px 8px rgb(0 0 0 / .32), 0 0 0 .5px rgb(0 0 0 / .10); display: none; }
+.c-slider:is(.is-hover, .is-focus, .is-drag, .stepped) > .knob { display: block; }
+.c-slider.stepped > .fill { width: calc(32px + var(--v) * (100% - 64px)); }   /* stepped: fill ends at the knob centre */
+.c-slider.stepped > .knob { width: 50px; height: 50px; top: 7px; left: calc(7px + var(--v) * (100% - 64px)); box-shadow: 0 2px 8px rgb(0 0 0 / .38), 0 0 0 .5px rgb(0 0 0 / .12); }
+.c-slider.is-drag > .knob { scale: 1.25; background: radial-gradient(circle at 50% 30%, rgb(255 255 255 / .30), rgb(255 255 255 / .04) 70%);
+  -webkit-backdrop-filter: blur(2px) saturate(1.8) brightness(.86); backdrop-filter: blur(2px) saturate(1.8) brightness(.86);
+  box-shadow: 0 6px 16px rgb(0 0 0 / .30), inset 0 0 8px rgb(0 0 0 / .16), inset 0 -3px 5px rgb(0 0 0 / .08); }
+.c-slider.is-drag > .knob::before { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1.5px; background: var(--c-arc);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+.c-slider > .notches { position: absolute; left: 32px; right: 32px; top: 28px; height: 8px; z-index: 3; }
+.c-slider > .notches > i { position: absolute; width: 8px; height: 8px; margin-left: -4px; border-radius: 50%; background: rgb(255 255 255 / .42); }
+.c-slider > .notches > i.under { background: rgb(13 14 18 / .28); }
+.c-val { font: 600 22px/1 var(--lg-font); color: var(--lg-text-2); font-variant-numeric: tabular-nums; }
+.c-notchlabels { position: absolute; display: flex; font: 600 18px/1 var(--lg-font); color: var(--lg-text-2); }
+.c-notchlabels > span { position: absolute; translate: -50% 0; white-space: nowrap; }
+.c-notchlabels > span.on { color: var(--lg-text-1); }
+
+/* ===================================================================== pop-up button (value + up/down chevrons) */
+.c-popup { position: relative; display: inline-flex; align-items: center; gap: 14px; height: 60px; padding: 0 20px 0 24px; box-sizing: border-box;
+  border-radius: 30px; background: var(--c-raised-bg); box-shadow: var(--c-raised-sh); font: 500 22px/1 var(--lg-font); color: var(--lg-text-1); white-space: nowrap; }
+.c-popup > .val { flex: 1; }
+.c-popup > .lgk-i { --is: 22px; color: var(--lg-text-2); }
+.c-popup.is-open { background: var(--lg-fill-selected); color: var(--lg-text-on-selected); box-shadow: 0 2px 6px rgb(0 0 0 / .22); }
+.c-popup.is-open > .lgk-i { color: rgb(13 14 18 / .6); }
+.c-popup.rich { height: 76px; border-radius: 30px; }
+.c-popup.rich .t2 { display: block; font: 500 18px/1.2 var(--lg-font); color: var(--lg-text-2); margin-top: 4px; }
+.c-popup.rich.is-open .t2 { color: rgb(13 14 18 / .62); }
+
+/* ===================================================================== segmented: the lifted pill while it travels */
+.lgk-seg > .is-lift { background: linear-gradient(180deg, rgb(255 255 255 / .42), rgb(255 255 255 / .18)) !important; color: var(--lg-text-1) !important;
+  scale: 1.06 1.12; -webkit-backdrop-filter: blur(1.5px) saturate(1.8); backdrop-filter: blur(1.5px) saturate(1.8);
+  box-shadow: 0 4px 12px rgb(0 0 0 / .28), inset 0 0 6px rgb(255 255 255 / .30); }
+.lgk-seg > .is-lift::before { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1.5px; background: var(--c-arc);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+.lgk-seg > .ghost { color: var(--lg-text-on-selected); }
+.lgk-seg.c-seg { height: 64px; }
+.lgk-seg.c-seg > * { min-width: 140px; box-sizing: border-box; }
+.lgk-seg > .is-selected.is-focus { box-shadow: 0 2px 6px rgb(0 0 0 / .22), 0 0 18px 2px rgb(255 255 255 / .30); }
+
+/* option circles (SteamVR refresh rate: circular segments, selected = white) */
+.c-opt { position: relative; display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; flex: none;
+  background: var(--c-raised-bg); box-shadow: var(--c-raised-sh); font: 600 22px/1 var(--lg-font); font-variant-numeric: tabular-nums; }
+.c-opt.is-selected { box-shadow: 0 2px 6px rgb(0 0 0 / .22); }
+
+/* ===================================================================== text field (64 px recessed capsule) */
+.c-field { position: relative; display: flex; align-items: center; gap: 14px; height: 64px; padding: 0 12px 0 24px; box-sizing: border-box;
+  border-radius: 32px; background: var(--lg-fill-thick); box-shadow: var(--c-recess); font: 500 24px/1 var(--lg-font); color: var(--lg-text-1); white-space: nowrap; }
+.c-field > .lead { --is: 26px; color: rgb(255 255 255 / .62); margin-left: -2px; }
+.c-field > .txt { flex: 1; overflow: hidden; display: flex; align-items: center; }
+.c-field .ph { color: rgb(255 255 255 / .55); }
+.c-field .txt.ph { display: block; text-overflow: ellipsis; }
+.c-field .caret { display: inline-block; width: 2.5px; height: 30px; border-radius: 2px; background: var(--lg-blue); margin: 0 1px; flex: none; }
+.c-field .sel { background: rgb(0 145 255 / .45); border-radius: 3px; }
+.c-field > .clear { position: relative; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; flex: none;
+  background: rgb(255 255 255 / .26); color: rgb(20 21 26 / .85); margin-right: 1px; }
+.c-field > .clear > .lgk-i { --is: 18px; stroke-width: 2.8; }
+.c-field.is-focus { box-shadow: var(--c-recess), 0 0 0 3px rgb(255 255 255 / .55), 0 0 16px rgb(255 255 255 / .22); }
+.c-field.is-error { background: rgb(255 66 69 / .22); }
+.c-field.multi { height: auto; min-height: 64px; align-items: flex-start; padding-top: 18px; padding-bottom: 18px; border-radius: 30px; white-space: normal; line-height: 1.3; }
+.c-fieldlabel { font: 600 20px/1 var(--lg-font); color: var(--lg-text-2); }
+.c-fieldnote { font: 500 18px/1.3 var(--lg-font); color: var(--lg-text-2); }
+.c-fieldnote.err { color: rgb(255 255 255 / .86); display: flex; align-items: center; gap: 8px; }
+.c-fieldnote.err .lgk-i { --is: 20px; color: var(--lg-red); stroke-width: 2.4; }
+
+/* ===================================================================== list rows: contiguous 80 px rows, pill inset 6 */
+.c-list { position: absolute; border-radius: var(--lg-r-platter); background: var(--lg-fill-regular); padding: 0; }
+.c-row { position: relative; display: flex; align-items: center; gap: 18px; height: 80px; padding: 0 26px; box-sizing: border-box;
+  font: 500 24px/1.2 var(--lg-font); color: var(--lg-text-1); --lit-inset: 6px; border-radius: 30px; }
+.c-row::after, .c-row::before { border-radius: 24px; }
+.c-row.tall { height: 100px; }
+.c-row .chip { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; color: #fff; --is: 22px; flex: none;
+  box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / .35), 0 1px 2px rgb(0 0 0 / .18); }
+.c-row .two { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.c-row .two .sub { font: 500 20px/1.2 var(--lg-font); color: var(--lg-text-2); white-space: nowrap; }
+.c-row .trail { margin-left: auto; display: flex; align-items: center; gap: 10px; color: var(--lg-text-2); font: 500 22px/1 var(--lg-font); --is: 22px; white-space: nowrap; }
+.c-row .trail .lgk-i.chev { --is: 20px; color: var(--lg-text-3); stroke-width: 2.6; }
+.c-row .trail .chk { color: var(--lg-blue); --is: 26px; stroke-width: 3; }
+.c-row.nav-sel { --lift-bg: rgb(255 255 255 / .18); }
+.c-row.nav-sel > .pill, .c-row > .pill { position: absolute; inset: 6px; border-radius: 24px; background: var(--lift-bg, transparent); z-index: 0; }
+.c-row > :not(.pill) { position: relative; z-index: 1; }
+.c-row.danger { color: rgb(255 130 125); font-weight: 600; }
+.c-row.danger.is-focus > .pill { background: var(--lg-tint-danger); }
+.c-row.danger.is-focus { color: #fff; }
+.c-row.danger.is-focus::after { --lift: 0; --spot: .14; }
+.c-row.is-disabled { opacity: .4; }
+.c-sep { position: absolute; height: 2px; background: rgb(255 255 255 / .08); border-radius: 1px; }
+
+/* ===================================================================== tooltips */
+.c-tip { display: inline-flex; align-items: center; height: 44px; padding: 0 18px; box-sizing: border-box; font: 600 20px/1 var(--lg-font); white-space: nowrap; }
+
+/* ===================================================================== keyboard (Steam keyboard quad 854 x 280 kb px; authored in kb px)
+   Geometry is Steam's: 5 rows of 47.6 px hit areas from y 41 (the key block moved down into the 41 px band, SQ4),
+   visible key = hit area inset ~2 px, radius 11 (concentric with the 30 px platter at a 6 px inset + gaps). */
+.kb { position: relative; width: 854px; height: 280px; }
+.kb-plat { position: absolute; left: 0; top: 0; width: 854px; height: 280px; --r: 30px; }
+.kb-echo { position: absolute; left: 8px; right: 8px; top: 5px; height: 33px; border-radius: 17px; background: rgb(0 0 0 / .30); box-shadow: var(--c-recess);
+  display: flex; align-items: center; gap: 12px; padding: 0 16px; box-sizing: border-box; white-space: nowrap; z-index: 2; }
+.kb-echo .lbl { font: 600 15px/1 var(--lg-font); color: var(--lg-text-2); flex: none; display: flex; align-items: center; gap: 6px; --is: 15px; }
+.kb-echo .txt { font: 500 19px/1 var(--lg-font); color: var(--lg-text-1); display: flex; align-items: center; }
+.kb-echo .txt .ph { color: rgb(255 255 255 / .55); }
+.kb-echo .caret { display: inline-block; width: 2px; height: 21px; border-radius: 1px; background: var(--lg-blue); margin-left: 1px; }
+.kb-keys { position: absolute; left: 6px; right: 6px; top: 44px; display: flex; flex-direction: column; gap: 5.5px; z-index: 2; }
+.kb-row { display: flex; gap: 4px; height: 42px; }
+.c-key { position: relative; flex: 1 1 0; min-width: 0; height: 42px; border-radius: 11px; display: grid; place-items: center;
+  background: linear-gradient(180deg, rgb(255 255 255 / .07), rgb(255 255 255 / 0) 60%), rgb(255 255 255 / .15);
+  box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / .24), 0 2px 3px rgb(0 0 0 / .22);
+  font: 500 20px/1 var(--lg-font); color: var(--lg-text-1); --is: 20px; }
+.c-key.mod { background: linear-gradient(180deg, rgb(255 255 255 / .05), rgb(255 255 255 / 0) 60%), rgb(255 255 255 / .075); font: 600 15px/1 var(--lg-font); }
+.c-key.space { background: linear-gradient(180deg, rgb(255 255 255 / .07), rgb(255 255 255 / 0) 60%), rgb(255 255 255 / .15); }
+.c-key .sh { position: absolute; left: 8px; top: 5px; font: 500 15px/1 var(--lg-font); color: rgb(255 255 255 / .60); }
+.c-key.num > span:not(.sh):not(.glyphbadge) { margin-top: 12px; }
+.c-key.enter { background: linear-gradient(180deg, rgb(255 255 255 / .18), rgb(255 255 255 / 0) 60%), var(--lg-tint-primary); color: #fff; font: 600 17px/1 var(--lg-font);
+  box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / .38), 0 2px 4px rgb(0 0 0 / .25); }
+.c-key.on, .c-key.is-pressed { background: var(--lg-fill-selected); color: var(--lg-text-on-selected); }
+.c-key.on .sh, .c-key.is-pressed .sh { color: rgb(13 14 18 / .55); }
+.c-key.is-pressed { box-shadow: 0 0 16px 2px rgb(255 255 255 / .30), 0 2px 3px rgb(0 0 0 / .22); }
+.c-key.is-hover, .c-key.is-focus { background: linear-gradient(180deg, rgb(255 255 255 / .12), rgb(255 255 255 / 0) 60%), rgb(255 255 255 / .32); }
+.c-key .glyphbadge { position: absolute; right: 5px; top: 5px; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 11px;
+  background: rgb(255 255 255 / .22); font: 700 13.5px/1 var(--lg-font); color: #fff; }
+.c-key.enter { display: flex; justify-content: center; align-items: center; gap: 8px; }
+.c-key.enter .glyphbadge { background: rgb(255 255 255 / .30); }
+.c-key .glyphbadge.inline { position: static; }
+.c-key.on .glyphbadge { background: rgb(13 14 18 / .14); color: var(--lg-text-on-selected); }
+/* long-press accent bubble: a menu bubble on the platter (fill, not glass: it lives inside the keyboard quad) */
+.kb-accents { position: absolute; display: flex; gap: 4px; padding: 6px; border-radius: 17px; z-index: 5;
+  background: linear-gradient(180deg, rgb(255 255 255 / .10), rgb(255 255 255 / 0) 50%), rgb(44 46 54 / .96); box-shadow: 0 6px 18px rgb(0 0 0 / .45); }
+.kb-accents .c-key { flex: none; width: 48px; }
+
+/* ===================================================================== storyboard frames (states page) */
+.sb-frame { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.sb-time { font: 600 18px/1 var(--lg-font); color: var(--lg-text-2); font-variant-numeric: tabular-nums; }
+.sb-time b { color: var(--lg-text-1); font-weight: 600; }
+.sb-arrow { position: absolute; color: var(--lg-text-3); --is: 22px; }
+
+/* partial states for storyboards: the illumination layer at a fraction of its final contrast */
+.f60::after, .f60::before { opacity: .6 !important; }
+.f30::after, .f30::before { opacity: .3 !important; }
+.lgk-glass.c-tip.mat50 { scale: 1.12; background: rgb(60 62 70 / .06) !important; -webkit-backdrop-filter: blur(6px) saturate(1.2) !important; backdrop-filter: blur(6px) saturate(1.2) !important; box-shadow: none; }
+.lgk-glass.c-tip.mat50::before { opacity: .45; }
+.lgk-glass.c-tip.mat50 > * { opacity: 0; }
+.lgk-glass.c-tip.mat90 { scale: 1.02; }
+.lgk-glass.c-tip.mat90 > * { opacity: .55; filter: blur(2px); }
+
+/* notes beside a mockup (outside the scene: annotation, not product UI) */
+.c-note { position: absolute; z-index: 60; max-width: 300px; padding: 14px 18px; border-radius: 16px; background: rgb(12 13 16 / .80);
+  font: 500 18px/1.35 var(--lg-font); color: rgb(255 255 255 / .86); box-shadow: 0 6px 20px rgb(0 0 0 / .35); }
+.c-note b { color: #fff; font-weight: 600; }
+.c-note .k { color: #ffd65c; font-weight: 600; }
+
+/* ===================================================================== revision 2 (critique responses: controls.md §4.3, §4.7, §7, §8.2, §12.3) */
+
+/* Gamepad focus INSIDE a row: the common case. Steam focuses the control; the row gets .gpfocuswithin.
+   Single-control row: the row pill carries the focus (white .14 + spot + arc) and the control shows "lifted".
+   Multi-control row (check matrix, toggle pairs): the row pill is white .06; the focused control carries a light bloom. */
+.c-row.is-within > .pill { background: rgb(255 255 255 / .14); }
+.c-row.is-within::after { opacity: 1; --lift: 0; --spot: .16; --hx: 50%; --hy: 30%; }
+.c-row.is-within::before { content: ""; position: absolute; inset: var(--lit-inset, 0); border-radius: 24px; pointer-events: none; padding: 1.5px; z-index: 3;
+  background: var(--c-arc); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+.c-row.is-within-multi > .pill { background: rgb(255 255 255 / .06); }
+/* the control inside a focused single-control row: lifted (its own arc) plus a soft glow on its white knob */
+.c-switch.is-lifted > .knob { box-shadow: 0 2px 5px rgb(0 0 0 / .30), 0 0 14px 3px rgb(255 255 255 / .42); }
+.c-switch.is-lifted::before, .c-popup.is-lifted::before { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; padding: 1.5px; z-index: 3;
+  background: var(--c-arc); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+.c-popup.is-lifted::after { opacity: 1; --lift: .10; --spot: .12; }
+/* focus on a check circle in a multi-control row: Steam's FocusRing as a light plate 12 px larger than the circle, additive */
+.c-check.is-focus::after { inset: -12px; border-radius: 50%; opacity: 1; --lift: 0;
+  background: radial-gradient(circle, rgb(255 255 255 / .34) 0, rgb(255 255 255 / .22) 42%, rgb(255 255 255 / 0) 72%); }
+.c-check.on.is-focus { box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / .35), 0 0 16px 3px rgb(255 255 255 / .38); }
+
+/* disabled + focused: never opacity on the element (it would dim the focus light too). Content 40 %, fill white .10, arc at 60 % */
+.c-row.is-disabled { opacity: 1; }
+.c-row.is-disabled > :not(.pill) { opacity: .4; }
+.c-row.is-disabled.is-focus > .pill { background: rgb(255 255 255 / .10); }
+.c-row.is-disabled.is-focus::after { opacity: 0; }
+.c-row.is-disabled.is-focus::before { content: ""; position: absolute; inset: var(--lit-inset, 0); border-radius: 24px; pointer-events: none; padding: 1.5px; z-index: 3; opacity: .6;
+  background: var(--c-arc); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+.lgk-btn.is-disabled.is-focus { opacity: 1; color: rgb(255 255 255 / .40); background: rgb(255 255 255 / .10) !important; }
+.lgk-btn.is-disabled.is-focus::after { opacity: 0; }
+.lgk-btn.is-disabled.is-focus::before { opacity: .6; }
+.c-switch.dis-soft { opacity: 1; background: rgb(255 255 255 / .07); box-shadow: none; }
+.c-switch.dis-soft > .knob { background: rgb(255 255 255 / .42); box-shadow: none; }
+
+/* slider at value 0: no white at all (fill opacity from v); an inert glyph turns white on the dark track */
+.c-slider > .fill { opacity: clamp(0, calc(var(--v) * 40), 1); }
+.c-slider > .glyph { color: rgb(calc(255 - 228 * clamp(0, var(--v) * 40, 1)) calc(255 - 227 * clamp(0, var(--v) * 40, 1)) calc(255 - 223 * clamp(0, var(--v) * 40, 1)) / calc(.72 + .28 * clamp(0, var(--v) * 40, 1))); }
+/* slider with Steam's clickable mute icon: a separate glyph zone at the capsule's leading end, before the track, never under the knob.
+   The zone is a toggle: recessed with a white glyph while sound is on, white (the "on" fill) with the slashed glyph while muted. */
+.c-slider.mz > .zone { position: absolute; left: 0; top: 0; width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; z-index: 3;
+  color: rgb(255 255 255 / .86); --is: 26px; }
+.c-slider.mz.muted > .zone { background: rgb(255 255 255 / .94); color: #1b1c20; box-shadow: 0 1px 3px rgb(0 0 0 / .22); }
+.c-slider.mz.muted > .fill { background: rgb(255 255 255 / .24); box-shadow: none; }
+.c-slider.mz > .fill { left: 64px; width: calc(64px + var(--v) * (100% - 128px)); }
+.c-slider.mz > .knob { left: calc(67px + var(--v) * (100% - 128px)); }
+/* Steam's default-value tick (kept): a small marker above the capsule at the default value */
+.c-slider > .dtick { position: absolute; top: -13px; width: 0; height: 0; left: calc(32px + var(--d) * (100% - 64px)); z-index: 5; }
+.c-slider > .dtick::before { content: ""; position: absolute; left: -6px; top: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 7px solid rgb(255 255 255 / .72); }
+.c-slider.mz > .dtick { left: calc(96px + var(--d) * (100% - 128px)); }
+
+/* popup-scale variants (bar popups at m 0.83: 1 popup px = 1.2 main px; authored in popup px) */
+.qp .c-slider { height: 54px; border-radius: 27px; }
+.qp .c-slider > .fill { border-radius: 27px; width: calc(54px + var(--v) * (100% - 54px)); }
+.qp .c-slider > .glyph { left: 15px; top: 15px; --is: 24px; }
+.qp .c-slider > .knob { width: 48px; height: 48px; left: calc(3px + var(--v) * (100% - 54px)); }
+.qp .c-slider.stepped > .fill { width: calc(27px + var(--v) * (100% - 54px)); }
+.qp .c-slider.stepped > .knob { width: 42px; height: 42px; top: 6px; left: calc(6px + var(--v) * (100% - 54px)); }
+.qp .c-slider > .notches { left: 27px; right: 27px; top: 23px; }
+.qp .c-slider > .dtick { left: calc(27px + var(--d) * (100% - 54px)); }
+.qp .c-slider.mz > .zone { width: 54px; height: 54px; --is: 22px; }
+.qp .c-slider.mz > .fill { left: 54px; width: calc(54px + var(--v) * (100% - 108px)); }
+.qp .c-slider.mz > .knob { left: calc(57px + var(--v) * (100% - 108px)); }
+
+/* the keyboard echo for secret fields: dots, never characters */
+.kb-echo .dots { letter-spacing: .18em; font: 700 19px/1 var(--lg-font); color: var(--lg-text-1); }
+
+/* long value lists (> 14 options): one scrolling column of two-line rows in a slab capped at the modal box (520 tall) */
+.c-vmenu { padding: 8px; box-sizing: border-box; display: flex; flex-direction: column; gap: 6px; }
+.c-vmenu .hdr { height: 40px; display: flex; align-items: center; padding: 0 18px; font: 700 22px/1 var(--lg-font); color: var(--lg-text-2); flex: none; }
+.c-vmenu .scr { position: relative; flex: 1; overflow: hidden;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%);
+          mask-image: linear-gradient(180deg, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%); }
+.c-vmenu .scr > .in { position: absolute; left: 0; right: 0; display: flex; flex-direction: column; gap: 6px; }
+.c-vmenu .vr { position: relative; display: flex; align-items: center; gap: 14px; height: 100px; padding: 0 18px 0 20px; border-radius: 24px; flex: none; box-sizing: border-box; }
+.c-vmenu .vr .two { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1; }
+.c-vmenu .vr .t { font: 500 24px/1.15 var(--lg-font); color: var(--lg-text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.c-vmenu .vr .s { font: 500 20px/1.2 var(--lg-font); color: var(--lg-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.c-vmenu .vr .chk { --is: 26px; color: var(--lg-text-1); stroke-width: 3; flex: none; }
+.c-vmenu .vr.is-focus { background: rgb(255 255 255 / .30); }
+.c-vmenu .vr.is-focus::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; mix-blend-mode: plus-lighter;
+  background: radial-gradient(circle at 50% 30%, rgb(255 255 255 / .18) 0, rgb(255 255 255 / 0) 75%); }
+.c-vmenu .vr.is-focus::before { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; padding: 1.5px;
+  background: var(--c-arc); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+.c-vmenu .cancel { align-self: center; flex: none; height: 56px; padding: 0 30px; border-radius: 28px; display: inline-flex; align-items: center;
+  background: rgb(255 255 255 / .08); font: 500 22px/1 var(--lg-font); color: var(--lg-text-2); }
+.c-vmenu .rail { position: absolute; right: 3px; width: 5px; border-radius: 3px; background: rgb(255 255 255 / .30); }
+
+/* segmented with contiguous hit areas: each segment is its full share of the track; the visible pill is inset 2 px */
+.c-seg2 { display: inline-flex; padding: 2px; height: 64px; box-sizing: border-box; border-radius: 32px; background: var(--lg-fill-thick); box-shadow: var(--c-recess); }
+.c-seg2 > span { position: relative; display: grid; place-items: center; min-width: 140px; padding: 0 24px; box-sizing: border-box; border-radius: 30px;
+  font: 600 22px/1 var(--lg-font); color: var(--lg-text-1); }
+.c-seg2 > span > b { position: absolute; inset: 2px; border-radius: 28px; font-weight: 600; display: grid; place-items: center; }
+.c-seg2 > span.on > b { background: var(--lg-fill-selected); color: var(--lg-text-on-selected); box-shadow: 0 2px 6px rgb(0 0 0 / .22); }
+
+/* annotation overlays (not product UI): hit regions and dimension labels */
+.c-dim { position: absolute; z-index: 61; font: 600 15px/1 ui-monospace, Consolas, monospace; color: #ffd65c; white-space: nowrap; text-shadow: 0 1px 2px #000; }
+.c-hit { position: absolute; z-index: 59; border-radius: 6px; pointer-events: none;
+  background: repeating-linear-gradient(135deg, rgb(255 214 92 / .16) 0 6px, rgb(255 214 92 / .04) 6px 12px); box-shadow: inset 0 0 0 1.5px rgb(255 214 92 / .75); }

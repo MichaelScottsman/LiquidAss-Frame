@@ -1,0 +1,234 @@
+/* Glass Shell Phase 2 — "Game pages and Now Playing" concept: page layer over kit.css.
+ * Every size is a DESIGN2 token or derived from one (main-window CSS px; 1 pt = 4/3 px).
+ * Surfaces that are not the main window (Now Playing, binding UI) are authored in their own
+ * CSS px inside an .lgk-pop and scaled into the view (DESIGN2 §2.5: NP x1.44, binding x1.87).
+ */
+
+/* ------------------------------------------------------------ glass controls in the functional layer */
+/* A control that is itself a piece of glass (Play capsule, circles over the hero, the tab capsule).
+   It is a sibling of the window glass, so its backdrop is the page under it. */
+.gp-ctl { display: flex; align-items: center; justify-content: center; gap: 12px; color: var(--lg-text-1);
+  font: 600 26px/1 var(--lg-font); letter-spacing: -.005em; white-space: nowrap; }
+.gp-ctl > .lgk-i { --is: 30px; }
+.gp-ctl::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 2;
+  mix-blend-mode: plus-lighter; opacity: 0;
+  background: radial-gradient(circle at var(--hx, 50%) var(--hy, 30%), rgb(255 255 255 / var(--spot, .12)) 0, rgb(255 255 255 / 0) var(--spot-r, 75%)),
+              rgb(255 255 255 / var(--lift, 0)); }
+.gp-ctl.is-hover::after { opacity: 1; --lift: .08; }
+.gp-ctl.is-focus { --rim: 1.65 !important; }
+.gp-ctl.is-focus::after { opacity: 1; --lift: .14; --spot: .18; }
+.gp-ctl.is-pressed::after { opacity: 1; --lift: .06; --spot: .24; --spot-r: 120%; }
+.gp-ctl.is-selected { background: var(--lg-fill-selected) !important; color: var(--lg-text-on-selected) !important; }
+.gp-ctl.is-danger-focus { background: linear-gradient(180deg, rgb(255 255 255 / .16), rgb(255 255 255 / 0) 60%), var(--lg-tint-danger) !important; }
+
+/* over the hero the backdrop is art, not the room: the kit's room adaptation does not apply */
+.gp-overart { --lgk-adapt: 1 !important; }
+.lgk-glass[data-mat="clear"].gp-ctl { background: linear-gradient(180deg, rgb(255 255 255 / .16), rgb(255 255 255 / .06) 60%), rgb(255 255 255 / .06); }
+
+/* ------------------------------------------------------------ the window */
+.gp-win { left: 0; top: 0; width: 1280px; height: 656px; }
+.gp-win.full { height: 720px; }
+/* hero: content, never glass. Fills the window at rest (TV page, ref 5) */
+.gp-hero { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; }
+.gp-hero .art { position: absolute; inset: 0; background-size: cover; background-position: 62% 40%; }
+/* Dimming (revision 2): the text column (x 0-620 = 0-48 %) gets the FULL left alpha, which T2 sets per hero
+   from the art's measured luminance (--dimL, .40-.70; T1 fallback .65); it fades out by 72 %. The bottom layer
+   is the dimming that clear glass needs under the cluster and the tab row (--dimB, .35-.70, full strength over the
+   bottom 34 % = both rows); the top layer darkens the toolbar row (--dimT, .25-.70). T2 samples the hero once per page. */
+.gp-hero .dim { position: absolute; inset: 0;
+  background:
+    linear-gradient(180deg, rgb(0 0 0 / var(--dimT, .35)) 0, rgb(0 0 0 / 0) 150px),       /* toolbar row (Steam's TopGradient, restyled) */
+    linear-gradient(90deg, rgb(0 0 0 / var(--dimL, .50)) 0, rgb(0 0 0 / var(--dimL, .50)) 46%, rgb(0 0 0 / calc(var(--dimL, .50) * .45)) 58%, rgb(0 0 0 / 0) 72%),
+    linear-gradient(0deg, rgb(0 0 0 / var(--dimB, .45)) 0, rgb(0 0 0 / var(--dimB, .45)) 34%, rgb(0 0 0 / calc(var(--dimB, .45) * .4)) 46%, rgb(0 0 0 / 0) 58%); }
+.gp-onart { text-shadow: 0 1px 2px rgb(0 0 0 / .35), 0 0 18px rgb(0 0 0 / .25); }
+/* on-art secondary text is .80, not .70: it sits on art, not on glass (AT-LEGIBLE) */
+.gp-onart.gp-stats span { color: rgb(255 255 255 / .80); }
+
+/* the game's logo (content: Steam's logo asset; here procedural type) */
+.gp-logo { position: absolute; display: flex; flex-direction: column; justify-content: flex-end; }
+.gp-logo b { display: block; font: 900 66px/.88 var(--lg-font); letter-spacing: -.035em; text-transform: uppercase;
+  background: linear-gradient(180deg, #ffe7a8 0%, #ffc75f 38%, #ff6f91 100%); -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 2px 2px rgb(40 10 40 / .45)) drop-shadow(0 0 22px rgb(255 111 145 / .35)); }
+.gp-logo small { display: block; margin-top: 10px; font: 700 18px/1 var(--lg-font); letter-spacing: .32em; text-transform: uppercase; color: rgb(255 231 168 / .9); }
+
+/* metadata */
+.gp-chips { position: absolute; display: flex; gap: 10px; }
+.gp-chip { display: inline-flex; align-items: center; gap: 10px; height: 36px; padding: 0 16px 0 4px; border-radius: 18px;
+  background: rgb(255 255 255 / .16); -webkit-backdrop-filter: blur(10px) saturate(1.4); backdrop-filter: blur(10px) saturate(1.4);
+  font: 600 18px/1 var(--lg-font); color: var(--lg-text-1); white-space: nowrap; }
+.gp-chip .disc { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; --is: 19px; flex: none; }
+.gp-chip.plain { padding-left: 16px; }
+.gp-syn { position: absolute; width: 580px; font: 500 22px/1.32 var(--lg-font); color: rgb(255 255 255 / .90); }
+.gp-syn b { font-weight: 700; }
+.gp-stats { position: absolute; display: flex; gap: 22px; font: 500 20px/1.3 var(--lg-font); white-space: nowrap; }
+.gp-stats span { color: var(--lg-text-2); }
+.gp-stats b { font-weight: 600; color: var(--lg-text-1); margin-left: 6px; }
+
+/* ------------------------------------------------------------ toolbar row (shell-nav owns it; drawn for context) */
+.gp-back { left: 24px; top: 24px; width: 60px; height: 60px; }
+.gp-search { left: 320px; top: 22px; width: 640px; height: 64px; justify-content: flex-start; padding: 0 22px; gap: 14px;
+  font: 500 24px/1 var(--lg-font); color: rgb(255 255 255 / .62); }
+.gp-search > .lgk-i { --is: 26px; }
+.gp-search.recessed { background: var(--lg-fill-thick) !important; box-shadow: inset 0 2px 5px rgb(0 0 0 / .26) !important; }
+
+/* ------------------------------------------------------------ the play cluster */
+.gp-play { width: 280px; height: 80px; --r: 40px; font-size: 26px; }
+.gp-play .lgk-i { --is: 30px; }
+.gp-circ { width: 80px; height: 80px; --r: 40px; }
+.gp-circ > .lgk-i { --is: 32px; }
+.gp-badge { position: absolute; right: -6px; top: -6px; z-index: 4; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%;
+  background: var(--lg-red); color: #fff; --is: 18px; box-shadow: 0 2px 6px rgb(0 0 0 / .3); }
+.gp-logo img { display: block; }
+.gp-dis { opacity: .4; }
+.gp-two { display: flex; flex-direction: column; gap: 4px; text-align: left; }
+.gp-two small { font: 500 18px/1 var(--lg-font); color: rgb(255 255 255 / .86); }
+
+/* revision 2: one flex row in Steam's DOM order; every control is an 80 px glass shape in its own slot */
+.gp-cluster { position: absolute; display: flex; align-items: center; gap: 16px; z-index: 2; }
+.gp-slot { position: relative; display: block; flex: none; height: 80px; }
+.gp-slot > .lgk-glass.gp-ctl { position: relative; }
+/* labelled capsules for the two controller paths (Steam Input, SteamVR Controller Bindings) */
+.gp-cap { height: 80px; --r: 40px; padding: 0 28px 0 22px; gap: 12px; font: 600 24px/1 var(--lg-font); }
+.gp-cap > .lgk-i { --is: 30px; }
+/* Play-from: a display glyph (where the game runs) + Steam's caret as a small chevron badge */
+.gp-pf > .lgk-i { --is: 34px; margin: -4px 0 0 -2px; }
+.gp-pfbadge { position: absolute; right: 4px; bottom: 4px; z-index: 4; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%;
+  background: rgb(26 27 32 / .86); color: #fff; --is: 16px; box-shadow: 0 1px 4px rgb(0 0 0 / .35); }
+.gp-pf.is-selected .gp-pfbadge { background: rgb(26 27 32 / .9); }
+/* tooltips of the cluster sit ABOVE their control (bottom edge 12 px above its top), owner + 5 mm */
+.gp-slot > .lgk-glass.gp-tip { position: absolute; left: 50%; bottom: calc(100% + 12px); translate: -50% 0; z-index: 6; }
+
+/* the tab row: segmented capsule + Steam's arrows merged into one paired capsule (two 80 px hit halves) */
+.gp-tabrow { position: absolute; display: flex; align-items: center; gap: 16px; z-index: 2; }
+.gp-tabrow > .lgk-glass { position: relative; }
+.gp-arrows { display: flex; height: 64px; --r: 32px; padding: 0; gap: 0; }
+.gp-arrows > span { display: grid; place-items: center; width: 80px; height: 64px; --is: 26px; }
+.gp-cloud { position: absolute; z-index: 2; }
+
+/* details states: the art stays behind the glass, blurred and dimmed (Steam's own blurred copy, opacity .40 (.30 if the glass drops under L 60),
+   the .45 dim applied to the art only so the window glass keeps L 55-110) */
+.gp-backdrop { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; pointer-events: none; }
+.gp-backdrop .art { position: absolute; inset: -80px; background-size: cover; background-position: 62% 40%;
+  filter: blur(40px) brightness(.55) saturate(1.2); opacity: var(--bdA, .40); }
+.gp-ititle { position: absolute; left: 118px; right: 118px; top: 24px; height: 60px; text-align: center; font: 700 28px/60px var(--lg-font);
+  letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--lg-text-1); }
+
+/* ------------------------------------------------------------ section tabs: one Liquid Glass capsule, white selected segment */
+.gp-tabs { display: flex; gap: 4px; padding: 4px; height: 64px; --r: 32px; }
+.gp-seg { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-width: 140px; height: 56px; padding: 0 26px;
+  box-sizing: border-box; border-radius: 28px; font: 600 22px/1 var(--lg-font); color: var(--lg-text-1); white-space: nowrap; }
+.gp-seg.is-selected { background: var(--lg-fill-selected); color: var(--lg-text-on-selected); box-shadow: 0 2px 6px rgb(0 0 0 / .22); }
+.gp-seg .ok { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--lg-green); color: #fff; --is: 17px; }
+.gp-seg.is-focus::after { content: ""; position: absolute; inset: 0; border-radius: inherit; mix-blend-mode: plus-lighter; pointer-events: none;
+  background: radial-gradient(circle at 50% 28%, rgb(255 255 255 / .18) 0, transparent 80%), rgb(255 255 255 / .14); }
+
+/* ------------------------------------------------------------ bottom ornament (Steam's footer legend as real buttons) */
+.gp-foot { height: 84px; display: flex; align-items: center; gap: 8px; padding: 0 12px; box-sizing: border-box; }
+.gp-foot .lgk-btn { font-size: 22px; gap: 12px; padding: 0 22px 0 14px; }
+.gp-foot .lgk-btn .lgk-glyph { width: 28px; height: 28px; font-size: 15px; }
+.gp-foot .lgk-btn.nav { font-weight: 500; color: var(--lg-text-2); }
+
+/* ------------------------------------------------------------ content on the glass (scrolled pages) */
+.gp-scroll { position: absolute; left: 0; right: 0; top: 0; bottom: 0; overflow: hidden; border-radius: inherit;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, transparent 120px, rgb(0 0 0 / .35) 168px, #000 212px, #000 calc(100% - 110px), rgb(0 0 0 / .25) calc(100% - 34px), transparent 100%);
+          mask-image: linear-gradient(180deg, transparent 0, transparent 120px, rgb(0 0 0 / .35) 168px, #000 212px, #000 calc(100% - 110px), rgb(0 0 0 / .25) calc(100% - 34px), transparent 100%); }
+.gp-h2 { position: absolute; left: 40px; font: 700 30px/1.25 var(--lg-font); letter-spacing: -.01em; color: var(--lg-text-1); }
+.gp-h2 .trail { margin-left: 16px; font: 500 22px/1 var(--lg-font); color: var(--lg-text-2); letter-spacing: 0; }
+.gp-cap { font: 600 18px/1.35 var(--lg-font); color: var(--lg-text-2); }
+.gp-prog { position: relative; height: 12px; border-radius: 6px; background: var(--lg-fill-thick); box-shadow: inset 0 1px 3px rgb(0 0 0 / .3); overflow: hidden; }
+.gp-prog > i { position: absolute; inset: 0 auto 0 0; width: var(--v, 50%); border-radius: 6px; background: rgb(255 255 255 / .86); }
+
+/* content cards: opaque, rounded; focus = lift (scale for cards <= 600 px wide, depth only for wider ones) */
+.gp-card { position: absolute; border-radius: var(--lg-r-card); overflow: hidden; box-shadow: 0 6px 18px rgb(0 0 0 / .30); }
+.gp-card.is-focus { scale: 1.05; z-index: 3; box-shadow: 0 18px 44px rgb(0 0 0 / .48), 0 0 30px 2px rgb(255 255 255 / .22); }
+.gp-card.is-focus::after { content: ""; position: absolute; inset: 0; border-radius: inherit; mix-blend-mode: plus-lighter; pointer-events: none;
+  background: linear-gradient(155deg, rgb(255 255 255 / .22) 0, rgb(255 255 255 / .05) 30%, transparent 55%); }
+.gp-card.wide.is-focus { scale: 1; box-shadow: 0 18px 44px rgb(0 0 0 / .48), 0 0 30px 2px rgb(255 255 255 / .18); }
+
+/* raised fill buttons inside glass (thin fill), sized by DESIGN2 §4 */
+.gp-btn { position: absolute; display: inline-flex; align-items: center; justify-content: center; gap: 12px; height: 60px; padding: 0 24px;
+  box-sizing: border-box; border-radius: 30px; background: var(--lg-fill-thin); font: 600 22px/1 var(--lg-font); color: var(--lg-text-1); white-space: nowrap; }
+.gp-btn .lgk-i { --is: 24px; }
+.gp-btn .lgk-i.trail { color: var(--lg-text-2); --is: 20px; }
+
+/* tooltip capsule (thick glass) */
+.gp-tip { height: 48px; padding: 0 20px; display: flex; align-items: center; font: 600 20px/1 var(--lg-font); --r: 24px; white-space: nowrap; }
+
+/* menus (kit .lgk-menu on thick glass) */
+.gp-menu .lgk-row { height: 72px; }
+.gp-menu .lgk-row .chev { margin-left: auto; color: var(--lg-text-2); --is: 22px; }
+.gp-menu .lgk-row.danger { color: var(--lg-red); }
+.gp-menu .lgk-row.danger.is-focus { background: var(--lg-tint-danger); color: #fff; }
+.gp-menu .lgk-row.is-open { background: var(--lg-fill-selected); color: var(--lg-text-on-selected); }
+.gp-menu .lgk-row.is-open .chev { color: rgb(13 14 18 / .6); }
+.gp-menu .lgk-row.dis { color: var(--lg-text-4); }
+.gp-menu .lgk-row .sub { display: block; font: 500 18px/1.2 var(--lg-font); color: var(--lg-text-3); }
+
+/* the page-level scrim while a menu (.20) or a sheet (.35) is open */
+.gp-scrim { position: absolute; inset: 0; border-radius: inherit; background: rgb(0 0 0 / var(--a, .20)); z-index: 2; }
+
+/* annotation callouts for review renders (not part of the design) */
+.gp-note { position: absolute; z-index: 60; font: 600 15px/20px ui-monospace, Consolas, monospace; color: #111; background: #ffe27a;
+  padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
+
+/* menus as window-nav §5.1: 40 px header inside the slab, Cancel as a 60 px capsule centred under the rows */
+.gp-menu .hdr { height: 40px; }
+.gp-menu .cancel { align-self: center; display: inline-flex; align-items: center; justify-content: center; height: 60px; padding: 0 32px; margin-top: 2px;
+  border-radius: 30px; background: rgb(255 255 255 / .08); font: 500 22px/1 var(--lg-font); color: var(--lg-text-2); }
+
+/* ------------------------------------------------------------ SteamVR Now Playing (authored in NP px = main px x 1.44) */
+/* revision 2: rows and Exit are 116 NP px (>= the 115 NP px target of DESIGN2 §2.5); Exit is red ONLY when T2 has
+   keyed it (data-lgs-np="exit"); without the key it is a neutral capsule. Never coloured by position. */
+.np { left: 0; top: 0; width: 1858px; height: 1045px; --r: 78px; --rim-w: 3px; --de-w: 23px; }
+.np-art { position: absolute; left: 218px; top: 118px; width: 540px; height: 810px; border-radius: 29px; overflow: hidden; box-shadow: 0 14px 50px rgb(0 0 0 / .45); }
+.np-art::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(155deg, rgb(255 255 255 / .16) 0, transparent 34%); mix-blend-mode: plus-lighter; }
+.np-glow { position: absolute; left: 150px; top: 60px; width: 680px; height: 930px; border-radius: 60px; filter: blur(70px); opacity: .55; }
+.np-col { position: absolute; left: 880px; top: 110px; width: 900px; }
+.np-cap { font: 600 29px/1.3 var(--lg-font); color: var(--lg-text-2); }
+.np-title { margin-top: 6px; font: 700 92px/1.08 var(--lg-font); letter-spacing: -.02em; }
+.np-resume { position: absolute; left: 880px; top: 316px; width: 760px; height: 128px; --r: 64px; font-size: 40px; gap: 18px; }
+.np-resume .lgk-i { --is: 44px; }
+.np-grp { position: absolute; left: 880px; top: 484px; width: 760px; padding: 8px; box-sizing: border-box; border-radius: 52px; background: var(--lg-fill-regular); display: flex; flex-direction: column; gap: 0; }
+.np-row { position: relative; display: flex; align-items: center; gap: 26px; height: 116px; padding: 0 30px 0 22px; border-radius: 44px; font: 500 36px/1 var(--lg-font); }
+.np-row .chip { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; color: #fff; --is: 34px; flex: none; }
+.np-row .chev { margin-left: auto; --is: 30px; color: var(--lg-text-2); }
+.np-row + .np-row::before { content: ""; position: absolute; left: 112px; right: 30px; top: -1px; height: 3px; background: rgb(255 255 255 / .08); }
+.np-row.is-focus { background: rgb(255 255 255 / .14); }
+.np-exit { position: absolute; left: 880px; width: 760px; height: 116px; border-radius: 58px; background: var(--lg-fill-thin);
+  display: flex; align-items: center; justify-content: center; gap: 16px; font: 600 36px/1 var(--lg-font); color: var(--lg-text-1); }
+.np-exit[data-lgs-np="exit"] { color: var(--lg-red); }
+.np-exit[data-lgs-np="exit"].is-focus { background: linear-gradient(180deg, rgb(255 255 255 / .16), rgb(255 255 255 / 0) 60%), var(--lg-tint-danger); color: #fff; }
+.np-exit .lgk-i { --is: 36px; }
+
+/* ------------------------------------------------------------ SteamVR binding UI (authored in binding px = main px x 1.87) */
+/* revision 2: every capsule is 112 px visible with a 150 px hit box (19 px transparent padding above and below);
+   neighbouring hit boxes are >= 40 px apart; View and Activate sit side by side, never stacked */
+.bw { left: 0; top: 0; width: 2400px; height: 1350px; --r: 101px; --rim-w: 3.5px; --de-w: 28px; }
+.bw .clip { position: absolute; inset: 0; border-radius: inherit; overflow: hidden;
+  -webkit-mask-image: linear-gradient(180deg, #000 0, #000 calc(100% - 150px), transparent 100%); mask-image: linear-gradient(180deg, #000 0, #000 calc(100% - 150px), transparent 100%); }
+.b-circ { position: absolute; display: grid; place-items: center; width: 112px; height: 112px; border-radius: 50%; background: var(--lg-fill-thin); --is: 50px; }
+.b-title { position: absolute; left: 0; right: 0; top: 52px; text-align: center; font: 700 56px/1.25 var(--lg-font); letter-spacing: -.01em; }
+.b-sub { position: absolute; left: 0; right: 0; top: 124px; text-align: center; font: 500 38px/1.3 var(--lg-font); color: var(--lg-text-2); }
+.b-cap { position: absolute; display: inline-flex; align-items: center; justify-content: center; gap: 20px; height: 112px; padding: 0 44px; box-sizing: border-box;
+  border-radius: 56px; background: var(--lg-fill-thin); font: 600 41px/1 var(--lg-font); color: var(--lg-text-1); white-space: nowrap; }
+.b-cap .lgk-i { --is: 42px; }
+.b-cap.plain { background: transparent; color: var(--lg-text-2); }
+.b-cap.primary { background: linear-gradient(180deg, rgb(255 255 255 / .16), rgb(255 255 255 / 0) 60%), var(--lg-tint-primary); }
+.b-cap.is-hover::after, .b-row.is-hover::after { content: ""; position: absolute; inset: 0; border-radius: inherit; mix-blend-mode: plus-lighter; pointer-events: none;
+  background: radial-gradient(circle at var(--hx, 50%) var(--hy, 40%), rgb(255 255 255 / .14) 0, transparent 75%), rgb(255 255 255 / .08); }
+.b-plat { position: absolute; border-radius: 56px; background: var(--lg-fill-regular); box-sizing: border-box; }
+.b-h2 { position: absolute; left: 75px; font: 700 56px/1.25 var(--lg-font); letter-spacing: -.01em; }
+.b-lbl { font: 600 34px/1.35 var(--lg-font); color: var(--lg-text-2); }
+.b-name { font: 600 45px/1.25 var(--lg-font); }
+.b-desc { font: 500 38px/1.32 var(--lg-font); color: var(--lg-text-2); }
+.b-meta { font: 500 34px/1.35 var(--lg-font); color: var(--lg-text-2); }
+/* community bindings as rows in one platter (visionOS list): avatar, two text lines, actions side by side */
+.b-list { position: absolute; left: 75px; width: 2250px; padding: 10px; box-sizing: border-box; border-radius: 56px; background: var(--lg-fill-regular); }
+.b-row { position: relative; display: flex; align-items: center; gap: 32px; height: 236px; padding: 0 40px 0 34px; border-radius: 46px; }
+.b-row + .b-row::before { content: ""; position: absolute; left: 170px; right: 40px; top: -1px; height: 3px; background: rgb(255 255 255 / .08); }
+.b-row .av { flex: none; width: 104px; height: 104px; border-radius: 50%; overflow: hidden; }
+.b-row .tx { flex: 1; min-width: 0; }
+.b-row .tx .b-name, .b-row .tx .b-desc { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.b-row .ac { flex: none; display: flex; gap: 40px; }
+.b-row .ac .b-cap { position: relative; }

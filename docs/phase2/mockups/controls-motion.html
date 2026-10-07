@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — controls: hover, focus, press and reveal over time (motion storyboard)</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="controls.css">
+<style>
+  .p1 { top: 136px; height: 140px; }
+  .p2 { top: 328px; height: 140px; }
+  .p3 { top: 520px; height: 180px; }
+  .frames { position: absolute; inset: 0; display: flex; justify-content: space-evenly; align-items: stretch; padding: 0 8px; }
+  .frames > div { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 12px; padding-bottom: 18px; }
+  .stage { display: flex; align-items: center; justify-content: center; gap: 20px; }
+  .p1 .stage, .p2 .stage { height: 72px; }
+  .p3 .frames > div { width: 190px; }
+  .p3 .stage { position: relative; width: 190px; height: 116px; align-items: flex-start; }
+  .p3 .c-tip { position: absolute; top: 72px; left: 50%; translate: -50% 0; --r: 22px; }
+  .cap2 { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .dot { position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: #fff; z-index: 9;
+         box-shadow: 0 0 0 3px rgb(255 255 255 / .25), 0 0 12px 4px rgb(160 200 255 / .55); }
+</style>
+</head>
+<body>
+<div class="lgk-view" data-room="studio" data-dim>
+  <div class="lgk-overlay" style="left:320px; top:180px">
+    <div class="lgk-glass cg-win" data-mat="window" data-dz="0" data-tier="T5 window" style="--lgk-contrast:.30">
+      <div class="cg-side" data-sel="Hover &amp; Focus"></div>
+      <div class="cg-main">
+        <div class="cg-head"><span class="t-title2">Hover &amp; Focus</span>
+          <span class="lgk-btn circle" style="right:24px"><i data-i="more"></i></span></div>
+
+        <div class="cg-sec" style="top:104px">Laser <span class="v3">· light follows the pointer; press swells, release settles</span></div>
+        <div class="cg-platter p1"><div class="frames">
+          <div><div class="stage"><span class="lgk-btn capsule">Open</span></div><div class="cg-cap"><b>0 ms</b> rest</div></div>
+          <div><div class="stage"><span class="lgk-btn capsule is-hover f60" style="--hx:30%; --hy:78%">Open<i class="dot" style="left:30%; top:78%"></i></span></div><div class="cg-cap"><b>120 ms</b> hover-in</div></div>
+          <div><div class="stage"><span class="lgk-btn capsule is-hover" style="--hx:62%; --hy:78%">Open<i class="dot" style="left:62%; top:78%"></i></span></div><div class="cg-cap"><b>294 ms</b> settled</div></div>
+          <div><div class="stage"><span class="lgk-btn capsule is-pressed" style="--hx:62%; --hy:78%">Open<i class="dot" style="left:62%; top:78%"></i></span></div><div class="cg-cap"><b>+210 ms</b> press</div></div>
+          <div><div class="stage"><span class="lgk-btn capsule is-hover" style="--hx:62%; --hy:78%; scale:1.03">Open<i class="dot" style="left:62%; top:78%"></i></span></div><div class="cg-cap"><b>+90 ms</b> release</div></div>
+        </div></div>
+
+        <div class="cg-sec" style="top:296px">Gamepad <span class="v3">· focus lights from within; ≥ 60 % on the first frame</span></div>
+        <div class="cg-platter p2"><div class="frames">
+          <div><div class="stage"><span class="lgk-btn circle is-focus"><i data-i="sort"></i></span><span class="lgk-btn circle"><i data-i="filter"></i></span><span class="lgk-btn circle"><i data-i="more"></i></span></div><div class="cg-cap"><b>0 ms</b> focus on Sort</div></div>
+          <div><div class="stage"><span class="lgk-btn circle is-focus"><i data-i="sort"></i></span><span class="lgk-btn circle is-focus f60"><i data-i="filter"></i></span><span class="lgk-btn circle"><i data-i="more"></i></span></div><div class="cg-cap"><b>1st frame</b> after D-pad →</div></div>
+          <div><div class="stage"><span class="lgk-btn circle is-focus f30"><i data-i="sort"></i></span><span class="lgk-btn circle is-focus"><i data-i="filter"></i></span><span class="lgk-btn circle"><i data-i="more"></i></span></div><div class="cg-cap"><b>294 ms</b> in, old fades 441</div></div>
+        </div></div>
+
+        <div class="cg-sec" style="top:488px">Reveals <span class="v3">· tooltip after 0.8 s of hover or focus</span></div>
+        <div class="cg-platter p3"><div class="frames">
+          <div><div class="stage"><span class="lgk-btn circle is-hover" style="--hx:70%; --hy:80%"><i data-i="share"></i><i class="dot" style="left:70%; top:80%"></i></span></div><div class="cg-cap"><b>0 s</b> hover starts</div></div>
+          <div><div class="stage"><span class="lgk-btn circle is-hover" style="--hx:70%; --hy:80%"><i data-i="share"></i><i class="dot" style="left:70%; top:80%"></i></span><div class="lgk-glass c-tip mat50" data-mat="panel"><span>Share</span></div></div><div class="cg-cap"><b>0.8 s</b> glass forms</div></div>
+          <div><div class="stage"><span class="lgk-btn circle is-hover" style="--hx:70%; --hy:80%"><i data-i="share"></i><i class="dot" style="left:70%; top:80%"></i></span><div class="lgk-glass c-tip" data-mat="panel" data-dz="5" style="--dz:5"><span>Share</span></div></div><div class="cg-cap"><b>1.05 s</b> shown</div></div>
+          <div><div class="stage"><span class="lgk-btn circle"><i data-i="share"></i></span><div class="lgk-glass c-tip mat90" data-mat="panel"><span>Share</span></div></div><div class="cg-cap"><b>leave + 0.2 s</b> fades</div></div>
+        </div></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="controls-gallery.js"></script>
+<script src="kit.js"></script>
+<script src="controls-icons.js"></script>
+</body>
+</html>

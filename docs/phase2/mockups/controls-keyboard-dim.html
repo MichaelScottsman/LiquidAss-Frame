@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — controls: the keyboard in a dim room</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="controls.css">
+<style>
+  /* View pitched ~14 deg down: the window centre sits 456 px above the view centre, the keyboard 17-27 deg below
+     the window centre (social-media audit §0.3): top edge at y 636, 1157 x 333 view px (854 x 280 kb px x 1.355 / 1.19). */
+  .win { left: 0; top: 0; width: 1280px; height: 664px; }
+  .res { position: absolute; top: 336px; left: 40px; right: 40px; display: flex; gap: 24px; }
+  .res .lgk-poster { position: relative; width: 168px; height: 252px; flex: none; }
+  .res-t { position: absolute; left: 40px; top: 290px; }
+  .scopes { left: 252px; top: 636px; width: 776px; }
+  .kbpop { left: 382px; top: 636px; transform-origin: 0 0; transform: scale(1.355, 1.19); }
+</style>
+</head>
+<body>
+<div class="lgk-view" data-room="lounge" data-dim>
+
+  <!-- Steam's main window (its upper half, with the search field, is above the view) -->
+  <div class="lgk-overlay" style="left:320px; top:-276px">
+    <div class="lgk-glass win" data-mat="window" data-dz="0">
+      <div class="res-t t-title2">Library</div>
+      <div class="res">
+        <div class="lgk-poster lgk-art" data-art="poster:1:Hollow Peaks"></div>
+        <div class="lgk-poster lgk-art" data-art="poster:6:Hollow Earth"></div>
+        <div class="lgk-poster lgk-art" data-art="poster:3:Peak Hollow"></div>
+        <div class="lgk-poster lgk-art" data-art="poster:8:Hollowmere"></div>
+        <div class="lgk-poster lgk-art" data-art="poster:4:Hollow Lights"></div>
+        <div class="lgk-poster lgk-art" data-art="poster:9:Peaks of Ash"></div>
+      </div>
+    </div>
+    <div class="lgk-glass lgk-toolbar scopes" data-mat="liquid" data-lens style="--dz:25" data-dz="25">
+      <span class="lgk-seg compact" style="height:60px; background:rgb(0 0 0 / .22)"><span class="is-selected">All</span><span>Library</span><span>Friends</span><span>Store</span><span>Tools</span></span>
+      <span class="lgk-btn circle plain" style="margin-left:auto"><i data-i="more"></i></span>
+    </div>
+  </div>
+
+  <!-- SteamVR frame controls: the keyboard button is white (on) while the keyboard is shown -->
+  <div class="lgk-pop" style="left:810px; top:454px; --pop-scale:.75">
+    <div class="lgk-glass lgk-toolbar" data-mat="panel" style="position:relative; height:80px; gap:12px; padding:0 10px; --r:40px">
+      <span class="lgk-btn circle is-selected" style="--s:64px"><i data-i="keyboard"></i></span>
+      <span class="lgk-btn circle plain" style="--s:64px"><i data-i="float"></i></span>
+      <span class="lgk-btn circle plain" style="--s:64px"><i data-i="theater"></i></span>
+      <span class="lgk-btn circle plain" style="--s:64px"><i data-i="more"></i></span>
+    </div>
+  </div>
+
+  <!-- the dashboard bar (13 cm nearer than the window) -->
+  <div class="lgk-pop" style="left:578px; top:525px; --pop-scale:1.20; display:flex; gap:16px">
+    <div class="lgk-glass lgk-toolbar" data-mat="liquid" data-lens style="position:relative; height:80px; gap:8px; padding:0 8px; --r:40px">
+      <span class="lgk-btn circle" style="--s:64px; background:rgb(255 255 255 / .16)"><i data-i="controller"></i></span>
+      <span class="lgk-btn circle lgk-art" data-art="poster:0:" style="--s:64px; background-size:cover; background-position:50% 35%"></span>
+      <span class="lgk-btn circle lgk-art" data-art="poster:3:" style="--s:64px; background-size:cover; background-position:50% 35%"></span>
+      <span class="lgk-btn circle plain" style="--s:64px"><i data-i="plus"></i></span>
+    </div>
+    <div class="lgk-glass lgk-toolbar" data-mat="liquid" data-lens style="position:relative; height:80px; gap:8px; padding:0 8px 0 20px; --r:40px">
+      <span class="t-headline t-num" style="font-size:24px">4:56</span>
+      <span style="display:inline-flex; align-items:center; gap:6px; height:36px; padding:0 12px; border-radius:18px; background:rgb(255 255 255 / .14); font:600 18px/1 var(--lg-font)" class="t-num">
+        <span style="width:22px; height:11px; border-radius:3px; box-shadow:inset 0 0 0 2px rgb(255 255 255 / .8); position:relative; display:inline-block"><span style="position:absolute; left:3px; top:3px; bottom:3px; width:13px; border-radius:1px; background:var(--lg-green)"></span></span>82%</span>
+      <span class="lgk-btn circle plain" style="--s:64px"><i data-i="bell"></i></span>
+      <span class="lgk-btn circle plain" style="--s:64px"><i data-i="grid"></i></span>
+    </div>
+  </div>
+
+  <!-- the keyboard: Steam's 854 x 280 quad, keys at its plane, a glassd thick platter (cover at the quad plane first; 10 mm behind once K-G6 exists) -->
+  <div class="lgk-pop kbpop">
+    <div class="kb">
+      <div class="lgk-glass kb-plat" data-mat="thick" data-lens data-lens-bezel="14" data-dz="0" style="--dz:12"></div>
+      <div class="kb-echo"><span class="lbl"><i data-i="search"></i>Search</span><span class="txt">hollow pe<span class="caret"></span></span></div>
+      <div class="kb-keys" data-state='{"pressed":"a","enter":"Search","badges":true}'></div>
+    </div>
+  </div>
+
+  <!-- annotations (not product UI) -->
+  <div class="c-note" style="left:28px; top:640px; width:300px"><b>Echo row.</b> The search field is about 30° above, out of view. The keyboard repeats it on its own slab: the field's name, the text, the caret.</div>
+  <div class="c-note" style="right:24px; top:640px; width:300px"><b>Enter reads “Search”</b> through Steam's own <span class="k">strEnterKeyLabel</span>. With a controller active, keys show Steam's bindings: X delete, Y space, LT shift, RT enter.</div>
+  <div class="c-note" style="left:28px; top:858px; width:300px"><b>Pressed key = white</b> (the one “on” colour). Hover = the key brightens under the laser. Keys sit on a frosted glassd platter (T5, after K-G1…G5 in §12.8); the 1 cm stereo gap behind them comes later, with a slab behind the quad (K-G6).</div>
+
+  <svg style="position:absolute; inset:0; width:1920px; height:1080px; pointer-events:none; z-index:40" viewBox="0 0 1920 1080">
+    <defs><linearGradient id="beam" x1="1" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".35" stop-color="#dbe8ff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity=".9"/></linearGradient></defs>
+    <polygon id="beamp" points="0,0" fill="url(#beam)" opacity=".55"/>
+  </svg>
+  <div class="lgk-laser-dot" id="dot"></div>
+</div>
+<script src="controls-keyboard.js"></script>
+<script src="kit.js"></script>
+<script src="controls-icons.js"></script>
+<script>
+  addEventListener('DOMContentLoaded', () => requestAnimationFrame(() => {
+    const k = document.querySelector('.c-key[data-key="a"]').getBoundingClientRect();
+    const x = k.left + k.width * .78, y = k.top + k.height * .62;
+    const d = document.getElementById('dot'); d.style.left = x + 'px'; d.style.top = y + 'px';
+    document.getElementById('beamp').setAttribute('points', `1180,1095 1196,1095 ${x + 1},${y} ${x - 1},${y}`);
+  }));
+</script>
+</body>
+</html>

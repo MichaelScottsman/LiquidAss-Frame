@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — controls: SteamVR settings at m 1.44 (laser only)</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="window-nav-shared.css">
+<link rel="stylesheet" href="settings.css">
+<link rel="stylesheet" href="controls.css">
+<link rel="stylesheet" href="controls-real.css">
+<style>
+  /* SteamVR's panel is authored in SteamVR px (x1.44 of main px). The vocabulary below is written in main px inside a
+     zoom: 1.44 wrapper, so every number matches controls.md §13 and the pop's 1280/1858 scale brings it back to view px. */
+  .z144 { zoom: 1.44; position: absolute; left: 0; top: 0; width: 760px; }
+  .vr-hz { display: flex; gap: 24px; padding: 4px 0 2px; }
+  .vr-hz > .c-opt { width: 60px; height: 60px; font-size: 22px; }
+  .vr-hz > .c-opt.is-selected { background: var(--lg-fill-selected); color: var(--lg-text-on-selected); }
+  .c-row.stack { flex-direction: column; align-items: flex-start; justify-content: center; gap: 14px; height: auto; padding-top: 18px; padding-bottom: 18px; }
+  /* SteamVR's slider draws its value inside the handle: the knob is always shown, 64 px, with the value in it */
+  .vr-sl { width: 340px; flex: none; }
+  .vr-sl > .knob { display: grid !important; place-items: center; font: 700 17px/1 var(--lg-font); color: #1b1c20; font-variant-numeric: tabular-nums; }
+  .vr-menu { position: absolute; width: 300px; padding: 8px; display: flex; flex-direction: column; gap: 6px; --r: 32px; }
+  .vr-menu .lgk-row { height: 72px; padding: 0 20px; font-size: 24px; }
+  .vr-menu .lgk-row .trail { margin-left: auto; }
+  .adv { display: inline-block; width: 11px; height: 11px; border-radius: 50%; background: rgb(175 82 222); margin-right: 12px; vertical-align: 3px; }
+</style>
+</head>
+<body>
+<div class="lgk-view" data-room="lounge">
+  <div data-wn="tabbar" data-right="302" data-cy="426" data-sel="vr settings"></div>
+
+  <!-- SteamVR's settings panel (vr:systemui 1858 x 1045 SteamVR px; visible glass 1858 x 952 = Steam's 1280 x 656) -->
+  <div class="lgk-pop st-vr" style="left:320px; top:66px; --pop-scale:.6889" data-tier="T1 theme/vr + T5 systemui window cover">
+    <div class="lgk-glass win" data-mat="window" data-dz="0">
+      <div data-st="vrside" data-sel="general"></div>
+      <div class="scroll under">
+        <div class="col" style="left:86px; top:0">
+          <div class="z144" style="top:-58px">
+            <div class="cr-sh" style="margin-top:112px">General</div>
+            <div class="cr-plat">
+              <div class="c-row stack"><span class="pill"></span><span class="lab">Refresh Rate (Hz)</span>
+                <span class="vr-hz"><span class="c-opt">72</span><span class="c-opt">80</span><span class="c-opt is-selected">90</span><span class="c-opt is-hover" style="--hx:42%; --hy:56%">96</span><span class="c-opt">108</span><span class="c-opt">120</span><span class="c-opt">144</span></span></div>
+              <div class="c-row"><span class="pill"></span><span class="lab">Display Brightness</span>
+                <span class="c-slider vr-sl" style="--v:.62"><span class="fill"></span><span class="knob">125%</span></span></div>
+              <div class="c-row"><span class="pill"></span><span class="lab">Motion Smoothing</span><span class="trail"><span class="c-switch on"><span class="knob"></span></span></span></div>
+              <div class="c-row"><span class="pill"></span><span class="lab">Notifications</span><span class="trail"><span class="c-switch on"><span class="knob"></span></span></span></div>
+            </div>
+            <div class="cr-sh">Advanced</div>
+            <div class="cr-plat">
+              <div class="c-row"><span class="pill"></span><span class="lab"><span class="adv"></span>Dominant Eye</span><span class="trail"><span class="c-popup is-open" id="eye" style="min-width:150px"><span class="val">Right</span><i data-i="updown"></i></span></span></div>
+              <div class="c-row"><span class="pill"></span><span class="lab"><span class="adv"></span>Track Dominant Eye Only</span><span class="trail"><span class="c-switch"><span class="knob"></span></span></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- SteamVR's own popover for the dropdown (inside its panel): thick glass, 72 px rows, current value checked, grown from the source -->
+  <div class="lgk-glass vr-menu" id="menu" data-mat="thick" data-dz="2" data-tier="T1 theme/vr (SteamVR popover)">
+    <div class="lgk-row is-hover" style="--hx:58%; --hy:48%">Left</div>
+    <div class="lgk-row">Right<span class="trail"><i data-i="check" style="--is:24px; stroke-width:3"></i></span></div>
+  </div>
+
+  <div data-wn="frame" data-cx="860" data-y="806" data-dim=".72"></div>
+  <div class="lgk-pop" style="left:1068px; top:818px; --pop-scale:.75" data-tier="T1 vr:systemui %{ButtonPill}">
+    <div class="lgk-glass lgk-toolbar" data-mat="panel" style="position:relative; height:64px; padding:0 14px 0 26px; gap:14px; --r:32px">
+      <span style="font:500 26px/1 var(--lg-font); color:var(--lg-text-2)">Use Laser Mouse to Interact</span><span class="lgk-glyph">A</span>
+    </div>
+  </div>
+  <div data-wn="bar" data-cx="960" data-y="904"></div>
+  <div data-wn="pill" data-cx="960" data-y="1018"></div>
+  <div id="laser" data-wn="laser" data-to="1100,600" data-from="1640,1100"></div>
+
+  <div class="c-note" style="left:1622px; top:110px; width:270px"><b>Same vocabulary at m 1.44.</b> Written in main px under <span class="k">zoom: 1.44</span>: switches 95 × 58 SteamVR px, rows 115, sliders 92, menu rows 104.</div>
+  <div class="c-note" style="left:1622px; top:290px; width:270px"><b>Option circles</b> (refresh rate): <b>60 main px at an 84 px pitch</b> = 86 SteamVR px at 121: a 24 px gap, so they pass the target rule without an exemption. Selected = white; laser on 96.</div>
+  <div class="c-note" style="left:1622px; top:494px; width:270px"><b>SteamVR's slider</b> keeps its value inside the handle, so its knob is always shown. <b>Dropdown</b>: SteamVR's popover grows out of its white source, upward here (no room below); laser only (this page has no gamepad focus, as today).</div>
+</div>
+<script>
+  // place the popover under the Dominant Eye source and the laser on "Left" once layout exists (all view px)
+  addEventListener('DOMContentLoaded', () => {
+    const src = document.getElementById('eye').getBoundingClientRect(), m = document.getElementById('menu');
+    m.style.left = (src.right - 300) + 'px'; m.style.top = (src.top - 12 - m.offsetHeight) + 'px';   // no room below inside the panel: it grows upward
+    const r = m.querySelector('.lgk-row').getBoundingClientRect(), x = r.left + r.width * .58, y = r.top + r.height * .48;
+    const poly = [...document.querySelectorAll('svg polygon')].pop(), dot = document.querySelector('.wn-proxy');
+    if (poly) poly.setAttribute('points', `1634,1100 1646,1100 ${x + 1},${y} ${x - 1},${y}`);
+    if (poly) { const g = poly.ownerSVGElement.querySelector('linearGradient'); g.setAttribute('x2', x); g.setAttribute('y2', y); }
+    if (dot) { dot.style.left = x + 'px'; dot.style.top = y + 'px'; }
+  });
+</script>
+<script src="settings-shared.js"></script>
+<script src="settings-icons.js"></script>
+<script src="window-nav-shared.js"></script>
+<script src="kit.js"></script>
+<script src="controls-icons.js"></script>
+</body>
+</html>

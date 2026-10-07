@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 window-nav: the window-bar row (SteamVR frame controls + window bar), More Options, resize corner</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="window-nav-shared.css">
+<style>
+  .grid { position: absolute; left: 0; top: 0; right: 0; bottom: 0; }
+  .grid .lgk-poster { width: 220px; height: 330px; }
+  /* More Options popout, systemui px (x0.75): rows 96 = 72 main px, text 32 = 24 main px */
+  .mo { position: relative !important; width: 560px; padding: 12px; display: flex; flex-direction: column; gap: 8px; --r: 44px; box-sizing: border-box; }
+  .mo .lgk-row { height: 96px; border-radius: 34px; font-size: 32px; gap: 24px; padding: 0 28px 0 24px; }
+  .mo .lgk-row .lgk-i { --is: 36px; }
+  .mo .lgk-row.is-focus::after { --lift: .30; --spot: .18; }
+  .mo .lgk-toggle { scale: 1.33; margin-left: auto; margin-right: 10px; }
+  /* resize corner: an arc concentric with the glass corner (radius 54 + 12 px gap), appears on look */
+  .corner { position: absolute; width: 66px; height: 66px; border-right: 9px solid rgb(255 255 255 / .72); border-bottom: 9px solid rgb(255 255 255 / .72);
+            border-bottom-right-radius: 66px; box-sizing: border-box; filter: drop-shadow(0 1px 3px rgb(0 0 0 / .35)); }
+  .row2 { position: absolute; left: 0; top: 650px; width: 1920px; height: 430px; }
+</style>
+</head>
+<body>
+<div class="lgk-view" data-room="lounge">
+
+  <!-- the lower part of the Steam window (the view looks down at its bottom edge) -->
+  <div class="lgk-overlay" style="left:320px; top:-300px">
+    <div class="lgk-glass wn-win" data-mat="window" data-dz="0">
+      <div class="grid wn-fade-bottom">
+        <div class="lgk-poster lgk-art" data-art="poster:8:Echo Station" style="left:42px; top:330px"></div>
+        <div class="lgk-poster lgk-art" data-art="poster:6:Ironwood" style="left:286px; top:330px"></div>
+        <div class="lgk-poster lgk-art" data-art="poster:7:Paper Comets" style="left:530px; top:330px"></div>
+        <div class="lgk-poster lgk-art" data-art="poster:5:Glasswing" style="left:774px; top:330px"></div>
+        <div class="lgk-poster lgk-art" data-art="poster:9:Deep Field" style="left:1018px; top:330px"></div>
+      </div>
+    </div>
+    <div data-wn="ornament" data-mode="laser" data-legends="sf-sort:Alphabetical|sf-filter:Filter|menu:Options@Deep Field"></div>
+  </div>
+
+  <!-- SteamVR resize corner, lifted to the glass corner (T4 transform on the ResizeHandle; fallback: the panel corner) -->
+  <div class="corner" style="left:1546px; top:302px" data-tier="vr:systemui ResizeHandle (T4 lift 64 px)"></div>
+
+  <!-- the window-bar row: frame controls left of the window bar, one row under the window.
+       Float in World hovered by the laser (its tooltip below), the window bar bright because it is hovered next. -->
+  <div data-wn="winbar" data-cx="960" data-y="438" data-hover="2" data-on=""></div>
+  <div class="lgk-pop" style="left:640px; top:526px; --pop-scale:.75" data-tier="vr:systemui tooltip, flipped below (T4)">
+    <div class="lgk-glass wn-tip" data-mat="panel" style="position:relative">Float in World</div>
+  </div>
+
+  <div data-wn="laser" data-to="616,474" data-from="1620,1100"></div>
+
+  <!-- second state (bottom half): gamepad focus on More, its popout open above it; a game frame adds Close at the left -->
+  <div class="row2">
+    <div class="lgk-pop" style="left:635px; top:14px; --pop-scale:.75" data-tier="vr:systemui AdditionalOptions">
+      <div class="lgk-glass mo" data-mat="thick" data-lens style="--dz:10">
+        <div class="lgk-row is-focus" style="--hx:40%;--hy:40%"><i data-i="theater"></i>Toggle Curvature<span class="lgk-toggle on"></span></div>
+        <div class="lgk-row"><i data-i="controller"></i>Dock on Left Controller</div>
+        <div class="lgk-row"><i data-i="controller"></i>Dock on Right Controller</div>
+      </div>
+    </div>
+  </div>
+  <div data-wn="winbar" data-cx="1120" data-y="920" data-focus="4" data-close></div>
+
+  <div class="wn-cap" style="left:40px; top:440px; width:400px"><b>One window-bar row</b> (laser-visible): the frame controls in one capsule left of the window bar (SteamVR's grab handle, moved up from under the dashboard bar, T4). 80 px circles, 107 px hit (2.49&deg;).</div>
+  <div class="wn-cap" style="left:1500px; top:440px; width:390px">Tooltips flip below the button, so they never cover the ornament. Window bar 140 &times; 9.6 mm, white .46, white .92 on hover.</div>
+  <div class="wn-cap" style="left:40px; top:720px; width:540px"><b>Gamepad focus on More</b>: +.30 and its own specular arc; its popout (thick glass, 72 main px rows, curvature as a real switch) opens above it. A game frame adds a separate Close circle at the left, red only on focus or hover.</div>
+</div>
+<script src="window-nav-shared.js"></script>
+<script src="kit.js"></script>
+</body>
+</html>

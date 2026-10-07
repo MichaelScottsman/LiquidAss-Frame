@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — Settings: System, T1 fallback (no glassd: CSS cannot frost the room)</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="window-nav-shared.css">
+<link rel="stylesheet" href="settings.css">
+</head>
+<body>
+<div class="lgk-view" data-room="lounge" data-tier="t1">
+
+  <!-- tab-bar ornament (window-nav §3.3): Steam's frame menu, Settings selected -->
+  <div data-wn="tabbar" data-right="302" data-cy="426" data-sel="steam settings"></div>
+
+  <!-- ============ Steam's main window, /settings/system, root view -->
+  <div class="lgk-overlay" style="left:320px; top:66px">
+    <div class="lgk-glass st-win" data-mat="window" data-dz="0" data-tier="T5 window (T1: smoky tint)">
+
+      <div data-st="sidebar" data-sel="system" data-hover="internet" data-hx="74%" data-hy="44%"></div>
+      <!-- detail toolbar: no title at scroll 0 (the hero is the title); Steam's search collapsed to the magnifier circle -->
+      <div data-st="toolbar"></div>
+
+      <div class="st-scroll top">
+        <div class="st-col" style="top:116px">
+          <div class="st-hero"><span data-chip="system" data-cls="md"></span><div class="t-title1">System</div></div>
+
+          <!-- drill-down rows (T3, P-S1 + P-S4): each opens one or more of Steam's own sections as a sub-view -->
+          <div class="st-plat">
+            <div class="st-r first"><span class="lab">About</span><span class="val">steamframe</span><i data-si="chevr" class="chev"></i></div>
+            <div class="st-r last"><span class="lab">Updates</span><span class="st-badge">1</span><span class="val">Update available</span><i data-si="chevr" class="chev"></i></div>
+          </div>
+          <div class="st-gap20"></div>
+          <!-- Steam's own rows, shown inline at the root -->
+          <div class="st-plat">
+            <div class="st-r"><span class="lab">Select preferred language</span><span class="st-pop">English<i data-si="updown"></i></span></div>
+          </div>
+          <div class="st-sh">System Settings</div>
+          <div class="st-plat">
+            <div class="st-r first two"><span class="lab">24-hour clock<span class="desc">Show the time in 24-hour format</span></span><span class="lgk-toggle"></span></div>
+            <div class="st-r"><span class="lab">Timezone</span><span class="st-pop" style="height:72px; min-width:300px"><span style="display:grid; gap:4px"><span>Europe/London</span><span style="font-size:18px; color:var(--lg-text-2)">UTC+01:00</span></span><i data-si="updown"></i></span></div>
+            <div class="st-r"><span class="lab">Default to Desktop Mode on startup</span><span class="lgk-toggle"></span></div>
+            <div class="st-r last"><span class="lab">Enable Developer Mode</span><span class="lgk-toggle on"></span></div>
+          </div>
+          <div class="st-gap20"></div>
+          <div class="st-plat">
+            <div class="st-r first"><span class="lab">SteamOS Crash Report</span><span class="val">On</span><i data-si="chevr" class="chev"></i></div>
+            <div class="st-r last"><span class="lab">Advanced</span><i data-si="chevr" class="chev"></i></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- no bottom ornament: Steam's legend holds only Select (A) and Back (B) here, so it stays hidden (settings.md §4.11) -->
+  </div>
+
+  <!-- SteamVR frame controls, dashboard bar, window pill (window-nav shared chrome) -->
+  <div data-wn="frame" data-cx="960" data-y="806" data-dim=".72"></div>
+  <div data-wn="bar" data-cx="960" data-y="904"></div>
+  <div data-wn="pill" data-cx="960" data-y="1018"></div>
+
+  <!-- laser on the Internet row (SteamVR draws beam and dot) -->
+  <div data-wn="laser" data-to="602,286" data-from="1460,1100"></div>
+</div>
+<script src="settings-shared.js"></script>
+<script src="settings-icons.js"></script>
+<script src="window-nav-shared.js"></script>
+<script src="kit.js"></script>
+</body>
+</html>

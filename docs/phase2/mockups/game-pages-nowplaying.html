@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — SteamVR Now Playing as a visionOS now-playing window</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="game-pages.css">
+<style>
+  /* Authored in Now Playing CSS px (main px x 1.44, DESIGN2 §2.5); panel styles live in game-pages.css. */
+</style>
+</head>
+<body>
+<div class="lgk-view" data-room="studio" data-tab="none" data-fc="game" data-bar="running" data-barart="poster:6:">
+  <div class="lgk-pop" style="left:315px; top:66px; --pop-scale:.694" data-tier="vr:systemui panel">
+    <div class="lgk-glass np" data-mat="window" data-dz="0" data-tier="T1 (T5 if systemui covers land)">
+      <div class="np-glow lgk-art" data-art="poster:6:"></div>
+      <div class="np-art lgk-art" data-art="poster:6:Aurora Lab"></div>
+      <div class="np-col">
+        <div class="np-cap">Now Playing</div>
+        <div class="np-title">Aurora Lab</div>
+      </div>
+      <div class="np-grp" data-tier="rows 116 NP px (≥ 115)">
+        <div class="np-row"><span class="chip" style="background:var(--lg-indigo)"><i data-i="vrbind"></i></span>VR Controller Bindings<i data-i="chevron-right" class="chev"></i></div>
+        <div class="np-row"><span class="chip" style="background:var(--lg-blue)"><i data-i="eye"></i></span>VR Video Settings<i data-i="chevron-right" class="chev"></i></div>
+      </div>
+      <div class="np-exit" data-lgs-np="exit" style="top:780px" data-tier="Exit: red label only with the T2 key"><i data-i="exit"></i>Exit Game</div>
+    </div>
+    <div class="lgk-glass gp-ctl np-resume is-focus" data-mat="liquid" data-tint="play" data-lens style="--dz:15" data-dz="15" data-tier="T1 + T4 (systemui crop)"><i data-i="play"></i>Resume Game</div>
+  </div>
+</div>
+<script src="kit.js"></script>
+<script src="game-pages.js"></script>
+</body>
+</html>

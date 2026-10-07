@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 home-apps: Home, Recent (real library), card open</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="window-nav-shared.css">
+<link rel="stylesheet" href="home-apps.css">
+</head>
+<body>
+<div class="lgk-view" data-room="lounge">
+
+  <!-- tab-bar ornament: Steam's VR main menu (window-nav §3.3), Home selected -->
+  <div data-wn="tabbar" data-right="302" data-cy="426" data-sel="home"></div>
+
+  <!-- Steam's main overlay, 1280 x 720 at 1:1. Home is windowless: no window glass. -->
+  <div class="lgk-overlay" style="left:320px; top:66px">
+
+    <!-- top row: Steam's Back (circle), our section control, our What's New button, Steam's search (circle variant) -->
+    <div class="lgk-glass ha-back" data-mat="liquid" data-lens data-dz="0" data-tier="T1 %{BackContainer} · cover plate"><i data-i="chevron-left"></i></div>
+    <div class="lgk-glass ha-seg" data-mat="liquid" data-lens style="left:640px; translate:-50% 0" data-dz="0" data-tier="T3 section control · cover plate">
+      <span class="is-selected">Recent</span><span>Collections</span><span>Apps</span>
+    </div>
+    <div class="lgk-glass ha-wn" data-mat="liquid" data-lens style="right:104px" data-dz="0" data-tier="T3 → /library/lgs/steamhome"><i data-i="sparkle"></i>What's New</div>
+    <div class="lgk-glass ha-find" data-mat="liquid" data-lens data-dz="0" data-tier="T1 %{SearchAndTitleContainer} (window-nav circle variant)"><i data-i="search"></i></div>
+
+    <!-- the honeycomb: 13 per page as 4-5-4; disc 120, column pitch 224, row pitch 188; rows at y 196, 384, 572 -->
+    <!-- row 1 -->
+    <div class="ha-cell" style="--x:304px; --y:196px">
+      <div class="lgk-glass ha-disc" data-mat="liquid" data-lens><div class="ha-art" data-app="3699252713" data-name="DolphinXR — Steam Frame"></div></div>
+      <div class="ha-label">DolphinXR — Steam Frame</div>
+    </div>
+    <div class="ha-cell is-under" style="--x:528px; --y:196px">
+      <div class="lgk-glass ha-disc" data-mat="liquid" data-lens><div class="ha-art" data-app="2377520643" data-name="Halo: Combat Evolved VR (Native)"></div></div>
+      <div class="ha-label">Halo: Combat Evolved VR (Native)</div>
+    </div>
+    <!-- cell 3 (Rise of the Tomb Raider) is focused and has morphed into the card below -->
+    <div class="ha-cell is-under" style="--x:976px; --y:196px">
+      <div class="lgk-glass ha-disc" data-mat="liquid" data-lens><div class="ha-art" data-app="2379780" data-name="Balatro"></div></div>
+      <div class="ha-label">Balatro</div>
+    </div>
+    <!-- row 2 -->
+    <div class="ha-cell" style="--x:192px; --y:384px">
+      <div class="lgk-glass ha-disc" data-mat="liquid" data-lens><div class="ha-art" data-app="413150" data-name="Stardew Valley"></div></div>
+      <div class="ha-label">Stardew Valley</div>
+    </div>
+    <div class="ha-cell" style="--x:416px; --y:384px">
+      <div class="lgk-glass ha-disc" data-mat="liquid" data-lens><div class="ha-art" data-app="250820" data-name="SteamVR"></div></div>
+      <div class="ha-label">SteamVR</div>
+    </div>
+    <div class="ha-cell" style="--x:640px; --y:384px">
+      <div class="lgk-glass ha-disc" data-mat="liquid" data-lens><div class="ha-art" data-app="3677269560" data-name="Robo Recall: Unplugged"></div></div>
+      <div class="ha-label">Robo Recall: Unplugged</div>
+    </div>
+    <div class="ha-cell" style="--x:864px; --y:384px">
+      <div class="lgk-glass ha-disc" data-mat="liquid" data-lens><div class="ha-art" data-app="3872831802" data-name="Arizona Sunshine 2"></div></div>
+      <div class="ha-label">Arizona Sunshine 2</div>
+    </div>
+    <div class="ha-cell" style="--x:1088px; --y:384px">
+      <div class="lgk-glass ha-disc" data-mat="liquid" data-lens><div class="ha-art" data-app="4121704426" data-name="Assassin's Creed Nexus VR"></div></div>
+      <div class="ha-label">Assassin's Creed Nexus VR</div>
+    </div>
+    <!-- row 3 -->
+    <div class="ha-cell" style="--x:304px; --y:572px">
+      <div class="lgk-glass ha-disc" data-mat="liquid" data-lens><div class="ha-art" data-app="3706444165" data-name="Into the Radius 2"></div></div>
+      <div class="ha-label">Into the Radius 2</div>
+    </div>
+    <div class="ha-cell" style="--x:528px; --y:572px">
+      <div class="lgk-glass ha-disc" data-mat="liquid" data-lens><div class="ha-art" data-app="3554078061" data-name="Batman: Arkham Shadow"></div></div>
+      <div class="ha-label">Batman: Arkham Shadow</div>
+    </div>
+    <div class="ha-cell" style="--x:752px; --y:572px">
+      <div class="lgk-glass ha-disc" data-mat="liquid" data-lens><div class="ha-art" data-app="2182270593" data-name="Rez Infinite"></div></div>
+      <div class="ha-label">Rez Infinite</div>
+    </div>
+    <div class="ha-cell" style="--x:976px; --y:572px">
+      <div class="lgk-glass ha-disc" data-mat="liquid" data-lens>
+        <div class="ha-folder">
+          <i class="ha-mini" data-app="735580"></i><i class="ha-mini" data-app="793460"></i><i class="ha-mini" data-app="410110"></i>
+          <i class="ha-mini" data-app="242820"></i><i class="ha-mini" data-app="1147940"></i><i class="ha-mini" data-app="954280"></i>
+          <i class="ha-mini" data-app="503560"></i><i class="ha-mini" data-app="15560"></i><i class="ha-mini" data-app="473690"></i>
+        </div>
+      </div>
+      <div class="ha-label">All Games</div>
+    </div>
+
+    <!-- next page (Recent, page 2) peeking at the right edge: the laser's "next page" target -->
+    <div class="ha-peek" style="left:1212px; top:196px"><div class="ha-art" data-app="3132658413" data-name="UNDERDOGS"></div></div>
+
+    <!-- page indicator: Recent has 2 pages -->
+    <div class="ha-dots" style="left:640px; top:690px"><i class="on"></i><i></i></div>
+
+    <!-- the focused game after 0.8 s: the disc has morphed into the card (glass plate; popped +15 mm in native mode) -->
+    <div class="lgk-glass ha-card" data-mat="liquid" data-lens style="left:592px; top:96px; --dz:15" data-dz="15" data-tier="T3 card · cover plate + T4 pop">
+      <span class="ha-hero" data-app="391220" data-name="Rise of the Tomb Raider" data-pos="50% 30%"></span>
+      <span class="lgk-btn capsule play is-hover" style="--hx:40%; --hy:45%"><i data-i="play"></i>Play</span>
+      <span class="lgk-btn circle more"><i data-i="more"></i></span>
+      <div class="ttl">Rise of the Tomb Raider</div>
+      <div class="sub"><span class="cp">i</span>Playable · 6.4 hours played</div>
+    </div>
+  </div>
+
+  <div data-wn="frame" data-cx="960" data-y="806" data-dim=".72"></div>
+  <div data-wn="bar" data-cx="960" data-y="904"></div>
+  <div data-wn="pill" data-cx="960" data-y="1018"></div>
+  <div data-wn="laser" data-to="992,276"></div>
+</div>
+<script src="../../refs/library/library.js"></script>
+<script src="home-apps.js"></script>
+<script src="window-nav-shared.js"></script>
+<script src="kit.js"></script>
+<script src="home-apps-icons.js"></script>
+</body>
+</html>

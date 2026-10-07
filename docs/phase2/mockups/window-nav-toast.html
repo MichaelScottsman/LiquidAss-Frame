@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 window-nav: toast, floating hints and the hero-route toolbar</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="window-nav-shared.css">
+<style>
+  .hero { position: absolute; inset: 0; background-position: 50% 30%; }
+  .hero::after { content: ""; position: absolute; inset: 0; background:
+      linear-gradient(90deg, rgb(0 0 0 / .55), rgb(0 0 0 / .1) 55%, transparent),
+      linear-gradient(0deg, rgb(0 0 0 / .45), transparent 45%); }
+  .logo { position: absolute; left: 48px; top: 250px; font: 800 64px/1.0 var(--lg-font); letter-spacing: -.02em; text-transform: uppercase; text-shadow: 0 4px 18px rgb(0 0 0 / .5); }
+  .meta { position: absolute; left: 50px; top: 392px; }
+  .acts { position: absolute; left: 48px; top: 462px; display: flex; gap: 20px; align-items: center; }
+  .acts .play { --s: 80px; width: 280px; font-size: 28px; gap: 12px; }
+  .acts .play .lgk-i { --is: 30px; }
+  .clearbtn { background: rgb(0 0 0 / .32) !important; -webkit-backdrop-filter: blur(10px) saturate(1.4); backdrop-filter: blur(10px) saturate(1.4); }
+  .ff { position: relative !important; height: 44px; padding: 0 18px; gap: 20px; display: flex; align-items: center; --r: 22px; }
+  .ff span { display: inline-flex; align-items: center; gap: 10px; font: 600 20px/1 var(--lg-font); }
+  .ff .lgk-glyph { width: auto; min-width: 30px; padding: 0 7px; border-radius: 15px; font-size: 15px; height: 28px; }
+  .var { position: absolute; left: 1572px; display: flex; flex-direction: column; gap: 22px; }
+</style>
+</head>
+<body>
+<div class="lgk-view" data-room="lounge">
+
+  <!-- a Steam toast: the notifications quad (340 x 80 popup px, x1.10), placed by SteamVR -->
+  <div class="lgk-pop" style="left:773px; top:44px; --pop-scale:1.10" data-tier="notifications quad: T1 card + T5 panel">
+    <div class="lgk-glass wn-toast" data-mat="panel" data-lens style="--dz:0">
+      <span class="ic" style="background:linear-gradient(180deg, #34c759, #1f9d43)"><i data-i="download"></i></span>
+      <span style="min-width:0"><div class="tt">Neon Orchard</div><div class="bd">Download complete</div></span>
+    </div>
+  </div>
+
+  <div data-wn="tabbar" data-right="302" data-cy="508"></div>
+
+  <div class="lgk-overlay" style="left:320px; top:148px">
+    <div class="lgk-glass wn-win" data-mat="window" data-dz="0">
+      <div class="hero lgk-art" data-art="hero-clean:1:"></div>
+      <div class="logo">Hollow<br>Peaks</div>
+      <div class="meta t-callout v2">Adventure · VR supported · 24 h played</div>
+      <div class="acts">
+        <span class="lgk-btn capsule play" data-dz="15"><i data-i="play"></i>Play</span>
+        <span class="lgk-btn circle clearbtn"><i data-i="controller"></i></span>
+        <span class="lgk-btn circle clearbtn"><i data-i="gear"></i></span>
+      </div>
+      <!-- hero routes: the toolbar row floats over the art; search collapses to a circle -->
+      <span class="lgk-btn circle wn-back clearbtn"><i data-i="chevron-left"></i></span>
+      <span class="lgk-btn circle wn-icon-circle clearbtn"><i data-i="search"></i></span>
+    </div>
+    <div data-wn="ornament" data-legends="menu:Options|A:Select|B:Back"></div>
+  </div>
+
+  <!-- the floating footer (Steam's non-interactive hint quad under the window), full brightness -->
+  <div class="lgk-pop" style="left:766px; top:900px; --pop-scale:1.10" data-tier="floatingfooter: T1">
+    <div class="lgk-glass ff" data-mat="panel">
+      <span><b class="lgk-glyph">View</b>Jump to Dashboard Bar</span>
+      <span><b class="lgk-glyph">L5</b><b class="lgk-glyph">R5</b>Laser Mouse</span>
+    </div>
+  </div>
+
+  <!-- variants of the same toast card (one shows at a time) -->
+  <div class="var" style="top:150px">
+    <div class="lgk-pop" style="position:relative; --pop-scale:1; transform:none">
+      <div class="lgk-glass wn-toast" data-mat="panel">
+        <span class="ic lgk-art" data-art="avatar:4:MK" style="background-size:cover"></span>
+        <span style="min-width:0"><div class="tt">Mika is online</div><div class="bd">Playing Tidebreaker</div></span>
+      </div>
+    </div>
+    <div class="lgk-pop" style="position:relative; --pop-scale:1; transform:none">
+      <div class="lgk-glass wn-toast" data-mat="panel" style="height:80px">
+        <span class="ic" style="background:linear-gradient(180deg, #ffb340, #ff8a00)"><i data-i="star"></i></span>
+        <span style="min-width:0"><div class="tt">Achievement Unlocked</div><div class="bd" style="white-space:normal; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical">Summit Seeker: reach the top of every peak</div></span>
+      </div>
+    </div>
+    <div class="lgk-pop" style="position:relative; --pop-scale:1; transform:none">
+      <div class="lgk-glass wn-toast" data-mat="panel">
+        <span class="ic" style="background:linear-gradient(180deg, #ff5a5f, #e0262c)"><svg class="lgk-i" viewBox="0 0 24 24"><path d="M4 9.5h11.5a1.5 1.5 0 0 1 1.5 1.5v2a1.5 1.5 0 0 1-1.5 1.5H4A1.5 1.5 0 0 1 2.5 13v-2A1.5 1.5 0 0 1 4 9.5z M19 11v2" fill="none" stroke="currentColor"/><path d="M4.6 11.6h3" stroke="currentColor"/></svg></span>
+        <span style="min-width:0"><div class="tt">Controller Battery Low</div><div class="bd">Right controller · 9 %</div></span>
+      </div>
+    </div>
+  </div>
+  <div class="wn-cap" style="left:1572px; top:96px">Toast variants (same quad)</div>
+  <div class="wn-cap" style="left:1150px; top:44px; width:270px">Materializes in place: no slide. Card 320 &times; 76, radius 30, icon 48 circle.</div>
+</div>
+<script src="window-nav-shared.js"></script>
+<script src="kit.js"></script>
+</body>
+</html>

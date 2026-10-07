@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — game page, Manage > Manage submenu (destructive row focused)</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="game-pages.css">
+</head>
+<body>
+<div class="lgk-view" data-room="lounge" data-tab="library" data-fc="steam" data-bar="idle">
+  <div class="lgk-overlay" style="left:320px; top:66px" data-gp="title" data-state="installed" data-focus="none" data-open="manage"
+       data-private="1" data-cloud="1" data-dim=".46,.40,.35" data-foot="A:Select|B:Back">
+    <!-- rule 4: the submenu adjoins the root on its right (8 px); the pair is clamped to x <= 1256, so the root
+         moves 9 px left (528) and the submenu covers the gear while it is open -->
+    <div class="lgk-glass lgk-menu gp-menu" data-mat="thick" data-lens style="left:528px; top:108px; width:360px; --dz:30; z-index:5" data-dz="30" data-tier="T1+T2, T4, T5">
+      <div class="hdr">Starfall Drift</div>
+      <div class="lgk-row"><span class="lead"><i data-i="star2"></i></span>Add to Favorites</div>
+      <div class="lgk-row"><span class="lead"><i data-i="folder-plus"></i></span>Add to<i data-i="chevron-right" class="chev"></i></div>
+      <div class="lgk-row is-open"><span class="lead"><i data-i="wrench"></i></span>Manage<i data-i="chevron-right" class="chev"></i></div>
+      <div class="lgk-row"><span class="lead"><i data-i="terminal"></i></span>Developer<i data-i="chevron-right" class="chev"></i></div>
+      <div class="gap" style="height:2px"></div>
+      <div class="lgk-row"><span class="lead"><i data-i="sliders"></i></span>Properties…</div>
+      <span class="cancel">Cancel</span>
+    </div>
+    <div class="lgk-glass lgk-menu gp-menu" data-mat="thick" data-lens style="left:896px; top:108px; width:360px; --dz:30; z-index:5" data-dz="30" data-tier="submenu slab">
+      <div class="hdr">Manage</div>
+      <div class="lgk-row"><span class="lead"><i data-i="eye-slash"></i></span>Hide this game</div>
+      <div class="lgk-row"><span class="lead"><i data-i="eye"></i></span>Unmark as Private</div>
+      <div class="lgk-row danger is-focus"><span class="lead"><i data-i="trash"></i></span>Uninstall</div>
+    </div>
+  </div>
+</div>
+<script src="kit.js"></script>
+<script src="game-pages.js"></script>
+</body>
+</html>

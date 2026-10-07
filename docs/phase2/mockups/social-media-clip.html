@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — Clip player (playback ornament)</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="social-media.css">
+<style>
+  .video { position: absolute; left: 57px; top: 0; width: 1166px; height: 656px; border-radius: 40px; overflow: hidden; background-size: cover; background-position: center; }
+  .panel { left: 40px; top: 420px; width: 1200px; height: 192px; --r: 44px; box-shadow: 0 6px 20px rgb(0 0 0 / .28) !important; }
+  .ov { box-shadow: 0 4px 14px rgb(0 0 0 / .28) !important; }
+  .panel > * { position: absolute; }
+  .tl { left: 96px; top: 54px; width: 1008px; height: 12px; border-radius: 6px; background: var(--lg-fill-thick); box-shadow: inset 0 1px 3px rgb(0 0 0 / .3); }
+  .tl .rec { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; border-radius: 6px; background: rgb(255 255 255 / .32); }
+  .tl .played { position: absolute; left: 0; top: 0; bottom: 0; width: 6.5%; border-radius: 6px; background: rgb(255 255 255 / .92); }
+  .tl .head { position: absolute; left: 6.5%; top: -10px; width: 32px; height: 32px; margin-left: -16px; border-radius: 50%; background: #fff; box-shadow: 0 2px 8px rgb(0 0 0 / .4); }
+  .ticks { left: 96px; top: 74px; width: 1008px; height: 8px; background: repeating-linear-gradient(90deg, rgb(255 255 255 / .22) 0 2px, transparent 2px 126px); }
+  .tg { width: 44px; height: 44px; border-radius: 22px; display: grid; place-items: center; background: rgb(255 255 255 / .18); font: 700 17px/1 var(--lg-font); }
+  .row2 { left: 0; right: 0; top: 112px; height: 70px; }
+  .row2 > * { position: absolute; }
+</style>
+</head>
+<body>
+<!-- Concept: docs/phase2/concepts/social-media.md §3.8 (revision 2). Route /media/item/clip/:id, controls shown. Everything over the video
+     stays at 0 mm (crop budget 0): the platter reads as attached to the video, as in visionOS players. The video fills the window; the
+     timeline and transport become one clear-glass playback platter over the video (Music, ref 11). Steam's timeline layers keep their
+     inline geometry (never touched): only paint changes; the transport buttons grow to 60/70 px circles. Room dims (T5). -->
+<div class="lgk-view" data-room="lounge" data-tab="media" data-chrome="bar">
+  <div class="sm-roomdim"></div>
+  <div class="lgk-overlay" style="left:320px; top:66px">
+    <div class="lgk-glass sm-win" data-mat="window" data-dz="0" style="--lgk-tint:12 12 14; --lgk-tint-a:.45">
+      <div class="video lgk-art" data-art="hero-clean:9:"><div class="sm-media-dim-top"></div><div class="sm-media-dim-bot" style="height:300px; background:linear-gradient(0deg, rgb(0 0 0 / .5), rgb(0 0 0 / 0))"></div></div>
+    </div>
+    <span class="lgk-glass lgk-btn circle sm-back ov" data-mat="clear" data-lens style="background:rgb(0 0 0 / .18)" data-dz="0"><i data-i="chevron-left"></i></span>
+    <span class="lgk-glass lgk-btn circle sm-mag ov" data-mat="clear" data-lens style="background:rgb(0 0 0 / .18)" data-dz="0"><i data-i="search"></i></span>
+
+    <!-- the playback platter: clear glass over the 35 % dimming band, 0 mm (no crop: it would lift the video's pixels) -->
+    <div class="lgk-glass panel" data-mat="clear" data-lens style="background:rgb(0 0 0 / .26)" data-dz="0" data-tier="T1 paint, 0 mm">
+      <div style="left:96px; top:16px; font:600 18px/1 var(--lg-font); color:var(--lg-text-2)">Oct 5</div>
+      <span class="tg" style="left:30px; top:38px">LT</span>
+      <div class="tl"><span class="rec"></span><span class="played"></span><span class="head"></span></div>
+      <div class="ticks"></div>
+      <span class="tg" style="left:1126px; top:38px">RT</span>
+      <div class="row2">
+        <span class="lgk-btn circle" style="left:30px; top:5px; background:transparent"><i data-i="pin"></i></span>
+        <span class="lgk-btn circle" style="left:110px; top:5px; background:transparent"><i data-i="film"></i></span>
+        <span class="t-num" style="left:200px; top:22px; font:600 22px/1 var(--lg-font)">0:03 <span style="color:var(--lg-text-2); font-weight:500">/ 0:46</span></span>
+        <span class="lgk-btn circle is-disabled" style="left:400px; top:5px; background:transparent"><i data-i="frame-back"></i></span>
+        <span class="lgk-btn circle" style="left:480px; top:5px"><i data-sm="back10" style="--is:30px"></i></span>
+        <span class="lgk-btn circle is-focus" style="left:565px; top:0; --s:70px; background:#fff; color:#0d0e12"><i data-i="pause" style="--is:30px"></i></span>
+        <span class="lgk-btn circle" style="left:660px; top:5px"><i data-sm="fwd10" style="--is:30px"></i></span>
+        <span class="lgk-btn circle is-disabled" style="left:740px; top:5px; background:transparent"><i data-i="frame-fwd"></i></span>
+        <span class="lgk-btn capsule" style="left:880px; top:5px"><i data-i="scissors"></i>Clip</span>
+        <span class="lgk-btn capsule" style="left:1030px; top:5px"><i data-i="share"></i>Share</span>
+      </div>
+    </div>
+
+    <div class="lgk-glass lgk-toolbar sm-orn" data-mat="clear" data-lens style="background:rgb(0 0 0 / .22)" data-dz="0" data-tier="#Footer T1, 0 mm, no crop" data-sm-legend="X:Delete Clip:danger|Y:Hide|@menu3:Share|A:Pause:quiet split|B:Back:quiet"></div>
+  </div>
+</div>
+<script src="kit.js"></script>
+<script src="social-media.js"></script>
+</body>
+</html>

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — controls: the Notifications check matrix (gamepad focus on one check circle)</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="window-nav-shared.css">
+<link rel="stylesheet" href="settings.css">
+<link rel="stylesheet" href="controls.css">
+<link rel="stylesheet" href="controls-real.css">
+<style>
+  /* content scrolls under the sticky column header: it fades out between y 132 and 164 (one edge effect) */
+  .st-scroll.cr { -webkit-mask-image: linear-gradient(180deg, transparent 0, transparent 136px, #000 168px, #000 calc(100% - 64px), transparent 100%);
+                  mask-image: linear-gradient(180deg, transparent 0, transparent 136px, #000 168px, #000 calc(100% - 64px), transparent 100%); }
+</style>
+</head>
+<body>
+<div class="lgk-view" data-room="lounge">
+  <div data-wn="tabbar" data-right="302" data-cy="426" data-sel="steam settings"></div>
+
+  <!-- Steam's main window, /settings/notifications scrolled to the matrices (144 focusables on this page) -->
+  <div class="lgk-overlay" style="left:320px; top:66px">
+    <div class="lgk-glass st-win" data-mat="window" data-dz="0" data-tier="T5 window (T1: smoky tint)">
+      <div data-st="sidebar" data-sel="notifications" data-scroll="560"></div>
+      <div data-st="toolbar" data-title="Notifications"></div>
+      <div class="st-scroll cr">
+        <div data-cr="notifications" data-focus="mobile" data-top="176"></div>
+      </div>
+      <div data-cr="nhead"></div>
+    </div>
+  </div>
+
+  <div data-wn="frame" data-cx="960" data-y="806" data-dim=".72"></div>
+  <div data-wn="bar" data-cx="960" data-y="904"></div>
+  <div data-wn="pill" data-cx="960" data-y="1018"></div>
+
+  <div class="c-note" style="left:1622px; top:150px; width:270px"><b>The hard case.</b> Four check circles per row, labels up to three lines. Steam's 22 px boxes at a 60 px pitch become <b>40 px circles in 80 px cells</b> (hit 80 × 80); the column headers widen with them and stay sticky.</div>
+  <div class="c-note" style="left:1622px; top:400px; width:270px"><b>Focus in a multi-control row.</b> The row only warms (white .06): the focused circle carries the focus, as Steam's FocusRing turned into a light plate 12 px larger than the circle, plus a glow on the blue fill. Left / Right move between columns (Steam's own nav).</div>
+  <div class="c-note" style="left:28px; top:800px; width:300px"><b>Disabled cells</b> (the Feed column) stay at 40 % and keep Steam's <span class="k">saturate(.35)</span>. Empty cells are Steam's: no checkbox exists there.</div>
+</div>
+<script src="controls-real.js"></script>
+<script src="settings-shared.js"></script>
+<script src="settings-icons.js"></script>
+<script src="window-nav-shared.js"></script>
+<script src="kit.js"></script>
+<script src="controls-icons.js"></script>
+</body>
+</html>

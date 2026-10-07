@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — People: the friend menu</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="social-media.css">
+<style>
+  /* the menu slab is clamped to Steam's modal box (y 108-628, window-nav §5); content taller than 520 px scrolls with a bottom edge */
+  .sm-fmenu { left: 460px; top: 108px; width: 420px; height: 520px; overflow: hidden; z-index: 5; }
+  .sm-fmenu .in > * { flex: none; }
+  .sm-fmenu .in { display: flex; flex-direction: column; gap: 6px;
+    -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 56px), rgb(0 0 0 / .2) calc(100% - 10px), transparent 100%);
+            mask-image: linear-gradient(180deg, #000 calc(100% - 56px), rgb(0 0 0 / .2) calc(100% - 10px), transparent 100%); height: 504px; }
+</style>
+</head>
+<body>
+<!-- Concept: docs/phase2/concepts/social-media.md §3.2 (revision 2). Route /chat, FRIEND-OPTIONS state. Names and art are invented.
+     The friend menu grows out of the row's "⋯" (white while its menu is open) and is anchored beside it (T2 translate, window-nav §5.1),
+     clamped to Steam's modal box. Depth: +12 mm as a non-interactive in-place crop (click-safe: the 45-degree parallax error is at most
+     a quarter of a 72 px row); +30 mm interactive only after the wearer check (spatial.md §12). -->
+<div class="lgk-view" data-room="lounge" data-tab="friends" data-chrome="bar">
+  <div class="lgk-overlay" style="left:320px; top:66px">
+    <div data-sm-people="menu"></div>
+
+    <div class="lgk-glass lgk-menu sm-fmenu" data-mat="thick" data-lens data-dz="12" data-tier="T1 slab · T4 crop +12 (click-safe) · T5 thick slab">
+      <div class="in">
+        <div class="sm-menu-hdr"><div class="sm-ava" data-st="game" style="--av:28px"><div class="lgk-art" data-art="avatar:4:RS"></div></div>Rin Sato</div>
+        <div class="lgk-row"><span class="lead"><i data-i="bubble"></i></span>Send Message</div>
+        <div class="lgk-row"><span class="lead"><i data-i="headset"></i></span>Start Voice Chat</div>
+        <div class="gap" style="height:2px"></div>
+        <div class="lgk-row is-hover is-focus" style="--hx:30%; --hy:50%"><span class="lead"><i data-i="person"></i></span>View Profile<span class="trail"><i data-i="external"></i></span></div>
+        <div class="lgk-row"><span class="lead"><i data-i="controller"></i></span>Find Games to Play Together</div>
+        <div class="gap" style="height:2px"></div>
+        <div class="lgk-row"><span class="lead"><i data-i="arrows-lr"></i></span>Trading<span class="trail"><i data-i="chevron-right"></i></span></div>
+        <div class="lgk-row"><span class="lead"><i data-i="person-gear"></i></span>Manage<span class="trail"><i data-i="chevron-right"></i></span></div>
+        <span class="lgk-btn capsule sm-cancel">Cancel</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- laser on View Profile -->
+  <svg style="position:absolute; inset:0; width:1920px; height:1080px; pointer-events:none; z-index:40" viewBox="0 0 1920 1080">
+    <defs><linearGradient id="beam" x1="1" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".35" stop-color="#dbe8ff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity=".9"/></linearGradient></defs>
+    <polygon points="1640,1095 1652,1095 897,430 895,430" fill="url(#beam)" opacity=".5"/>
+  </svg>
+  <div class="lgk-laser-dot" style="left:896px; top:430px"></div>
+</div>
+<script src="kit.js"></script>
+<script src="social-media.js"></script>
+</body>
+</html>
