@@ -18,6 +18,10 @@ without capturing each other's routes.
                            [--theme on|off|keep] [--back]
                                        bring SURF to front, optionally navigate
                                        and run JS first, then capture it
+  lab.py perf SURF [--route R] [--pre 'JS'] [--seconds S]
+                                       scroll the surface's main scroller for S
+                                       seconds with the theme off, then on, and
+                                       compare frame pacing (leaves theme on)
   lab.py audit SURF [--route R] [--pre 'JS'] [--json]
                                        stock vs themed diff of every control and
                                        text: HIDDEN / SHRUNK / UNCLICKABLE / GONE
@@ -177,6 +181,28 @@ def main(argv):
             if go_back:
                 lab_js("L.back()")
         print(out)
+    elif cmd == "perf":
+        route = opt(args, "--route")
+        pre = opt(args, "--pre")
+        secs = float(opt(args, "--seconds", 3))
+        surface = args[0]
+        res = {}
+        with Lock():
+            if route:
+                lab_js(f"L.nav({json.dumps(route)})")
+                time.sleep(1.2)
+            if pre:
+                lab_js(pre)
+                time.sleep(0.6)
+            for mode in ("off", "on"):
+                lgs.op(mode, quiet=True)
+                asyncio.run(capture(surface, "/tmp/lgs/perf.png", 0.8))  # brings it to the front
+                res[mode] = lab_js(f"L.perf({json.dumps(surface)}, {int(secs * 1000)})", timeout=60 + secs)
+        for mode in ("off", "on"):
+            r = res[mode]
+            print(f"theme {mode:3}: {r['fps']} fps, median {r['median']} ms, p95 {r['p95']} ms, "
+                  f"worst {r['worst']} ms, {r['long']} long frames, {r['backdropFilters']} backdrop-filters "
+                  f"(scroller {r['scroller']})")
     elif cmd == "audit":
         route = opt(args, "--route")
         pre = opt(args, "--pre")

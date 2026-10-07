@@ -83,6 +83,7 @@ Then open `shots/lib_home_after.png` with the Read tool. Screenshots are 1.5× (
   - **GONE / HIDDEN / SHRUNK / UNCLICKABLE**: functionality regressions. These must be zero.
   - **CONTRAST**: text that became less legible than stock and is below 4.5:1 (3:1 for large text), computed over a grey, a bright and a dark room behind the glass.
   - `moved >24px`: informational.
+- `python glass.py perf SURF [--route R] [--pre JS]` scrolls the surface's main scroller with the theme off, then on, and prints fps, median, p95 and long frames for each.
 - `python glass.py styles SURF "SELECTOR"` prints key computed styles of matches.
 - `python glass.py js "EXPR"` evaluates in SharedJSContext with `L`.
 
@@ -114,8 +115,8 @@ The UI is live and shared with other agents and with the user, who may be wearin
 
 **Text must stay legible on glass.** The audit's CONTRAST must stay empty for your area.
 
-**Performance:** the headset GPU is shared with the compositor.
-- `backdrop-filter` only on floating elements over in-page content (menus, sheets, headers, capsules). Never on big scrolling regions, list rows or every card.
+**Performance:** the headset GPU is shared with the compositor. Check with `python glass.py perf SURF --route R`: themed must match stock fps (within 5%) with no new long frames.
+- Prefer `backdrop-filter` on floating elements over in-page content (menus, sheets, headers, capsules). Avoid adding it to every list row or card.
 - No `filter` or `backdrop-filter` animations and no infinite animations.
 - Animate opacity and the independent `scale`/`translate` properties only. Don't animate `transform`, which Steam uses for positioning.
 

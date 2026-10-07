@@ -1,7 +1,7 @@
 // Development helpers evaluated in SharedJSContext (prepended with
 // lgs_index.js). Installs window.__LGS_LAB; lives in memory only.
 (function () {
-  if (window.__LGS_LAB && window.__LGS_LAB.v === 7) return;
+  if (window.__LGS_LAB && window.__LGS_LAB.v === 8) return;
   const index = (window.__LGS_INDEX && window.__LGS_INDEX.selector) ? window.__LGS_INDEX : (window.__LGS_INDEX = lgsBuildIndex());
 
   const ALIAS = {
@@ -312,5 +312,51 @@
     return { controls: ctl, texts: text, issues, moved: moved.slice(0, 40), movedCount: moved.length };
   }
 
-  window.__LGS_LAB = { v: 7, surface, sel, q, qa, click, clickText, sleep, pad, focused, nav, back, route, outline, styles, classes, surfaces, readable, index, snap, diff };
+  // ---------------------------------------------------------------- perf
+  // Scroll the biggest scrollable region of a surface for `ms`, one step per
+  // animation frame, and report frame pacing. The surface must be rendering
+  // (lab.py perf brings it to the front first).
+  async function perf(alias, ms) {
+    const w = surface(alias);
+    const doc = w.document;
+    let best = null, area = 0;
+    for (const el of doc.querySelectorAll('*')) {
+      if (el.scrollHeight - el.clientHeight < 200 && el.scrollWidth - el.clientWidth < 200) continue;
+      const cs = w.getComputedStyle(el);
+      if (!/(auto|scroll)/.test(cs.overflowY + cs.overflowX)) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width * r.height > area) { area = r.width * r.height; best = el; }
+    }
+    const vertical = best ? best.scrollHeight - best.clientHeight >= best.scrollWidth - best.clientWidth : true;
+    const start = best ? (vertical ? best.scrollTop : best.scrollLeft) : 0;
+    const times = [];
+    const t0 = w.performance.now();
+    await new Promise((done) => {
+      let dir = 1;
+      const step = (t) => {
+        times.push(t);
+        if (best) {
+          const max = vertical ? best.scrollHeight - best.clientHeight : best.scrollWidth - best.clientWidth;
+          const cur = vertical ? best.scrollTop : best.scrollLeft;
+          if (cur >= max - 8) dir = -1; else if (cur <= 8) dir = 1;
+          if (vertical) best.scrollTop = cur + dir * 14; else best.scrollLeft = cur + dir * 14;
+        }
+        if (t - t0 < ms) w.requestAnimationFrame(step); else done();
+      };
+      w.requestAnimationFrame(step);
+    });
+    if (best) { if (vertical) best.scrollTop = start; else best.scrollLeft = start; }
+    const d = [];
+    for (let i = 1; i < times.length; i++) d.push(times[i] - times[i - 1]);
+    d.sort((a, b) => a - b);
+    const q = (p) => d.length ? Math.round(d[Math.min(d.length - 1, Math.floor(p * d.length))] * 10) / 10 : null;
+    return {
+      scroller: best ? readable(best).slice(0, 2).join(' ') : null,
+      frames: times.length, fps: Math.round((times.length - 1) / ((times[times.length - 1] - times[0]) / 1000) * 10) / 10,
+      median: q(0.5), p95: q(0.95), worst: q(0.999), long: d.filter((x) => x > 34).length,
+      backdropFilters: [...doc.querySelectorAll('*')].filter((e) => { const v = w.getComputedStyle(e).backdropFilter; return v && v !== 'none'; }).length,
+    };
+  }
+
+  window.__LGS_LAB = { v: 8, perf, surface, sel, q, qa, click, clickText, sleep, pad, focused, nav, back, route, outline, styles, classes, surfaces, readable, index, snap, diff };
 })();

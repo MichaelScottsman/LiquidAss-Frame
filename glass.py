@@ -14,6 +14,8 @@ does.
   python glass.py shot SURF NAME [--route R] [--pre JS] [--theme on|off|keep]
                                  [--settle S] [--back]
                                             capture SURF to shots/NAME.png
+  python glass.py perf SURF [--route R] [--pre JS] [--seconds S]
+                                            theme off vs on frame pacing while scrolling
   python glass.py audit SURF [--route R] [--pre JS] [--json]
                                             stock-vs-themed regression diff
   python glass.py outline SURF [--route R] [--sel S] [--depth N] [--max N]
@@ -149,7 +151,7 @@ def main(argv):
             print(f"saved {local}")
         elif cmd == "logs":
             sh(c, "tail -n 60 /tmp/lgs/lgs.log 2>/dev/null")
-        elif cmd in ("outline", "styles", "classes", "click", "js", "route", "nav", "back", "surfaces", "eval", "audit"):
+        elif cmd in ("outline", "styles", "classes", "click", "js", "route", "nav", "back", "surfaces", "eval", "audit", "perf"):
             code, _, _ = lab(c, cmd, *rest)
             return code
         else:

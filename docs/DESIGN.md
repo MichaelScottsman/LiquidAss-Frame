@@ -19,8 +19,10 @@ Source material is the project's design bible (`../bible/`, published at https:/
   - The bar segments, bar popups, frame menus, tooltip, volume HUD, footer, toasts and keyboard float alone over the room. They use **panel glass**: tint + rim + sheen, no backdrop blur (there is nothing in-page behind them).
   - Their surroundings are transparent, so rounded corners are real.
 - **The Adreno GPU is shared with the compositor.**
-  - CEF repaints on change, so static decoration is nearly free. Blurred backdrops re-render whenever what's behind them changes, such as scrolling.
-  - **Budget:** at most a few `backdrop-filter` regions visible per window, none on list rows, cards or scrolling containers. No animated filters, no infinite animations.
+  - Steam's CEF runs GPU compositing and GPU raster (ANGLE on zink/Turnip). It repaints on change, so static decoration is nearly free.
+  - Stock Steam already has about 100 elements with `backdrop-filter` on library home and scrolls at about 85 fps, so blur is affordable. It is still not free: blurred backdrops re-render while what's behind them moves.
+  - **Budget, measured:** `python glass.py perf main --route R` scrolls the page with the theme off, then on. Themed must keep the same fps (within 5%) and add no long frames (>34 ms).
+  - No animated filters, no infinite animations.
 
 ## 2. Materials (all defined in `theme/00-tokens.nowrap.css`)
 
