@@ -1,0 +1,135 @@
+/* Glass Shell design tokens. Every colour, material, radius and timing the
+   theme uses is defined here; area stylesheets only reference these.
+   Not wrapped: selectors are written in full (html.lgs-on ...). */
+
+html.lgs-on {
+  /* Transparency dial, 0 = clearest .. 1 = most opaque ("lgs dial 0.7"). */
+  --lgs-dial: 0.5;
+
+  /* ---- text vibrancy on glass (white is the default label colour) ---- */
+  --lgs-text-1: rgba(255, 255, 255, 0.96);
+  --lgs-text-2: rgba(255, 255, 255, 0.72);
+  --lgs-text-3: rgba(255, 255, 255, 0.56);
+  --lgs-text-disabled: rgba(255, 255, 255, 0.34);
+  --lgs-text-on-selected: #0d0e12;
+  --lgs-text-shadow: 0 1px 2px rgba(0, 0, 0, 0.32);
+
+  /* ---- window glass (visionOS): the dashboard window over the room ----
+     Overlays have no access to the passthrough behind them, so the window
+     cannot blur the room; tint alone carries legibility. At the default dial
+     (.72) white body text stays above 4.5:1 even over a bright room. */
+  --lgs-window-alpha: calc(0.60 + var(--lgs-dial) * 0.24);
+  --lgs-window-bg: rgba(20, 22, 30, var(--lgs-window-alpha));
+  --lgs-window-sheen: linear-gradient(180deg,
+      rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0.035) 14%,
+      rgba(255, 255, 255, 0) 38%, rgba(255, 255, 255, 0) 82%,
+      rgba(255, 255, 255, 0.03) 100%);
+  --lgs-window-rim:
+      inset 0 1.5px 0 rgba(255, 255, 255, 0.34),
+      inset 1px 0 0 rgba(255, 255, 255, 0.10),
+      inset -1px 0 0 rgba(255, 255, 255, 0.06),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.05),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+
+  /* ---- panel glass: small overlays standing alone over the room
+     (bar segments, bar popups, frame menus, toasts, tooltip, HUDs) ---- */
+  --lgs-panel-alpha: calc(0.62 + var(--lgs-dial) * 0.22);
+  --lgs-panel-bg: rgba(28, 30, 40, var(--lgs-panel-alpha));
+  --lgs-panel-sheen: linear-gradient(180deg,
+      rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.05) 30%,
+      rgba(255, 255, 255, 0) 62%);
+  --lgs-panel-rim:
+      inset 0 1.5px 0 rgba(255, 255, 255, 0.42),
+      inset 1px 1px 0 rgba(255, 255, 255, 0.10),
+      inset -1px -1px 0 rgba(255, 255, 255, 0.06),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.09);
+  /* no outer shadow on overlays: there is no room around them, and SteamVR
+     already separates the quad from the scene */
+
+  /* ---- liquid glass: floating controls over in-page content
+     (header capsules, segmented tabs, side menus, sheets, context menus)
+     here backdrop-filter has real content to blur and lens ---- */
+  --lgs-glass-bg: rgba(255, 255, 255, 0.09);
+  --lgs-glass-blur: blur(22px) saturate(1.8);
+  --lgs-glass-rim:
+      inset 0 1px 0 rgba(255, 255, 255, 0.40),
+      inset 1px 0 0 rgba(255, 255, 255, 0.12),
+      inset -1px -1px 0 rgba(255, 255, 255, 0.06),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  --lgs-glass-shadow: 0 10px 30px rgba(0, 0, 0, 0.26), 0 1px 3px rgba(0, 0, 0, 0.20);
+
+  /* thick glass (sheets, side menus, menus): more tint, more frost */
+  --lgs-thick-bg: rgba(30, 32, 42, calc(0.62 + var(--lgs-dial) * 0.2));
+  --lgs-thick-blur: blur(34px) saturate(1.7);
+  --lgs-scrim: rgba(0, 0, 0, 0.35);        /* Apple's dimming layer */
+
+  /* ---- fills: content ON glass (never glass on glass) ---- */
+  --lgs-fill-1: rgba(255, 255, 255, 0.06);
+  --lgs-fill-2: rgba(255, 255, 255, 0.10);
+  --lgs-fill-3: rgba(255, 255, 255, 0.16);
+  --lgs-fill-sunken: rgba(0, 0, 0, 0.20);
+  --lgs-separator: rgba(255, 255, 255, 0.11);
+
+  /* ---- interaction states ---- */
+  --lgs-hover-fill: rgba(255, 255, 255, 0.14);
+  --lgs-focus-fill: rgba(255, 255, 255, 0.22);
+  /* "illuminate from within": bright rim + soft glow. Must stay obvious,
+     it is how controller and laser focus are shown. */
+  --lgs-focus-ring:
+      inset 0 0 0 2px rgba(255, 255, 255, 0.90),
+      0 0 0 1px rgba(255, 255, 255, 0.25),
+      0 0 22px rgba(255, 255, 255, 0.30);
+  --lgs-focus-ring-outer:
+      0 0 0 2px rgba(255, 255, 255, 0.92),
+      0 0 24px rgba(255, 255, 255, 0.32);
+  --lgs-selected-fill: rgba(255, 255, 255, 0.94);   /* white = selected only */
+  --lgs-pressed-scale: 0.97;
+  --lgs-disabled-opacity: 0.45;
+
+  /* ---- colour: whole fills only, never thin coloured text ---- */
+  --lgs-blue: #0a84ff;
+  --lgs-green: #30d158;
+  --lgs-red: #ff453a;
+  --lgs-orange: #ff9f0a;
+  --lgs-yellow: #ffd60a;
+  --lgs-purple: #bf5af2;
+  --lgs-tint-primary: rgba(10, 132, 255, 0.82);   /* the one tinted action */
+  --lgs-tint-play: rgba(48, 209, 88, 0.86);       /* Play keeps Steam green */
+  --lgs-tint-danger: rgba(255, 69, 58, 0.80);
+  --lgs-toggle-on: #30d158;
+
+  /* ---- shape: concentric radii (child = parent - padding) ---- */
+  --lgs-r-window: 32px;
+  --lgs-r-sheet: 28px;
+  --lgs-r-panel: 24px;
+  --lgs-r-menu: 20px;
+  --lgs-r-card: 16px;
+  --lgs-r-row: 12px;
+  --lgs-r-small: 8px;
+  --lgs-r-capsule: 999px;
+
+  /* ---- motion: springs approximated with overshooting béziers ---- */
+  --lgs-spring: cubic-bezier(0.2, 0.9, 0.25, 1.15);
+  --lgs-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --lgs-t-fast: 140ms;
+  --lgs-t: 220ms;
+  --lgs-t-slow: 320ms;
+}
+
+/* Materialize, don't fade: grows into place with a slight overshoot. Uses the
+   independent scale property so it never fights transforms Steam positions
+   menus and popups with. */
+@keyframes lgs-materialize {
+  from { opacity: 0; scale: 0.955; }
+  60% { opacity: 1; }
+  to { opacity: 1; scale: 1; }
+}
+
+@keyframes lgs-materialize-up {
+  from { opacity: 0; scale: 0.97; translate: 0 10px; }
+  to { opacity: 1; scale: 1; translate: 0 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.lgs-on { --lgs-t-fast: 1ms; --lgs-t: 1ms; --lgs-t-slow: 1ms; }
+}

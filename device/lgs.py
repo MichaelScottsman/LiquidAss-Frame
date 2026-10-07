@@ -6,13 +6,15 @@ dashboard, bar, popups, keyboard, toasts) on or off. The theme is injected
 into the running Steam client over its local devtools socket and is never
 written anywhere persistent: restarting Steam or rebooting restores stock.
 
-usage: lgs [toggle|on|off|reload|status|toast TEXT] [--quiet]
+usage: lgs [toggle|on|off|reload|status|dial 0..1|toast TEXT] [--quiet]
 
   toggle   on if off, off if on (what the "+ > Launch Program" entry runs)
   on       inject (or re-inject) the theme
   off      remove every trace of it
   reload   re-read theme/*.css and swap it in without a toast
   status   print what is applied, and any theme tokens that did not resolve
+  dial V   transparency dial, 0 = clearest .. 1 = most opaque (default 0.5);
+           remembered for the next "on", applied now if the theme is on
 """
 import asyncio
 import glob
@@ -28,6 +30,7 @@ ROOT = os.path.dirname(HERE) if os.path.basename(HERE) == "device" else HERE
 THEME_DIR = os.path.join(ROOT, "theme")
 CDP = "http://127.0.0.1:8080"
 LOG = "/tmp/lgs/lgs.log"
+DIAL = os.path.join(ROOT, "dial")
 
 
 def log(msg):
@@ -135,12 +138,51 @@ def bundle():
             fcntl.flock(lock, fcntl.LOCK_UN)
 
 
+def brace_error(text):
+    """Why a stylesheet would leak into the rest of the bundle, or None.
+    One unclosed brace in a wrapped file would swallow every later file."""
+    depth, i, n = 0, 0, len(text)
+    while i < n:
+        c = text[i]
+        if text.startswith("/*", i):
+            j = text.find("*/", i + 2)
+            if j < 0:
+                return "unterminated comment"
+            i = j + 2
+            continue
+        if c in "\"'":
+            j = i + 1
+            while j < n and text[j] != c:
+                j += 2 if text[j] == "\\" else 1
+            if j >= n:
+                return "unterminated string"
+            i = j + 1
+            continue
+        if c == "{":
+            depth += 1
+        elif c == "}":
+            depth -= 1
+            if depth < 0:
+                return f"unmatched '}}' at offset {i}"
+        i += 1
+    return f"{depth} unclosed '{{'" if depth else None
+
+
+SKIPPED = []
+
+
 def _bundle():
     parts = []
+    SKIPPED.clear()
     for path in sorted(glob.glob(os.path.join(THEME_DIR, "*.css"))):
         name = os.path.basename(path)
         with open(path, encoding="utf-8") as f:
             text = f.read()
+        err = brace_error(text)
+        if err:
+            SKIPPED.append(f"{name}: {err}")
+            log(f"skipped {name}: {err}")
+            continue
         if name.endswith(".nowrap.css"):
             parts.append(f"/* {name} */\n{text}")
         else:
@@ -148,6 +190,12 @@ def _bundle():
                 if bad in text:
                     log(f"warning: {name} uses {bad}; move it to a *.nowrap.css file")
             parts.append(f"/* {name} */\nhtml.lgs-on {{\n{text}\n}}")
+    try:
+        with open(DIAL, encoding="utf-8") as f:
+            dial = min(1.0, max(0.0, float(f.read().strip())))
+        parts.append(f"html.lgs-on {{ --lgs-dial: {dial:g}; }}")
+    except (OSError, ValueError):
+        pass
     css = "\n\n".join(parts)
     svg = ""
     defs = os.path.join(THEME_DIR, "defs.svg")
@@ -160,21 +208,47 @@ def _bundle():
 def core_call(payload):
     with open(os.path.join(HERE, "lgs_index.js"), encoding="utf-8") as f:
         index_js = f.read()
+    with open(os.path.join(HERE, "lgs_lens.js"), encoding="utf-8") as f:
+        lens_js = f.read()
     with open(os.path.join(HERE, "lgs_core.js"), encoding="utf-8") as f:
         core_js = f.read().strip().rstrip(";")
-    return f"(() => {{\n{index_js}\nreturn ({core_js})({json.dumps(payload)}, lgsBuildIndex);\n}})()"
+    return (f"(() => {{\n{index_js}\n{lens_js}\n"
+            f"return ({core_js})({json.dumps(payload)}, lgsBuildIndex, lgsLens);\n}})()")
 
 
 def op(name, quiet=False, text=None):
     payload = {"op": name, "quiet": quiet}
     if name == "on":
         css, svg = bundle()
-        payload.update(css=css, svg=svg,
-                       version=hashlib.sha1((css + svg).encode()).hexdigest()[:10])
+        lens = []
+        lens_file = os.path.join(THEME_DIR, "lens.json")
+        if os.path.exists(lens_file):
+            try:
+                with open(lens_file, encoding="utf-8") as f:
+                    lens = json.load(f)
+            except ValueError as e:
+                log(f"lens.json ignored: {e}")
+        payload.update(css=css, svg=svg, lens=lens,
+                       version=hashlib.sha1((css + svg + json.dumps(lens)).encode()).hexdigest()[:10])
     if text:
         payload["text"] = text
     res = run_js("SharedJSContext", core_call(payload), timeout=60)
-    return json.loads(res) if isinstance(res, str) and res.startswith("{") else res
+    res = json.loads(res) if isinstance(res, str) and res.startswith("{") else res
+    if name == "on" and isinstance(res, dict) and SKIPPED:
+        res["skipped"] = list(SKIPPED)
+    return res
+
+
+def attribute(tokens):
+    """Which theme files mention each unresolved token."""
+    out = {}
+    for path in sorted(glob.glob(os.path.join(THEME_DIR, "*.css"))):
+        with open(path, encoding="utf-8") as f:
+            text = f.read()
+        for t in tokens:
+            if "%{" + t + "}" in text:
+                out.setdefault(t, []).append(os.path.basename(path))
+    return out
 
 
 def is_on():
@@ -194,7 +268,14 @@ def main(argv):
             cmd = "off" if is_on() else "on"
         if cmd == "reload":
             cmd, quiet = "on", True
-        if cmd == "toast":
+        if cmd == "dial":
+            v = min(1.0, max(0.0, float(args[1])))
+            with open(DIAL, "w", encoding="utf-8") as f:
+                f.write(f"{v:g}\n")
+            res = op("on", quiet=True) if is_on() else {"dial": v, "enabled": False}
+            if isinstance(res, dict) and res.get("enabled"):
+                op("toast", text=f"Glass  ·  {round((1 - v) * 100)}% clear")
+        elif cmd == "toast":
             res = op("toast", text=" ".join(args[1:]) or "Liquid Glass")
         elif cmd in ("on", "off", "status"):
             res = op(cmd, quiet=quiet)
@@ -208,8 +289,14 @@ def main(argv):
     log(f"{cmd}: {json.dumps(res)[:300]}")
     print(json.dumps(res, indent=1) if isinstance(res, (dict, list)) else res)
     if isinstance(res, dict) and (res.get("unresolved") or res.get("ambiguous")):
+        bad = res.get("unresolved", []) + res.get("ambiguous", [])
+        where = attribute(bad)
         print(f"lgs: {len(res.get('unresolved', []))} unresolved / "
-              f"{len(res.get('ambiguous', []))} ambiguous theme tokens", file=sys.stderr)
+              f"{len(res.get('ambiguous', []))} ambiguous theme tokens:", file=sys.stderr)
+        for t in bad:
+            print(f"  %{{{t}}}  in {', '.join(where.get(t, ['?']))}", file=sys.stderr)
+    if isinstance(res, dict) and res.get("skipped"):
+        print("lgs: SKIPPED broken stylesheets: " + "; ".join(res["skipped"]), file=sys.stderr)
     return 0
 
 

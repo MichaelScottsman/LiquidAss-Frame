@@ -130,7 +130,7 @@ def main(argv):
         elif cmd == "uninstall":
             lgs(c, "off", "--quiet")
             sh(c, f"rm -f {DESKTOP} && rm -rf {REMOTE} /tmp/lgs && echo removed")
-        elif cmd in ("on", "off", "toggle", "reload", "status", "toast"):
+        elif cmd in ("on", "off", "toggle", "reload", "status", "toast", "dial"):
             if cmd in ("on", "reload", "toggle"):
                 sync(c)
             return lgs(c, cmd, *rest)

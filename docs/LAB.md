@@ -73,6 +73,10 @@ Then open `shots/lib_home_after.png` with the Read tool. Screenshots are 1.5× (
   - `L.nav('/route')`, `L.back()`, `L.route()`
   - `L.click('bar', '%{AddWindowButton}')`: a synthetic pointer click that opens menus and popups
   - `L.q(surface, sel)`, `L.qa(surface, sel)`, `L.surface('main')` (the window object)
+  - `L.clickText(surface, sel, 'Label')`: click the match whose text is `Label`
+  - `await L.pad('down', 3)`: move **controller focus** like a D-pad (up/down/left/right only), then return `L.focused()`. Focus states are only visible this way: DOM `focus()` does not move Steam's focus. It refuses left/right while a slider is focused, because that would change its value. Still avoid left/right on settings pages
+  - `L.focused()`: where `.gpfocus` is on each surface
+  - `await L.sleep(ms)`
   - Chain with commas: `--pre "L.nav('/settings'), L.click('main', '%{Some>Tab}')"`
   - Or use an async IIFE when you need waits: `--pre "(async()=>{L.click('bar','%{AddWindowButton}'); await new Promise(r=>setTimeout(r,500)); return L.route()})()"`
 - `python glass.py audit SURF [--route R] [--pre JS]` diffs stock against themed for every interactive element and text run:

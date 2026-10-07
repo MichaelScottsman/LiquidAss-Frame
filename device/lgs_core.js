@@ -1,14 +1,14 @@
 // Liquid Glass Shell: in-memory theme injector for the Steam Frame's VR gamepadui.
 //
 // lgs.py evaluates this inside Steam's SharedJSContext (CEF devtools on
-// 127.0.0.1:8080) as  (CORE)(payload, lgsBuildIndex).  Nothing is written to
+// 127.0.0.1:8080) as  (CORE)(payload, lgsBuildIndex, lgsLens).  Nothing is written to
 // disk: the theme lives only in the running steamwebhelper, so a Steam restart
 // or a reboot always brings back the stock UI.
 //
 // It only adds one <style> and one hidden SVG <defs> holder per window and a
 // class on <html>. It never moves, removes or re-parents Steam's own nodes, so
 // every control, route and gamepad focus path keeps working.
-(function lgsCore(payload, lgsBuildIndex) {
+(function lgsCore(payload, lgsBuildIndex, lgsLens) {
   'use strict';
   const W = window;
   const IDS = { style: 'lgs-theme', defs: 'lgs-defs', toast: 'lgs-toast' };
@@ -36,6 +36,19 @@
     (r.err === 'ambiguous' ? ambiguous : unresolved).add(tok.trim());
     return '.lgs-' + r.err;
   });
+
+  // Optional lensing (theme/lens.json): per-element refraction filters for a
+  // few floating capsules over in-page content.
+  const lensSpecs = (payload.lens || []).map((spec) => {
+    const sel = spec.sel.replace(/%\{([^}]+)\}/g, (_, tok) => {
+      const r = index.selector(tok);
+      if (r.sel) return r.sel;
+      (r.err === 'ambiguous' ? ambiguous : unresolved).add(tok.trim());
+      return '.lgs-' + r.err;
+    });
+    return Object.assign({}, spec, { sel });
+  });
+  const lens = lensSpecs.length && lgsLens ? lgsLens() : null;
 
   const state = {
     version: payload.version,
@@ -110,7 +123,15 @@
     if (!state.enabled) return;
     for (const { name, win } of popups()) {
       try { if (apply(win.document)) state.applied.add(name); } catch (_) { /* window closing */ }
+      if (lens) {
+        for (const spec of lensSpecs) {
+          try {
+            for (const el of win.document.querySelectorAll(spec.sel)) lens.track(win.document, el, spec);
+          } catch (_) { /* bad selector or closing window */ }
+        }
+      }
     }
+    if (lens) lens.sweep();
   }
 
   function toast(text) {
@@ -149,7 +170,10 @@
       const i = cbs.indexOf(state.created);
       if (i >= 0) cbs.splice(i, 1);
     } catch (_) { /* nothing registered */ }
-    for (const { win } of popups()) { try { strip(win.document); } catch (_) { /* closing */ } }
+    if (lens) lens.stop();
+    for (const { win } of popups()) {
+      try { strip(win.document); if (lens) lens.strip(win.document); } catch (_) { /* closing */ }
+    }
     if (W.__LGS === api) delete W.__LGS;
     if (!quiet) toast('Liquid Glass  ·  Off');
   }
@@ -167,6 +191,7 @@
       cssBytes: state.css.length,
       classModules: index.size,
       windows: docs,
+      lensed: lens ? lens.count() : 0,
       unresolved: [...unresolved],
       ambiguous: [...ambiguous],
     };

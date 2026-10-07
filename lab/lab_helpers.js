@@ -1,7 +1,7 @@
 // Development helpers evaluated in SharedJSContext (prepended with
 // lgs_index.js). Installs window.__LGS_LAB; lives in memory only.
 (function () {
-  if (window.__LGS_LAB && window.__LGS_LAB.v === 5) return;
+  if (window.__LGS_LAB && window.__LGS_LAB.v === 7) return;
   const index = (window.__LGS_INDEX && window.__LGS_INDEX.selector) ? window.__LGS_INDEX : (window.__LGS_INDEX = lgsBuildIndex());
 
   const ALIAS = {
@@ -62,6 +62,49 @@
       el.dispatchEvent(new E(t, Object.assign({ pointerType: 'mouse', isPrimary: true }, o)));
     }
     return readable(el).join(' ') || el.tagName;
+  }
+
+  // Click the first element matching sel whose text is exactly (or contains) text.
+  function clickText(alias, s, text) {
+    const el = qa(alias, s).find((e) => e.innerText.trim() === text) || qa(alias, s).find((e) => e.innerText.includes(text));
+    if (!el) throw new Error('no ' + s + ' with text ' + JSON.stringify(text) + ' in ' + alias);
+    const mark = 'lgs-click-' + Math.random().toString(36).slice(2);
+    el.setAttribute('data-lgs-click', mark);
+    try { return click(alias, '[data-lgs-click="' + mark + '"]'); } finally { el.removeAttribute('data-lgs-click'); }
+  }
+
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  // Move controller focus like a D-pad (navigation only; never A/B/menu).
+  // Left/right on a focused slider would change its value, so pad() refuses
+  // horizontal moves while a slider has focus.
+  const DIRS = { up: 9, down: 10, left: 11, right: 12 };
+  async function pad(dir, times) {
+    const code = DIRS[dir];
+    if (!code) throw new Error('pad: use up/down/left/right');
+    for (let i = 0; i < (times || 1); i++) {
+      if (code >= 11) {
+        for (const p of popups()) {
+          const f = p.win.document.querySelector('.gpfocus');
+          if (f && (f.querySelector('input[type=range]') || /Slider/i.test(readable(f).join(' ')) || f.closest('[class*="Slider"]'))) throw new Error('pad: refusing left/right on a slider');
+        }
+      }
+      FocusNavController.DispatchVirtualButtonClick(code);
+      await sleep(260);
+    }
+    return focused();
+  }
+
+  // The element that currently shows controller focus, per surface.
+  function focused(alias) {
+    const out = {};
+    for (const p of popups()) {
+      const short = p.name.replace(/_uid\d+$/, '').replace('valve.steam.gamepadui.', '');
+      if (alias && !short.startsWith(alias) && !(alias === 'main' && /^VR$/.test(short))) continue;
+      const f = p.win.document.querySelector('.gpfocus');
+      if (f) out[short] = readable(f).slice(0, 4).join(' ') + (f.innerText ? ' "' + f.innerText.trim().slice(0, 30) + '"' : '');
+    }
+    return out;
   }
 
   function mainInstance() { return SteamUIStore.WindowStore.VRGamepadUIMainWindowInstance; }
@@ -269,5 +312,5 @@
     return { controls: ctl, texts: text, issues, moved: moved.slice(0, 40), movedCount: moved.length };
   }
 
-  window.__LGS_LAB = { v: 5, surface, sel, q, qa, click, nav, back, route, outline, styles, classes, surfaces, readable, index, snap, diff };
+  window.__LGS_LAB = { v: 7, surface, sel, q, qa, click, clickText, sleep, pad, focused, nav, back, route, outline, styles, classes, surfaces, readable, index, snap, diff };
 })();
