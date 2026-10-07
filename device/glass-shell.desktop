@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Liquid Glass
+GenericName=Liquid Glass UI
+Comment=Turn the Liquid Glass look for the Frame's Steam UI on or off. It never survives a reboot.
+Exec=/home/steamos/.local/share/glass-shell/device/lgs toggle
+Icon=/home/steamos/.local/share/glass-shell/device/icon.png
+Terminal=false
+Categories=Settings;
+Keywords=glass;liquid;theme;ui;frame;steamvr;
+StartupNotify=false

@@ -1,0 +1,6 @@
+#!/bin/sh
+# Liquid Glass Shell toggle. Steam's "+ > Launch Program" runs this with the
+# Steam runtime's library overrides in the environment; drop them so the
+# system python3 (which ships aiohttp) loads cleanly.
+unset LD_LIBRARY_PATH LD_PRELOAD PYTHONHOME PYTHONPATH
+exec /usr/bin/python3 "$(dirname "$(readlink -f "$0")")/lgs.py" "$@"
