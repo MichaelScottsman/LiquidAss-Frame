@@ -1,0 +1,90 @@
+/* Glass Shell, area "steamvr": SteamVR's own keyboard (vr:keyboard,
+   keyboard.html, 1920x1080; used for OpenVR apps' ShowKeyboard and
+   SteamVR's own text fields; not Steam's VRKeyboard). DESIGN.md §4
+   keyboard: a panel-glass slab, keys as fills with white labels, special
+   keys a step brighter, the touched/pressed key white with a dark label,
+   Done tinted primary. Key sizes, rows, flex-grow and the shift planes'
+   display toggles are SteamVR's and stay. The pressed key and the active
+   shift key are painted by an inline style="background: #000", hence the
+   !important on that one state. Wrapped as html.lgs-on { ... }. */
+
+.VRKBContainer {
+  /* this page is 1920 px wide for a keyboard Steam draws 854 CSS px wide */
+  --lgs-vr-kb-scale: 2.25;
+  color: var(--lgs-text-1);
+}
+
+/* the slab: panel glass over the room (the page outside it stays clear);
+   concentric with the keys: key radius + SteamVR's 5px slab padding */
+.VRKBBackground {
+  background: var(--lgs-panel-sheen), var(--lgs-panel-bg);
+  box-shadow: var(--lgs-panel-rim);
+  border-radius: calc(var(--lgs-r-small) * var(--lgs-vr-kb-scale) + 5px);
+}
+.VRKBRow {
+  background-color: transparent;
+}
+
+/* text preview: a sunken well with a white caret */
+.VRKBPreviewWrapper {
+  background-color: var(--lgs-well-bg);
+  box-shadow: var(--lgs-well-shadow);
+  border-radius: calc(var(--lgs-r-small) * var(--lgs-vr-kb-scale));
+}
+.VRKBPreviewTextPart {
+  color: var(--lgs-text-1);
+}
+.VRKBPreviewTextCursor {
+  color: var(--lgs-caret);
+}
+.VRKBSuggestion {
+  background-color: var(--lgs-fill-2);
+  border-radius: var(--lgs-r-capsule);
+  color: var(--lgs-text-1);
+}
+
+/* keys */
+.VRKBKey {
+  background-color: var(--lgs-fill-2);
+  box-shadow: var(--lgs-control-rim);
+  border-radius: calc(var(--lgs-r-small) * var(--lgs-vr-kb-scale));
+  color: var(--lgs-text-1);
+  transition: background-color var(--lgs-t-fast) var(--lgs-ease), color var(--lgs-t-fast) var(--lgs-ease);
+}
+/* special keys (icon faces: backspace, enter, shift, symbols) */
+.VRKBKey:has(> .VRKBKeyFace > img) {
+  background-color: var(--lgs-fill-3);
+}
+.VRKBKey .VRKBKeyFace > img {
+  filter: brightness(0) invert(0.96);
+}
+.VRKBKey:hover {
+  background-color: var(--lgs-hover-fill);
+  color: var(--lgs-text-1);
+}
+/* touched / pressed key and the latched shift: the white key */
+.VRKBKey[style*="background"] {
+  background: var(--lgs-selected-fill) !important;
+  color: var(--lgs-text-on-selected);
+}
+.VRKBKey[style*="background"] .VRKBKeyFace > img {
+  filter: brightness(0);
+}
+
+/* Done: the one tinted key */
+.VRKBKey:has(.VRKBDone) {
+  background-color: var(--lgs-tint-primary);
+  color: #fff;
+}
+.VRKBDone,
+.VRKBDone:hover {
+  background-color: transparent;
+}
+.VRKBKey:has(.VRKBDone):hover {
+  background-color: var(--lgs-tint-primary);
+  background-image: var(--lgs-tint-lift);
+}
+.VRKBKeyFace .VRKBDone:hover {
+  background-color: transparent;
+  color: #fff;
+}

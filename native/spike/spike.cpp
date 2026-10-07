@@ -181,14 +181,16 @@ int main(int argc, char **argv) {
         auto e = ov->GetTransformForOverlayCoordinates(mainH, vr::TrackingUniverseStanding, mid, &c);
         std::printf("\nmain centre transform (uv .5,.5): %s\n", ov->GetOverlayErrorNameFromEnum(e));
         PrintMat(c);
-        vr::HmdVector2_t corner = {0.f, 0.f};
-        ov->GetTransformForOverlayCoordinates(mainH, vr::TrackingUniverseStanding, corner, &c);
-        std::printf("main corner (0,0):\n");
-        PrintMat(c);
-        corner = {1.f, 1.f};
-        ov->GetTransformForOverlayCoordinates(mainH, vr::TrackingUniverseStanding, corner, &c);
-        std::printf("main corner (1,1):\n");
-        PrintMat(c);
+        vr::HmdVector2_t mouse{};
+        ov->GetOverlayMouseScale(mainH, &mouse);
+        std::printf("main mouse scale %.1f x %.1f\n", mouse.v[0], mouse.v[1]);
+        const float pts[][2] = {{0, 0}, {1, 1}, {960, 540}, {1920, 0}, {0, 1080}, {1920, 1080}, {1280, 720}, {-1, -1}};
+        for (auto &pt : pts) {
+            vr::HmdVector2_t q = {pt[0], pt[1]};
+            auto e2 = ov->GetTransformForOverlayCoordinates(mainH, vr::TrackingUniverseStanding, q, &c);
+            std::printf("  coords (%6.0f,%6.0f) -> pos (% .3f % .3f % .3f) %s\n", pt[0], pt[1], c.m[0][3], c.m[1][3], c.m[2][3],
+                        ov->GetOverlayErrorNameFromEnum(e2));
+        }
     }
 
     // Our own overlay, attached to Steam's main window, 4 cm in front of it.

@@ -6,7 +6,12 @@ key, STEAMFRAME_SSH_PASSWORD), the same way the run-liquid-glass-frame driver
 does.
 
   python glass.py check                     headset reachable? Steam devtools up?
-  python glass.py sync                      upload device/ theme/ lab/
+  python glass.py sync                      upload device/ theme/ lab/ native/ (sources)
+  python glass.py native-build [fake]       build glassd on the Frame into
+                                            ~/.local/share/glass-shell/native/glassd/glassd
+                                            ("fake": the stand-in native/spike/fakeglassd)
+  python glass.py shell [status|start|stop|log]
+                                            the lgs-shell unit (native layer daemon)
   python glass.py install                   sync + add "Liquid Glass" to + > Launch Program
   python glass.py uninstall                 theme off, remove launcher and files
   python glass.py on|off|toggle|reload|status
@@ -74,12 +79,16 @@ def sh(client, cmd, timeout=180, echo=True):
 def sync(client):
     buf = io.BytesIO()
     with tarfile.open(fileobj=buf, mode="w:gz") as tar:
-        for sub in ("device", "theme", "lab"):
+        for sub in ("device", "theme", "lab", "native"):
             p = ROOT / sub
             if not p.exists():
                 continue
             for f in sorted(p.rglob("*")):
                 if f.is_dir() or "__pycache__" in f.parts or f.suffix == ".pyc":
+                    continue
+                # native/: sources only; builds happen on the Frame
+                if sub == "native" and ("build" in f.parts or f.suffix in (".o", ".so", ".png", ".jpg")
+                                        or (f.suffix == "" and f.name not in ("Makefile",))):
                     continue
                 ti = tar.gettarinfo(str(f), arcname=str(f.relative_to(ROOT)).replace("\\", "/"))
                 ti.mode = 0o755 if f.suffix in (".py", ".sh") or f.name == "lgs" else 0o644
@@ -99,6 +108,27 @@ def sync(client):
     if code:
         sys.exit("sync failed")
     print(f"synced -> {REMOTE}")
+
+
+def native_build(client, fake=False):
+    """Build glassd on the Frame. native/glassd/build.sh wins if present, else
+    CMake; the binary lands in native/glassd/glassd, where lgs-shell looks."""
+    if fake:
+        cmd = (f"cd {REMOTE}/native/spike && "
+               "g++ -O2 -std=c++17 -I$HOME/frametop/screens/build/include -I. fakeglassd.cpp -o fakeglassd "
+               "-L/opt/steamvr/bin/linuxarm64 -lopenvr_api -Wl,-rpath,/opt/steamvr/bin/linuxarm64 -lgbm "
+               f"&& echo built {REMOTE}/native/spike/fakeglassd")
+    else:
+        d = f"{REMOTE}/native/glassd"
+        cmd = (f"if [ ! -d {d} ]; then echo 'native/glassd is not there yet (nothing to build); "
+               "lgs-shell runs CSS only without it'; exit 3; fi; cd " + d + " && "
+               "if [ -f build.sh ]; then sh build.sh; "
+               "elif [ -f CMakeLists.txt ]; then cmake -S . -B build -DCMAKE_BUILD_TYPE=Release >/dev/null "
+               "&& cmake --build build -j8 && install -m755 build/glassd glassd; "
+               "else echo 'native/glassd has no build.sh or CMakeLists.txt'; exit 3; fi && "
+               f"ls -la {d}/glassd")
+    code, _, _ = sh(client, cmd, timeout=600)
+    return code
 
 
 def lgs(client, *args):
@@ -158,6 +188,17 @@ def main(argv):
             sftp.remove(remote)
             sftp.close()
             print(f"saved {local}")
+        elif cmd == "native-build":
+            sync(c)
+            return native_build(c, fake=bool(rest and rest[0] == "fake"))
+        elif cmd == "shell":
+            sub = rest[0] if rest else "status"
+            if sub == "log":
+                return sh(c, "journalctl --user -u lgs-shell --no-pager -n 80 -o cat", timeout=30)[0]
+            if sub not in ("status", "start", "stop"):
+                print(__doc__)
+                return 2
+            return sh(c, f"{PY} {REMOTE}/device/lgs_shell.py {sub}", timeout=60)[0]
         elif cmd == "logs":
             sh(c, "tail -n 60 /tmp/lgs/lgs.log 2>/dev/null")
         elif cmd in ("outline", "styles", "classes", "click", "js", "route", "nav", "back", "surfaces", "eval", "audit", "perf"):

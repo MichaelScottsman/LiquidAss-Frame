@@ -224,8 +224,17 @@ def core_call(payload):
 
 
 def op(name, quiet=False, text=None, vr=False):
-    """Run one operation on the Steam UI; with vr=True also on SteamVR's pages
-    (on starts the transient lgs-vr watcher, off stops it and strips them)."""
+    """Run one operation on the Steam UI; with vr=True also on the native glass
+    layer and SteamVR's pages: on starts the transient unit lgs-shell (native
+    glass + SteamVR page theming), off stops it and strips the pages."""
+    shell_off = None
+    if vr and name == "off":
+        # Native layer first, so Steam's own panels are back before the CSS goes.
+        try:
+            import lgs_shell
+            shell_off = lgs_shell.stop()
+        except Exception as e:  # noqa: BLE001 - best effort
+            shell_off = f"error: {e}"
     payload = {"op": name, "quiet": quiet}
     if name == "on":
         css, svg = bundle()
@@ -247,16 +256,19 @@ def op(name, quiet=False, text=None, vr=False):
         res["skipped"] = list(SKIPPED)
     if vr and name in ("on", "off", "status") and isinstance(res, dict):
         try:
+            import lgs_shell
             import lgs_vr
             if name == "on":
-                res["steamvr"] = lgs_vr.start()
+                res["shell"] = lgs_shell.start()
             elif name == "off":
-                lgs_vr.stop()
-                res["steamvr"] = "stopped"
+                res["shell"] = shell_off
+                lgs_vr.strip()
+                res["steamvr"] = "stripped"
             else:
+                res["shell"] = lgs_shell.brief(lgs_shell.status())
                 res["steamvr"] = lgs_vr.status()
         except Exception as e:  # noqa: BLE001 - SteamVR side is best effort
-            res["steamvr"] = f"error: {e}"
+            res["shell"] = f"error: {e}"
     return res
 
 

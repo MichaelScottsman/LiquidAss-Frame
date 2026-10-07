@@ -285,7 +285,9 @@
   filter: brightness(0) invert(0.94);
 }
 /* gamepad-mode glyph and its connection dots */
-%{ControllerRoleIcon} {
+%{ControllerRoleIcon},
+%{ControllerRoleIcon} svg {
+  /* the svg carries color="#525252" itself */
   color: var(--lgs-text-1);
 }
 %{ControllerConnectionDots} span {

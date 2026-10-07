@@ -1,0 +1,351 @@
+/* Glass Shell, area "hud": the small standalone overlays that float alone
+   over the room — bar tooltip, volume HUD, floating footer legend,
+   notification toasts and the VR keyboard.
+   Every one of them is its own SteamVR quad with nothing in-page behind it,
+   so they all use PANEL GLASS (tint + rim + sheen, no backdrop blur).
+   Tooltip, volume and footer are clip-rected by SteamVR to their
+   PopupContent box: no outer shadows or glows, everything is inset.
+   Look only: colours, fills, radii, rims. Never geometry (one documented
+   6px padding on the footer capsule), never Steam's transforms, animations,
+   inline vars or pseudo-elements it owns (SliderTrack::before,
+   KeyboardKey.Touched::after, toast enter/exit animations, marquee scroll).
+   Wrapped as html.lgs-on { ... } by the bundler.
+   Coverage, shots and audits: docs/coverage/hud.md. */
+
+
+/* ======================================================================
+   1. Tooltip (surface tooltip): a small panel-glass capsule.
+   The pill is the clip rect's only child and sizes it (fit-content):
+   width/height/max-* and the marquee's mask, transform and inline vars
+   stay Steam's.
+   ====================================================================== */
+
+%{PopupBody>Tooltip} {
+  background: var(--lgs-panel-sheen), var(--lgs-panel-bg);
+  box-shadow: var(--lgs-panel-rim);
+  border-radius: var(--lgs-r-capsule);
+  color: var(--lgs-text-1);
+  text-shadow: var(--lgs-text-shadow);
+  /* Steam shows/hides the popup without a fade: materialize on mount */
+  animation: lgs-materialize var(--lgs-t) var(--lgs-spring) both;
+}
+
+
+/* ======================================================================
+   2. Volume HUD (surface volumelevel): a panel-glass capsule holding the
+   speaker glyph and a white liquid fill in a dim capsule channel. The
+   same look as the slider primitive, pinned here so the HUD keeps it.
+   SliderTrack::before is Steam's fill: recoloured/rounded only, its
+   inset and width (from --normalized-slider-value) stay Steam's.
+   ====================================================================== */
+
+%{VolumeSliderLabel>VolumePopin}%{VolumeSliderLabel>VR} {
+  background: var(--lgs-panel-sheen), var(--lgs-panel-bg);
+  box-shadow: var(--lgs-panel-rim);
+  border-radius: var(--lgs-r-capsule);
+  animation: lgs-materialize var(--lgs-t) var(--lgs-spring) both;
+}
+%{VolumeSliderLabel>VolumePopin}%{VolumeSliderLabel>VR} %{*GamepadDialogContent>FieldIcon} {
+  color: var(--lgs-text-1);
+  filter: drop-shadow(var(--lgs-text-shadow));
+}
+%{VolumeSliderLabel>VolumePopin}%{VolumeSliderLabel>VR} %{*SliderControlPanelGroup>SliderTrack} {
+  --left-track-color: var(--lgs-slider-fill);
+  background-color: var(--lgs-fill-3);
+  box-shadow: var(--lgs-track-depth);
+}
+%{VolumeSliderLabel>VolumePopin}%{VolumeSliderLabel>VR} %{*SliderControlPanelGroup>SliderTrack}::before {
+  border-radius: var(--lgs-r-capsule);
+}
+
+
+/* ======================================================================
+   3. Floating footer (surface floatingfooter): the button legend under the
+   window as one compact panel-glass capsule.
+   Steam dims the whole legend with filter: brightness(.6) drop-shadow(...)
+   (decorative): replaced by the glass behind it, so glyphs and labels are
+   crisp at full brightness. The element is the clip rect's only child;
+   a 6px inline padding (allowed small tweak) lets the capsule's round ends
+   clear the first glyph and the last label, and grows the clip rect with it.
+   The shell's in-window footer capsule (#Footer::after, Liquid Glass with
+   blur) must not double up here: this surface has nothing to blur.
+   ====================================================================== */
+
+#Footer%{BasicFooter}%{FloatingVRFooter} {
+  filter: none;
+  background: var(--lgs-panel-sheen), var(--lgs-panel-bg);
+  backdrop-filter: none;
+  box-shadow: var(--lgs-panel-rim);
+  border-radius: var(--lgs-r-capsule);
+  padding-inline: 6px;
+  animation: lgs-materialize var(--lgs-t) var(--lgs-spring) both;
+}
+#Footer%{BasicFooter}%{FloatingVRFooter}::after {
+  content: none;
+}
+%{FloatingVRFooter} %{ActionButtonLegend} %{ActionButtonLabel} {
+  color: var(--lgs-text-1);
+  text-shadow: var(--lgs-text-shadow);
+}
+
+
+/* ======================================================================
+   4. Notification toasts (window VRNotificationToasts, overlay
+   notifications). The body has only .LowPerfMode: nothing here is scoped
+   to GamepadMode/BasicUI. No clip rect: the 340x80 quad shows the room
+   around the 300x40 card.
+   - card: panel glass, r-panel (a capsule on the 40px one-liner, a rounded
+     rect on two-line cards); Steam's 20px black halo and the VR grey
+     outline become the inset panel rim, which reads over any room;
+   - the logo fills the card's round end: avatars and app icons become
+     circles (concentric with the capsule);
+   - Steam's toastEnter/Exit(VR) animations, --toast-duration, position and
+     inset are untouched.
+   ====================================================================== */
+
+%{GamepadToastPopup}%{GamepadToastPlaceholder>VR} > * {
+  outline-color: transparent;
+}
+%{GamepadToastPopup} > %{ShortTemplate} {
+  background: var(--lgs-panel-sheen), var(--lgs-panel-bg);
+  box-shadow: var(--lgs-panel-rim);
+  border-radius: var(--lgs-r-panel);
+  /* the hover fill is an inset layer (below the labels, above the glass),
+     so it can fade; the glass itself never transitions */
+  transition: box-shadow var(--lgs-t-fast) var(--lgs-ease);
+}
+/* laser hover */
+%{GamepadToastPopup} > %{ShortTemplate}:hover {
+  box-shadow: var(--lgs-panel-rim), inset 0 0 0 200px var(--lgs-hover-fill);
+}
+/* controller focus (Panel Focusable): illuminated from within + ring */
+%{GamepadToastPopup} > %{ShortTemplate}.gpfocus {
+  background: var(--lgs-panel-sheen),
+      linear-gradient(var(--lgs-focus-fill), var(--lgs-focus-fill)),
+      var(--lgs-panel-bg) !important;
+  box-shadow: var(--lgs-panel-rim), var(--lgs-focus-ring) !important;
+}
+/* incoming call: Steam's bright green radial fill (white text at ~2:1)
+   becomes green-tinted panel glass: the play tint washed over the whole
+   card, dark enough that white labels keep 4.5:1 over a bright room */
+%{GamepadToastPopup} > %{ShortTemplate}%{ShortTemplate>IncomingCallToast} {
+  --lgs-call-wash: linear-gradient(color-mix(in srgb, var(--lgs-tint-play) 32%, transparent),
+      color-mix(in srgb, var(--lgs-tint-play) 32%, transparent));
+  background: var(--lgs-panel-sheen), var(--lgs-call-wash), var(--lgs-panel-bg);
+  border-left-color: transparent;
+}
+%{ShortTemplate}%{ShortTemplate>IncomingCallToast} %{ShortTemplate>AvatarStatus} {
+  border-right-color: transparent;
+}
+
+/* logo in the round end */
+%{ShortTemplate} %{ShortTemplate>ShortLogoDimensions} > img,
+%{ShortTemplate} %{ShortTemplate>AppLogo} {
+  border-radius: var(--lgs-r-capsule);
+}
+%{ShortTemplate} %{ShortTemplate>AppLogo} > img {
+  border-radius: var(--lgs-r-small);
+  border-color: transparent;
+  box-shadow: var(--lgs-pill-shadow);
+}
+/* friend status strip: a small rounded status pill instead of a full-height
+   bar with a black edge (colour = Steam's online/in-game/offline) */
+%{ShortTemplate} %{ShortTemplate>AvatarStatus} {
+  box-shadow: none;
+  border-radius: var(--lgs-r-capsule);
+  margin-block: 8px;
+}
+
+/* text at vibrancy levels on panel glass */
+%{ShortTemplate} %{ShortTemplate>Title} {
+  color: var(--lgs-text-1);
+  text-shadow: var(--lgs-text-shadow);
+}
+%{ShortTemplate} %{ShortTemplate>Body} {
+  color: var(--lgs-text-2);
+  text-shadow: var(--lgs-text-shadow);
+}
+%{ShortTemplate}%{ShortTemplate>IncomingCallToast} %{ShortTemplate>Body} {
+  color: var(--lgs-text-1);
+}
+%{ShortTemplate} %{ShortTemplate>Icon} {
+  color: var(--lgs-text-1);
+}
+/* unread count: a whole-fill badge */
+%{ShortTemplate} %{ShortTemplate>Count} {
+  background-color: var(--lgs-blue);
+  color: var(--lgs-text-on-tint);
+}
+
+
+/* ======================================================================
+   5. VR keyboard (window VRKeyboard): a visionOS-style glass keyboard.
+   Steam skins the keyboard with custom properties on
+   Keyboard.<skin>; only the default skin is re-skinned, so a user's chosen
+   skin (Pumpkin, NightShift, DEX ...) keeps working untouched.
+   - slab: panel glass, r-panel; corner keys follow the slab's curve
+     (concentric: r-panel minus the 3-4px inset);
+   - keys: fills (fill-2), special keys stronger (fill-3), r-small, inner
+     top rim; labels white;
+   - focused / laser-hovered key (virtual focus %{Modal>Focused}, not
+     .gpfocus): bright white, dark label;
+   - pressed (%{Modal>Touched}): white, pushed in (pressed scale + depth);
+     Steam's Touched::after shine stays;
+   - Shift/Caps locked (%{Modal>ToggleOn}): white selected; one-shot:
+     brighter fill, bold;
+   - Enter: the one tinted key (--lgs-tint-primary laid over the darkest ink
+     so the white label keeps 4.5:1 over a bright room).
+   Never touched: hit-area padding (the hit target), label span transforms
+   and opacity, the container's keyboard_appear animation, gridcells.
+   ====================================================================== */
+
+%{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme {
+  --key-background-color: var(--lgs-fill-2);
+  --key-color: var(--lgs-text-1);
+  --key-shift-label-color: var(--lgs-text-1);
+  --key-action-button-glyph-color: var(--lgs-text-2);
+  --key-focused-background-color: var(--lgs-selected-fill);
+  --key-focused-color: var(--lgs-text-on-selected);
+  --key-focused-shift-label-color: var(--lgs-text-on-selected);
+  --key-focused-action-button-left-color: var(--lgs-text-on-selected);
+  --key-focused-action-button-right-color: var(--lgs-text-on-selected);
+  --key-meta-background-color: var(--lgs-fill-3);
+  --key-meta-color: var(--lgs-text-1);
+  --key-tab-background-color: var(--lgs-fill-3);
+  --key-tab-color: var(--lgs-text-1);
+  --key-caps-background-color: var(--lgs-fill-3);
+  --key-caps-color: var(--lgs-text-1);
+  --key-shift-background-color: var(--lgs-fill-3);
+  --key-shift-color: var(--lgs-text-1);
+  --key-backspace-background-color: var(--lgs-fill-3);
+  --key-backspace-color: var(--lgs-text-1);
+  --key-enter-background-color: color-mix(in srgb, var(--lgs-blue) 82%, var(--lgs-text-on-selected));
+  --key-enter-color: var(--lgs-text-on-tint);
+  --key-enter-action-button-glyph-color: var(--lgs-text-on-tint);
+  --key-spacebar-background-color: var(--lgs-fill-2);
+  --key-spacebar-color: var(--lgs-text-1);
+  --key-spacer-background-color: transparent;
+  --key-extendedkey-background-color: transparent;
+  --key-extendedkey-color: var(--lgs-text-1);
+  --key-extendedkey-focused-background-color: var(--lgs-selected-fill);
+  --key-extendedkey-focused-color: var(--lgs-text-on-selected);
+  --key-extendedkey-hover-background-color: var(--lgs-selected-fill);
+  --key-extendedkey-hover-color: var(--lgs-text-on-selected);
+  --key-toggleon-background-color: var(--lgs-selected-fill);
+  --key-toggleon-color: var(--lgs-text-on-selected);
+  --key-toggleoneshot-background-color: var(--lgs-pressed-fill);
+  --key-toggleoneshot-color: var(--lgs-text-1);
+  --key-emoji-color: var(--lgs-text-1);
+  --key-emoji-category-highlight-background-color: var(--lgs-fill-3);
+  --key-emoji-focused-background-color: var(--lgs-selected-fill);
+  --key-emoji-focused-color: var(--lgs-text-on-selected);
+  --key-touched-background-color: var(--lgs-selected-fill);
+  --key-touched-color: var(--lgs-text-on-selected);
+  /* trackpad touch pointers (Steam draws them at .5 opacity): a soft white
+     disc with a dark ring, visible on glass keys and on the white focus */
+  --key-pointer-background-color: var(--lgs-selected-fill);
+  --key-pointer-stroke-color: var(--lgs-text-on-selected);
+  --key-deadkey-background-color: var(--lgs-fill-3);
+  --key-deadkeyinactive-color: var(--lgs-text-2);
+  --key-deadkeyactive-color: var(--lgs-text-1);
+
+  /* the slab */
+  background: var(--lgs-panel-sheen), var(--lgs-panel-bg);
+  box-shadow: var(--lgs-panel-rim);
+  border-radius: var(--lgs-r-panel);
+}
+
+/* keys: rounded fills with an inner top rim */
+%{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme %{Modal>KeyboardKey} {
+  border-radius: var(--lgs-r-small);
+  box-shadow: var(--lgs-control-rim);
+  text-shadow: var(--lgs-text-shadow);
+  transition: background-color var(--lgs-t-fast) var(--lgs-ease),
+      color var(--lgs-t-fast) var(--lgs-ease),
+      scale var(--lgs-t-fast) var(--lgs-ease);
+}
+/* corner keys follow the slab's curve (keyboard padding + hit-area padding
+   put them 3-4px in from the edge) */
+%{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme > :nth-child(1 of %{Keyboard>KeyboardRow}) > :first-child %{Modal>KeyboardKey} {
+  border-top-left-radius: calc(var(--lgs-r-panel) - 4px);
+}
+%{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme > :nth-child(1 of %{Keyboard>KeyboardRow}) > :last-child %{Modal>KeyboardKey} {
+  border-top-right-radius: calc(var(--lgs-r-panel) - 4px);
+}
+%{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme > :nth-last-child(1 of %{Keyboard>KeyboardRow}) > :first-child %{Modal>KeyboardKey} {
+  border-bottom-left-radius: calc(var(--lgs-r-panel) - 4px);
+}
+%{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme > :nth-last-child(1 of %{Keyboard>KeyboardRow}) > :last-child %{Modal>KeyboardKey} {
+  border-bottom-right-radius: calc(var(--lgs-r-panel) - 4px);
+}
+
+/* focused / laser-hovered key: bright white, dark label, no rim */
+%{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme %{Modal>KeyboardKey}%{Modal>Focused} {
+  box-shadow: none;
+  text-shadow: none;
+}
+/* pressed: white, pushed in. Beats DefaultTheme's blue Touched fill */
+%{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme %{Modal>KeyboardKey}%{Modal>Touched} {
+  background-color: var(--key-touched-background-color);
+  color: var(--key-touched-color);
+  box-shadow: var(--lgs-track-depth);
+  text-shadow: none;
+  scale: var(--lgs-pressed-scale);
+}
+/* Shift / Caps: locked = white selected, one-shot = brighter fill */
+%{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme %{Modal>KeyboardKey}%{Modal>ToggleOn}:not(%{Modal>Focused}, %{Modal>Touched}) {
+  background-color: var(--key-toggleon-background-color);
+  color: var(--key-toggleon-color);
+  box-shadow: var(--lgs-pill-shadow);
+  text-shadow: none;
+}
+%{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme %{Modal>KeyboardKey}%{Modal>ToggleOneShot}:not(%{Modal>Focused}, %{Modal>Touched}) {
+  background-color: var(--key-toggleoneshot-background-color);
+  color: var(--key-toggleoneshot-color);
+}
+
+/* long-press accent row: a small popover over the keys, so thick glass
+   (it really blurs the keys under it); accents are clear cells at rest and
+   the focused one is the white pill. Position/size stay Steam's. */
+%{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme %{KeyboardExtendedRow} {
+  background: var(--lgs-panel-sheen), var(--lgs-thick-bg);
+  backdrop-filter: var(--lgs-thick-blur);
+  box-shadow: var(--lgs-glass-rim), var(--lgs-glass-shadow);
+  border-radius: var(--lgs-r-row);
+}
+%{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme %{KeyboardExtendedKey} {
+  border-radius: var(--lgs-r-row);
+  text-shadow: var(--lgs-text-shadow);
+  transition: background-color var(--lgs-t-fast) var(--lgs-ease), color var(--lgs-t-fast) var(--lgs-ease);
+}
+%{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme %{KeyboardExtendedKey}:is(%{Modal>Focused}, :hover) {
+  text-shadow: none;
+}
+/* emoji / Steam items layouts */
+%{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme :is(%{KeyboardEmojiKey}, %{KeyboardSteamItemKey}) {
+  border-radius: var(--lgs-r-small);
+}
+
+/* buffered mode (an app opened the keyboard): the text preview row sits on
+   top of the keys as the slab's upper part, one continuous panel (default
+   skin only, like everything above) */
+%{VRVirtualKeyboardContents}:has(> %{Modal>Keyboard}.DefaultTheme) > %{VirtualKeyboardTextBuffer} {
+  background: var(--lgs-panel-sheen), var(--lgs-panel-bg);
+  box-shadow: var(--lgs-panel-rim);
+  border-radius: var(--lgs-r-panel) var(--lgs-r-panel) 0 0;
+}
+%{VRVirtualKeyboardContents}:has(> %{Modal>Keyboard}.DefaultTheme) > %{VirtualKeyboardTextBuffer} %{VirtualKeyboardTextBufferText} {
+  color: var(--lgs-text-1);
+  text-shadow: var(--lgs-text-shadow);
+}
+%{VRVirtualKeyboardContents}:has(> %{Modal>Keyboard}.DefaultTheme) > %{VirtualKeyboardTextBuffer} %{VirtualKeyboardTextBufferCursor} {
+  background-color: var(--lgs-caret);
+}
+%{VRVirtualKeyboardContents}:has(> %{VirtualKeyboardTextBuffer}) > %{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+%{VRVirtualKeyboardContents}:has(> %{VirtualKeyboardTextBuffer}) > %{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme > :nth-child(1 of %{Keyboard>KeyboardRow}) > :is(:first-child, :last-child) %{Modal>KeyboardKey} {
+  border-top-left-radius: var(--lgs-r-small);
+  border-top-right-radius: var(--lgs-r-small);
+}

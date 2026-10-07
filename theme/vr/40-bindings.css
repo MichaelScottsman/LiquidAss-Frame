@@ -1,0 +1,359 @@
+/* Glass Shell, area "steamvr": SteamVR's controller binding editor
+   (vr:controllerbindingui, controllerbinding.html, 2400x1350; page 2 of the
+   Steam dashboard frame, so the same window as Steam main). Window glass
+   with the primitives look of Steam's settings: fills, capsules, white
+   selected, hover fills (the page is laser-only: no gamepad focus).
+   Every rule is scoped to body.ControllerMainBorderRadius (this page only;
+   the files are bundled into every SteamVR page). Look only: no geometry,
+   scrollbar widths untouched, SteamVR's .5 mirrored column and .Disabled
+   dimming kept. Wrapped as html.lgs-on { ... }. */
+
+body.ControllerMainBorderRadius {
+  /* 2400 px here = 1280 CSS px of Steam main: radii scale with it */
+  --lgs-vr-scale: 1.875;
+  --lgs-vr-r-window: calc(var(--lgs-r-window) * 1.875);
+  --lgs-vr-r-card: calc(var(--lgs-r-card) * 1.875);
+  --lgs-vr-r-row: calc(var(--lgs-r-row) * 1.875);
+  /* the overlay's own rounded corners (body clips): Steam's window radius */
+  border-radius: var(--lgs-vr-r-window);
+
+  /* ---------------------------------------------------------------- */
+  /* 1. Window glass                                                   */
+  /* ---------------------------------------------------------------- */
+  & .InputContainer {
+    background: var(--lgs-window-sheen), var(--lgs-window-bg);
+    box-shadow: var(--lgs-window-rim);
+    border-radius: var(--lgs-vr-r-window);
+    color: var(--lgs-text-1);
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* 2. Title bar: no slab; the title floats on the glass, Back and    */
+  /*    Options are capsules, a hairline closes the bar.               */
+  /* ---------------------------------------------------------------- */
+  & .PageTitleBar .TitleBarMainRow {
+    background: transparent;
+    box-shadow: inset 0 -1px 0 var(--lgs-separator);
+  }
+  & .PageTitle,
+  & .PageTitleBar .PageTitleLabel {
+    color: var(--lgs-text-1);
+    text-shadow: var(--lgs-text-shadow);
+  }
+  & .PageTitleBar .PageSubTitle {
+    color: var(--lgs-text-2);
+  }
+  & .PageTitleButton,
+  & .PageTitleBar .OptionsButton {
+    background: var(--lgs-fill-2);
+    box-shadow: var(--lgs-control-rim);
+    border-radius: var(--lgs-r-capsule);
+    color: var(--lgs-text-1);
+    transition: background-color var(--lgs-t-fast) var(--lgs-ease);
+  }
+  & .PageTitleBar .PageTitleBackButton:hover,
+  & .PageTitleBar .OptionsButton:not(.Disabled):hover {
+    background: var(--lgs-hover-fill);
+    box-shadow: var(--lgs-control-rim);
+  }
+  & .PageTitleBar .PageTitleButton:not(.Disabled):active {
+    background: var(--lgs-pressed-fill);
+  }
+  & .PageTitleBar .NoSteamWarning {
+    background: color-mix(in srgb, var(--lgs-orange) 60%, var(--lgs-panel-bg));
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* 3. Generic buttons on this page: fill capsules                    */
+  /* ---------------------------------------------------------------- */
+  & .ButtonControl {
+    background: var(--lgs-fill-2);
+    box-shadow: var(--lgs-control-rim);
+    border-radius: var(--lgs-r-capsule);
+    color: var(--lgs-text-1);
+    transition: background-color var(--lgs-t-fast) var(--lgs-ease);
+  }
+  & .ButtonControl:not(.Disabled):hover {
+    background: var(--lgs-hover-fill);
+    box-shadow: var(--lgs-control-rim);
+  }
+  & .ButtonControl:not(.Disabled):active {
+    background: var(--lgs-pressed-fill);
+    box-shadow: var(--lgs-control-rim);
+  }
+  & .ButtonControl.Disabled {
+    opacity: var(--lgs-disabled-opacity);
+  }
+  & .ButtonControl.WithIcon > :is(.Icon, .SVGIcon_Button) path {
+    fill: var(--lgs-text-1);
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* 4. App select                                                     */
+  /* ---------------------------------------------------------------- */
+  & .AppSelectContainer {
+    background: var(--lgs-fill-1);
+    border-radius: var(--lgs-vr-r-card);
+    transition: background-color var(--lgs-t-fast) var(--lgs-ease);
+  }
+  & .AppSelectContainer:hover {
+    background: var(--lgs-hover-fill);
+  }
+  /* app art is content: opaque, concentric small radius */
+  & .AppSelectContainer .AppImage {
+    border-radius: calc(var(--lgs-r-small) * var(--lgs-vr-scale));
+  }
+  & .AppSelectName {
+    color: var(--lgs-text-1);
+    text-shadow: var(--lgs-text-shadow);
+  }
+  & .AppSelectTitle {
+    color: var(--lgs-text-2);
+  }
+  & .AppSelectCompositorEntry img {
+    border-radius: var(--lgs-vr-r-row);
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* 5. Binding list                                                   */
+  /* ---------------------------------------------------------------- */
+  & .BindingListSectionHeader {
+    color: var(--lgs-text-2);
+  }
+  & .BindingEntry,
+  & .ControllerTypeWrapper .BindingEntry {
+    background: var(--lgs-fill-1);
+    border-radius: var(--lgs-vr-r-card);
+  }
+  & .BindingName {
+    color: var(--lgs-text-1);
+  }
+  & .BindingDescription,
+  & .BindingLastUpdated,
+  & .BindingSteamPersonaName,
+  & .RemappedInfoSpan {
+    color: var(--lgs-text-2);
+  }
+  & .SteamCommunityProfileImage,
+  & .BindingEntry .AppImage {
+    border-radius: calc(var(--lgs-r-small) * var(--lgs-vr-scale));
+  }
+  /* the controller line drawing sat on a dark square: let the glass show */
+  & .ControllerTypeButton img {
+    background: transparent;
+  }
+  & .InlineDropdownLabel {
+    background: var(--lgs-fill-2);
+    border-radius: var(--lgs-r-capsule);
+    color: var(--lgs-text-1);
+    transition: background-color var(--lgs-t-fast) var(--lgs-ease);
+  }
+  & .InlineDropdownLabel:hover {
+    background: var(--lgs-hover-fill);
+  }
+  & .InlineDropdownLabel.ReadOnly {
+    background: transparent;
+  }
+  & hr,
+  & .RemappedInfoHr {
+    border-top-color: var(--lgs-separator);
+  }
+  & .BottomButtonHR {
+    border-top-color: var(--lgs-separator);
+  }
+  & .BindingManageButtonsHR {
+    border-color: var(--lgs-separator);
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* 6. View / edit binding                                            */
+  /* ---------------------------------------------------------------- */
+  & .TabRow {
+    border-bottom-color: var(--lgs-separator);
+  }
+  /* action-set tabs: fill segments, the current one is the white pill */
+  & .Tab {
+    background-color: var(--lgs-fill-2);
+    border-bottom-color: transparent;
+    border-radius: var(--lgs-vr-r-row);
+    color: var(--lgs-text-1);
+    transition: background-color var(--lgs-t-fast) var(--lgs-ease), color var(--lgs-t-fast) var(--lgs-ease);
+  }
+  & .Tab:hover {
+    background: var(--lgs-hover-fill);
+  }
+  /* sets with unbound actions keep their warning as a whole fill */
+  & .Label.Tab.Warning {
+    background-color: color-mix(in srgb, var(--lgs-orange) 60%, var(--lgs-panel-bg));
+  }
+  & .Label.Tab.Error {
+    background-color: color-mix(in srgb, var(--lgs-red) 62%, var(--lgs-panel-bg));
+  }
+  & .Label.Tab.Selected,
+  & .Label.Tab.Warning.Selected,
+  & .Label.Tab.Error.Selected {
+    background-color: var(--lgs-selected-fill);
+    border-bottom-color: transparent;
+    color: var(--lgs-text-on-selected);
+  }
+  & .UnboundActionsCount {
+    background-color: var(--lgs-fill-sunken);
+    border-radius: var(--lgs-r-capsule);
+    color: inherit;
+  }
+  & .ControllerTitle.Label,
+  & .Label.Title,
+  & .Label.TitleCenter {
+    color: var(--lgs-text-1);
+  }
+  /* SteamVR dims the controller titles to .8 on top of the mirrored
+     column's .5; on translucent glass that reads below stock contrast over
+     a bright room, so the title itself goes to full strength (the column
+     keeps its .5, which is what marks it as the mirrored side) */
+  & .ControllerTitle.Label {
+    opacity: 1;
+  }
+  & .Label.Description {
+    color: var(--lgs-text-2);
+  }
+  /* each input's mode group: a grouped card */
+  & .SourceModeGroup {
+    background-color: var(--lgs-fill-1);
+    border-radius: var(--lgs-vr-r-row);
+  }
+  & .SourceModeGroup:hover {
+    background-color: var(--lgs-fill-2);
+  }
+  & .SourceModeGroup.Edit {
+    background-color: var(--lgs-fill-3);
+  }
+  & .Label.BindingLabel {
+    color: var(--lgs-text-1);
+  }
+  & .BindingLabel.BindingHeader:not(.ReadOnly) {
+    background-color: var(--lgs-fill-2);
+    border-color: transparent;
+    box-shadow: var(--lgs-control-rim);
+    border-radius: var(--lgs-r-small);
+  }
+  & .Label.BindingLabel.BindingHeader {
+    color: var(--lgs-text-1);
+  }
+  & .ChordManageButtons,
+  & .ChordBindingCloseButton,
+  & .InputSettingsCloseButton,
+  & .ChordBindingBigButton {
+    background: var(--lgs-fill-2);
+    border-radius: var(--lgs-r-capsule);
+    color: var(--lgs-text-1);
+  }
+  & .ChordManageButtons:hover,
+  & .ChordBindingCloseButton:hover,
+  & .InputSettingsCloseButton:hover {
+    background: var(--lgs-hover-fill);
+  }
+  & .ChordBindingSet,
+  & .ChordBindingRow,
+  & .PoseActionListEntry,
+  & .InputSettingsRow,
+  & .TrackerEntry:not(.Connected) {
+    background-color: var(--lgs-fill-1);
+    border-radius: var(--lgs-vr-r-row);
+  }
+  & .PoseActionsList {
+    background: var(--lgs-fill-1);
+    border-radius: var(--lgs-vr-r-card);
+  }
+  & .SourceModeHelp,
+  & .SimulatedControllerInfoHelp {
+    background-color: var(--lgs-fill-2);
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* 7. Popovers, inline dropdown lists, modals (rodal)                */
+  /* ---------------------------------------------------------------- */
+  & .rodal-mask {
+    background: var(--lgs-scrim);
+  }
+  & .rodal-dialog {
+    background: var(--lgs-panel-sheen), var(--lgs-thick-bg);
+    backdrop-filter: var(--lgs-thick-blur);
+    box-shadow: var(--lgs-glass-rim), var(--lgs-glass-shadow);
+    border-radius: calc(var(--lgs-r-sheet) * var(--lgs-vr-scale));
+    color: var(--lgs-text-1);
+  }
+  & .Modal {
+    background: var(--lgs-panel-sheen), var(--lgs-thick-bg);
+    backdrop-filter: var(--lgs-thick-blur);
+    border-color: transparent;
+    box-shadow: var(--lgs-glass-rim), var(--lgs-glass-shadow);
+    border-radius: calc(var(--lgs-r-sheet) * var(--lgs-vr-scale));
+    color: var(--lgs-text-1);
+  }
+  & .ModalBackdrop {
+    background: var(--lgs-scrim);
+  }
+  & .InlineDropdownItem {
+    background: var(--lgs-fill-1);
+    border-radius: var(--lgs-vr-r-row);
+    color: var(--lgs-text-1);
+  }
+  & .InlineDropdownItem:hover {
+    background: var(--lgs-hover-fill);
+  }
+  & .InlineDropdownItem.Selected {
+    background: var(--lgs-selected-fill);
+    color: var(--lgs-text-on-selected);
+  }
+  & .InlineSeparator {
+    border-top-color: var(--lgs-separator);
+  }
+  & .Dropdown.Popover {
+    background: var(--lgs-panel-sheen), var(--lgs-thick-bg);
+    backdrop-filter: var(--lgs-thick-blur);
+    box-shadow: var(--lgs-glass-rim), var(--lgs-glass-shadow);
+    border-radius: calc(var(--lgs-r-menu) * var(--lgs-vr-scale));
+  }
+  & .Dropdown.Popover > .Separator {
+    border-top-color: var(--lgs-separator);
+  }
+  & .DropdownPopoverButton {
+    background-color: transparent;
+    color: var(--lgs-text-1);
+  }
+  & .DropdownPopoverButton:hover {
+    background-color: var(--lgs-hover-fill);
+  }
+  & .DropdownPopoverButton:active {
+    background-color: var(--lgs-pressed-fill);
+  }
+  & .DropdownPopoverButton.Selected {
+    background-color: var(--lgs-selected-fill);
+    color: var(--lgs-text-on-selected);
+    filter: none;
+  }
+  & input[type="text"],
+  & textarea {
+    background-color: var(--lgs-well-bg);
+    box-shadow: var(--lgs-well-shadow);
+    border-color: transparent;
+    color: var(--lgs-text-1);
+    caret-color: var(--lgs-caret);
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* 8. Scrollbars: thin capsule thumbs, no track (widths unchanged)   */
+  /* ---------------------------------------------------------------- */
+  & ::-webkit-scrollbar,
+  & .BindingSectionWrapper::-webkit-scrollbar,
+  & .AppSelectWrapper::-webkit-scrollbar,
+  & .AppBindingSection::-webkit-scrollbar {
+    background-color: transparent;
+  }
+  & ::-webkit-scrollbar-thumb,
+  & .BindingSectionWrapper::-webkit-scrollbar-thumb,
+  & .AppSelectWrapper::-webkit-scrollbar-thumb,
+  & .AppBindingSection::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.28);
+  }
+}

@@ -1,0 +1,713 @@
+/* Glass Shell, area "bar": the dashboard bar (surface bar), every popup it
+   opens (surface barpopup: + list, Playspace, Streaming, Quick Access, tab
+   menus) and the window-frame menu (surface frame.menu).
+
+   Each of these windows is its own SteamVR quad over the room, so they use
+   PANEL GLASS (tint + rim + sheen, no backdrop blur, no outer shadow: the
+   bar is exactly 80px tall and popups are clipped to their content). Rows
+   and buttons inside are fills, never glass on glass. White fill = selected
+   or "on" (current tab, toggle on, the button whose popup is open).
+
+   Look only: no geometry, no transforms, no visibility changes. Steam's own
+   pseudo-elements (tab indicator, highlight circles, list separators, scroll
+   fades, the QAM pill) are restyled in place; our own pseudo-elements are
+   added only where Steam leaves them unused, with pointer-events:none.
+   Focus/selected fills that Steam paints with keyframes carry !important.
+   Wrapped as html.lgs-on { ... } by the bundler.
+   Coverage, shots and audits: docs/coverage/bar.md. */
+
+
+/* Focus ring for rows that live inside a scroller (popup lists, QAM): the
+   token ring's outer 22px glow would be cut flat by the scroller's edge, so
+   these rows light from within instead (same colours, composed from tokens).
+   Used by every focusable row or segment that sits in a clipping box. */
+& {
+  --lgs-bar-row-ring: inset 0 0 0 2px var(--lgs-focus-outline), inset 0 0 16px var(--lgs-hover-fill);
+}
+
+
+/* ====================================================================== */
+/* 1. The bar: segments                                                    */
+/* ====================================================================== */
+
+/* every BarSurface (Steam bookend, main segment) is a panel-glass capsule;
+   the 80px window around them stays transparent */
+%{BarSurface} {
+  background: var(--lgs-panel-sheen), var(--lgs-panel-bg);
+  box-shadow: var(--lgs-panel-rim);
+  border-radius: var(--lgs-r-capsule);
+}
+
+/* icons and labels are white on the glass */
+%{PopupBody>DashboardBar} {
+  color: var(--lgs-text-1);
+}
+
+/* the tray's black wash would read as a smudge on glass */
+%{BarSurfaceSection}%{Tray} {
+  background: transparent;
+}
+
+
+/* ---------------------------------------------------------------------- */
+/* 1.1 Tabs (Steam tab, app / overlay / desktop-window tabs)               */
+/* The highlight is a disc behind the icon, concentric with the capsule    */
+/* end (r40 - 12 = r28). Selected = white disc + dark glyph.               */
+/* ---------------------------------------------------------------------- */
+
+%{BarTab} {
+  isolation: isolate;
+  color: var(--lgs-text-1);
+  transition: color var(--lgs-t-fast) var(--lgs-ease);
+}
+%{BarTab}:hover,
+%{BarTab}%{MenuVisible} {
+  background: transparent;
+  color: var(--lgs-text-1);
+  --badge-border-color: transparent;
+}
+/* legacy SteamVR tab colours (not on this build): same disc language */
+%{BarTab}%{OldColors}:is(:hover, :active, %{LowBatteryGauge>Selected}) {
+  background: transparent;
+}
+%{BarTab}::before {
+  content: "";
+  position: absolute;
+  inset: 12px;
+  z-index: -1;
+  border-radius: var(--lgs-r-capsule);
+  background: transparent;
+  pointer-events: none;
+  transition: background-color var(--lgs-t-fast) var(--lgs-ease),
+              box-shadow var(--lgs-t-fast) var(--lgs-ease);
+}
+%{BarTab}:is(:hover, %{MenuVisible})::before {
+  background: var(--lgs-hover-fill);
+}
+%{BarTab}%{LowBatteryGauge>Selected} {
+  color: var(--lgs-text-on-selected);
+}
+%{BarTab}%{LowBatteryGauge>Selected}::before {
+  background: var(--lgs-selected-fill);
+  box-shadow: var(--lgs-pill-shadow);
+}
+%{BarTab}.gpfocus {
+  color: var(--lgs-text-1);
+}
+%{BarTab}.gpfocus::before {
+  background: var(--lgs-focus-fill);
+  box-shadow: var(--lgs-focus-ring);
+}
+/* focused + selected: keep the white disc, ring it with a gap */
+%{BarTab}.gpfocus%{LowBatteryGauge>Selected} {
+  color: var(--lgs-text-on-selected);
+}
+%{BarTab}.gpfocus%{LowBatteryGauge>Selected}::before {
+  background: var(--lgs-selected-fill);
+  box-shadow: var(--lgs-focus-glow);
+  outline: 2px solid var(--lgs-focus-outline);
+  outline-offset: 2px;
+}
+
+/* Steam's selected indicator (its ::after, slid up by transform from under
+   the edge): recoloured and narrowed into a small dock-style dot at the
+   base of the segment */
+%{BarTab}::after {
+  background: var(--lgs-text-2);
+  width: 10px;
+}
+
+
+/* ---------------------------------------------------------------------- */
+/* 1.2 + and the small buttons: circular glass hit areas                   */
+/* Steam's Highlight::before is the circle: restyled, not replaced.        */
+/* ---------------------------------------------------------------------- */
+
+.VRDashboardBarSmallButton %{PopupBody>Highlight} {
+  color: var(--lgs-text-1);
+  transition: color var(--lgs-t-fast) var(--lgs-ease),
+              box-shadow var(--lgs-t-fast) var(--lgs-ease);
+}
+.VRDashboardBarSmallButton %{PopupBody>Highlight}::before,
+%{Tray} .VRDashboardBarSmallButton:not(%{PanelSection>Active}) %{PopupBody>Highlight}::before {
+  background: var(--lgs-fill-2);
+  box-shadow: var(--lgs-control-rim);
+  opacity: 1;
+}
+/* laser hover */
+.VRDashboardBarSmallButton%{PopupBody>Clickable}:not(%{PanelSection>Active}):hover %{PopupBody>Highlight} {
+  color: var(--lgs-text-1);
+}
+.VRDashboardBarSmallButton%{PopupBody>Clickable}:not(%{PanelSection>Active}):hover %{PopupBody>Highlight}::before {
+  background: var(--lgs-hover-fill);
+  opacity: 1;
+}
+/* on: toggle active (Room View) or its popup is open = white disc */
+.VRDashboardBarSmallButton%{PanelSection>Active} %{PopupBody>Highlight},
+.VRDashboardBarSmallButton%{PopupBody>Clickable}%{PanelSection>Active}:is(:hover, .gpfocus, :active) %{PopupBody>Highlight} {
+  color: var(--lgs-text-on-selected);
+}
+.VRDashboardBarSmallButton%{PanelSection>Active} %{PopupBody>Highlight}::before,
+.VRDashboardBarSmallButton%{PopupBody>Clickable}%{PanelSection>Active}:is(:hover, :active) %{PopupBody>Highlight}::before {
+  background: var(--lgs-selected-fill);
+  box-shadow: var(--lgs-pill-shadow);
+  opacity: 1;
+}
+/* pressed: brighter fill (Steam's own scale-in stays) */
+.VRDashboardBarSmallButton%{PopupBody>Clickable}:not(%{PanelSection>Active}):active %{PopupBody>Highlight}::before {
+  background: var(--lgs-pressed-fill);
+}
+/* focus: illuminate from within + ring */
+.VRDashboardBarSmallButton%{PopupBody>Clickable}.gpfocus:not(%{PanelSection>Active}) %{PopupBody>Highlight} {
+  color: var(--lgs-text-1);
+  box-shadow: var(--lgs-focus-ring);
+}
+.VRDashboardBarSmallButton%{PopupBody>Clickable}.gpfocus:not(%{PanelSection>Active}) %{PopupBody>Highlight}::before {
+  background: var(--lgs-focus-fill);
+  opacity: 1;
+}
+.VRDashboardBarSmallButton%{PopupBody>Clickable}.gpfocus%{PanelSection>Active} %{PopupBody>Highlight} {
+  box-shadow: var(--lgs-focus-glow);
+  outline: 2px solid var(--lgs-focus-outline);
+  outline-offset: 2px;
+}
+
+
+/* ---------------------------------------------------------------------- */
+/* 1.3 Quick Access (clock + status) and the avatar                        */
+/* ---------------------------------------------------------------------- */
+
+%{QuickAccessButton} {
+  color: var(--lgs-text-1);
+}
+%{QuickAccessButton} %{PopupBody>Time} {
+  color: inherit;
+  text-shadow: var(--lgs-text-shadow);
+}
+/* Steam's hover/open pill (Inner::before): a capsule concentric with the
+   bar (62px tall in 80: r31 inside r40) */
+%{QuickAccessButton} %{PopupBody>Inner}::before {
+  border-radius: var(--lgs-r-capsule);
+  transition: background-color var(--lgs-t-fast) var(--lgs-ease),
+              box-shadow var(--lgs-t-fast) var(--lgs-ease);
+}
+%{QuickAccessButton}:hover %{PopupBody>Inner}::before {
+  background: var(--lgs-hover-fill);
+  opacity: 1;
+}
+%{QuickAccessButton}%{MenuVisible} {
+  color: var(--lgs-text-on-selected);
+}
+%{QuickAccessButton}%{MenuVisible} %{PopupBody>Time} {
+  text-shadow: none;
+}
+%{QuickAccessButton}%{MenuVisible} %{PopupBody>Inner}::before {
+  background: var(--lgs-selected-fill);
+  box-shadow: var(--lgs-pill-shadow);
+  opacity: 1;
+}
+/* audit hint: the white pill is Steam's pseudo-element, which the lab's
+   contrast walk (ancestor backgrounds only) cannot see. The clock carries
+   the same white clipped to its own glyphs, fully covered by the dark
+   glyphs: no visible change, and the audit measures the real backdrop. */
+%{QuickAccessButton}%{MenuVisible} %{PopupBody>Time} {
+  background-color: var(--lgs-selected-fill);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+%{QuickAccessButton}.gpfocus:not(%{MenuVisible}) {
+  color: var(--lgs-text-1);
+}
+%{QuickAccessButton}.gpfocus:not(%{MenuVisible}) %{PopupBody>Inner}::before {
+  background: var(--lgs-focus-fill);
+  box-shadow: var(--lgs-focus-ring);
+  opacity: 1;
+}
+%{QuickAccessButton}.gpfocus%{MenuVisible} %{PopupBody>Inner}::before {
+  box-shadow: var(--lgs-focus-glow);
+  outline: 2px solid var(--lgs-focus-outline);
+  outline-offset: 2px;
+}
+
+/* avatar: content, so only rounded (rounded square); focus rings the art */
+%{AvatarButton} %{PopupBody>Avatar} {
+  border-radius: var(--lgs-r-row);
+  transition: box-shadow var(--lgs-t-fast) var(--lgs-ease);
+}
+%{AvatarButton}:hover %{PopupBody>Avatar} {
+  box-shadow: 0 0 0 2px var(--lgs-hover-fill);
+}
+%{AvatarButton}:is(.gpfocus, %{MenuVisible}) %{PopupBody>Avatar} {
+  box-shadow: var(--lgs-focus-ring-outer);
+}
+
+
+/* ====================================================================== */
+/* 2. Bar popups (surface barpopup)                                        */
+/* ====================================================================== */
+
+/* the card: panel glass menu (+ list, Playspace, Streaming, volume) */
+%{DashboardBarPopupContents} {
+  background: var(--lgs-panel-sheen), var(--lgs-panel-bg);
+  box-shadow: var(--lgs-panel-rim);
+  border-color: transparent;
+  border-radius: var(--lgs-r-menu);
+  color: var(--lgs-text-2);
+  animation: lgs-materialize var(--lgs-t) var(--lgs-spring) both;
+}
+
+/* ---------------------------------------------------------------------- */
+/* 2.1 Generic list (+ Add Desktop Window / Launch Program, Playspace)     */
+/* ---------------------------------------------------------------------- */
+
+%{DashboardBarPopupListHeader} {
+  color: var(--lgs-text-2);
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 13px;
+  font-weight: 600;
+  text-shadow: var(--lgs-text-shadow);
+}
+
+%{DashboardBarPopupListItem} {
+  background: transparent;
+  border-radius: var(--lgs-r-row);
+  color: var(--lgs-text-1);
+}
+%{DashboardBarPopupListItem} %{*GamepadDialogContent>FieldLabel} {
+  color: var(--lgs-text-1);
+  text-shadow: var(--lgs-text-shadow);
+}
+%{DashboardBarPopupListItem} %{*GamepadDialogContent>FieldIcon} {
+  color: var(--lgs-text-1);
+}
+/* separators: hairlines, inset as Steam draws them */
+%{DashboardBarPopupListItem}%{*GamepadDialogContent>WithBottomSeparatorStandard}::after {
+  background: var(--lgs-separator);
+}
+/* the row's own fill (Steam: rgb(61,68,80) + a keyframe on focus) is
+   replaced by an inset pill drawn with Steam's ::after (its separator,
+   which Steam already hides on these states). The shared base uses
+   :where() so the focus rule below always outranks the hover branch. */
+%{DashboardBarPopupListItem}:is(.gpfocus, .gpfocuswithin, :hover) {
+  background: transparent !important;
+  color: var(--lgs-text-1) !important;
+}
+%{DashboardBarPopupListItem}:where(.gpfocus, .gpfocuswithin, :not(%{*GamepadDialogContent>Disabled}):hover)::after {
+  content: "";
+  display: block !important;
+  position: absolute;
+  inset: 2px 8px;
+  height: auto;
+  margin: 0;
+  z-index: -1;
+  border-radius: var(--lgs-r-row);
+  background: var(--lgs-hover-fill);
+  pointer-events: none;
+}
+%{DashboardBarPopupListItem}:is(.gpfocus, .gpfocuswithin)::after {
+  background: var(--lgs-focus-fill);
+  box-shadow: var(--lgs-bar-row-ring);
+}
+/* the hairline above a lit row would touch its pill (a row that is lit
+   itself keeps its own pill) */
+%{DashboardBarPopupListItem}:not(.gpfocus, .gpfocuswithin, :hover):has(+ %{DashboardBarPopupListItem}:is(.gpfocus, .gpfocuswithin, :hover))::after {
+  background: transparent;
+}
+/* pressed */
+%{DashboardBarPopupListItem}:not(%{*GamepadDialogContent>Disabled}):active::after {
+  background: var(--lgs-pressed-fill);
+}
+/* active (toggled) row: Steam's blue dot (its ::before) in system blue */
+%{DashboardBarPopupListItem}::before {
+  background: var(--lgs-blue);
+}
+/* disabled rows */
+%{DashboardBarPopupListItem}%{*GamepadDialogContent>Disabled},
+%{DashboardBarPopupListItem}%{*GamepadDialogContent>Disabled} %{*GamepadDialogContent>FieldLabel} {
+  color: var(--lgs-text-3);
+}
+
+/* scroll fades: Steam's opaque #0e141b shadow bands become a real fade of
+   the list into the glass (mask), the bands themselves lose their colour */
+%{DashboardBarPopupListScrollRegion}::before,
+%{DashboardBarPopupListScrollRegion}::after {
+  box-shadow: none;
+  background: transparent;
+}
+%{DashboardBarPopupListScrollRegion}%{FadeTop} {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 36px);
+}
+%{DashboardBarPopupListScrollRegion}%{FadeBottom} {
+  -webkit-mask-image: linear-gradient(to top, transparent 0, #000 36px);
+}
+%{DashboardBarPopupListScrollRegion}%{FadeTop}%{FadeBottom} {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 36px, #000 calc(100% - 36px), transparent 100%);
+}
+
+
+/* ---------------------------------------------------------------------- */
+/* 2.2 Streaming Status / VR Spectating (QAM panel in a popup card)        */
+/* ---------------------------------------------------------------------- */
+
+%{QuickAccessPopupPanel}%{BottomFade}::after {
+  background: transparent;
+  box-shadow: none;
+}
+%{QuickAccessPopupPanel}%{BottomFade} {
+  -webkit-mask-image: linear-gradient(to top, transparent 0, #000 48px);
+}
+%{ActiveHostTitle>Streaming} %{ActiveHostTitle} {
+  color: var(--lgs-text-2);
+  text-shadow: var(--lgs-text-shadow);
+}
+/* the popup's one primary action */
+%{ActiveHostTitle>Streaming} button%{AlwaysBluePrimaryButton}.DialogButton.Primary {
+  background: var(--lgs-tint-primary);
+  color: var(--lgs-text-on-tint);
+}
+%{ActiveHostTitle>Streaming} button%{AlwaysBluePrimaryButton}.DialogButton.Primary:hover {
+  background: var(--lgs-tint-lift), var(--lgs-tint-primary);
+}
+%{ActiveHostTitle>Streaming} button%{AlwaysBluePrimaryButton}.DialogButton.Primary.gpfocus:not(.Disabled) {
+  background: var(--lgs-tint-lift), var(--lgs-tint-primary) !important;
+  box-shadow: var(--lgs-focus-ring) !important;
+  color: var(--lgs-text-on-tint) !important;
+}
+%{ActiveHostTitle>Streaming} button%{AlwaysBluePrimaryButton}.DialogButton.Primary:enabled:active {
+  background: var(--lgs-tint-lift), var(--lgs-tint-lift), var(--lgs-tint-primary) !important;
+}
+%{AvailableHostsHeader} {
+  color: var(--lgs-text-2);
+}
+/* host card: grouped fill on the glass */
+%{AvailableHost} {
+  border-radius: var(--lgs-r-card);
+}
+%{AvailableHostContents} {
+  background: var(--lgs-fill-1);
+  border-radius: var(--lgs-r-card);
+  transition: background-color var(--lgs-t-fast) var(--lgs-ease);
+}
+%{AvailableHostContents}:focus-within {
+  background: var(--lgs-fill-2) !important;
+  color: var(--lgs-text-1) !important;
+}
+%{HostIcon} {
+  color: var(--lgs-text-2);
+}
+%{HostName} {
+  color: var(--lgs-text-1);
+}
+/* status: neutral text, the meaning stays in the coloured dot */
+%{HostStatus} {
+  color: var(--lgs-text-2);
+}
+%{HostStatus}%{Streaming>Ready} {
+  --status-color: var(--lgs-green);
+}
+%{SharingViewStatus} {
+  color: var(--lgs-text-2);
+}
+/* the "none found" card is Steam's dimmed placeholder (opacity .3 on the
+   opaque card); on lighter glass that sinks below stock legibility, so it
+   takes the theme's disabled level and keeps its labels full white */
+%{AvailableHost}%{NoneFound} {
+  opacity: var(--lgs-disabled-opacity);
+}
+%{AvailableHost}%{NoneFound} :is(%{HostName}, %{SharingViewStatus}, %{HostStatus}) {
+  color: var(--lgs-text-1);
+}
+%{AdvancedSection} hr {
+  border-top-color: var(--lgs-separator);
+}
+/* Advanced disclosure: a borderless text button; focus gets a pill grown
+   with a spread shadow so its box (and the layout) stays as is */
+%{AdvancedToggle} {
+  color: var(--lgs-text-2);
+  border-radius: var(--lgs-r-capsule);
+  transition: color var(--lgs-t-fast) var(--lgs-ease),
+              background-color var(--lgs-t-fast) var(--lgs-ease),
+              box-shadow var(--lgs-t-fast) var(--lgs-ease);
+}
+%{AdvancedToggle}:hover {
+  color: var(--lgs-text-1);
+  background: var(--lgs-hover-fill);
+  box-shadow: 0 0 0 4px var(--lgs-hover-fill);
+}
+%{AdvancedToggle}.gpfocus {
+  color: var(--lgs-text-1);
+  background: var(--lgs-focus-fill);
+  box-shadow: 0 0 0 4px var(--lgs-focus-fill), var(--lgs-focus-glow);
+  outline: 2px solid var(--lgs-focus-outline);
+  outline-offset: 4px;
+}
+
+
+/* ---------------------------------------------------------------------- */
+/* 2.3 Quick Access Menu                                                   */
+/* ---------------------------------------------------------------------- */
+
+%{QuickAccessMenu} {
+  background: var(--lgs-panel-sheen), var(--lgs-panel-bg);
+  box-shadow: var(--lgs-panel-rim);
+  border-color: transparent;
+  border-radius: var(--lgs-r-panel);
+}
+%{PanelSection>Container}%{Expanded>VR} %{QuickAccessMenu} {
+  border-color: transparent;
+  border-radius: var(--lgs-r-panel);
+}
+/* title: Steam paints it opaque with a shadow halo as the top fade */
+%{QuickAccessMenu} %{PopupBody>Title} {
+  background: transparent;
+  box-shadow: none;
+  color: var(--lgs-text-1);
+  text-shadow: var(--lgs-text-shadow);
+}
+/* bottom fade band (opaque) -> the list itself fades into the glass */
+%{PanelSection>Container}%{Expanded>VR} %{PopupBody>ContentTransition}::after {
+  background: transparent;
+  box-shadow: none;
+}
+%{QuickAccessMenu} %{TabGroupPanel} {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 14px, #000 calc(100% - 52px), transparent 100%);
+}
+
+/* tab bar at the bottom: a hairline above, segments as inset pills */
+%{QuickAccessMenu} %{ViewPlaceholder>Tabs}::after {
+  background: var(--lgs-separator);
+}
+%{QuickAccessMenu} %{PopupBody>Tab} {
+  background: transparent !important;
+  color: var(--lgs-text-2) !important;
+  transition: color var(--lgs-t-fast) var(--lgs-ease);
+}
+%{QuickAccessMenu} %{PopupBody>Tab}::before {
+  content: "";
+  position: absolute;
+  inset: 6px 7px;
+  z-index: -1;
+  border-radius: var(--lgs-r-capsule);
+  background: transparent;
+  pointer-events: none;
+  transition: background-color var(--lgs-t-fast) var(--lgs-ease),
+              box-shadow var(--lgs-t-fast) var(--lgs-ease);
+}
+%{QuickAccessMenu} %{PopupBody>Tab}:hover {
+  color: var(--lgs-text-1) !important;
+}
+%{QuickAccessMenu} %{PopupBody>Tab}:hover::before {
+  background: var(--lgs-hover-fill);
+}
+%{QuickAccessMenu} %{PopupBody>Tab}%{ViewPlaceholder>Selected} {
+  color: var(--lgs-text-on-selected) !important;
+}
+%{QuickAccessMenu} %{PopupBody>Tab}%{ViewPlaceholder>Selected}::before {
+  background: var(--lgs-selected-fill);
+  box-shadow: var(--lgs-pill-shadow);
+}
+%{QuickAccessMenu} %{PopupBody>Tab}.gpfocus:not(%{ViewPlaceholder>Selected}) {
+  color: var(--lgs-text-1) !important;
+}
+%{QuickAccessMenu} %{PopupBody>Tab}.gpfocus:not(%{ViewPlaceholder>Selected})::before {
+  background: var(--lgs-focus-fill);
+  box-shadow: var(--lgs-bar-row-ring);
+}
+%{QuickAccessMenu} %{PopupBody>Tab}.gpfocus%{ViewPlaceholder>Selected}::before {
+  outline: 2px solid var(--lgs-focus-outline);
+  outline-offset: 2px;
+}
+/* voice tab keeps Steam's green as a whole fill */
+%{QuickAccessMenu} %{PopupBody>Tab}%{VoiceTab}::before {
+  background: var(--lgs-green);
+}
+
+/* section headers: secondary label, title case */
+:is(%{QuickAccessMenu}, %{DashboardBarPopupContents}) %{*PanelSection>PanelSectionTitle} {
+  color: var(--lgs-text-2);
+  text-transform: none;
+  letter-spacing: 0;
+  text-shadow: var(--lgs-text-shadow);
+}
+
+/* notifications tab: hairline dividers, secondary empty state */
+%{QuickAccessMenu} %{*PanelSection>QuickAccessNotifications} > div::before {
+  border-bottom-color: var(--lgs-separator);
+}
+%{QuickAccessMenu} %{*PanelSection>EmptyNotifications} {
+  color: var(--lgs-text-2);
+}
+%{QuickAccessMenu} %{*PanelSection>BatteryPercentageLabel} {
+  color: var(--lgs-text-1);
+  text-shadow: var(--lgs-text-shadow);
+}
+
+
+/* ---------------------------------------------------------------------- */
+/* 2.4 Classic field rows inside bar popups (QAM, Streaming)               */
+/* (non-Classic rows are foundation primitives; these are ours)            */
+/* Rest transparent; hover/focus = inset pill on ::before (free on these   */
+/* rows), Steam's own separator ::after recoloured.                        */
+/* ---------------------------------------------------------------------- */
+
+:is(%{QuickAccessMenu}, %{DashboardBarPopupContents}) %{*GamepadDialogContent>Field}%{*GamepadDialogContent>Classic} :is(%{*GamepadDialogContent>FieldLabel}, %{*GamepadDialogContent>FieldIcon}) {
+  color: var(--lgs-text-1);
+}
+:is(%{QuickAccessMenu}, %{DashboardBarPopupContents}) %{*GamepadDialogContent>Field}%{*GamepadDialogContent>Classic} %{*GamepadDialogContent>FieldLabel} {
+  text-shadow: var(--lgs-text-shadow);
+}
+:is(%{QuickAccessMenu}, %{DashboardBarPopupContents}) %{*GamepadDialogContent>Field}%{*GamepadDialogContent>Classic} :is(%{*GamepadDialogContent>FieldDescription}, %{*GamepadDialogContent>LabelFieldValue}) {
+  color: var(--lgs-text-2);
+}
+:is(%{QuickAccessMenu}, %{DashboardBarPopupContents}) %{*GamepadDialogContent>Field}%{*GamepadDialogContent>Classic}:is(%{*GamepadDialogContent>WithBottomSeparatorStandard}, %{*GamepadDialogContent>WithBottomSeparatorThick})::after {
+  background: var(--lgs-separator);
+}
+:is(%{QuickAccessMenu}, %{DashboardBarPopupContents}) %{*GamepadDialogContent>Field}%{*GamepadDialogContent>Classic}:not(%{DashboardBarPopupListItem}):is(%{*GamepadDialogContent>HighlightOnFocus}:is(.gpfocus, .gpfocuswithin), %{*GamepadDialogContent>Clickable}:not(%{*GamepadDialogContent>Disabled}):hover) {
+  background: transparent !important;
+  color: var(--lgs-text-1) !important;
+}
+:is(%{QuickAccessMenu}, %{DashboardBarPopupContents}) %{*GamepadDialogContent>Field}%{*GamepadDialogContent>Classic}:not(%{DashboardBarPopupListItem}):where(%{*GamepadDialogContent>HighlightOnFocus}:is(.gpfocus, .gpfocuswithin), %{*GamepadDialogContent>Clickable}:not(%{*GamepadDialogContent>Disabled}):hover)::before {
+  content: "";
+  position: absolute;
+  inset: 1px 6px;
+  z-index: -1;
+  border-radius: var(--lgs-r-row);
+  background: var(--lgs-hover-fill);
+  pointer-events: none;
+}
+:is(%{QuickAccessMenu}, %{DashboardBarPopupContents}) %{*GamepadDialogContent>Field}%{*GamepadDialogContent>Classic}:not(%{DashboardBarPopupListItem})%{*GamepadDialogContent>HighlightOnFocus}:is(.gpfocus, .gpfocuswithin)::before {
+  background: var(--lgs-focus-fill);
+  box-shadow: var(--lgs-bar-row-ring);
+}
+/* compact rows (the Wi-Fi network row) have no inline padding and are
+   indented by margin: the pill reaches back past their icon */
+:is(%{QuickAccessMenu}, %{DashboardBarPopupContents}) %{*GamepadDialogContent>Field}%{*GamepadDialogContent>Classic}%{*GamepadDialogContent>CompactPadding}:not(%{DashboardBarPopupListItem})::before {
+  inset: 1px 6px 1px -10px;
+}
+/* a toggle/button inside the row carries its own focus: the row only glows */
+:is(%{QuickAccessMenu}, %{DashboardBarPopupContents}) %{*GamepadDialogContent>Field}%{*GamepadDialogContent>Classic}%{*GamepadDialogContent>HighlightOnFocus}.gpfocuswithin:has(button.DialogButton.gpfocus)::before {
+  background: var(--lgs-fill-1);
+  box-shadow: none;
+}
+:is(%{QuickAccessMenu}, %{DashboardBarPopupContents}) %{*GamepadDialogContent>Field}%{*GamepadDialogContent>Classic}%{*GamepadDialogContent>Disabled} :is(%{*GamepadDialogContent>FieldLabel}, %{*GamepadDialogContent>FieldIcon}) {
+  color: var(--lgs-text-3);
+}
+
+
+/* ====================================================================== */
+/* 3. DashboardMenu: tab hover menus (barpopup) and the frame menu         */
+/* One panel-glass card per menu; rows draw an inset pill on their         */
+/* ItemOuter::before so Steam's focus zoom (transform on Item) never clips */
+/* the pill against the row's overflow.                                    */
+/* ====================================================================== */
+
+%{DashboardMenu} {
+  --menu-background: transparent;
+  background: var(--lgs-panel-sheen), var(--lgs-panel-bg);
+  box-shadow: var(--lgs-panel-rim);
+}
+/* Steam fades the menu's background-color over .5s; the glass is constant,
+   so only Steam's width/transform transitions are kept */
+%{DashboardMenu}:not(%{DashboardMenu>Collapsed}) {
+  transition-property: width, transform;
+}
+%{DashboardMenu}%{Variant_TabMenu} {
+  border-radius: var(--lgs-r-menu);
+  animation: lgs-materialize var(--lgs-t) var(--lgs-spring) both;
+}
+/* the frame menu is a visionOS tab-bar ornament: a near-capsule column that
+   widens on hover (Steam animates the width) */
+%{DashboardMenu}%{Variant_FrameMenu} {
+  border-radius: var(--lgs-r-panel);
+}
+
+/* rows are transparent on the shared glass; Steam's 1px card edges at the
+   group ends (more specific :has() rules) go too */
+%{DashboardMenu} %{DashboardMenu>ItemOuter} {
+  background: transparent;
+  border-color: transparent !important;
+}
+/* tab-menu dividers (Steam's ItemOuter::after): hairlines, and none next to
+   the white current-item pill (Steam already drops them around hover/focus) */
+%{DashboardMenu}%{Variant_TabMenu} %{DashboardMenu>ItemOuter}::after {
+  background: var(--lgs-separator);
+}
+%{DashboardMenu}%{Variant_TabMenu} %{DashboardMenu>ItemOuter}:has(> %{DashboardMenu>Item}%{DashboardMenu>Active})::after,
+%{DashboardMenu}%{Variant_TabMenu} %{DashboardMenu>ItemOuter}:has(> %{DashboardMenu>Item}%{DashboardMenu>Active}) + %{DashboardMenu>ItemOuter}::after {
+  background: transparent;
+}
+/* group gap (before Power): a hairline across the shared glass */
+%{DashboardMenu} %{SectionGap} {
+  background: linear-gradient(var(--lgs-separator), var(--lgs-separator)) center / 100% 1px no-repeat;
+}
+%{DashboardMenu} %{PopupBody>Separator} {
+  background: linear-gradient(90deg, transparent, var(--lgs-separator), transparent);
+}
+
+/* rows: the item never paints (Steam: hover 20% white, focus keyframes) */
+%{DashboardMenu} %{DashboardMenu>Item} {
+  background: transparent !important;
+}
+%{DashboardMenu} %{DashboardMenu>ItemOuter}::before {
+  content: "";
+  position: absolute;
+  inset: 2px 6px;
+  border-radius: var(--lgs-r-capsule);
+  background: transparent;
+  pointer-events: none;
+  transition: background-color var(--lgs-t-fast) var(--lgs-ease),
+              box-shadow var(--lgs-t-fast) var(--lgs-ease);
+}
+%{DashboardMenu}:not(%{Variant_TabMenu}) %{DashboardMenu>ItemOuter}::before {
+  inset: 5px;
+}
+%{DashboardMenu} %{DashboardMenu>ItemOuter}:hover::before {
+  background: var(--lgs-hover-fill);
+}
+/* current route: white pill, dark glyph and label */
+%{DashboardMenu} %{DashboardMenu>ItemOuter}:has(> %{DashboardMenu>Item}%{DashboardMenu>Active})::before {
+  background: var(--lgs-selected-fill);
+  box-shadow: var(--lgs-pill-shadow);
+}
+/* audit hint (see the clock above): the label carries the pill's white
+   clipped to its glyphs, invisible under the dark text */
+%{DashboardMenu} %{DashboardMenu>Item}%{DashboardMenu>Active} %{DashboardMenu>ItemLabel} {
+  background-color: var(--lgs-selected-fill);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+%{DashboardMenu} %{DashboardMenu>Item}%{DashboardMenu>Active} :is(%{DashboardMenu>ItemIcon}, %{DashboardMenu>ItemLabel}) {
+  color: var(--lgs-text-on-selected) !important;
+  text-shadow: none;
+}
+/* focus: illuminate + ring */
+%{DashboardMenu} %{DashboardMenu>ItemOuter}:has(> %{DashboardMenu>Item}.gpfocus:not(%{DashboardMenu>Active}))::before {
+  background: var(--lgs-focus-fill);
+  box-shadow: var(--lgs-bar-row-ring);
+}
+/* focused current item: white pill ringed with a hairline gap (fits in the
+   2px/5px row inset, so the row's overflow never cuts it) */
+%{DashboardMenu} %{DashboardMenu>ItemOuter}:has(> %{DashboardMenu>Item}.gpfocus%{DashboardMenu>Active})::before {
+  box-shadow: var(--lgs-pill-shadow);
+  outline: 2px solid var(--lgs-focus-outline);
+  outline-offset: 1px;
+}
+%{DashboardMenu} %{DashboardMenu>Item}.gpfocus:not(%{DashboardMenu>Active}) :is(%{DashboardMenu>ItemIcon}, %{DashboardMenu>ItemLabel}) {
+  color: var(--lgs-text-1) !important;
+}
+
+/* labels and glyphs: white on glass */
+%{DashboardMenu} %{DashboardMenu>Item}:not(%{DashboardMenu>Active}):not(%{DashboardMenu>Blocked}) :is(%{DashboardMenu>ItemIcon}, %{DashboardMenu>ItemLabel}) {
+  color: var(--lgs-text-1);
+}
+%{DashboardMenu} %{DashboardMenu>ItemLabel} {
+  text-shadow: var(--lgs-text-shadow);
+}
+%{DashboardMenu} %{DashboardMenu>Blocked} :is(%{DashboardMenu>ItemIcon}, %{DashboardMenu>ItemLabel}) {
+  color: var(--lgs-text-disabled);
+}
+/* route-active marker: Steam's dot, in system blue */
+%{DashboardMenu} %{DashboardMenu>ActiveDot} {
+  background: var(--lgs-blue);
+}

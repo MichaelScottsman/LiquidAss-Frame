@@ -1,0 +1,140 @@
+/* Glass Shell, area "steamvr": Now Playing (#nowplayingpanel in vr:systemui,
+   the main panel of a running scene app's frame, 1858x1045, the same
+   window as Steam main). visionOS window glass like the dashboard; the
+   game art is content; Resume Game is the one tinted primary (play
+   green); the other actions are fill capsules; Exit Game / Exit Home turns
+   destructive red only on hover or focus.
+   Gamepad focus here is SteamVR's own .gpfocus (set by React, not Steam's
+   animated focus), drawn by the Steam-owned %{FocusRing}.gpfocus::after:
+   recoloured into a steady ring, its 20x blinker replaced (no pulsing).
+   The Steam-owned ::before hover shadow is only rounded.
+   Wrapped as html.lgs-on { ... }. Look only: panel box, paddings, margins,
+   button sizes and the 1.5em labels are SteamVR's. */
+
+/* ------------------------------------------------------------------ */
+/* 1. The panel: window glass (inset rim: the panel clips at its box)  */
+/* ------------------------------------------------------------------ */
+
+.DashboardMain .DashboardPanel.NowPlaying {
+  background: var(--lgs-window-sheen), var(--lgs-window-bg);
+  box-shadow: var(--lgs-window-rim);
+  border-radius: var(--lgs-vr-r-window);
+  color: var(--lgs-text-1);
+}
+.DashboardMain .NowPlaying .HeroBackground {
+  border-radius: inherit;
+}
+
+/* ------------------------------------------------------------------ */
+/* 2. Art: content (opaque), concentric card radius, a soft shadow     */
+/*    that stays inside the panel                                      */
+/* ------------------------------------------------------------------ */
+
+.DashboardMain .NowPlaying .ArtworkColumn {
+  border-radius: var(--lgs-vr-r-card);
+  box-shadow: 0 14px 48px rgba(0, 0, 0, 0.38), 0 2px 6px rgba(0, 0, 0, 0.22);
+}
+/* no art (fallback card with the title): a fill on the glass */
+.DashboardMain .NowPlaying .PortraitAppImageContainer.Fallback {
+  background: var(--lgs-fill-2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  border-radius: inherit;
+}
+.DashboardMain .NowPlaying .PortraitAppImageContainer.Fallback .Title {
+  color: var(--lgs-text-1);
+  text-shadow: var(--lgs-text-shadow);
+}
+
+.DashboardMain .NowPlayingAppTitle {
+  color: var(--lgs-text-1);
+  text-shadow: var(--lgs-text-shadow);
+}
+
+/* ------------------------------------------------------------------ */
+/* 3. Actions                                                          */
+/* ------------------------------------------------------------------ */
+
+.DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton} {
+  background: var(--lgs-fill-2);
+  box-shadow: var(--lgs-control-rim);
+  border-radius: var(--lgs-r-capsule);
+  color: var(--lgs-text-1);
+  transition-property: opacity, background, color, box-shadow;
+  transition-duration: var(--lgs-t-fast);
+  transition-timing-function: var(--lgs-ease);
+}
+/* Steam-owned hover shadow layer follows the capsule */
+.DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}::before {
+  border-radius: inherit;
+}
+.DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}:hover {
+  background: var(--lgs-hover-fill);
+  box-shadow: var(--lgs-control-rim);
+  color: var(--lgs-text-1);
+}
+/* gamepad focus: illuminated from within + ring (the ::after) */
+.DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}.gpfocus {
+  background: var(--lgs-focus-fill);
+  box-shadow: var(--lgs-vr-focus-ring);
+  color: var(--lgs-text-1);
+}
+.DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}:active,
+.DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}:active:hover,
+.DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}:active.gpfocus {
+  background: var(--lgs-pressed-fill);
+  box-shadow: var(--lgs-control-rim);
+}
+
+/* Resume Game / Return to Home: the one tinted primary. Like Steam's Play
+   capsule (50-appdetails.css) it rests under Apple's dimming layer (deep
+   green, white label >= 3:1 at this size over any room) and lights up to
+   the full play tint when pointed at, highlighted or focused. Both layers
+   are images so the capsule keeps one fill. */
+.DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}%{GamepadUIButton>Primary}:not(.Disabled) {
+  background: linear-gradient(var(--lgs-scrim), var(--lgs-scrim)),
+              linear-gradient(var(--lgs-tint-play), var(--lgs-tint-play));
+  color: #fff;
+}
+.DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}%{GamepadUIButton>Primary}:not(.Disabled):hover,
+.DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}%{GamepadUIButton>Primary}:not(.Disabled)%{Highlighted} {
+  background: linear-gradient(var(--lgs-tint-play), var(--lgs-tint-play));
+  color: #fff;
+}
+.DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}%{GamepadUIButton>Primary}:not(.Disabled).gpfocus {
+  background: linear-gradient(var(--lgs-tint-play), var(--lgs-tint-play));
+  box-shadow: var(--lgs-vr-focus-ring);
+  color: #fff;
+}
+.DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}%{GamepadUIButton>Primary}:not(.Disabled):active {
+  background: var(--lgs-tint-lift), linear-gradient(var(--lgs-tint-play), var(--lgs-tint-play));
+}
+
+/* Exit Game / Exit Home: the only action whose label is plain text
+   besides Resume (the others are wrapped in <span>): destructive red,
+   but only while it is pointed at or focused */
+.DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}:not(%{GamepadUIButton>Primary}):not(:has(> span)):not(.Disabled):is(:hover, .gpfocus) {
+  background: var(--lgs-tint-danger);
+  color: #fff;
+}
+.DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}:not(%{GamepadUIButton>Primary}):not(:has(> span)):not(.Disabled):active {
+  background: var(--lgs-tint-lift), var(--lgs-tint-danger);
+}
+
+/* disabled (e.g. while the app is starting or quitting) */
+.DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}.Disabled,
+.DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}.Disabled:hover,
+.DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}.Disabled.gpfocus {
+  background: var(--lgs-fill-1);
+  box-shadow: none;
+  color: var(--lgs-text-disabled);
+}
+
+/* the focus ring element (Steam-owned ::after): steady white ring that
+   follows the capsule; no flash/grow/blink */
+.DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}%{FocusRing}.gpfocus::after {
+  border-radius: inherit;
+  outline: var(--lgs-vr-ring-w) solid var(--lgs-focus-outline);
+  outline-offset: calc(3px * var(--lgs-vr-scale));
+  animation: none;
+  opacity: 1;
+}

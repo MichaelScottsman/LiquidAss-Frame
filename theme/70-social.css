@@ -1,0 +1,1044 @@
+/* Glass Shell, area "social" (surface main): Friends & Chat (/chat), Add a
+   Friend (/invites), Account (/account), Downloads (/library/downloads),
+   Media (/media/*), store / web chrome (/steamweb, /externalweb) and the
+   other routes (/about, /accessibility, /console, /colorsettings,
+   /decksetup, /workshop, /notes, /zoo).
+   Wrapped as html.lgs-on { ... } by the injector. Look only: no geometry,
+   no transforms, no visibility changes. Steam paints most focus fills here
+   with @keyframes (fill-mode forwards), so focus/selected declarations
+   carry !important. Coverage, shots and audits: docs/coverage/social.md. */
+
+
+/* ====================================================================== */
+/* 1. Friends & Chat (/chat)                                               */
+/*    Sidebar (friend list) on a fill over the window glass, chat pane on  */
+/*    the bare window glass. Scoped to FriendsChats: the QAM reuses the    */
+/*    same literal friends classes.                                        */
+/* ====================================================================== */
+
+/* --- 1.1 Sidebar ------------------------------------------------------ */
+
+/* the list sits straight on the window glass (a lighter sidebar fill took
+   the secondary presence labels under 4.5:1 over a bright room) */
+%{FriendsChats} .friendlist.GamepadMode,
+%{FriendsChats} .friendlist.GamepadMode.gpfocuswithin {
+  background: none;
+  /* Steam's black 0.67px edge becomes the hairline between the panes */
+  border-right-color: var(--lgs-separator);
+}
+/* group dividers (Steam: blue / grey full-bleed lines): inset hairlines,
+   painted into Steam's own 0.67px top border with a border-image */
+%{FriendsChats} .friendlistListContainer .friendGroup {
+  border-image: linear-gradient(90deg, transparent 16px, var(--lgs-separator) 16px, var(--lgs-separator) calc(100% - 16px), transparent calc(100% - 16px)) 1;
+}
+%{FriendsChats} .friendlistListContainer .friendGroup.onlineFriends:first-child,
+%{FriendsChats} .friendlistListContainer .friendGroup:first-child {
+  border-image: none;
+  border-top-color: transparent;
+}
+
+/* header block (title, add-friend, tab bar): no slab, no dark shadow. It is
+   a stacking context so the tab bar's capsule and pill (z -1 pseudos) sit
+   between it and the icons. */
+%{FriendsChats} .friendlist.GamepadMode .FriendsListSteamDeckTopSection,
+%{FriendsChats} .friendlist.GamepadMode.gpfocuswithin .FriendsListSteamDeckTopSection {
+  background-color: transparent;
+  box-shadow: none;
+  isolation: isolate;
+}
+%{FriendsChats} .friendlist.GamepadMode .TabPanelHeader {
+  color: var(--lgs-text-1);
+  text-shadow: var(--lgs-text-shadow);
+}
+
+/* header icon buttons (Add Friend, pending invites, New Group Chat):
+   circular fill buttons */
+%{FriendsChats} .friendlist.GamepadMode .TabPanelHeader :is(.AddFriendButton, .NewChatGroupButton, .FriendsInvitesButton) {
+  background-color: var(--lgs-fill-2);
+  box-shadow: var(--lgs-control-rim);
+  border-radius: var(--lgs-r-capsule);
+  color: var(--lgs-text-1);
+  transition: background-color var(--lgs-t-fast) var(--lgs-ease), box-shadow var(--lgs-t-fast) var(--lgs-ease);
+}
+%{FriendsChats} .friendlist.GamepadMode .TabPanelHeader :is(.AddFriendButton, .NewChatGroupButton, .FriendsInvitesButton):hover {
+  background-color: var(--lgs-hover-fill);
+}
+%{FriendsChats} .friendlist.GamepadMode .TabPanelHeader :is(.AddFriendButton, .NewChatGroupButton, .FriendsInvitesButton).gpfocus {
+  background-color: var(--lgs-focus-fill) !important;
+  box-shadow: var(--lgs-focus-ring) !important;
+  color: var(--lgs-text-1) !important;
+}
+/* pending-invite badge: a red capsule with a white count */
+%{FriendsChats} .friendlist.GamepadMode .TabPanelHeader .FriendsInvitesButton .PendingInviteCount,
+%{FriendsChats} .friendlist.GamepadMode .TabPanelHeader .FriendsInvitesButton.gpfocus .PendingInviteCount {
+  background-color: var(--lgs-red);
+  border-radius: var(--lgs-r-capsule);
+  color: var(--lgs-text-on-tint);
+}
+
+/* --- 1.2 Tab bar: a sunken segmented well, the active tab is the white
+   pill. Both shapes are abs-positioned pseudos anchored to Steam's own
+   boxes (containing block: .friendlist), so no Steam geometry changes. */
+
+%{FriendsChats} .friendlist.GamepadMode .FriendsListSteamDeckTabs {
+  anchor-name: --lgs-ftabs;
+}
+%{FriendsChats} .FriendsListSteamDeckTabs > :nth-child(1 of .FriendsListTab) {
+  anchor-name: --lgs-ftab-first;
+}
+%{FriendsChats} .FriendsListSteamDeckTabs > :nth-last-child(1 of .FriendsListTab) {
+  anchor-name: --lgs-ftab-last;
+}
+%{FriendsChats} .FriendsListSteamDeckTabs > :nth-child(1 of .FriendsListTab):nth-last-child(1 of .FriendsListTab) {
+  anchor-name: --lgs-ftab-first, --lgs-ftab-last;
+}
+%{FriendsChats} .friendlist.GamepadMode .FriendsListSteamDeckTabs::before {
+  content: "";
+  position: absolute;
+  top: calc(anchor(--lgs-ftabs top, 0px) + 0px);
+  bottom: calc(anchor(--lgs-ftabs bottom, 0px) + 1px);
+  left: calc(anchor(--lgs-ftab-first left, 100%) - 14px);
+  right: calc(anchor(--lgs-ftab-last right, 100%) - 14px);
+  z-index: -1;
+  border-radius: var(--lgs-r-capsule);
+  background: var(--lgs-fill-sunken);
+  box-shadow: var(--lgs-well-shadow);
+  pointer-events: none;
+}
+
+/* the icon of the active / focused / hovered tab is the pill's anchor */
+%{FriendsChats} .FriendsListTab.Active > :is(svg, %{RecentChatIcon}) {
+  anchor-name: --lgs-ftab-sel;
+}
+%{FriendsChats} .FriendsListTab.gpfocus:not(.Active) > :is(svg, %{RecentChatIcon}) {
+  anchor-name: --lgs-ftab-foc;
+}
+%{FriendsChats} .FriendsListTab:hover:not(.Active, .gpfocus) > :is(svg, %{RecentChatIcon}) {
+  anchor-name: --lgs-ftab-hov;
+}
+%{FriendsChats} .friendlist.GamepadMode .FriendsListTab:is(.Active, .gpfocus, :hover)::before {
+  content: "";
+  position: absolute;
+  top: calc(anchor(--lgs-ftabs top, 0px) + 3px);
+  bottom: calc(anchor(--lgs-ftabs bottom, 0px) + 4px);
+  z-index: -1;
+  border-radius: var(--lgs-r-capsule);
+  pointer-events: none;
+}
+%{FriendsChats} .friendlist.GamepadMode .FriendsListTab:hover:not(.Active, .gpfocus)::before {
+  left: calc(anchor(--lgs-ftab-hov left, 100%) - 9px);
+  right: calc(anchor(--lgs-ftab-hov right, 100%) - 9px);
+  background: var(--lgs-hover-fill);
+}
+%{FriendsChats} .friendlist.GamepadMode .FriendsListTab.gpfocus:not(.Active)::before {
+  left: calc(anchor(--lgs-ftab-foc left, 100%) - 9px);
+  right: calc(anchor(--lgs-ftab-foc right, 100%) - 9px);
+  background: var(--lgs-focus-fill);
+  box-shadow: var(--lgs-focus-ring);
+}
+%{FriendsChats} .friendlist.GamepadMode .FriendsListTab.Active::before {
+  left: calc(anchor(--lgs-ftab-sel left, 100%) - 9px);
+  right: calc(anchor(--lgs-ftab-sel right, 100%) - 9px);
+  background: var(--lgs-selected-fill);
+  box-shadow: var(--lgs-pill-shadow);
+}
+/* focused while selected: a scrim gap and a bright ring around the pill */
+%{FriendsChats} .friendlist.GamepadMode .FriendsListTab.Active.gpfocus::before {
+  box-shadow: 0 0 0 2px var(--lgs-scrim), 0 0 0 4px var(--lgs-focus-outline), var(--lgs-focus-glow);
+}
+/* icon colours: secondary at rest, white hovered or focused, dark on the
+   white pill */
+%{FriendsChats} .friendlist.GamepadMode .FriendsListTab {
+  color: var(--lgs-text-2);
+  transition: color var(--lgs-t-fast) var(--lgs-ease);
+}
+%{FriendsChats} .friendlist.GamepadMode .FriendsListTab:hover,
+%{FriendsChats} .friendlist.GamepadMode .FriendsListTab.gpfocus {
+  color: var(--lgs-text-1) !important;
+}
+%{FriendsChats} .friendlist.GamepadMode .FriendsListTab.Active,
+%{FriendsChats} .friendlist.GamepadMode .FriendsListTab.Active.gpfocus {
+  color: var(--lgs-text-on-selected) !important;
+}
+
+/* --- 1.3 Group headers ("Online Friends", "Offline", a game) ----------
+   The highlight is inset 8px from the sidebar edges like the friend rows:
+   an 8px transparent border on each side (Steam's 16px start padding
+   becomes 8px border + 8px padding, so the label does not move and the
+   row's box and hit area stay identical), background clipped to it. */
+
+%{FriendsChats} .friendGroup .groupName {
+  color: var(--lgs-text-2);
+  text-shadow: var(--lgs-text-shadow);
+  border-inline: 8px solid transparent;
+  padding-inline-start: 8px;
+  background-clip: padding-box;
+  border-radius: calc(var(--lgs-r-row) + 8px);
+  transition: background-color var(--lgs-t-fast) var(--lgs-ease), color var(--lgs-t-fast) var(--lgs-ease);
+}
+%{FriendsChats} .friendGroup .groupName:hover {
+  background-color: var(--lgs-hover-fill);
+}
+%{FriendsChats} .friendGroup .groupName.gpfocus {
+  background-color: var(--lgs-focus-fill) !important;
+  background-clip: padding-box !important;
+  /* inset shadows are drawn inside the padding box: the ring hugs the
+     inset pill; the glow follows the pill's shape */
+  box-shadow: inset 0 0 0 2px var(--lgs-focus-outline) !important;
+  filter: drop-shadow(var(--lgs-focus-glow));
+  color: var(--lgs-text-1) !important;
+}
+%{FriendsChats} .friendGroup .groupName .groupCount,
+%{FriendsChats} .friendGroup .groupName .groupCount.collapsed {
+  color: var(--lgs-text-3);
+}
+%{FriendsChats} .friendGroup .groupName.gpfocus .groupCount {
+  color: var(--lgs-text-2);
+}
+%{FriendsChats} .friendGroup .groupName .groupIcon {
+  border-radius: var(--lgs-r-small);
+}
+%{FriendsChats} .friendGroup .groupName hr {
+  border-color: transparent;
+}
+%{FriendsChats} .friendGroup :is(.ExpandPlusMinus, .ExpandArrow) {
+  color: var(--lgs-text-2);
+}
+/* sort toggle next to "Offline" (appears on hover/focus) */
+%{FriendsChats} .friendGroup .SortByRecent {
+  color: var(--lgs-text-2);
+  border-radius: var(--lgs-r-capsule);
+}
+%{FriendsChats} .friendGroup .SortByRecent:hover {
+  background-color: var(--lgs-hover-fill);
+}
+%{FriendsChats} .friendGroup .SortByRecent.gpfocus {
+  background-color: var(--lgs-focus-fill) !important;
+  box-shadow: var(--lgs-focus-ring) !important;
+  color: var(--lgs-text-1) !important;
+}
+
+/* --- 1.4 Friend rows: transparent at rest; hover and focus are an inset
+   rounded pill (own ::before; .friend is position:relative and isolated
+   so the pill sits under the row's content). */
+
+%{FriendsChats} .friendlistListContainer .friend,
+%{FriendsChats} .friendlistListContainer .friend.gpfocus {
+  background: transparent !important;
+  isolation: isolate;
+}
+%{FriendsChats} .friendlistListContainer .friend::before {
+  content: "";
+  position: absolute;
+  inset: 1px 8px;
+  z-index: -1;
+  border-radius: var(--lgs-r-row);
+  pointer-events: none;
+  transition: background-color var(--lgs-t-fast) var(--lgs-ease), box-shadow var(--lgs-t-fast) var(--lgs-ease);
+}
+%{FriendsChats} .friendlistListContainer .friend:hover::before {
+  background-color: var(--lgs-hover-fill);
+}
+%{FriendsChats} .friendlistListContainer .friend.gpfocus::before {
+  background-color: var(--lgs-focus-fill);
+  box-shadow: var(--lgs-focus-ring);
+}
+
+/* labels: name primary, presence secondary; offline one level dimmer.
+   Status colour moves to the avatar's status bar (a whole fill). Steam's
+   per-state rules reach (0,6,0), hence !important. */
+%{FriendsChats} .friend %{playerName} {
+  color: var(--lgs-text-1) !important;
+  text-shadow: var(--lgs-text-shadow) !important;
+}
+%{FriendsChats} .friend %{richPresenceLabel} {
+  color: var(--lgs-text-2) !important;
+  text-shadow: var(--lgs-text-shadow) !important;
+}
+%{FriendsChats} .friend .labelHolder.offline %{playerName} {
+  color: var(--lgs-text-2) !important;
+}
+%{FriendsChats} .friend .labelHolder.offline %{richPresenceLabel} {
+  color: var(--lgs-text-3) !important;
+}
+%{FriendsChats} .friend.gpfocus .labelHolder.offline %{playerName} {
+  color: var(--lgs-text-1) !important;
+}
+%{FriendsChats} .friend.gpfocus .labelHolder.offline %{richPresenceLabel} {
+  color: var(--lgs-text-2) !important;
+}
+%{FriendsChats} .friend %{SnoozeZ} {
+  color: var(--lgs-text-2);
+}
+
+/* avatar: small art, rounded; status bar in system colours */
+%{FriendsChats} .avatarHolder img%{avatar} {
+  border-radius: var(--lgs-r-small);
+  box-shadow: var(--lgs-pill-shadow);
+}
+%{FriendsChats} .avatarHolder.online .avatarStatus {
+  background-color: var(--lgs-blue);
+}
+%{FriendsChats} .avatarHolder.ingame .avatarStatus {
+  background-color: var(--lgs-green);
+}
+%{FriendsChats} .avatarHolder.offline .avatarStatus {
+  background-color: var(--lgs-text-3);
+}
+/* "playing together" bracket lines in game groups */
+%{FriendsChats} .friend.inGroup .SteamPlayerGroupLines {
+  border-color: var(--lgs-green);
+}
+
+/* empty tab panels (Favorites, Groups, Recent) */
+%{FriendsChats} .ChatRoomList_Empty,
+%{FriendsChats} .ChatRoomList_Empty_Description {
+  color: var(--lgs-text-2);
+  text-shadow: var(--lgs-text-shadow);
+}
+
+/* --- 1.5 Chat pane ---------------------------------------------------- */
+
+%{FriendsChats} .multiChatDialog.GamepadMode,
+%{FriendsChats} .multiChatDialog.GamepadMode.gpfocuswithin {
+  background: none;
+}
+%{FriendsChats} .chatDialogs .emptyChatDialogs {
+  color: var(--lgs-text-2);
+  text-shadow: var(--lgs-text-shadow);
+}
+
+/* conversation header: no dark shadow slab; an inset hairline below it.
+   Focus lights the row (avatar + name) as a rounded pill. */
+%{FriendsChats} .multiChatDialog %{ChatTab},
+%{FriendsChats} .multiChatDialog %{ChatTab}%{ChatTabTransitionGroup>Active},
+%{FriendsChats} .multiChatDialog %{ChatTab}%{ChatTabTransitionGroup>Active}.gpfocus {
+  /* 1px strip at the bottom, transparent for 16px at each end */
+  background: linear-gradient(90deg, transparent 16px, var(--lgs-separator) 16px, var(--lgs-separator) calc(100% - 16px), transparent calc(100% - 16px)) 0 100% / 100% 1px no-repeat !important;
+  box-shadow: none !important;
+}
+%{FriendsChats} .multiChatDialog %{ChatTab} %{ChatTabRow} {
+  /* breathing room inside the focus pill (the row is centred in Steam's
+     60px band, so nothing around it moves) */
+  padding: 4px 8px;
+  border-radius: var(--lgs-r-row);
+  transition: background-color var(--lgs-t-fast) var(--lgs-ease), box-shadow var(--lgs-t-fast) var(--lgs-ease);
+}
+%{FriendsChats} .multiChatDialog %{ChatTab}:hover %{ChatTabRow} {
+  background-color: var(--lgs-hover-fill);
+}
+%{FriendsChats} .multiChatDialog %{ChatTab}.gpfocus %{ChatTabRow} {
+  background-color: var(--lgs-focus-fill);
+  box-shadow: var(--lgs-focus-ring);
+}
+
+/* history */
+%{FriendsChats} %{FriendListInsetShadowTop},
+%{FriendsChats} .multiChatDialog.gpfocuswithin %{FriendListInsetShadowTop} {
+  background: none;
+}
+%{FriendsChats} .ChatHistoryContainer .msg.timeDivision {
+  color: var(--lgs-text-2);
+  text-shadow: var(--lgs-text-shadow);
+}
+%{FriendsChats} .ChatHistoryContainer .timeDivision :is(.preHorizDivider, .horizDivider) {
+  background-color: var(--lgs-separator);
+}
+%{FriendsChats} .ChatHistoryContainer .timeDivision.new_messages :is(.preHorizDivider, .horizDivider) {
+  background-color: var(--lgs-orange);
+}
+/* the history panel takes focus as a whole (A = pick a message): Steam
+   fades in this selector; it becomes a lit panel with the focus ring.
+   Steam's opacity toggle is untouched. */
+%{FriendsChats} .ChatHistoryContainer .ChatHistorySelector {
+  background: var(--lgs-fill-1);
+  border-radius: var(--lgs-r-card);
+  box-shadow: var(--lgs-focus-ring);
+  filter: none;
+}
+/* Steam fills every message while the panel is focused, and the single
+   message being picked; only the picked one keeps a (focus) fill */
+%{FriendsChats} .ChatHistoryContainer.gpfocus .msg,
+%{FriendsChats} .ChatHistoryContainer .gpfocus .msg {
+  background: transparent;
+}
+%{FriendsChats} .ChatHistoryContainer .msg.gpfocus,
+%{FriendsChats} .ChatHistoryContainer .msg :is(div.ChatMessageOpenGraph, div.SteamPublishedFile).gpfocus {
+  background: var(--lgs-focus-fill) !important;
+  box-shadow: var(--lgs-focus-ring);
+  border-radius: var(--lgs-r-row);
+}
+%{FriendsChats} .ChatHistoryContainer .msg :is(div.ChatMessageOpenGraph, div.SteamPublishedFile) {
+  background-color: var(--lgs-fill-1);
+  border-radius: var(--lgs-r-row);
+}
+%{FriendsChats} .ChatHistoryContainer.gpfocus .msg :is(div.ChatMessageOpenGraph, div.SteamPublishedFile):not(.gpfocus) {
+  background: var(--lgs-fill-1);
+}
+%{FriendsChats} .ChatHistoryContainer :is(.ChatSpeaker .speaker, .speakerName) {
+  color: var(--lgs-text-2);
+}
+%{FriendsChats} .msgText,
+%{FriendsChats} .ChatMessageBlock .msg {
+  color: var(--lgs-text-1);
+}
+%{FriendsChats} :is(.speakerTimeStamp, .FriendChatTimeStamp) {
+  color: var(--lgs-text-3);
+}
+%{FriendsChats} .FriendChatTypingNotification {
+  background: linear-gradient(to top, var(--lgs-thick-bg) 0, transparent 80%);
+  color: var(--lgs-text-2);
+}
+%{FriendsChats} .RadialMenuExplainerText {
+  color: var(--lgs-text-2);
+  text-shadow: var(--lgs-text-shadow);
+}
+%{FriendsChats} .dropTargetBox {
+  border-color: var(--lgs-text-3);
+  border-radius: var(--lgs-r-card);
+}
+
+/* side buttons (voice, invite): fill tiles against the window edge.
+   Specificity is kept at Steam's level for the icon colour so the green
+   "voice requested" state still wins; the voice button's focus fill is
+   Steam's own (green when requested), we add only the ring. */
+%{FriendsChats} .SteamDeckChats .RightSideButtonContainer :is(.oneOnOneVoiceChatButton, .inviteAnotherFriendButton, .AddFriendButton) {
+  background-color: var(--lgs-fill-2);
+  box-shadow: var(--lgs-control-rim);
+  border-radius: var(--lgs-r-row) 0 0 var(--lgs-r-row);
+  transition: background-color var(--lgs-t-fast) var(--lgs-ease), box-shadow var(--lgs-t-fast) var(--lgs-ease);
+}
+:where(%{FriendsChats} .RightSideButtonContainer) > :is(.oneOnOneVoiceChatButton, .inviteAnotherFriendButton, .AddFriendButton) {
+  color: var(--lgs-text-1);
+}
+/* Steam pins the voice glyph to dim grey; let it follow the button colour
+   (white at rest, Steam's green when a voice chat is requested) */
+%{FriendsChats} .RightSideButtonContainer .oneOnOneVoiceChatButton .SVGIcon_VoiceRoom {
+  color: inherit;
+}
+%{FriendsChats} .SteamDeckChats .RightSideButtonContainer :is(.oneOnOneVoiceChatButton, .inviteAnotherFriendButton, .AddFriendButton):hover {
+  background-color: var(--lgs-hover-fill);
+}
+%{FriendsChats} .SteamDeckChats .RightSideButtonContainer :is(.inviteAnotherFriendButton, .AddFriendButton).gpfocus {
+  background-color: var(--lgs-focus-fill) !important;
+  color: var(--lgs-text-1) !important;
+}
+%{FriendsChats} .SteamDeckChats .RightSideButtonContainer :is(.oneOnOneVoiceChatButton, .inviteAnotherFriendButton, .AddFriendButton).gpfocus {
+  box-shadow: var(--lgs-focus-ring) !important;
+}
+
+/* entry: a sunken capsule well; the send button is the one tinted action */
+%{FriendsChats} .multiChatDialog .chatWindow .chatEntry > %{chatEntryControls},
+%{FriendsChats} .multiChatDialog.gpfocuswithin .chatWindow .chatEntry > %{chatEntryControls} {
+  background: var(--lgs-well-bg);
+  box-shadow: var(--lgs-well-shadow);
+  border-radius: var(--lgs-r-capsule);
+  transition: box-shadow var(--lgs-t-fast) var(--lgs-ease);
+}
+%{FriendsChats} .multiChatDialog .chatWindow .chatEntry > %{chatEntryControls}:has(%{chatTextarea}.gpfocus) {
+  box-shadow: var(--lgs-well-shadow), var(--lgs-focus-ring);
+}
+%{FriendsChats} %{chatEntryControls} %{chatTextarea},
+%{FriendsChats} %{chatEntryControls} %{chatTextarea}.gpfocus {
+  color: var(--lgs-text-1);
+  caret-color: var(--lgs-caret);
+  background-color: transparent;
+}
+%{FriendsChats} %{chatEntryControls} %{chatTextarea}::placeholder {
+  color: var(--lgs-text-3);
+}
+/* send: a circle inset 4px inside the capsule (transparent border, the
+   box stays 44x44) */
+%{FriendsChats} %{chatEntryControls} %{chatSubmitButton},
+%{FriendsChats} %{chatEntryControls} %{chatSubmitButton}:not(%{chatSubmitButton>disabled}) {
+  border: 4px solid transparent;
+  background-clip: padding-box;
+  border-radius: var(--lgs-r-capsule);
+  background-color: transparent;
+  transition: background-color var(--lgs-t-fast) var(--lgs-ease), box-shadow var(--lgs-t-fast) var(--lgs-ease);
+}
+%{FriendsChats} %{chatEntryControls} %{chatSubmitButton} .SVGIcon_Submit path {
+  fill: var(--lgs-text-3);
+}
+%{FriendsChats} %{chatEntryControls} %{chatSubmitButton}:not(%{chatSubmitButton>disabled}) {
+  background-color: var(--lgs-tint-primary);
+}
+%{FriendsChats} %{chatEntryControls} %{chatSubmitButton}:not(%{chatSubmitButton>disabled}) .SVGIcon_Submit path {
+  fill: var(--lgs-text-on-tint) !important;
+}
+%{FriendsChats} %{chatEntryControls} %{chatSubmitButton}.gpfocus {
+  background-color: var(--lgs-focus-fill) !important;
+  box-shadow: inset 0 0 0 2px var(--lgs-focus-outline), var(--lgs-focus-glow) !important;
+}
+%{FriendsChats} %{chatEntryControls} %{chatSubmitButton}.gpfocus:not(%{chatSubmitButton>disabled}) {
+  background-image: var(--lgs-tint-lift) !important;
+  background-color: var(--lgs-tint-primary) !important;
+}
+%{FriendsChats} %{chatEntryControls} %{chatSubmitButton}.gpfocus .SVGIcon_Submit path {
+  fill: var(--lgs-text-1) !important;
+}
+
+
+/* ====================================================================== */
+/* 2. Add a Friend (/invites)                                              */
+/* ====================================================================== */
+
+/* the page's own #0e141b slab goes: the window glass shows */
+%{HiddenFrame>InvitesList} %{DialogContent_InnerWidth>InvitesList} {
+  background: none;
+}
+%{HiddenFrame>InvitesList} %{IncomingInvites>Title} {
+  color: var(--lgs-text-1);
+  text-shadow: var(--lgs-text-shadow);
+}
+%{HiddenFrame>InvitesList} %{DialogContent_InnerWidth>Description} {
+  color: var(--lgs-text-2);
+  text-shadow: var(--lgs-text-shadow);
+}
+/* your friend code: a grouped-card plate instead of a black slab; the code
+   in primary white (colour only in whole fills) */
+%{FriendCodeSection} %{FriendCode} {
+  background: var(--lgs-panel-sheen), var(--lgs-fill-1);
+  box-shadow: var(--lgs-glass-rim);
+  border-radius: var(--lgs-r-card);
+}
+%{FriendCodeSection} %{DialogContent_InnerWidth>Code} {
+  color: var(--lgs-text-1);
+  text-shadow: var(--lgs-text-shadow);
+}
+%{FriendCodeSection} %{DialogContent_InnerWidth>Caption} {
+  color: var(--lgs-text-2);
+  text-shadow: var(--lgs-text-shadow);
+}
+/* pending invites (shown only with invites): section headers secondary,
+   rows on a fill, the focused row lit (buttons inside carry the ring) */
+%{HiddenFrame>InvitesList} %{IncomingInvites>InvitesSectionHeader} {
+  color: var(--lgs-text-2);
+  text-shadow: var(--lgs-text-shadow);
+}
+%{HiddenFrame>InvitesList} :is(%{IncomingInvites>InvitesRow}, %{IncomingInvites>MutualFriendRow}) {
+  border-radius: var(--lgs-r-row);
+  transition: background-color var(--lgs-t-fast) var(--lgs-ease);
+}
+%{HiddenFrame>InvitesList} :is(%{IncomingInvites>InvitesRow}, %{IncomingInvites>MutualFriendRow}).gpfocuswithin {
+  background-color: var(--lgs-hover-fill) !important;
+}
+%{HiddenFrame>InvitesList} %{IncomingInvites>Divider} {
+  border-color: var(--lgs-separator);
+  background-color: var(--lgs-separator);
+}
+%{HiddenFrame>InvitesList} .friend %{playerName} {
+  color: var(--lgs-text-1) !important;
+}
+%{HiddenFrame>InvitesList} .friend %{richPresenceLabel} {
+  color: var(--lgs-text-2) !important;
+}
+%{HiddenFrame>InvitesList} .avatarHolder img%{avatar} {
+  border-radius: var(--lgs-r-small);
+}
+
+
+/* ====================================================================== */
+/* 3. Account (/account): field rows, buttons, toggle and dropdown are the */
+/*    primitives; this styles the profile card and the three tile buttons. */
+/* ====================================================================== */
+
+/* profile card: the animated profile background is content (Steam's mask
+   and transitions untouched); name primary, status secondary */
+%{AccountPanelPage} %{CurrentUserProfileBackground>LabelHolder} %{playerName} {
+  color: var(--lgs-text-1) !important;
+  text-shadow: var(--lgs-text-shadow);
+}
+%{AccountPanelPage} %{CurrentUserProfileBackground>LabelHolder} %{richPresenceLabel} {
+  color: var(--lgs-text-2) !important;
+  text-shadow: var(--lgs-text-shadow);
+}
+%{AccountPanelPage} %{CurrentUserProfileBackground>Avatar} img%{avatar} {
+  border-radius: var(--lgs-r-row);
+  box-shadow: var(--lgs-pill-shadow);
+}
+%{AccountPanelPage} .avatarHolder.online .avatarStatus {
+  background-color: var(--lgs-blue);
+}
+%{AccountPanelPage} .avatarHolder.ingame .avatarStatus {
+  background-color: var(--lgs-green);
+}
+%{AccountPanelPage} .avatarHolder.offline .avatarStatus {
+  background-color: var(--lgs-text-3);
+}
+/* friend code / account name values */
+%{AccountPanelPage} %{CurrentUserProfileBackground>Highlight} {
+  color: var(--lgs-text-1);
+}
+/* Add Funds / Privacy Settings / Account Details: tall tile buttons are
+   cards (r-card), not 124px capsules; fills and states from primitives */
+%{AccountPanelPage} button%{FatButton}.DialogButton {
+  border-radius: var(--lgs-r-card);
+}
+/* tiles rest on the lighter grouped fill (the button fill took their
+   secondary lines under 4.5:1 over a bright room); hover, focus and
+   pressed stay the primitives' */
+%{AccountPanelPage} button%{FatButton}.DialogButton:not(:hover, :active, .gpfocus) {
+  background: var(--lgs-fill-1);
+}
+%{AccountPanelPage} button%{FatButton} svg {
+  color: var(--lgs-text-1);
+}
+%{AccountPanelPage} button%{FatButton} %{CurrentUserProfileBackground>Label} {
+  color: var(--lgs-text-1);
+}
+%{AccountPanelPage} button%{FatButton} %{CurrentUserProfileBackground>Details} {
+  color: var(--lgs-text-2);
+}
+%{AccountPanelPage} button%{FatButton}.gpfocus %{CurrentUserProfileBackground>Details} {
+  color: var(--lgs-text-1);
+}
+
+
+/* ====================================================================== */
+/* 4. Downloads (/library/downloads)                                       */
+/*    The page root is cleared by shell. Sections become grouped cards on  */
+/*    the window glass; rows light up from within when focused. Steam's   */
+/*    row transforms (tilt, scale) and transitions are left alone.        */
+/* ====================================================================== */
+
+/* hero band: no black slab or drop shadow while nothing is downloading */
+%{DownloadsPage} %{DownloadsPage>TopSection} {
+  box-shadow: none;
+}
+%{DownloadsPage} %{DownloadsPage>Section}%{DownloadsPage>Active}%{DownloadsPage>Empty},
+%{DownloadsPage} %{DownloadsPage>Section}%{DownloadsPage>Active}%{DownloadsPage>Empty} %{DownloadsPage>RightSection} {
+  background-color: transparent;
+}
+
+/* "Managing downloads for this device": a small recessed status capsule
+   (a light fill took the secondary label under 4.5:1 over a bright room) */
+%{DownloadsPage} %{RemoteClientManagementBackground} {
+  background: var(--lgs-fill-sunken);
+  box-shadow: var(--lgs-well-shadow);
+  border-radius: var(--lgs-r-capsule);
+  padding-inline: 12px;
+  color: var(--lgs-text-2);
+  text-shadow: var(--lgs-text-shadow);
+}
+%{DownloadsPage} %{RemoteClientManagementRow}.gpfocus %{RemoteClientManagementBackground},
+%{DownloadsPage} %{RemoteClientManagementRow}.gpfocuswithin %{RemoteClientManagementBackground} {
+  background: var(--lgs-focus-fill) !important;
+  box-shadow: var(--lgs-focus-ring) !important;
+}
+%{DownloadsPage} %{ManagingRemoteClientName} {
+  color: var(--lgs-text-1);
+}
+%{DownloadsPage} %{ManagingRemoteClientName}%{DownloadsPage>Green} {
+  color: var(--lgs-green);
+}
+/* device picker capsule (remote-client view) */
+.BasicUI %{DownloadsPage} %{RemoteClientDownloadsSelector} %{RemoteClientDropDownContainer} {
+  background: var(--lgs-fill-2);
+  box-shadow: var(--lgs-control-rim);
+  border-radius: var(--lgs-r-capsule);
+  color: var(--lgs-text-1);
+}
+.BasicUI %{DownloadsPage} %{RemoteClientDownloadsSelector} %{RemoteClientDropDownContainer}:is(:hover, .Focusable:focus) {
+  background: var(--lgs-focus-fill) !important;
+  box-shadow: var(--lgs-focus-ring);
+}
+
+/* section headers */
+%{DownloadsPage} %{DownloadsPage>SectionTitle} %{DownloadsPage>Title} {
+  color: var(--lgs-text-1);
+  text-shadow: var(--lgs-text-shadow);
+}
+%{DownloadsPage} %{DownloadsPage>SectionTitle} %{DownloadsPage>Count} {
+  color: var(--lgs-text-2);
+  text-shadow: var(--lgs-text-shadow);
+}
+/* Steam's 2px grey rule becomes a 1px hairline in the same slot */
+%{DownloadsPage} %{DownloadsPage>SectionTitle} %{DownloadsPage>Rule} {
+  background: linear-gradient(transparent 50%, var(--lgs-separator) 50%);
+}
+%{DownloadsPage} %{AutoUpdateHours} {
+  color: var(--lgs-text-2);
+  text-shadow: var(--lgs-text-shadow);
+}
+%{DownloadsPage} %{SectionDivider} {
+  background-color: var(--lgs-separator);
+}
+
+/* each section's list is one grouped card (the empty-queue note too) */
+%{DownloadsPage} %{SectionList} {
+  background-color: var(--lgs-fill-1);
+  border-radius: var(--lgs-r-card);
+}
+%{DownloadsPage} %{EmptyTransfers} %{DownloadsPage>Text} {
+  color: var(--lgs-text-2);
+  text-shadow: var(--lgs-text-shadow);
+}
+
+/* rows: transparent inside the card; hover and focus are rounded fills
+   (concentric with the card's 2px edge). Focus is a keyframe fill in
+   Steam (fill-mode forwards), hence !important. */
+%{DownloadsPage} %{SectionItem} {
+  border-radius: calc(var(--lgs-r-card) - 2px);
+  isolation: isolate;
+}
+/* the highlight is the row's own ::before under its content (the same
+   pattern as friend rows and primitives' field rows); Steam's keyframe
+   fill on the row itself is cleared */
+%{DownloadsPage} %{SectionItem}::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  transition: background-color var(--lgs-t-fast) var(--lgs-ease), box-shadow var(--lgs-t-fast) var(--lgs-ease);
+}
+%{DownloadsPage} %{SectionItem}:hover,
+%{DownloadsPage} %{SectionItem}%{DownloadsPage>Dragging},
+%{DownloadsPage} %{SectionItemWrapper}.gpfocus %{SectionItem},
+%{DownloadsPage} %{SectionItemWrapper}.gpfocus:not(%{DownloadsPage>Autofocused}) %{SectionItem}%{DownloadsPage>Active} {
+  background-color: transparent !important;
+  border-radius: calc(var(--lgs-r-card) - 2px);
+  color: var(--lgs-text-1) !important;
+}
+%{DownloadsPage} %{SectionItem}:hover::before,
+%{DownloadsPage} %{SectionItem}%{DownloadsPage>Dragging}::before {
+  background-color: var(--lgs-hover-fill);
+}
+%{DownloadsPage} %{SectionItemWrapper}.gpfocus %{SectionItem}::before {
+  background-color: var(--lgs-focus-fill);
+  box-shadow: var(--lgs-focus-ring);
+}
+/* game art is content: rounded to the small-art radius */
+%{DownloadsPage} %{AppPortrait} :is(%{PortraitImage>Container}, %{PortraitImage>Image}) {
+  border-radius: var(--lgs-r-small);
+}
+%{DownloadsPage} %{SectionItem} %{DownloadsPage>DragHandle} {
+  color: var(--lgs-text-3);
+}
+
+/* row text */
+%{DownloadsPage} %{SectionItem} %{DownloadsPage>Name} {
+  color: var(--lgs-text-1);
+  text-shadow: var(--lgs-text-shadow);
+}
+%{DownloadsPage} %{SectionItem} %{DownloadsPage>Name} %{DownloadsPage>ContentType},
+%{DownloadsPage} %{DownloadsPage>ContentType} {
+  color: var(--lgs-text-2);
+}
+%{DownloadsPage} %{DownloadsPage>ContentType}%{DownloadsPage>Highlight},
+.BasicUI %{DownloadsPage} %{DownloadsPage>ContentTypes} %{DownloadsPage>ContentType}%{DownloadsPage>Highlight} {
+  color: var(--lgs-text-1);
+}
+%{DownloadsPage} %{DownloadsPage>ContentType} %{DownloadsPage>Check} {
+  color: var(--lgs-green);
+}
+%{DownloadsPage} %{ProgressDetails} %{DownloadsPage>Value} {
+  color: var(--lgs-text-2);
+}
+%{DownloadsPage} %{ProgressDetails} %{DownloadsPage>Value}%{DownloadsPage>InProgress} {
+  color: var(--lgs-text-1);
+}
+%{DownloadsPage} %{SectionItemStatus} {
+  color: var(--lgs-text-2);
+  text-shadow: var(--lgs-text-shadow);
+}
+%{DownloadsPage} %{SectionItemWrapper}.gpfocus :is(%{SectionItemStatus}, %{ProgressDetails} %{DownloadsPage>Value}) {
+  color: var(--lgs-text-1);
+}
+
+/* row buttons (download now, pause, remove): circular fill buttons; the
+   row's A action is tinted while its row is focused (Steam paints white) */
+%{DownloadsPage} %{SectionItem} button%{DownloadsPage>Button}.DialogButton,
+%{DownloadsPage} %{SectionItem} button%{DownloadsPage>Button}.DialogButton:enabled,
+%{DownloadsPage} %{SectionItem}:hover button%{DownloadsPage>Button}.DialogButton:enabled,
+.BasicUI %{DownloadsPage} %{SectionItem}%{DownloadsPage>Active} button%{DownloadsPage>Button}.DialogButton:enabled {
+  background: var(--lgs-fill-2);
+  box-shadow: var(--lgs-control-rim);
+  border-radius: var(--lgs-r-capsule);
+  color: var(--lgs-text-1);
+}
+%{DownloadsPage} %{SectionItem} button%{DownloadsPage>Button}.DialogButton:enabled:hover {
+  background: var(--lgs-hover-fill);
+  color: var(--lgs-text-1);
+}
+%{DownloadsPage} %{SectionItem} button%{DownloadsPage>Button}.DialogButton svg {
+  color: var(--lgs-text-1);
+}
+%{DownloadsPage} %{SectionItemWrapper}.gpfocus %{SectionItem} button%{DownloadsPage>Button}.DialogButton:enabled:not(%{DownloadsPage>RemoveFromQueue}),
+%{DownloadsPage} %{SectionItemWrapper}.gpfocus %{SectionItem}%{DownloadsPage>Active} button%{DownloadsPage>Button}.DialogButton:enabled:not(%{DownloadsPage>RemoveFromQueue}) {
+  background: var(--lgs-tint-primary) !important;
+  color: var(--lgs-text-on-tint) !important;
+}
+%{DownloadsPage} %{SectionItemWrapper}.gpfocus %{SectionItem} button%{DownloadsPage>Button}.DialogButton:enabled svg {
+  color: var(--lgs-text-on-tint);
+}
+%{DownloadsPage} %{SectionItem} button%{DownloadsPage>Button}.DialogButton.gpfocus {
+  background: var(--lgs-focus-fill) !important;
+  box-shadow: var(--lgs-focus-ring) !important;
+  color: var(--lgs-text-1) !important;
+}
+%{DownloadsPage} %{SectionItem} %{DownloadsPage>PlayButton} {
+  background: var(--lgs-tint-play);
+  border-radius: var(--lgs-r-capsule);
+  color: var(--lgs-text-on-tint);
+}
+%{DownloadsPage} %{SectionItemWrapper}.gpfocus %{SectionItem} %{DownloadsPage>PlayButton} {
+  background: var(--lgs-tint-lift), var(--lgs-tint-play);
+}
+
+/* "Clear All": a fill capsule like every secondary button */
+%{DownloadsPage} button%{RemoveAllButton}.DialogButton:enabled {
+  background: var(--lgs-fill-2);
+  box-shadow: var(--lgs-control-rim);
+  border-radius: var(--lgs-r-capsule);
+  color: var(--lgs-text-1);
+}
+%{DownloadsPage} button%{RemoveAllButton}.DialogButton:enabled:hover {
+  background: var(--lgs-hover-fill);
+  box-shadow: var(--lgs-control-rim);
+}
+%{DownloadsPage} button%{RemoveAllButton}.DialogButton.gpfocus,
+%{DownloadsPage} button%{RemoveAllButton}.DialogButton:enabled.gpfocus {
+  background: var(--lgs-focus-fill) !important;
+  box-shadow: var(--lgs-focus-ring) !important;
+  color: var(--lgs-text-1) !important;
+}
+
+
+/* ====================================================================== */
+/* 5. Media (/media/grid, /media/item/*, /media/list)                     */
+/*    Screenshots and clips are content: opaque, rounded. The grid is     */
+/*    virtualized (inline transforms, heights): nothing here touches       */
+/*    geometry. Timeline layers are positioned inline: untouched.          */
+/* ====================================================================== */
+
+/* --- 5.1 Grid tiles --------------------------------------------------- */
+%{ScreenshotList} %{ListItemAndGlowContainer>ListItem} {
+  border-radius: var(--lgs-r-card);
+}
+%{ScreenshotList} %{ListItemAndGlowContainer>ListItem} %{ListItemThumbnailImg} {
+  border-radius: calc(var(--lgs-r-card) - 2px);
+}
+/* focus: Steam's 2px white border becomes the outer focus ring (Steam's
+   hover scale and the blurred glow behind the tile stay) */
+%{ScreenshotList} %{ListItemAndGlowContainer>ListItem}.gpfocus,
+%{ScreenshotList} %{ListItemAndGlowContainer>ListItem}.gpfocus:not(:hover) {
+  border-color: transparent !important;
+  box-shadow: var(--lgs-focus-ring-outer) !important;
+}
+%{ScreenshotList} %{ListItemAndGlowContainer>ListItem}:hover:not(.gpfocus) {
+  box-shadow: 0 0 0 2px var(--lgs-hover-fill);
+}
+/* multi-select keeps Steam's white edge (white = selected) */
+%{ScreenshotList} %{ListItemAndGlowContainer>ListItem}%{ListItemAndGlowContainer>Selected} {
+  border-radius: var(--lgs-r-card);
+}
+%{ScreenshotList} %{ListItemAndGlowContainer>CheckboxContainer} {
+  border-radius: var(--lgs-r-capsule);
+}
+/* clip duration: a small dark capsule badge on the art, white label */
+%{ScreenshotList} %{ListItemAndGlowContainer>CornerContent} %{ClipCornerRow} {
+  background: var(--lgs-thick-bg);
+  box-shadow: var(--lgs-control-rim);
+  border-radius: var(--lgs-r-capsule);
+  padding: 2px 8px;
+}
+%{ScreenshotList} %{ListItemAndGlowContainer>DurationText} {
+  color: var(--lgs-text-1);
+}
+
+/* --- 5.2 Viewer (screenshot and clip) --------------------------------- */
+/* the dark stage behind the picture becomes a light recess (no vignette) */
+%{FocusedScreenshotContainer} %{FocusedScreenshotImageContainer},
+%{FocusedClip} %{VideoPlayerContainer} {
+  background-color: var(--lgs-fill-sunken);
+  box-shadow: none;
+}
+/* control bands at the bottom: Steam's black-to-grey slab becomes a soft
+   window-tinted band (Steam's own 5px blur and fade are kept) */
+%{FocusedScreenshotContainer} %{FloatingItemControls},
+%{FocusedClip} %{GamepadTimelineContainer} {
+  background: linear-gradient(180deg, var(--lgs-scrim) 0%, var(--lgs-window-bg) 70%);
+}
+%{FloatingItemControls} %{Metadata} {
+  color: var(--lgs-text-2);
+  text-shadow: var(--lgs-text-shadow);
+}
+/* action buttons (trash, Share): fill capsules */
+%{ButtonBox}%{TopList>Interactable} {
+  background: var(--lgs-fill-2);
+  box-shadow: var(--lgs-control-rim);
+  border-radius: var(--lgs-r-capsule);
+  color: var(--lgs-text-1);
+  transition: background-color var(--lgs-t-fast) var(--lgs-ease), box-shadow var(--lgs-t-fast) var(--lgs-ease);
+}
+%{ButtonBox}%{TopList>Interactable}:hover {
+  background: var(--lgs-hover-fill) !important;
+  color: var(--lgs-text-1) !important;
+}
+%{ButtonBox}%{TopList>Interactable}.gpfocus {
+  background: var(--lgs-focus-fill) !important;
+  box-shadow: var(--lgs-focus-ring) !important;
+  color: var(--lgs-text-1) !important;
+}
+%{ButtonBox}%{TopList>Interactable} %{IconButtonIcon} {
+  color: var(--lgs-text-1);
+  fill: currentColor;
+}
+%{ButtonBox}%{TopList>Interactable}%{TopList>Primary}:is(:hover, .gpfocus) {
+  background: var(--lgs-tint-lift), var(--lgs-tint-primary) !important;
+  color: var(--lgs-text-on-tint) !important;
+}
+/* previous / next: Liquid Glass circles over the picture (Steam's fade-in
+   on hover and its brightness filter stay) */
+%{OpenedItemContainer} %{ChangeItem} {
+  background: var(--lgs-panel-sheen),
+      linear-gradient(var(--lgs-glass-bg), var(--lgs-glass-bg)),
+      linear-gradient(var(--lgs-scrim), var(--lgs-scrim));
+  backdrop-filter: var(--lgs-glass-blur);
+  box-shadow: var(--lgs-glass-rim), var(--lgs-glass-shadow);
+  color: var(--lgs-text-1);
+}
+%{OpenedItemContainer} %{ChangeItem}:has(.gpfocus) {
+  box-shadow: var(--lgs-glass-rim), var(--lgs-focus-ring);
+}
+
+/* clip playback controls: circular icon buttons, fill capsules */
+%{PlaybackControls} %{PlaybackControls>PlaybackButton},
+%{PlaybackControls} %{AddMarkerCtn} {
+  border-radius: var(--lgs-r-capsule);
+  transition: background-color var(--lgs-t-fast) var(--lgs-ease), box-shadow var(--lgs-t-fast) var(--lgs-ease);
+}
+%{PlaybackControls} %{PlaybackControls>PlaybackButton}%{PlaybackControls>Enabled},
+%{PlaybackControls} %{AddMarkerCtn} {
+  color: var(--lgs-text-1);
+}
+%{PlaybackControls} %{PlaybackControls>PlaybackButton}%{PlaybackControls>Enabled}:hover,
+%{PlaybackControls} %{AddMarkerCtn}:hover {
+  background-color: var(--lgs-hover-fill);
+}
+%{PlaybackControls} %{PlaybackControls>PlaybackButton}.gpfocus,
+%{PlaybackControls} %{AddMarkerCtn}.gpfocus {
+  background: var(--lgs-focus-fill) !important;
+  box-shadow: var(--lgs-focus-ring) !important;
+  color: var(--lgs-text-1) !important;
+}
+%{PlaybackControls} button:is(%{PlaybackControls>CreateClipButton}, %{PlaybackControls>ShareButton}).DialogButton {
+  background: var(--lgs-fill-2);
+  box-shadow: var(--lgs-control-rim);
+  border-radius: var(--lgs-r-capsule);
+  color: var(--lgs-text-1);
+}
+/* Steam's lift shadow (its own ::before) follows the capsule */
+%{PlaybackControls} button:is(%{PlaybackControls>CreateClipButton}, %{PlaybackControls>ShareButton}).DialogButton::before {
+  border-radius: inherit;
+}
+%{PlaybackControls} button:is(%{PlaybackControls>CreateClipButton}, %{PlaybackControls>ShareButton}).DialogButton:hover {
+  background: var(--lgs-hover-fill);
+}
+%{PlaybackControls} button:is(%{PlaybackControls>CreateClipButton}, %{PlaybackControls>ShareButton}).DialogButton.gpfocus {
+  background: var(--lgs-focus-fill) !important;
+  box-shadow: var(--lgs-focus-ring) !important;
+  color: var(--lgs-text-1) !important;
+}
+%{PlayTimeRow} %{TimeBar} {
+  color: var(--lgs-text-2);
+  text-shadow: var(--lgs-text-shadow);
+}
+
+/* --- 5.3 Menus and sheets opened from media --------------------------- */
+/* share sheet: rows are primitives' menu rows; its inner slab goes */
+%{ShareSheet} %{ContainerGamepad} {
+  background: transparent;
+}
+%{ShareSheet} %{ChatLabel} {
+  color: var(--lgs-text-2);
+}
+/* "Select game" menu: the search field is a sunken capsule well */
+%{TopList>SearchBar} %{TopList>Input} {
+  background: var(--lgs-well-bg);
+  box-shadow: var(--lgs-well-shadow);
+  border-radius: var(--lgs-r-capsule);
+  color: var(--lgs-text-1);
+  caret-color: var(--lgs-caret);
+}
+%{TopList>SearchBar} %{TopList>Input}::placeholder {
+  color: var(--lgs-text-3);
+}
+%{TopList>SearchBar} %{TopList>Input}.gpfocus {
+  background: var(--lgs-well-bg) !important;
+  box-shadow: var(--lgs-well-shadow), var(--lgs-focus-ring) !important;
+  color: var(--lgs-text-1) !important;
+}
+%{NoMatches} {
+  color: var(--lgs-text-2);
+}
+/* That menu's column ends in a tall empty spacer (Steam reserves room
+   under the search field); stock never painted the column, so the
+   spacer was invisible. Here the glass sheet is drawn only from the
+   search field to the last row: the column itself goes clear and a
+   click-through pseudo, anchored to those two rows, carries the sheet. */
+%{*BasicContextMenuModal>contextMenuContents}:has(> %{TopList>SearchBar}) {
+  background: none;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+%{*BasicContextMenuModal>contextMenuContents} > %{TopList>SearchBar} {
+  anchor-name: --lgs-sg-top;
+}
+%{*BasicContextMenuModal>contextMenuContents}:has(> %{TopList>SearchBar}) > :nth-last-child(1 of %{*BasicContextMenuModal>contextMenuItem}) {
+  anchor-name: --lgs-sg-bottom;
+}
+%{*BasicContextMenuModal>contextMenuContents}:has(> %{TopList>SearchBar})::before {
+  content: "";
+  position: absolute;
+  top: calc(anchor(--lgs-sg-top top, 0px) - 8px);
+  bottom: calc(anchor(--lgs-sg-bottom bottom, 0px) - 8px);
+  left: calc(anchor(--lgs-sg-top left, 0px) - 8px);
+  right: calc(anchor(--lgs-sg-top right, 0px) - 8px);
+  z-index: -1;
+  border-radius: var(--lgs-r-menu);
+  background: var(--lgs-panel-sheen), var(--lgs-thick-bg);
+  box-shadow: var(--lgs-glass-rim), var(--lgs-glass-shadow);
+  pointer-events: none;
+}
+
+/* --- 5.4 Phase list (/media/list) ------------------------------------- */
+%{PhaseListContainer} {
+  background: none;
+}
+%{PhaseList} :is(%{DateHeader}, %{GameHeader}) {
+  color: var(--lgs-text-2);
+  text-shadow: var(--lgs-text-shadow);
+}
+%{PhaseList} %{GameHeader} %{TimelineGrid>Icon} {
+  border-radius: calc(var(--lgs-r-small) - 2px);
+}
+%{PhaseList} %{PhaseGridItem} {
+  background-color: var(--lgs-fill-1);
+  border-radius: var(--lgs-r-card);
+}
+%{PhaseList} %{PhaseTimestamp} {
+  color: var(--lgs-text-2);
+}
+%{PhaseList} %{PhaseTimestamp} %{TimelineGrid>Date} {
+  color: var(--lgs-text-1);
+}
+%{PhaseList} %{TimelineGrid>Thumbnail} {
+  border-radius: var(--lgs-r-small);
+}
+%{PhaseList} %{OverflowItem} {
+  background: var(--lgs-fill-2);
+  box-shadow: var(--lgs-control-rim);
+  border-radius: var(--lgs-r-small);
+  color: var(--lgs-text-1);
+}
+%{PhaseList} %{DurationBar} {
+  background-color: var(--lgs-yellow);
+  border-radius: var(--lgs-r-capsule);
+}
+%{PhaseList} %{TimelineGrid>DurationText} {
+  color: var(--lgs-text-1) !important;
+}

@@ -52,13 +52,26 @@
 
 
   /* ====================================================================
-     2. Page list items: a capsule inside the pane. Rest transparent,
-     hover fill, selected (current page) = the white pill, focus =
-     illuminated + ring. The capsule is the item's ::before (unused by
-     Steam); the item's own transform makes it the containing block.
+     2. Page list items: capsules inside the pane. Rest transparent,
+     hover fill, selected (current page) = the white pill with a dark
+     label, focus = illuminated + ring.
+     - The white pill is the item's own background: two half-disc caps and
+       a centre band (no overlap, so the translucent white stays even),
+       inset like the capsule below. Real paint on the label's ancestor,
+       so contrast tools see the label on white.
+     - Hover/focus fills and rings are the item's ::before (unused by
+       Steam); the item's own transform makes it the containing block and
+       a stacking context, so z-index -1 sits under the label only.
      ==================================================================== */
 
   & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem} {
+    --lgs-nav-pill:
+      radial-gradient(circle at 100% 50%, var(--lgs-selected-fill) 17.5px, transparent 18px)
+        left 16px top 3px / 18px calc(100% - 6px) no-repeat,
+      linear-gradient(var(--lgs-selected-fill), var(--lgs-selected-fill))
+        left 34px top 3px / calc(100% - 66px) calc(100% - 6px) no-repeat,
+      radial-gradient(circle at 0 50%, var(--lgs-selected-fill) 17.5px, transparent 18px)
+        right 14px top 3px / 18px calc(100% - 6px) no-repeat;
     color: var(--lgs-text-1);
     text-shadow: var(--lgs-text-shadow);
     border-left-color: transparent;
@@ -75,7 +88,7 @@
                 box-shadow var(--lgs-t-fast) var(--lgs-ease);
   }
   /* Steam's own blue gradients and left bar go: the capsule carries state */
-  & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}:is(:hover, :focus, .gpfocus, %{PagedSettingsDialog_PageList_ShowTitle>Active}) {
+  & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}:is(:hover, :focus, .gpfocus) {
     background: none !important;
     border-left-color: transparent !important;
   }
@@ -90,18 +103,22 @@
     box-shadow: var(--lgs-focus-ring);
   }
   /* selected: white pill, dark label and icon */
-  & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}%{PagedSettingsDialog_PageList_ShowTitle>Active} {
+  & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}%{PagedSettingsDialog_PageList_ShowTitle>Active},
+  & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}%{PagedSettingsDialog_PageList_ShowTitle>Active}:is(:hover, :focus, .gpfocus) {
+    background: var(--lgs-nav-pill) !important;
+    border-left-color: transparent !important;
     color: var(--lgs-text-on-selected) !important;
     text-shadow: none;
   }
-  & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}%{PagedSettingsDialog_PageList_ShowTitle>Active}::before {
-    background-color: var(--lgs-selected-fill);
+  & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}%{PagedSettingsDialog_PageList_ShowTitle>Active}::before,
+  & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}%{PagedSettingsDialog_PageList_ShowTitle>Active}:hover::before {
+    background-color: transparent;
     box-shadow: var(--lgs-pill-shadow);
   }
   /* selected and focused: the white pill gets a separated bright ring
      (scrim gap, outline, glow) so focus still reads on white */
   & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}%{PagedSettingsDialog_PageList_ShowTitle>Active}:is(:focus, .gpfocus)::before {
-    background-color: var(--lgs-selected-fill);
+    background-color: transparent;
     box-shadow: 0 0 0 2px var(--lgs-scrim), 0 0 0 4px var(--lgs-focus-outline), var(--lgs-focus-glow);
   }
   & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}%{PagedSettingsDialog_PageList_ShowTitle>DisabledItem} {
@@ -130,6 +147,18 @@
   & %{SettingsDialogDescriptionText} {
     color: var(--lgs-text-2);
   }
+  /* in-text links: no thin coloured text on glass; a white label with a
+     soft underline (Steam's floating FocusRing still marks focus) */
+  & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageContent} a {
+    color: var(--lgs-text-1);
+    text-decoration-line: underline;
+    text-decoration-color: var(--lgs-text-3);
+    text-underline-offset: 2px;
+    transition: text-decoration-color var(--lgs-t-fast) var(--lgs-ease);
+  }
+  & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageContent} a:is(:hover, .gpfocus, :focus) {
+    text-decoration-color: var(--lgs-text-1);
+  }
 
 
   /* ====================================================================
@@ -144,8 +173,8 @@
     mask-image: linear-gradient(180deg, transparent 4px, #000 44px, #000 calc(100% - 22px), transparent 100%);
   }
   & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageList} {
-    -webkit-mask-image: linear-gradient(180deg, transparent 6px, #000 30px, #000 calc(100% - 20px), transparent 100%);
-    mask-image: linear-gradient(180deg, transparent 6px, #000 30px, #000 calc(100% - 20px), transparent 100%);
+    -webkit-mask-image: linear-gradient(180deg, transparent 16px, #000 40px, #000 calc(100% - 20px), transparent 100%);
+    mask-image: linear-gradient(180deg, transparent 16px, #000 40px, #000 calc(100% - 20px), transparent 100%);
   }
 
 
@@ -233,6 +262,24 @@
     color: var(--lgs-text-2);
   }
 
+  /* --- Friends & Chat: the "Append nicknames" preview friend ---------
+     the online colour stays in the avatar's status bar (a fill); the
+     labels are vibrancy white so they read on glass */
+  & %{FakeFriend} %{playerName} {
+    color: var(--lgs-text-1);
+  }
+  & %{FakeFriend} %{richPresenceLabel} {
+    color: var(--lgs-text-2);
+  }
+  & %{FakeFriend} %{avatar} {
+    border-radius: var(--lgs-r-small);
+  }
+
+  /* --- Game Recording: "High (Default)" button's muted suffix -------- */
+  & %{BitrateSetting>Muted} {
+    color: var(--lgs-text-2);
+  }
+
   /* --- Family: the page's one primary action ------------------------- */
   & button.DialogButton%{TrySteamFamiliesButton}.Primary {
     background: var(--lgs-tint-primary);
@@ -244,9 +291,10 @@
 /* ======================================================================
    6. Storage (/settings/storage): drive tabs, usage bar, app rows.
    %{ContentManagement}%{InPagedSettings} only exists on this page.
+   Anchored on .BasicUI: Steam's storage rules reach (0,5,0).
    ====================================================================== */
 
-%{ContentManagement}%{InPagedSettings} {
+.BasicUI %{ContentManagement}%{InPagedSettings} {
 
   /* drive tabs: capsules; selected = white pill, focus = lit + ring */
   & %{InstallFolder} {
@@ -328,6 +376,15 @@
     background-color: var(--lgs-separator);
   }
 
+  /* the app list reads as one grouped card (fill, not glass). Its
+     virtualized scroller is left untouched: a mask on it measured ~2%
+     slower while scrolling, so rows clip at the card edge as in stock. */
+  & %{LibraryInventory} {
+    background-color: var(--lgs-fill-1);
+    border-radius: var(--lgs-r-card);
+    box-shadow: var(--lgs-control-rim);
+  }
+
   /* app rows (virtualized: geometry is inline and untouched) */
   & %{AppBody} {
     border-radius: var(--lgs-r-row);
@@ -346,6 +403,7 @@
     color: var(--lgs-text-1);
   }
   & %{AppUsageValue},
+  & %{SpecialSectionText},
   & %{AppInfoItem} svg {
     color: var(--lgs-text-2);
   }

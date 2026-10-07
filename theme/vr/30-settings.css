@@ -1,0 +1,453 @@
+/* Glass Shell, area "steamvr": SteamVR's own settings page (#vrsettingspanel
+   in vr:systemui; Steam's frame menu > VR Settings) and every SettingsMain
+   control SteamVR reuses (Now Playing's bindings / video-settings modals,
+   dropdown popovers). Window glass with the same primitives look as Steam's
+   settings: grouped fills, capsules, the white selected item/segment/radio,
+   white knobs, hover fills (laser only: SteamVR shows "Use Laser Mouse to
+   Interact" under this page, there is no gamepad focus here).
+   Advanced settings keep a recognisable marker without SteamVR's purple
+   slabs: their wells and buttons are tinted with a purple glass fill.
+   Steam-owned and never touched: the segmented control's sliding ::after
+   pill (translateX), the slider HandleContainer translateX and Sliding
+   scales, the dropdown chevron's rotate, the sidebar ::before press
+   effect, all paddings/margins/sizes. Wrapped as html.lgs-on { ... }. */
+
+/* ------------------------------------------------------------------ */
+/* 1. Window glass for the panel                                       */
+/* ------------------------------------------------------------------ */
+
+.SettingsMain {
+  /* SteamVR's label colour on settings pages */
+  --text-color: var(--lgs-text-1);
+  --lgs-vr-advanced-fill: color-mix(in srgb, var(--lgs-purple) 26%, transparent);
+  --lgs-vr-advanced-hover: color-mix(in srgb, var(--lgs-purple) 40%, transparent);
+}
+.DashboardPanel.Settings {
+  background: var(--lgs-window-sheen), var(--lgs-window-bg);
+  box-shadow: var(--lgs-window-rim);
+  border-radius: var(--lgs-vr-r-window);
+}
+.SettingsMain.Loading {
+  background: var(--lgs-window-sheen), var(--lgs-window-bg);
+  border-radius: var(--lgs-vr-r-window);
+}
+
+/* ------------------------------------------------------------------ */
+/* 2. Sidebar: a lighter fill column; items are inset rounded rows     */
+/*    (our ::after; SteamVR uses ::before for its press effect), the   */
+/*    current section is the white selected row.                       */
+/* ------------------------------------------------------------------ */
+
+.SettingsSidebar {
+  background: var(--lgs-fill-1);
+  box-shadow: inset -1px 0 0 var(--lgs-separator);
+  border-top-left-radius: var(--lgs-vr-r-window);
+  border-bottom-left-radius: var(--lgs-vr-r-window);
+}
+.SettingsSidebarButton,
+.SettingsSidebarButton.Active,
+.SettingsSidebarButton:hover {
+  background: transparent;
+}
+.SettingsSidebarButton::after {
+  content: "";
+  position: absolute;
+  inset: 4px 18px;  /* = --iy --ix of the selected row below */
+  z-index: 5;
+  border-radius: var(--lgs-vr-r-row);
+  background: transparent;
+  pointer-events: none;
+  transition: background-color var(--lgs-t-fast) var(--lgs-ease), box-shadow var(--lgs-t-fast) var(--lgs-ease);
+}
+.SettingsSidebarButton:hover::after {
+  background-color: var(--lgs-hover-fill);
+}
+.SettingsSidebarButton:not(.Active):active::after {
+  background-color: var(--lgs-pressed-fill);
+}
+/* the current section: a white inset rounded row painted on the button
+   itself (gradient layers draw the rounded rect), so its dark label sits
+   on its own background. The layers overlap by 1px to avoid seams, so the
+   white must be opaque: the knob white (--lgs-knob, #fff), which the
+   selected fill (.94 white) reaches anyway where it doubles up. */
+.SettingsSidebarButton.Active,
+.SettingsSidebarButton.Active:hover {
+  --c: var(--lgs-knob);
+  --ix: 18px;
+  --iy: 4px;
+  --r: round(var(--lgs-vr-r-row), 1px);
+  background:
+    linear-gradient(var(--c), var(--c)) center / calc(100% - 2 * var(--ix)) calc(100% - 2 * var(--iy) - 2 * var(--r) + 2px) no-repeat,
+    linear-gradient(var(--c), var(--c)) center top var(--iy) / calc(100% - 2 * var(--ix) - 2 * var(--r) + 2px) var(--r) no-repeat,
+    linear-gradient(var(--c), var(--c)) center bottom var(--iy) / calc(100% - 2 * var(--ix) - 2 * var(--r) + 2px) var(--r) no-repeat,
+    radial-gradient(circle at 100% 100%, var(--c) calc(var(--r) - 0.75px), transparent var(--r)) left var(--ix) top var(--iy) / var(--r) var(--r) no-repeat,
+    radial-gradient(circle at 0 100%, var(--c) calc(var(--r) - 0.75px), transparent var(--r)) right var(--ix) top var(--iy) / var(--r) var(--r) no-repeat,
+    radial-gradient(circle at 100% 0, var(--c) calc(var(--r) - 0.75px), transparent var(--r)) left var(--ix) bottom var(--iy) / var(--r) var(--r) no-repeat,
+    radial-gradient(circle at 0 0, var(--c) calc(var(--r) - 0.75px), transparent var(--r)) right var(--ix) bottom var(--iy) / var(--r) var(--r) no-repeat;
+}
+.SettingsSidebarButton .Label,
+.SettingsSidebarButton:hover .Label {
+  color: var(--lgs-text-1);
+}
+.SettingsSidebarButton.Active .Label,
+.SettingsSidebarButton.Active:hover .Label {
+  color: var(--lgs-text-on-selected);
+}
+.SettingsSidebar .Header {
+  color: var(--lgs-text-2);
+}
+
+/* ------------------------------------------------------------------ */
+/* 3. Page area: the window glass shows through                        */
+/* ------------------------------------------------------------------ */
+
+.SettingsPageContainer {
+  background: transparent;
+  border-top-right-radius: var(--lgs-vr-r-window);
+  border-bottom-right-radius: var(--lgs-vr-r-window);
+}
+.SettingsMain .SettingsPageContainer hr {
+  border-color: var(--lgs-separator);
+  opacity: 1;
+}
+.SettingsMain .Modal hr {
+  border-color: var(--lgs-separator);
+}
+.SettingsItem .Label,
+.SettingsItem.Label {
+  color: var(--lgs-text-1);
+}
+.SettingsMain .SettingsItem > .SettingsExplainer {
+  color: var(--lgs-text-2);
+  opacity: 1;
+}
+.SettingsItemValueLabel,
+.SettingsItemValueInfo {
+  color: var(--lgs-text-1);
+}
+.SettingsSubTitle,
+.SettingsMain h1 {
+  color: var(--lgs-text-2);
+}
+
+/* grouped sections and their stems: one fill, concentric radius */
+.SettingsMain .Subsection {
+  background: var(--lgs-fill-1);
+  border-radius: var(--lgs-vr-r-card);
+}
+.SettingsMain .Subsection.WithStem {
+  border-top-right-radius: 0;
+}
+.SettingsMain .SubsectionStem:not(.Hidden) {
+  background: var(--lgs-fill-1);
+  border-top-left-radius: var(--lgs-vr-r-card);
+  border-top-right-radius: var(--lgs-vr-r-card);
+}
+.SettingsMain .SubsectionStem:not(.Hidden)::before {
+  --size: var(--lgs-vr-r-card);
+  --background: var(--lgs-fill-1);
+}
+.SettingsMain .SettingsPageContainer > .Subsection.Top {
+  background: linear-gradient(to right, var(--lgs-fill-1) 0%, transparent 100%);
+  border-radius: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* 4. Buttons and dropdown buttons: fill capsules                      */
+/* ------------------------------------------------------------------ */
+
+.SettingsMain .ButtonControl {
+  background-color: var(--lgs-fill-2);
+  box-shadow: var(--lgs-control-rim);
+  border-radius: var(--lgs-r-capsule);
+  color: var(--lgs-text-1);
+  transition: background-color var(--lgs-t-fast) var(--lgs-ease), box-shadow var(--lgs-t-fast) var(--lgs-ease);
+}
+.SettingsMain .ButtonControl:not(.Disabled):hover {
+  background-color: var(--lgs-hover-fill);
+  box-shadow: var(--lgs-control-rim);
+}
+.SettingsMain .ButtonControl:not(.Disabled):active {
+  background-color: var(--lgs-pressed-fill);
+  box-shadow: var(--lgs-control-rim);
+}
+.SettingsMain .ButtonControl.Disabled,
+.SettingsMain .ButtonControl.Disabled:hover {
+  background-color: var(--lgs-fill-1);
+  box-shadow: none;
+  color: var(--lgs-text-1);
+  opacity: var(--lgs-disabled-opacity);
+}
+.SettingsMain .ButtonControl > .Badge {
+  background: var(--lgs-fill-2);
+  border-radius: var(--lgs-r-capsule);
+}
+.SettingsMain .ButtonControl.WithIcon > .Icon path {
+  fill: var(--lgs-text-1);
+}
+/* advanced settings: purple glass instead of the purple slab */
+.SettingsMain .SettingsItem.Advanced .ButtonControl {
+  background-color: var(--lgs-vr-advanced-fill);
+}
+.SettingsMain .SettingsItem.Advanced .ButtonControl:not(.Disabled):hover {
+  background-color: var(--lgs-vr-advanced-hover);
+}
+/* colourful (blue) action buttons: the tinted primary */
+.SettingsMain .ButtonControl.Colorful::before {
+  background: var(--lgs-tint-primary);
+  border-radius: inherit;
+}
+.SettingsMain .ButtonControl.Colorful::after {
+  background: var(--lgs-tint-lift);
+  border-radius: inherit;
+}
+.SettingsMain .ButtonControl.Colorful {
+  color: #fff;
+}
+
+/* ------------------------------------------------------------------ */
+/* 5. Radio buttons (round value pickers, e.g. refresh rate)           */
+/* ------------------------------------------------------------------ */
+
+.SettingsItem.RadioButtons .RadioButton {
+  background: var(--lgs-fill-2);
+  box-shadow: var(--lgs-control-rim);
+  color: var(--lgs-text-1);
+}
+.SettingsItem.RadioButtons .RadioButton:hover {
+  background: var(--lgs-hover-fill);
+}
+.SettingsItem.RadioButtons .RadioButton:not(.Selected):hover {
+  box-shadow: var(--lgs-control-rim);
+}
+.SettingsItem.RadioButtons .RadioButton:not(.Selected):active {
+  background: var(--lgs-pressed-fill);
+  box-shadow: var(--lgs-control-rim);
+}
+.SettingsItem.RadioButtons .RadioButton.Selected,
+.SettingsItem.RadioButtons .RadioButton.Selected:hover {
+  background: var(--lgs-selected-fill);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22);
+}
+.SettingsItem.RadioButtons .RadioButton .Label {
+  color: var(--lgs-text-1);
+}
+.SettingsItem.RadioButtons .RadioButton.Selected .Label {
+  color: var(--lgs-text-on-selected);
+}
+.SettingsItem.RadioButtons .RadioButton.Disabled:not(.Selected) {
+  opacity: var(--lgs-disabled-opacity);
+}
+
+/* ------------------------------------------------------------------ */
+/* 6. Segmented controls: a sunken capsule well, the selected segment  */
+/*    is the white pill (SteamVR's own sliding ::after, recoloured)    */
+/* ------------------------------------------------------------------ */
+
+.SettingsItem.SegmentedControl .SegmentedControlGroup {
+  /* SteamVR brightens the whole control 150%; the glass fills are tuned */
+  filter: none;
+  border-radius: var(--lgs-r-capsule);
+}
+.SettingsItem.SegmentedControl .SegmentedControlGroup::before {
+  background-color: var(--lgs-well-bg);
+  box-shadow: var(--lgs-well-shadow);
+  border-radius: var(--lgs-r-capsule);
+  opacity: 1;
+}
+.SettingsItem.SegmentedControl .SegmentedControlGroup:hover::before {
+  background-color: var(--lgs-fill-1);
+  opacity: 1;
+}
+.SettingsItem.SegmentedControl .SegmentedControlGroup::after,
+.SettingsItem.SegmentedControl .SegmentedControlGroup:hover::after {
+  background: var(--lgs-selected-fill);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22);
+  border-radius: var(--lgs-r-capsule);
+}
+.SettingsItem.SegmentedControl .SegmentedControlGroup:hover::after {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22), 0 0 0 3px var(--lgs-hover-fill);
+}
+.SettingsItem.SegmentedControl .SegmentedControlGroup:active::after {
+  background: var(--lgs-focus-outline);
+}
+.SettingsItem.SegmentedControl .SegmentedControlGroupOption {
+  border-radius: var(--lgs-r-capsule);
+  /* losing the selection: hand over to SteamVR's sliding pill at once */
+  transition: background-color 0s linear 0s;
+}
+.SettingsItem.SegmentedControl .SegmentedControlGroupOption:first-child,
+.SettingsItem.SegmentedControl .SegmentedControlGroupOption:last-child {
+  border-radius: var(--lgs-r-capsule);
+}
+/* the selected segment also paints the white on itself, so its dark label
+   sits on its own background; it appears when SteamVR's sliding pill has
+   arrived (the pill's own transform transition), so the slide still shows */
+.SettingsItem.SegmentedControl .SegmentedControlGroupOption.Active {
+  background-color: var(--lgs-selected-fill);
+  transition: background-color 0s linear var(--control-switch-animation-time);
+}
+.SettingsItem.SegmentedControl .SegmentedControlGroupOption > span {
+  color: var(--lgs-text-1);
+}
+.SettingsItem.SegmentedControl .SegmentedControlGroupOption.Active > span {
+  color: var(--lgs-text-on-selected);
+  transition: opacity var(--control-switch-animation-time), color 0s linear var(--control-switch-animation-time);
+}
+/* SteamVR fades the unselected labels to .4; on glass that is too faint */
+.SettingsItem.SegmentedControl .SegmentedControlGroup:not(.DualValue) .SegmentedControlGroupOption:not(.Active):not(:hover) > span,
+.SettingsItem.SegmentedControl .SegmentedControlGroup.DualValue:not(:hover) .SegmentedControlGroupOption:not(.Active) > span {
+  opacity: 0.72;
+}
+.SettingsItem.SegmentedControl .SegmentedControlGroupOption:not(:first-child)::before,
+.SettingsItem.SegmentedControl:hover .SegmentedControlGroupOption:not(:first-child)::before {
+  background: var(--lgs-separator);
+}
+/* advanced settings and the sidebar's "Advanced Settings: Show" */
+.SettingsMain .SettingsItem.Advanced .SegmentedControlGroup::before,
+.SettingsMain .SettingsSidebar .AdvancedSettingsToggle.Active .SegmentedControlGroup::before {
+  background-color: var(--lgs-vr-advanced-fill);
+}
+.SettingsMain .SettingsItem.Advanced .SegmentedControlGroup:hover::before,
+.SettingsMain .SettingsSidebar .AdvancedSettingsToggle.Active .SegmentedControlGroup:hover::before {
+  background-color: var(--lgs-vr-advanced-hover);
+}
+
+/* ------------------------------------------------------------------ */
+/* 7. Sliders: fill-3 capsule track with a white fill up to the knob   */
+/*    (drawn from SteamVR's own --slider-value), white knob, dark      */
+/*    value label. Colour sliders (hue/alpha tracks) keep their track. */
+/* ------------------------------------------------------------------ */
+
+.SettingsMain .SliderControl:not(.Color):not(.Vertical) .Track {
+  background: linear-gradient(to right,
+      var(--lgs-slider-fill) 0,
+      var(--lgs-slider-fill) calc(var(--slider-value, 0) * (100% - var(--handle-length)) + var(--handle-length) / 2),
+      var(--lgs-fill-3) calc(var(--slider-value, 0) * (100% - var(--handle-length)) + var(--handle-length) / 2));
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.18);
+  opacity: 1;
+}
+.SettingsMain .SliderControl.Vertical:not(.Color) .Track {
+  background: var(--lgs-fill-3);
+  opacity: 1;
+}
+.SettingsMain .SliderControl:not(.Color):hover .Track,
+.SettingsMain .SliderControl:not(.Color).Sliding .Track {
+  opacity: 1;
+}
+.SettingsMain .SliderControl .Track .Detent {
+  background: var(--lgs-text-3);
+}
+.SettingsMain .SliderControl:not(.Color) .Handle {
+  background: var(--lgs-knob);
+  box-shadow: var(--lgs-knob-shadow);
+  border-color: transparent;
+}
+.SettingsMain .SliderControl:not(.Color):hover .Handle,
+.SettingsMain .SliderControl:not(.Color).Sliding .Handle {
+  background-color: var(--lgs-knob);
+  box-shadow: var(--lgs-knob-shadow), 0 0 0 calc(3px * var(--lgs-vr-scale)) var(--lgs-hover-fill);
+}
+.SettingsMain .SliderControl:not(.Color):active .Handle {
+  box-shadow: var(--lgs-knob-shadow), 0 0 0 calc(3px * var(--lgs-vr-scale)) var(--lgs-pressed-fill);
+}
+.SettingsMain .SliderControl:not(.Color) .Handle > .RangeLabel {
+  color: var(--lgs-text-on-selected);
+}
+.SettingsMain .SliderControl:not(.Color) .HandleCircle {
+  border-color: var(--lgs-text-on-selected);
+}
+.SettingsMain .SliderControl > .RangeLabel {
+  color: var(--lgs-text-2);
+}
+
+/* ------------------------------------------------------------------ */
+/* 8. Dropdown popovers and modals inside the panel                    */
+/* ------------------------------------------------------------------ */
+
+.SettingsMain .Dropdown.Popover,
+.SettingsMain .Dropdown.Popover > .ScrollPanel {
+  border-radius: calc(var(--lgs-r-menu) * var(--lgs-vr-scale));
+}
+.SettingsMain .Dropdown.Popover {
+  background: var(--lgs-panel-sheen), var(--lgs-thick-bg);
+  backdrop-filter: var(--lgs-thick-blur);
+  box-shadow: var(--lgs-glass-rim), var(--lgs-glass-shadow);
+}
+.SettingsMain .Dropdown.Popover .Separator {
+  border-top-color: var(--lgs-separator);
+}
+.SettingsMain .DropdownPopoverButton {
+  background-color: transparent;
+  color: var(--lgs-text-1);
+}
+.SettingsMain .DropdownPopoverButton:hover {
+  background-color: var(--lgs-hover-fill);
+}
+.SettingsMain .DropdownPopoverButton:active {
+  background-color: var(--lgs-pressed-fill);
+}
+.SettingsMain .DropdownPopoverButton.Selected {
+  background-color: var(--lgs-selected-fill);
+  color: var(--lgs-text-on-selected);
+}
+
+.SettingsMain .Modal {
+  background: var(--lgs-panel-sheen), var(--lgs-thick-bg);
+  backdrop-filter: var(--lgs-thick-blur);
+  box-shadow: var(--lgs-glass-rim), var(--lgs-glass-shadow);
+  border-radius: calc(var(--lgs-r-sheet) * var(--lgs-vr-scale));
+  color: var(--lgs-text-1);
+}
+.SettingsMain .Modal > .Subsection.Top,
+.SettingsMain .Modal > .Subsection.Bottom,
+.SettingsMain .Modal > .Subsection.Body {
+  background: transparent;
+}
+.SettingsMain .Modal > .Subsection.Top {
+  box-shadow: inset 0 -1px 0 var(--lgs-separator);
+}
+.SettingsMain .Modal > .Subsection.Bottom {
+  box-shadow: inset 0 1px 0 var(--lgs-separator);
+}
+.SettingsMain .Modal > .Subsection.Top.Subheader {
+  background: var(--lgs-fill-1);
+}
+.SettingsMain .Modal > .Subsection.Top .SettingsItem,
+.SettingsMain .Modal > .Subsection.Bottom .SettingsItem {
+  filter: none;
+}
+.SettingsMain .Modal .ModalPlaceholder {
+  color: var(--lgs-text-2);
+  opacity: 1;
+}
+
+/* restart-required banner: a glass strip, Restart is the tinted action */
+.SettingsRestartRequiredBanner {
+  background: var(--lgs-panel-sheen), var(--lgs-thick-bg);
+  box-shadow: var(--lgs-glass-rim);
+  color: var(--lgs-text-1);
+}
+.SettingsRestartRequiredBanner .ButtonControl {
+  background-color: var(--lgs-tint-primary);
+  color: #fff;
+}
+.SettingsRestartRequiredBanner .ButtonControl:not(.Disabled):hover {
+  background-color: var(--lgs-tint-primary);
+  background-image: var(--lgs-tint-lift);
+}
+
+/* scrollbars: thin capsule thumb, no track (widths unchanged) */
+.SettingsMain ::-webkit-scrollbar {
+  background-color: transparent;
+}
+.SettingsMain ::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.28);
+}
+
+/* text fields (Wi-Fi password etc.) */
+.SettingsMain :is(.PasswordInput, .PasswordInputDisabled) {
+  background: var(--lgs-well-bg);
+  box-shadow: var(--lgs-well-shadow);
+  border-radius: var(--lgs-vr-r-row);
+}

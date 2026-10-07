@@ -6,12 +6,15 @@ from 127.0.0.1:27062/dashboard: the window frame controls and grab bar, Now
 Playing, SteamVR settings, controller bindings, message overlays). With the
 SteamVR developer setting VRWebHelper/DebuggerEnabled (port 8090) those pages
 have a devtools socket too. Unlike Steam's popups they don't share one JS
-context, and pages come and go, so while the theme is on this small watcher
-runs as the transient user unit "lgs-vr" and keeps every page themed. A
-transient unit never survives a reboot.
+context, and pages come and go, so while the theme is on a watcher keeps
+every page themed. That watcher is now part of the transient unit
+"lgs-shell" (lgs_shell.py, which also runs the native glass layer); this
+module keeps the page-theming functions it and the lab use. "lgs_vr.py
+daemon" (the old standalone "lgs-vr" watcher) still works on its own.
 
-  lgs_vr.py daemon    run the watcher (lgs.py starts it with systemd-run)
+  lgs_vr.py daemon    run the standalone watcher
   lgs_vr.py strip     remove the theme from every SteamVR page
+  lgs_vr.py stop      pause the watcher's page theming and strip every page
   lgs_vr.py status    per-page status
 """
 import asyncio
@@ -29,7 +32,9 @@ sys.path.insert(0, HERE)
 import lgs  # noqa: E402
 
 VR_CDP = "http://127.0.0.1:8090"
-UNIT = "lgs-vr"
+UNIT = "lgs-vr"            # the pre-native standalone watcher
+SHELL_UNIT = "lgs-shell"   # runs the watcher now (lgs_shell.py)
+PAUSE = "/tmp/lgs/vr-theme-paused"   # while present, the watcher leaves pages alone
 VR_THEME = os.path.join(lgs.THEME_DIR, "vr")
 POLL = 1.5
 
@@ -109,7 +114,8 @@ def status():
     if not available():
         return {"available": False}
     pages = asyncio.run(each_page(lambda t: core_call({"op": "status"})))
-    return {"available": True, "watcher": unit_active(),
+    return {"available": True, "watcher": unit_active() or unit_active(SHELL_UNIT),
+            "paused": os.path.exists(PAUSE),
             "pages": {k: (json.loads(v) if isinstance(v, str) and v.startswith("{") else v) for k, v in pages.items()}}
 
 
@@ -150,8 +156,8 @@ async def watch():
         await asyncio.sleep(POLL)
 
 
-def unit_active():
-    r = subprocess.run(["systemctl", "--user", "is-active", UNIT], capture_output=True, text=True,
+def unit_active(unit=UNIT):
+    r = subprocess.run(["systemctl", "--user", "is-active", unit], capture_output=True, text=True,
                        env=user_env())
     return r.stdout.strip() == "active"
 
@@ -165,7 +171,13 @@ def user_env():
 
 
 def start():
-    """Start the watcher if SteamVR's devtools are reachable. Idempotent."""
+    """Start the watcher, which now lives in the lgs-shell unit. Idempotent."""
+    import lgs_shell
+    return lgs_shell.start()
+
+
+def start_standalone():
+    """The pre-native standalone watcher unit "lgs-vr" (not used by lgs)."""
     if not available():
         return "steamvr devtools off"
     if unit_active():
@@ -179,6 +191,16 @@ def start():
 
 
 def stop():
+    """Strip every SteamVR page and keep them stripped until the next
+    "lgs on" (lab --theme off on a vr: page). The running lgs-shell keeps its
+    native layer and only pauses its page theming; a standalone lgs-vr
+    watcher is stopped as before."""
+    try:
+        os.makedirs(os.path.dirname(PAUSE), exist_ok=True)
+        with open(PAUSE, "w", encoding="utf-8") as f:
+            f.write(str(time.time()))
+    except OSError:
+        pass
     subprocess.run(["systemctl", "--user", "stop", UNIT], capture_output=True, env=user_env())
     return strip()
 
@@ -186,6 +208,10 @@ def stop():
 def main(argv):
     cmd = argv[1] if len(argv) > 1 else "status"
     if cmd == "daemon":
+        try:
+            os.remove(PAUSE)
+        except OSError:
+            pass
         try:
             asyncio.run(watch())
         except KeyboardInterrupt:

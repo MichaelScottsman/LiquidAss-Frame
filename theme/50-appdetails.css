@@ -1,0 +1,1186 @@
+/* Glass Shell, area "appdetails": game pages (/library/app/:appid), the play
+   bar, detail tabs and their panels, the achievements page, the Properties
+   pages and the controller-configuration entry page (surface main).
+   Owner: appdetails. Wrapped as html.lgs-on { ... } by the injector.
+
+   Look only: colours, fills, radii, rims, masks on decorative art. Never
+   geometry, never Steam's transforms (carousels, achievement expansion,
+   trading-card tilt, GameInfo scale transitions, ScaledChildren), never the
+   focus-ring geometry. Steam paints focus and selected states with
+   keyframes / very specific rules, so those declarations carry !important.
+   Coverage, shots and audits: docs/coverage/appdetails.md. */
+
+
+/* ======================================================================
+   1. Page surface: the window glass shows through the game page
+   ====================================================================== */
+
+/* outer scroller: Steam's #24282f + radial gradient slab goes clear */
+%{PartnerEventOverlayContainer>AppDetailsMain} %{ScrollContainer>Glassy} {
+  background: none;
+}
+/* the 25% dark wash under the play bar and tabs */
+%{PartnerEventOverlayContainer>AppDetailsMain} %{AppDetailsRoot} {
+  background: none;
+}
+
+
+/* ======================================================================
+   2. Hero art: content, opaque, dissolving into the window glass
+   The sharp image eases out over its lower half and reaches the glass at
+   its bottom edge (Steam's faded copy underneath, ImgBlur, already does).
+   Steam's mirrored reflection below (ImgBlurBackdrop: scaleY(-1), 2x,
+   opacity .2) used to start at full strength right at that edge; its
+   mask now rises from 0 at the edge, so both sides meet at 0 and the
+   art's colour blooms softly into the glass under the play bar instead
+   of ending on a line. Masks only: the logo, badge row, geometry and
+   transforms stay Steam's.
+   ====================================================================== */
+
+%{PartnerEventOverlayContainer>AppDetailsMain} %{HeaderBackgroundImage} %{ImgContainer} {
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 46%, rgba(0, 0, 0, 0.6) 70%, rgba(0, 0, 0, 0.18) 90%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 0%, #000 46%, rgba(0, 0, 0, 0.6) 70%, rgba(0, 0, 0, 0.18) 90%, transparent 100%);
+}
+/* the reflection is flipped: "to top" runs from its visual top edge down */
+%{PartnerEventOverlayContainer>AppDetailsMain} %{HeaderBackgroundImage} %{ImgBlurBackdrop} {
+  -webkit-mask-image: linear-gradient(to top, transparent 0%, rgba(0, 0, 0, 0.85) 16%, #000 26%, transparent 100%);
+  mask-image: linear-gradient(to top, transparent 0%, rgba(0, 0, 0, 0.85) 16%, #000 26%, transparent 100%);
+}
+
+/* "VR required" notice: one small capsule over the art */
+%{PartnerEventOverlayContainer>AppDetailsMain} %{PurchaseNoticeContainer} {
+  border-radius: var(--lgs-r-capsule);
+  box-shadow: var(--lgs-glass-shadow);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{PurchaseNoticeLabel} {
+  background: var(--lgs-panel-sheen), linear-gradient(var(--lgs-glass-bg), var(--lgs-glass-bg)), var(--lgs-scrim);
+  backdrop-filter: var(--lgs-glass-blur);
+  border-radius: var(--lgs-r-capsule) 0 0 var(--lgs-r-capsule);
+  box-shadow: var(--lgs-glass-rim);
+  color: var(--lgs-text-1);
+  text-shadow: var(--lgs-text-shadow);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{PurchaseNoticeImageContainer} {
+  border-radius: 0 var(--lgs-r-capsule) var(--lgs-r-capsule) 0;
+  box-shadow: var(--lgs-control-rim);
+}
+
+
+/* ======================================================================
+   3. Play bar
+   The action is one tinted capsule (Play/Stream green, Install/Update/
+   Resume blue). At rest its segments sit under Apple's dimming layer
+   (deep tint, white label >= 4.5:1); the focused or hovered segment lights
+   up to the full tint and takes the focus ring. The streaming caret is the
+   capsule's right segment behind a hairline.
+   ====================================================================== */
+
+%{PlayButtonContainer} {
+  border-radius: var(--lgs-r-capsule);
+  background: var(--lgs-tint-primary);
+  box-shadow: var(--lgs-control-rim);
+}
+%{PlayButtonContainer}%{PlayButtonContainer>Green} {
+  background: var(--lgs-tint-play);
+}
+/* segments */
+%{PlayButtonContainer} %{PlayButtonContainer>ButtonChild} {
+  background: var(--lgs-panel-sheen), var(--lgs-scrim);
+  color: var(--lgs-text-on-tint);
+  transition: background-color var(--lgs-t-fast) var(--lgs-ease), box-shadow var(--lgs-t-fast) var(--lgs-ease);
+}
+%{PlayButtonContainer} %{PlayButtonContainer>PlayButton} {
+  border-radius: var(--lgs-r-capsule);
+}
+%{PlayButtonContainer}:has(%{StreamingSelector}) %{PlayButtonContainer>PlayButton},
+%{PlayButtonContainer}:has(%{ShutdownAppButton}) %{PlayButtonContainer>PlayButton} {
+  border-radius: var(--lgs-r-capsule) 0 0 var(--lgs-r-capsule);
+}
+%{PlayButtonContainer} %{StreamingSelector} {
+  border-radius: 0 var(--lgs-r-capsule) var(--lgs-r-capsule) 0;
+  box-shadow: inset 1px 0 0 var(--lgs-separator);
+}
+/* lit: hover (laser) and focus (controller / laser) */
+%{PlayButtonContainer} %{PlayButtonContainer>ButtonChild}:hover {
+  background: var(--lgs-panel-sheen) !important;
+  color: var(--lgs-text-on-tint) !important;
+}
+%{PlayButtonContainer} %{PlayButtonContainer>ButtonChild}:is(.gpfocus, :focus) {
+  background: var(--lgs-panel-sheen) !important;
+  box-shadow: var(--lgs-focus-ring) !important;
+  color: var(--lgs-text-on-tint) !important;
+}
+%{PlayButtonContainer} %{PlayButtonContainer>ButtonChild} svg {
+  color: inherit;
+}
+/* Steam's focus shine is a rectangular clip-path ring sweeping on focus:
+   on a capsule it would draw square corners. The focus ring replaces it. */
+%{PlayButtonContainer} %{PlayButtonContainer>ButtonChild}::after {
+  background: none !important;
+}
+/* no action available: neutral, recessed, dim */
+%{PlayButtonContainer}%{PlayButtonContainer>Disabled} {
+  background: var(--lgs-fill-sunken);
+  box-shadow: var(--lgs-well-shadow);
+}
+%{PlayButtonContainer}%{PlayButtonContainer>Disabled} %{PlayButtonContainer>ButtonChild} {
+  background: none;
+  color: var(--lgs-text-disabled);
+}
+
+/* running state (source-mapped; nothing may be launched to see it):
+   Stop sits beside Resume as a circular fill control; force-stop focus is
+   the destructive tint */
+%{ShutdownAppButton} {
+  border-radius: var(--lgs-r-capsule);
+  background: var(--lgs-fill-2);
+  box-shadow: var(--lgs-control-rim);
+}
+%{ShutdownAppButton}:hover {
+  background: var(--lgs-hover-fill);
+}
+%{ShutdownAppButton}.gpfocus {
+  background: var(--lgs-focus-fill) !important;
+  box-shadow: var(--lgs-focus-ring) !important;
+  color: var(--lgs-text-1) !important;
+}
+%{ShutdownAppButton}.gpfocus%{ForceShutdownButton} {
+  background: var(--lgs-tint-lift), var(--lgs-tint-danger) !important;
+}
+
+/* stats: label at vibrancy 2, value at 1, both on the window glass */
+%{PartnerEventOverlayContainer>AppDetailsMain} %{PlayBarLabel} {
+  color: var(--lgs-text-2);
+  text-shadow: var(--lgs-text-shadow);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{PlayBarDetailLabel} {
+  color: var(--lgs-text-1);
+  text-shadow: var(--lgs-text-shadow);
+}
+
+/* controller-config and Manage (gear): circular glass fill buttons */
+%{PartnerEventOverlayContainer>AppDetailsMain} %{Container>MenuButton} {
+  border-radius: var(--lgs-r-capsule);
+  background: var(--lgs-fill-2);
+  box-shadow: var(--lgs-control-rim);
+  color: var(--lgs-text-1);
+  transition: background-color var(--lgs-t-fast) var(--lgs-ease), box-shadow var(--lgs-t-fast) var(--lgs-ease);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{Container>MenuButton}:hover {
+  background: var(--lgs-hover-fill);
+}
+/* menu open: pressed-in brighter fill */
+%{PartnerEventOverlayContainer>AppDetailsMain} %{Container>MenuButton}%{MenuActive} {
+  background: var(--lgs-pressed-fill);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{Container>MenuButton}:is(.gpfocus, :focus) {
+  background: var(--lgs-focus-fill) !important;
+  box-shadow: var(--lgs-focus-ring) !important;
+  color: var(--lgs-text-1) !important;
+}
+/* Steam darkens the icon for its white focus (svg colour): follow ours */
+%{PartnerEventOverlayContainer>AppDetailsMain} %{Container>MenuButton} svg {
+  color: inherit;
+}
+
+
+/* ======================================================================
+   4. Detail tabs (ACTIVITY / YOUR STUFF / COMMUNITY / GAME INFO)
+   Segments in one Liquid Glass capsule; selected = white pill. The capsule
+   is an ::after of the row wrapper (Steam's preserve-3d root, so its blur
+   sees the content scrolling under the pinned row), anchored to the first
+   and last tab. Same recipe as the shell's search tabs.
+   ====================================================================== */
+
+%{AppDetailsContainer} %{FixCenterAlignScroll} > :nth-child(1 of %{GamepadTabbedPage>Tab}) {
+  anchor-name: --lgs-app-tab-first;
+}
+%{AppDetailsContainer} %{FixCenterAlignScroll} > :nth-last-child(1 of %{GamepadTabbedPage>Tab}) {
+  anchor-name: --lgs-app-tab-last;
+}
+%{AppDetailsContainer} %{FixCenterAlignScroll} > :nth-child(1 of %{GamepadTabbedPage>Tab}):nth-last-child(1 of %{GamepadTabbedPage>Tab}) {
+  anchor-name: --lgs-app-tab-first, --lgs-app-tab-last;
+}
+%{AppDetailsContainer} %{TabHeaderRowWrapper}::after {
+  content: "";
+  position: absolute;
+  top: calc(anchor(--lgs-app-tab-first top, 0px) - 4px);
+  bottom: calc(anchor(--lgs-app-tab-first bottom, 100%) - 4px);
+  left: calc(anchor(--lgs-app-tab-first left, 100%) - 4px);
+  right: calc(anchor(--lgs-app-tab-last right, 0px) - 4px);
+  z-index: -1;
+  border-radius: var(--lgs-r-capsule);
+  background: var(--lgs-panel-sheen),
+      linear-gradient(var(--lgs-glass-bg), var(--lgs-glass-bg)),
+      linear-gradient(var(--lgs-scrim), var(--lgs-scrim));
+  backdrop-filter: var(--lgs-glass-blur);
+  box-shadow: var(--lgs-glass-rim), var(--lgs-glass-shadow);
+  pointer-events: none;
+}
+/* pinned / scrolled band (Steam's own ::before, shown and animated by
+   Steam): a soft scroll edge of extra window tint, solid behind the tabs
+   and fading out below them, instead of a hard dark slab. No blur: this
+   page is one nested preserve-3d context and the band's backdrop never
+   sees the inner tab scroller (measured: content under it is only
+   dimmed), so the tint alone keeps scrolled content from crowding the
+   capsule. */
+%{AppDetailsContainer} %{TabHeaderRowWrapper}::before {
+  background: linear-gradient(180deg, var(--lgs-window-bg) 0%, var(--lgs-window-bg) 58%, transparent 100%);
+  backdrop-filter: none;
+  box-shadow: none;
+}
+%{AppDetailsContainer} %{GamepadTabbedPage>Tab} {
+  border-radius: var(--lgs-r-capsule);
+  color: var(--lgs-text-1);
+  transition: background-color var(--lgs-t-fast) var(--lgs-ease),
+      color var(--lgs-t-fast) var(--lgs-ease), box-shadow var(--lgs-t-fast) var(--lgs-ease);
+}
+%{AppDetailsContainer} %{GamepadTabbedPage>Tab}:hover {
+  background-color: var(--lgs-hover-fill);
+  color: var(--lgs-text-1);
+}
+%{AppDetailsContainer} %{GamepadTabbedPage>Tab}%{GamepadTabbedPage>Selected},
+%{AppDetailsContainer} %{GamepadTabbedPage>Tab}%{GamepadTabbedPage>Selected}:hover,
+%{AppDetailsContainer} %{GamepadTabbedPage>Tab}.gpfocus {
+  background-color: var(--lgs-selected-fill) !important;
+  color: var(--lgs-text-on-selected) !important;
+}
+/* focused (focus selects): the white pill gets a separated bright ring */
+%{AppDetailsContainer} %{GamepadTabbedPage>Tab}.gpfocus {
+  box-shadow: 0 0 0 2px var(--lgs-scrim), 0 0 0 4px var(--lgs-focus-outline),
+      var(--lgs-focus-glow) !important;
+}
+%{AppDetailsContainer} %{TabHeaderRowWrapper} %{Arrows} {
+  color: var(--lgs-text-2);
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.32));
+  border-radius: var(--lgs-r-capsule);
+  transition: color var(--lgs-t-fast) var(--lgs-ease), background-color var(--lgs-t-fast) var(--lgs-ease);
+}
+%{AppDetailsContainer} %{TabHeaderRowWrapper} %{Arrows}:hover {
+  color: var(--lgs-text-1);
+  background-color: var(--lgs-hover-fill);
+}
+%{AppDetailsContainer} %{TabHeaderRowWrapper} %{Arrows}.gpfocus {
+  color: var(--lgs-text-1) !important;
+  background-color: var(--lgs-focus-fill) !important;
+  box-shadow: var(--lgs-focus-ring) !important;
+}
+
+
+/* ======================================================================
+   5. Shared section shell (every tab)
+   ====================================================================== */
+
+%{PartnerEventOverlayContainer>AppDetailsMain} %{SectionHeader>LabelText} {
+  color: var(--lgs-text-1);
+  text-shadow: var(--lgs-text-shadow);
+}
+
+
+/* ======================================================================
+   6. Activity tab
+   ====================================================================== */
+
+/* post box: a sunken well; focus = ring (typing opens the keyboard) */
+%{PartnerEventOverlayContainer>AppDetailsMain} textarea%{PostTextEntryArea} {
+  background: var(--lgs-well-bg);
+  box-shadow: var(--lgs-well-shadow);
+  border-color: transparent;
+  border-radius: var(--lgs-r-row);
+  color: var(--lgs-text-1);
+  caret-color: var(--lgs-caret);
+  transition: box-shadow var(--lgs-t-fast) var(--lgs-ease), background-color var(--lgs-t-fast) var(--lgs-ease);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} textarea%{PostTextEntryArea}::placeholder {
+  color: var(--lgs-text-3);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} textarea%{PostTextEntryArea}:hover {
+  background: var(--lgs-hover-fill);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} textarea%{PostTextEntryArea}:is(.gpfocus, :focus) {
+  background: var(--lgs-well-bg) !important;
+  box-shadow: var(--lgs-well-shadow), var(--lgs-focus-ring) !important;
+  color: var(--lgs-text-1) !important;
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} textarea%{PostTextEntryArea}:is(.gpfocus, :focus)::placeholder {
+  color: var(--lgs-text-3) !important;
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{PostButton} {
+  border-radius: var(--lgs-r-capsule);
+  background: var(--lgs-fill-2);
+  box-shadow: var(--lgs-control-rim);
+  color: var(--lgs-text-1);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{PostButton}:hover {
+  background: var(--lgs-hover-fill);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{PostButton}.gpfocus {
+  background: var(--lgs-focus-fill) !important;
+  box-shadow: var(--lgs-focus-ring) !important;
+}
+
+/* day headers: secondary label + hairline rule */
+%{PartnerEventOverlayContainer>AppDetailsMain} %{AppActivityDate} {
+  color: var(--lgs-text-2);
+  text-shadow: var(--lgs-text-shadow);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{AppActivityDate} > * {
+  background: linear-gradient(to left, var(--lgs-separator), transparent);
+}
+
+/* event cards: fill-1 rows on the glass, r-row so Steam's moving focus
+   ring (also r-row) sits concentric around them */
+%{PartnerEventOverlayContainer>AppDetailsMain} %{AppActivityDay} %{Event}:is(%{AppActivityDay>PartnerEvent}, %{PartnerEventLargeUpdate}) {
+  background: var(--lgs-fill-1);
+  border-color: transparent;
+  border-radius: var(--lgs-r-row);
+  box-shadow: var(--lgs-control-rim);
+  transition: background-color var(--lgs-t-fast) var(--lgs-ease);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} :is(%{PartnerEventMediumImage_Container}, %{PartnerEventLargeImage_Container}, %{PartnerEventTextOnly_Container}) {
+  background: none;
+  border-radius: var(--lgs-r-row);
+  transition: background-color var(--lgs-t-fast) var(--lgs-ease);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} :is(%{PartnerEventMediumImage_Container}, %{PartnerEventLargeImage_Container}, %{PartnerEventTextOnly_Container}):hover {
+  background: var(--lgs-hover-fill);
+}
+/* the card's inner clip follows the card corners */
+%{PartnerEventOverlayContainer>AppDetailsMain} %{PartnerEventMediumImage_Contents},
+%{PartnerEventOverlayContainer>AppDetailsMain} %{PartnerEventLargeImage_Container} > * {
+  border-radius: var(--lgs-r-row);
+}
+/* event art is content: rounded to the small radius inside the card */
+%{PartnerEventOverlayContainer>AppDetailsMain} %{PartnerEventMediumImage_Contents} img {
+  border-radius: var(--lgs-r-small);
+}
+/* major update: Steam's blue wash, square gradient border-image (it
+   ignores the radius) and the bar outside the card go; the card is a
+   plain fill-1 row like the others and "MAJOR UPDATE" (primary label)
+   carries the distinction */
+%{PartnerEventOverlayContainer>AppDetailsMain} %{AppActivityDay} %{Event}%{PartnerEventLargeUpdate} {
+  border-image: none;
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{LeftSideMajorUpdateBar} {
+  background: none;
+}
+/* text levels */
+%{PartnerEventOverlayContainer>AppDetailsMain} %{PartnerEventType} {
+  color: var(--lgs-text-2);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{PartnerEventType}%{PartnerEventTypeUpdate} {
+  color: var(--lgs-text-1);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} :is(%{PartnerEventMediumImage_Title}, %{AppActivityDay>PartnerEventLargeImage_Title}) {
+  color: var(--lgs-text-1);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} :is(%{PartnerEventMediumImage_Summary}, %{PartnerEventLargeImage_Summary}, %{PartnerEventTextOnly_Summary}) {
+  color: var(--lgs-text-2);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{PartnerEventTextOnly_TextColumn} {
+  color: var(--lgs-text-1);
+}
+
+/* like / comment (shown on the focused event): small capsules */
+%{PartnerEventOverlayContainer>AppDetailsMain} :is(%{CommentButton}, %{LikeButton}) {
+  border-radius: var(--lgs-r-capsule);
+  transition: background-color var(--lgs-t-fast) var(--lgs-ease);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} :is(%{CommentButton}, %{LikeButton}):hover {
+  background: var(--lgs-hover-fill);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} :is(%{CommentButton}, %{LikeButton}).gpfocus {
+  background: var(--lgs-focus-fill) !important;
+  box-shadow: var(--lgs-focus-ring) !important;
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} :is(%{LikeCount}, %{ActivityCommentThreadMinimized>CommentCount}) {
+  color: var(--lgs-text-2);
+}
+
+
+/* ======================================================================
+   7. Section cards (Your Stuff, Friends, Workshop ...): grouped fill-1
+   cards on the window glass; the top "highlight" strip is a slightly
+   brighter band inside the card. Buttons inside are the primitives'
+   capsules (Steam's own grey #3d4450 is re-filled here).
+   ====================================================================== */
+
+%{PartnerEventOverlayContainer>AppDetailsMain} %{AppDetailsSectionContainer}%{RightColumnSection} {
+  background: var(--lgs-fill-1);
+  border-radius: var(--lgs-r-card);
+  box-shadow: var(--lgs-control-rim);
+}
+/* the highlight strip is part of the card, set off by a hairline (a
+   second fill would push its vibrancy-2 labels under 4.5:1) */
+%{PartnerEventOverlayContainer>AppDetailsMain} %{AppDetailsSection>Highlight} {
+  background: transparent;
+  border-radius: var(--lgs-r-card) var(--lgs-r-card) 0 0;
+  box-shadow: inset 0 -1px 0 var(--lgs-separator);
+  color: var(--lgs-text-1);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} button%{AppDetailsButton}.DialogButton,
+%{PartnerEventOverlayContainer>AppDetailsMain} button%{NoteLink}.DialogButton {
+  background: var(--lgs-fill-2);
+  box-shadow: var(--lgs-control-rim);
+  color: var(--lgs-text-1);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} button:is(%{AppDetailsButton}, %{NoteLink}).DialogButton:hover {
+  background: var(--lgs-hover-fill);
+}
+
+
+/* ======================================================================
+   8. Your Stuff: achievements, DLC, media, review, notes
+   ====================================================================== */
+
+/* achievements summary + progress (same language as the slider) */
+%{PartnerEventOverlayContainer>AppDetailsMain} %{UnlockedLabel} {
+  color: var(--lgs-text-1);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{UnlockedLabelPercent} {
+  color: var(--lgs-text-2);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{AchievementProgressContainer} {
+  background: var(--lgs-fill-3);
+  border-radius: var(--lgs-r-capsule);
+  box-shadow: var(--lgs-track-depth);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{AchievementProgress} {
+  background: var(--lgs-slider-fill);
+  border-radius: var(--lgs-r-capsule);
+}
+/* carousel: icons are content (small radius); the expanded (detailed)
+   item is a fill-2 row. Steam animates the item's size: untouched. */
+%{PartnerEventOverlayContainer>AppDetailsMain} %{AchievementCarouselItem} {
+  border-radius: var(--lgs-r-row);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{AchievementCarouselItem}%{Detailed} {
+  background: var(--lgs-fill-2);
+  box-shadow: var(--lgs-control-rim);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{AchievementCarouselItem} %{IconGlow>Icon} {
+  border-radius: var(--lgs-r-small);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{AchivementCarouselItemDetails} %{InnerContainerLower>Name} {
+  color: var(--lgs-text-1);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{AchivementCarouselItemDetails} %{InnerContainerLower>Description} {
+  color: var(--lgs-text-2);
+}
+/* the 12px global-rate line sits on fill-2 over fill-1: vibrancy 2 would
+   drop under 4.5:1 over a bright room, so it stays a primary label */
+%{PartnerEventOverlayContainer>AppDetailsMain} %{AchivementCarouselItemDetails} %{Achieved} {
+  color: var(--lgs-text-1);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{LockedAchievementsLabel} {
+  color: var(--lgs-text-2);
+}
+
+/* DLC tiles: capsule art (content) rounded; "+ N More" a fill tile */
+%{PartnerEventOverlayContainer>AppDetailsMain} %{DLCSection>Item},
+%{PartnerEventOverlayContainer>AppDetailsMain} %{DLCSection>Art},
+%{PartnerEventOverlayContainer>AppDetailsMain} %{DLCSection>Art} img,
+%{PartnerEventOverlayContainer>AppDetailsMain} %{DLCArt} %{Gloss} {
+  border-radius: var(--lgs-r-small);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{DLCSection>Remainder} {
+  background: var(--lgs-fill-2);
+  border-radius: var(--lgs-r-small);
+  box-shadow: var(--lgs-control-rim);
+  color: var(--lgs-text-2);
+}
+
+/* media / review / notes text */
+%{PartnerEventOverlayContainer>AppDetailsMain} %{NoRecent},
+%{PartnerEventOverlayContainer>AppDetailsMain} %{Container>PlayedForTime} {
+  color: var(--lgs-text-2);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{NoRecent} %{PlusSign} {
+  color: var(--lgs-text-1);
+}
+
+
+/* Steam Workshop featured item */
+%{PartnerEventOverlayContainer>AppDetailsMain} %{FeaturedItemImage} {
+  border-radius: var(--lgs-r-small);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{FeaturedItemHeader} {
+  color: var(--lgs-text-2);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{FeaturedItemName} {
+  color: var(--lgs-text-1);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{FeaturedItemDesc} {
+  color: var(--lgs-text-2);
+}
+/* hide-item X: a small circular glass hit area (look only: never pressed) */
+%{PartnerEventOverlayContainer>AppDetailsMain} %{FeaturedItemHideButton} {
+  border-radius: var(--lgs-r-capsule);
+  color: var(--lgs-text-2);
+  transition: background-color var(--lgs-t-fast) var(--lgs-ease), color var(--lgs-t-fast) var(--lgs-ease);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{FeaturedItemHideButton}:hover {
+  background: var(--lgs-hover-fill);
+  color: var(--lgs-text-1);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{FeaturedItemHideButton}.gpfocus {
+  background: var(--lgs-focus-fill) !important;
+  box-shadow: var(--lgs-focus-ring) !important;
+  color: var(--lgs-text-1) !important;
+}
+
+/* Trading cards: badge strip and card frames (the cards' tilt, scale,
+   shine and saturation are Steam's inline styles: untouched) */
+%{PartnerEventOverlayContainer>AppDetailsMain} %{Container>BadgeName} {
+  color: var(--lgs-text-1);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{Container>BadgeLevel},
+%{PartnerEventOverlayContainer>AppDetailsMain} %{CardsLeft} {
+  color: var(--lgs-text-2);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{Container>EmptyCircle} {
+  border-color: var(--lgs-text-3);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{CardContainer} {
+  border-radius: var(--lgs-r-small);
+}
+
+/* Friends who play */
+%{PartnerEventOverlayContainer>AppDetailsMain} %{FriendsSectionSubHeading} {
+  color: var(--lgs-text-2);
+  text-shadow: var(--lgs-text-shadow);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{GamepadFriendSectionItem} .avatarHolder,
+%{PartnerEventOverlayContainer>AppDetailsMain} %{GamepadFriendSectionItem} img%{avatar} {
+  border-radius: var(--lgs-r-small);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{GamepadFriendSectionItem} .avatarStatus {
+  border-radius: var(--lgs-r-capsule);
+}
+
+/* Steam Cloud status line between the play bar and the tabs */
+%{PartnerEventOverlayContainer>AppDetailsMain} %{CloudStatusRow}::before,
+%{PartnerEventOverlayContainer>AppDetailsMain} %{CloudStatusRow}::after {
+  background: var(--lgs-separator);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{CloudStatusLabel} {
+  color: var(--lgs-text-2);
+  text-shadow: var(--lgs-text-shadow);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{CloudStatusRow}.gpfocus %{CloudStatusLabel} {
+  color: var(--lgs-text-1);
+}
+
+
+/* ======================================================================
+   9. Community tab: guide / artwork / video cards
+   r-row cards (concentric with Steam's moving focus ring), previews are
+   content with matching corners, the per-item menu a small dark capsule
+   ====================================================================== */
+
+%{PartnerEventOverlayContainer>AppDetailsMain} %{CommunityItem} {
+  background: var(--lgs-fill-1);
+  border-radius: var(--lgs-r-row);
+  box-shadow: var(--lgs-control-rim);
+  transition: background-color var(--lgs-t-fast) var(--lgs-ease);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{CommunityItem}:hover {
+  background: var(--lgs-hover-fill);
+  box-shadow: var(--lgs-control-rim);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{CommunityItem} %{ArtItem},
+%{PartnerEventOverlayContainer>AppDetailsMain} %{CommunityItem} %{ArtItem} > %{PreviewContainer} {
+  border-radius: var(--lgs-r-row) var(--lgs-r-row) 0 0;
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{CommunityItem} %{HasBlanks>TopSection},
+%{PartnerEventOverlayContainer>AppDetailsMain} %{CommunityItem} %{Guide} %{PreviewContainer} {
+  border-radius: var(--lgs-r-small);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{CommunityItem} %{AuthorSection} {
+  border-radius: 0 0 var(--lgs-r-row) var(--lgs-r-row);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{CommunityItem} %{InnerContainer>GuideTitle} {
+  color: var(--lgs-text-2);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{CommunityItem} %{HasBlanks>Title} {
+  color: var(--lgs-text-1);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{CommunityItem} %{HasBlanks>Description} {
+  color: var(--lgs-text-2);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{CommunityItem} %{DescriptionRow},
+%{PartnerEventOverlayContainer>AppDetailsMain} %{CommunityItem} %{AuthorName} {
+  color: var(--lgs-text-1);
+}
+/* the per-item menu button (revealed on hover by Steam) */
+%{PartnerEventOverlayContainer>AppDetailsMain} %{CommunityItem} %{HasBlanks>MenuButton} {
+  background: var(--lgs-panel-sheen), var(--lgs-scrim);
+  border-radius: var(--lgs-r-capsule);
+  box-shadow: var(--lgs-glass-rim);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{CommunityItem} %{HasBlanks>MenuButton}.gpfocus {
+  background: var(--lgs-focus-fill) !important;
+  box-shadow: var(--lgs-focus-ring) !important;
+}
+
+
+/* ======================================================================
+   10. Game Info tab
+   ====================================================================== */
+
+/* box art is content */
+%{PartnerEventOverlayContainer>AppDetailsMain} %{ConciseContainer>Portrait},
+%{PartnerEventOverlayContainer>AppDetailsMain} %{ConciseContainer>Portrait} %{BoxArt},
+%{PartnerEventOverlayContainer>AppDetailsMain} %{ConciseContainer>Portrait} %{BoxArt} img {
+  border-radius: var(--lgs-r-small);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{GameDescription} {
+  color: var(--lgs-text-1);
+  text-shadow: var(--lgs-text-shadow);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{ConciseContainer>InnerContainer} {
+  color: var(--lgs-text-2);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{ConciseContainer>Label} {
+  color: var(--lgs-text-2);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} :is(%{ConciseContainer>Name}, %{ConciseContainer>Stats} %{Container>Date}) {
+  color: var(--lgs-text-1);
+}
+/* feature list (Single-Player, VR Support ...) */
+%{PartnerEventOverlayContainer>AppDetailsMain} %{ExtraMargin>Container} {
+  border-radius: var(--lgs-r-small);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{ExtraMargin>Label} {
+  color: var(--lgs-text-2);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{ExtraMargin>Container}.gpfocus %{ExtraMargin>Label} {
+  color: var(--lgs-text-1);
+}
+/* Steam Frame compatibility row: one fill-1 card, Details a capsule */
+%{PartnerEventOverlayContainer>AppDetailsMain} %{DeckVerifiedInfo} {
+  background: var(--lgs-fill-1);
+  border-radius: var(--lgs-r-card);
+  box-shadow: var(--lgs-control-rim);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{DeckVerifiedInfo} %{ConciseContainer>Title} {
+  color: var(--lgs-text-1);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{ConciseContainer>Details} {
+  background: var(--lgs-fill-2);
+  border-radius: var(--lgs-r-capsule);
+  box-shadow: var(--lgs-control-rim);
+  color: var(--lgs-text-1);
+  transition: background-color var(--lgs-t-fast) var(--lgs-ease), box-shadow var(--lgs-t-fast) var(--lgs-ease);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{ConciseContainer>Details}:hover {
+  background: var(--lgs-hover-fill);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{ConciseContainer>Details}:is(.gpfocus, :focus) {
+  background: var(--lgs-focus-fill) !important;
+  box-shadow: var(--lgs-focus-ring) !important;
+  color: var(--lgs-text-1) !important;
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{CompatToolContainer} {
+  color: var(--lgs-text-2);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{CompatToolContainer} b {
+  color: var(--lgs-text-1);
+}
+/* collapsed-info dimmer */
+%{PartnerEventOverlayContainer>AppDetailsMain} %{GameInfoShadow} {
+  background: var(--lgs-scrim);
+  border-radius: var(--lgs-r-card);
+}
+
+/* quick links (Store Page, DLC, Community Hub ...): fill capsules */
+%{PartnerEventOverlayContainer>AppDetailsMain} %{GameInfoQuickLinks} %{Anchor},
+%{PartnerEventOverlayContainer>AppDetailsMain} %{GameInfoQuickLinks} %{LinksSection>Link} {
+  border-radius: var(--lgs-r-capsule);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{GameInfoQuickLinks} %{Anchor} {
+  background: var(--lgs-fill-2);
+  box-shadow: var(--lgs-control-rim);
+  color: var(--lgs-text-1);
+  transition: background-color var(--lgs-t-fast) var(--lgs-ease), box-shadow var(--lgs-t-fast) var(--lgs-ease);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{GameInfoQuickLinks} %{Anchor}:hover {
+  background: var(--lgs-hover-fill);
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{GameInfoQuickLinks} %{Anchor}:is(.gpfocus, :focus-within) {
+  background: var(--lgs-focus-fill) !important;
+  box-shadow: var(--lgs-focus-ring) !important;
+  color: var(--lgs-text-1) !important;
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{GameInfoQuickLinks} %{Anchor} %{LinksSection>Link} {
+  background: transparent !important;
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{GameInfoQuickLinks} %{LinksSection>Text} {
+  color: var(--lgs-text-1) !important;
+}
+
+/* "Found in these collections": the library's collection tiles */
+%{PartnerEventOverlayContainer>AppDetailsMain} %{CollectionsHeader} {
+  color: var(--lgs-text-1);
+  text-shadow: var(--lgs-text-shadow);
+}
+.BasicUI %{PartnerEventOverlayContainer>AppDetailsMain} %{GameInfoCollections} %{Collection} {
+  background: var(--lgs-panel-sheen), var(--lgs-fill-2);
+  box-shadow: var(--lgs-glass-rim);
+  border-radius: var(--lgs-r-card);
+}
+.BasicUI %{PartnerEventOverlayContainer>AppDetailsMain} %{GameInfoCollections} %{Collection}:hover {
+  background: var(--lgs-panel-sheen), var(--lgs-hover-fill);
+}
+.BasicUI %{PartnerEventOverlayContainer>AppDetailsMain} %{GameInfoCollections} %{Collection}:is(.gpfocus, :focus) {
+  background: var(--lgs-panel-sheen), var(--lgs-focus-fill) !important;
+  box-shadow: var(--lgs-focus-ring), var(--lgs-glass-shadow) !important;
+}
+%{PartnerEventOverlayContainer>AppDetailsMain} %{GameInfoCollections} %{CollectionLabel} {
+  color: var(--lgs-text-1);
+  text-shadow: var(--lgs-text-shadow);
+}
+/* the count sits on the tile's fill-2: primary label for contrast */
+%{PartnerEventOverlayContainer>AppDetailsMain} %{GameInfoCollections} %{CollectionLabelCount} {
+  color: var(--lgs-text-1);
+}
+
+
+/* ======================================================================
+   11. Steam Frame Compatibility sheet (Game Info > Details)
+   The sheet itself is the primitives' thick-glass modal. Device tabs are
+   a row of fill capsules; the shown device is the white selected pill
+   (Steam's own); Steam's floating focus ring marks focus.
+   ====================================================================== */
+
+%{CompatibilityTabs} %{GraphicalAssetsTab} {
+  background: var(--lgs-fill-2);
+  box-shadow: var(--lgs-control-rim);
+  transition: background-color var(--lgs-t-fast) var(--lgs-ease);
+}
+%{CompatibilityTabs} %{GraphicalAssetsTab}:hover {
+  background: var(--lgs-hover-fill);
+}
+%{CompatibilityTabs} %{GraphicalAssetsTab}%{GraphicalAssetsTabs>Active} {
+  background: var(--lgs-selected-fill);
+  box-shadow: var(--lgs-pill-shadow);
+  color: var(--lgs-text-on-selected);
+}
+/* the rating word ("Verified", "Playable" ...): a label, the coloured
+   rating icon beside the title carries the colour */
+%{CompatibilityDetailRatingSummary} span {
+  color: var(--lgs-text-1);
+}
+%{CompatibilityDetailsContainer} %{AppTitleCategory} {
+  color: var(--lgs-text-2);
+}
+
+
+/* ======================================================================
+   12. Achievements page (/library/app/:appid/achievements/...)
+   The page slab goes clear; the game's hero sits behind as Steam's
+   blurred, darkened backdrop and dissolves into the window glass; stats
+   and rows are fill-1 rows, r-row so this page's own focus ring (also
+   r-row) sits concentric around them.
+   ====================================================================== */
+
+%{AchievementList>Page},
+%{AchievementList>Page} %{AchievementList>List} {
+  background: none;
+}
+/* Steam's blur layer keeps its backdrop-filter (blur + darken of the
+   hero); its gradient ended in an opaque #0e141b slab */
+%{AchievementList>Page} %{AchievementList>Blur} {
+  background: none;
+}
+%{AchievementList>Page} %{AchievementList>HeaderImage} {
+  background: none;
+}
+%{AchievementList>Page} %{AchievementList>HeaderImage} img {
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 40%, rgba(0, 0, 0, 0.45) 72%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 0%, #000 40%, rgba(0, 0, 0, 0.45) 72%, transparent 100%);
+}
+/* header: box art (content), title, stats card */
+%{AchievementList>Page} %{Content>Portrait},
+%{AchievementList>Page} %{Content>Portrait} %{PortraitImage>Container},
+%{AchievementList>Page} %{Content>Portrait} img {
+  border-radius: var(--lgs-r-small);
+}
+%{AchievementList>Page} %{LeaderboardsButton>Title} {
+  color: var(--lgs-text-1);
+  text-shadow: var(--lgs-text-shadow);
+}
+%{AchievementList>Page} %{StatsBlock} {
+  background: var(--lgs-fill-1);
+  border-radius: var(--lgs-r-row);
+  box-shadow: var(--lgs-control-rim);
+}
+%{AchievementList>Page} %{StatsBlock} %{LeaderboardsButton>Label} {
+  color: var(--lgs-text-2);
+}
+%{AchievementList>Page} %{StatsBlock} %{TextValue} {
+  color: var(--lgs-text-1);
+}
+
+/* My / Global tabs: the same Liquid Glass segmented capsule */
+%{AchievementTabs} %{FixCenterAlignScroll} > :nth-child(1 of %{GamepadTabbedPage>Tab}) {
+  anchor-name: --lgs-ach-tab-first;
+}
+%{AchievementTabs} %{FixCenterAlignScroll} > :nth-last-child(1 of %{GamepadTabbedPage>Tab}) {
+  anchor-name: --lgs-ach-tab-last;
+}
+%{AchievementTabs} %{FixCenterAlignScroll} > :nth-child(1 of %{GamepadTabbedPage>Tab}):nth-last-child(1 of %{GamepadTabbedPage>Tab}) {
+  anchor-name: --lgs-ach-tab-first, --lgs-ach-tab-last;
+}
+%{AchievementTabs} %{TabHeaderRowWrapper}::after {
+  content: "";
+  position: absolute;
+  top: calc(anchor(--lgs-ach-tab-first top, 0px) - 4px);
+  bottom: calc(anchor(--lgs-ach-tab-first bottom, 100%) - 4px);
+  left: calc(anchor(--lgs-ach-tab-first left, 100%) - 4px);
+  right: calc(anchor(--lgs-ach-tab-last right, 0px) - 4px);
+  z-index: -1;
+  border-radius: var(--lgs-r-capsule);
+  background: var(--lgs-panel-sheen),
+      linear-gradient(var(--lgs-glass-bg), var(--lgs-glass-bg)),
+      linear-gradient(var(--lgs-scrim), var(--lgs-scrim));
+  box-shadow: var(--lgs-glass-rim), var(--lgs-glass-shadow);
+  pointer-events: none;
+}
+%{AchievementTabs} %{TabHeaderRowWrapper}::before {
+  background: linear-gradient(180deg, var(--lgs-window-bg) 0%, var(--lgs-window-bg) 58%, transparent 100%);
+  backdrop-filter: none;
+  box-shadow: none;
+}
+%{AchievementTabs} %{GamepadTabbedPage>Tab} {
+  border-radius: var(--lgs-r-capsule);
+  color: var(--lgs-text-1);
+  transition: background-color var(--lgs-t-fast) var(--lgs-ease),
+      color var(--lgs-t-fast) var(--lgs-ease), box-shadow var(--lgs-t-fast) var(--lgs-ease);
+}
+%{AchievementTabs} %{GamepadTabbedPage>Tab}:hover {
+  background-color: var(--lgs-hover-fill);
+}
+%{AchievementTabs} %{GamepadTabbedPage>Tab}%{GamepadTabbedPage>Selected},
+%{AchievementTabs} %{GamepadTabbedPage>Tab}%{GamepadTabbedPage>Selected}:hover,
+%{AchievementTabs} %{GamepadTabbedPage>Tab}.gpfocus {
+  background-color: var(--lgs-selected-fill) !important;
+  color: var(--lgs-text-on-selected) !important;
+}
+%{AchievementTabs} %{GamepadTabbedPage>Tab}.gpfocus {
+  box-shadow: 0 0 0 2px var(--lgs-scrim), 0 0 0 4px var(--lgs-focus-outline),
+      var(--lgs-focus-glow) !important;
+}
+%{AchievementTabs} %{TabHeaderRowWrapper} %{Arrows} {
+  color: var(--lgs-text-2);
+  border-radius: var(--lgs-r-capsule);
+  transition: color var(--lgs-t-fast) var(--lgs-ease), background-color var(--lgs-t-fast) var(--lgs-ease);
+}
+%{AchievementTabs} %{TabHeaderRowWrapper} %{Arrows}:hover {
+  color: var(--lgs-text-1);
+  background-color: var(--lgs-hover-fill);
+}
+%{AchievementTabs} %{TabHeaderRowWrapper} %{Arrows}.gpfocus {
+  color: var(--lgs-text-1) !important;
+  background-color: var(--lgs-focus-fill) !important;
+  box-shadow: var(--lgs-focus-ring) !important;
+}
+
+/* achievement rows (mine and global) */
+%{AchievementList>Page} :is(%{*AchievementList>AchievementListItemBase}, %{*AchievementList>GlobalAchievementListItem}) {
+  background: var(--lgs-fill-1);
+  border-radius: var(--lgs-r-row);
+  box-shadow: var(--lgs-control-rim);
+  transition: background-color var(--lgs-t-fast) var(--lgs-ease);
+}
+%{AchievementList>Page} :is(%{*AchievementList>AchievementListItemBase}, %{*AchievementList>GlobalAchievementListItem}):hover {
+  background: var(--lgs-hover-fill);
+}
+/* focused row: illuminated from within (Steam's ring is drawn around it);
+   its secondary lines step up to primary so they stay >= 4.5:1 on the
+   brighter fill */
+%{AchievementList>Page} :is(%{*AchievementList>AchievementListItemBase}, %{*AchievementList>GlobalAchievementListItem}).gpfocus {
+  background: var(--lgs-focus-fill) !important;
+}
+%{AchievementList>Page} :is(%{*AchievementList>AchievementListItemBase}, %{*AchievementList>GlobalAchievementListItem}).gpfocus :is(%{*AchievementList>AchievementDescription}, %{*AchievementList>Description}, %{*AchievementList>AchievementGlobalPercentage}, %{*AchievementList>UnlockDate}) {
+  color: var(--lgs-text-1);
+}
+%{AchievementList>Page} %{AchievementIconWrapper},
+%{AchievementList>Page} %{AchievementIconWrapper} img {
+  border-radius: var(--lgs-r-small);
+}
+%{AchievementList>Page} :is(%{*AchievementList>AchievementTitle}, %{*AchievementList>Title}) {
+  color: var(--lgs-text-1);
+}
+%{AchievementList>Page} :is(%{*AchievementList>AchievementDescription}, %{*AchievementList>Description}, %{*AchievementList>AchievementGlobalPercentage}, %{*AchievementList>UnlockDate}) {
+  color: var(--lgs-text-2);
+}
+%{AchievementList>Page} %{*AchievementList>Percent} {
+  color: var(--lgs-text-1);
+}
+/* global rarity bar: Steam sets its width (the global %); fill-2 band
+   inside the row with the row's corners */
+%{AchievementList>Page} %{*AchievementList>ProgressFill} {
+  background: var(--lgs-fill-2);
+  border-radius: var(--lgs-r-row);
+}
+%{AchievementList>Page} %{*AchievementList>HeaderText} {
+  color: var(--lgs-text-2);
+  text-shadow: var(--lgs-text-shadow);
+}
+
+
+/* ======================================================================
+   13. Properties (/app/:appid/properties/:page): the same
+   PagedSettingsDialog as Settings (whose file excludes AppProperties),
+   so this mirrors the settings look exactly: clear page, raised sidebar
+   pane (a fill, no glass on glass) holding the game title and capsule
+   page items, white pill for the current page, controls from primitives.
+   ====================================================================== */
+
+%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog}%{AppProperties} {
+  background: none;
+
+  & > %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingDialog_ContentColumn} {
+    background: none;
+  }
+  /* sidebar: the pane is the column's ::before (unused by Steam), inset
+     from the window edge (concentric: 32 - 8 = 24); isolation keeps it
+     under the list without touching any Steam z-index */
+  & > %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListColumn} {
+    background: none;
+    isolation: isolate;
+  }
+  & > %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListColumn}::before {
+    content: "";
+    position: absolute;
+    inset: 8px 6px 8px 8px;
+    z-index: -1;
+    border-radius: var(--lgs-r-panel);
+    background: var(--lgs-panel-sheen), var(--lgs-fill-1);
+    box-shadow: var(--lgs-glass-rim);
+    pointer-events: none;
+  }
+  & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_Title} {
+    color: var(--lgs-text-1);
+    text-shadow: var(--lgs-text-shadow);
+  }
+  & %{PagedSettingsDialog>Separator} {
+    background: var(--lgs-separator);
+  }
+
+  /* page items: capsule (the item's ::before) inside the pane */
+  & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem} {
+    color: var(--lgs-text-1);
+    text-shadow: var(--lgs-text-shadow);
+    border-left-color: transparent;
+  }
+  & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}::before {
+    content: "";
+    position: absolute;
+    inset: 3px 14px 3px 16px;
+    z-index: -1;
+    border-radius: var(--lgs-r-capsule);
+    background: transparent;
+    pointer-events: none;
+    transition: background-color var(--lgs-t-fast) var(--lgs-ease),
+                box-shadow var(--lgs-t-fast) var(--lgs-ease);
+  }
+  & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}:is(:hover, :focus, .gpfocus, %{PagedSettingsDialog_PageList_ShowTitle>Active}) {
+    background: none !important;
+    border-left-color: transparent !important;
+  }
+  & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}:hover::before {
+    background-color: var(--lgs-hover-fill);
+  }
+  & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}:is(:focus, .gpfocus) {
+    color: var(--lgs-text-1) !important;
+  }
+  & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}:is(:focus, .gpfocus)::before {
+    background-color: var(--lgs-focus-fill);
+    box-shadow: var(--lgs-focus-ring);
+  }
+  & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}%{PagedSettingsDialog_PageList_ShowTitle>Active} {
+    color: var(--lgs-text-on-selected) !important;
+    text-shadow: none;
+  }
+  & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}%{PagedSettingsDialog_PageList_ShowTitle>Active}::before {
+    background-color: var(--lgs-selected-fill);
+    box-shadow: var(--lgs-pill-shadow);
+  }
+  & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}%{PagedSettingsDialog_PageList_ShowTitle>Active}:is(:focus, .gpfocus)::before {
+    background-color: var(--lgs-selected-fill);
+    box-shadow: 0 0 0 2px var(--lgs-scrim), 0 0 0 4px var(--lgs-focus-outline), var(--lgs-focus-glow);
+  }
+  & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}%{PagedSettingsDialog_PageList_ShowTitle>DisabledItem} {
+    color: var(--lgs-text-disabled);
+  }
+
+  /* page title, section headers, body text, links */
+  & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageContent} .DialogHeader {
+    color: var(--lgs-text-1);
+  }
+  & .SettingsDialogSubHeader {
+    color: var(--lgs-text-2);
+    text-shadow: var(--lgs-text-shadow);
+    padding-inline-start: 12px;
+  }
+  & %{SettingsDialogBodyText} {
+    color: var(--lgs-text-1);
+    text-shadow: var(--lgs-text-shadow);
+  }
+  & %{SettingsDialogDescriptionText} {
+    color: var(--lgs-text-2);
+  }
+  & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageContent} a {
+    color: var(--lgs-text-1);
+    text-decoration-line: underline;
+    text-decoration-color: var(--lgs-text-3);
+    text-underline-offset: 2px;
+    transition: text-decoration-color var(--lgs-t-fast) var(--lgs-ease);
+  }
+  & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageContent} a:is(:hover, .gpfocus, :focus) {
+    text-decoration-color: var(--lgs-text-1);
+  }
+  /* Steam's hairline above a block of rows */
+  & %{SectionTopLine} {
+    border-color: var(--lgs-separator);
+  }
+
+  /* scroll edge: page rows dissolve under the header capsules and the
+     footer legend (mask only; Steam's scroll-padding keeps focus clear of
+     it). The page list gets none: under the title its first item sits
+     where the fade would be, and the list is short enough not to scroll. */
+  & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageContent} {
+    -webkit-mask-image: linear-gradient(180deg, transparent 4px, #000 44px, #000 calc(100% - 22px), transparent 100%);
+    mask-image: linear-gradient(180deg, transparent 4px, #000 44px, #000 calc(100% - 22px), transparent 100%);
+  }
+
+
+  /* ---- page widgets -------------------------------------------------- */
+
+  /* General: launch-options detail line */
+  & %{Detail} {
+    color: var(--lgs-text-2);
+  }
+
+  /* Compatibility: the "Override ARM translation" checkbox block */
+  & .DialogCheckbox_Container%{ThrobberContainer>Checkbox} {
+    background-color: var(--lgs-fill-1);
+    border-radius: var(--lgs-r-card);
+    box-shadow: var(--lgs-control-rim);
+  }
+
+  /* Updates: build info line */
+  & %{BuildInfo} {
+    color: var(--lgs-text-2);
+  }
+
+  /* Installed Files: size readout */
+  & %{BrowseDiskSizeLabel} {
+    color: var(--lgs-text-2);
+  }
+  & %{BlueHighlight}%{BrowseDiskSize} {
+    color: var(--lgs-text-1);
+  }
+
+  /* Game Versions & Betas: a grouped table card */
+  & %{BetaHeaderRow} {
+    background: var(--lgs-fill-2);
+    border-radius: var(--lgs-r-row) var(--lgs-r-row) 0 0;
+    color: var(--lgs-text-2);
+  }
+  & %{BetaRow}:is(%{EvenRow}, %{OddRow}) {
+    background: var(--lgs-fill-1);
+    color: var(--lgs-text-1);
+    box-shadow: inset 0 -1px 0 var(--lgs-separator);
+    transition: background-color var(--lgs-t-fast) var(--lgs-ease);
+  }
+  & %{BetaRow}:is(%{EvenRow}, %{OddRow}):last-child {
+    border-radius: 0 0 var(--lgs-r-row) var(--lgs-r-row);
+    box-shadow: none;
+  }
+  & %{BetaRow}:is(%{EvenRow}, %{OddRow}):hover {
+    background: var(--lgs-hover-fill);
+  }
+  & %{BetaRow}%{ThrobberContainer>Selected} {
+    background: var(--lgs-fill-3);
+  }
+  & %{BetaRow}:is(.gpfocus, .gpfocuswithin) {
+    background: var(--lgs-focus-fill) !important;
+  }
+  & %{BetaRow} %{DescText} {
+    color: var(--lgs-text-2);
+  }
+  & %{BetaRow}:is(.gpfocus, .gpfocuswithin) %{DescText} {
+    color: var(--lgs-text-1);
+  }
+  & %{BetaLabel} {
+    color: var(--lgs-text-2);
+  }
+
+  /* Controller: Steam Input status grid */
+  & %{SteamInputStatusGrid} {
+    background: var(--lgs-fill-1);
+    border-radius: var(--lgs-r-card);
+    box-shadow: var(--lgs-control-rim);
+  }
+  & %{SteamInputLink} {
+    color: var(--lgs-text-1);
+    text-decoration: underline;
+    text-decoration-color: var(--lgs-text-3);
+    text-underline-offset: 2px;
+  }
+
+  /* DLC: one grouped table card */
+  & %{DlcGrid} {
+    background: var(--lgs-fill-1);
+    border-radius: var(--lgs-r-card);
+    box-shadow: var(--lgs-control-rim);
+  }
+  & %{DlcHeader} {
+    background: var(--lgs-fill-2);
+    color: var(--lgs-text-2);
+  }
+  & %{DlcArt}%{DLCArt},
+  & %{DlcArt}%{DLCArt} img {
+    border-radius: var(--lgs-r-small);
+  }
+  & :is(%{Added}, %{SizeDisk}) {
+    color: var(--lgs-text-2);
+  }
+
+  /* Privacy: DLC visibility list */
+  & %{PrivacyDLCDescription} {
+    color: var(--lgs-text-2);
+  }
+  & %{PrivacyDLCList} {
+    background: var(--lgs-fill-1);
+    border-radius: var(--lgs-r-card);
+  }
+  & %{PrivacyDLCRow} + %{PrivacyDLCRow} {
+    box-shadow: inset 0 1px 0 var(--lgs-separator);
+  }
+  & %{DLCTitleArea} img {
+    border-radius: var(--lgs-r-small);
+  }
+
+  /* Workshop: subscribed item rows (look only; Unsubscribe never pressed) */
+  & %{WorkshopItemRow} {
+    background: var(--lgs-fill-1);
+    border-radius: var(--lgs-r-row);
+    box-shadow: var(--lgs-control-rim);
+  }
+  & %{WorkshopItemRow}:is(.gpfocus, .gpfocuswithin) {
+    background: var(--lgs-hover-fill) !important;
+  }
+  & %{PreviewArt} {
+    border-radius: var(--lgs-r-small);
+  }
+
+  /* Non-Steam shortcut: icon tile */
+  & %{ThrobberContainer>AssetImage},
+  & %{ThrobberContainer>AssetImage} img {
+    border-radius: var(--lgs-r-small);
+  }
+}

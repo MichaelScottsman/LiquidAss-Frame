@@ -1,3 +1,4 @@
-shots/
-__pycache__/
 *.pyc
+__pycache__/
+docs/refs/
+shots/

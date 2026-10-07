@@ -1,0 +1,126 @@
+/* Glass Shell, native mode: html.lgs-on.lgs-native (docs/NATIVE.md).
+   The daemon sets lgs-native on a window once glassd draws glass for it.
+   Then glassd paints the room-refracting glass behind Steam's texture, so
+   the CSS stops painting that glass itself. Nothing else changes: content,
+   states, focus and colours stay exactly as the theme defines them.
+
+   Scope is per element, never per window. device/lgs_layers.js marks
+     [data-lgs-cover]  the element whose rounded box glassd fills with the
+                       surface's glass (main window root, bar platter,
+                       popup card, frame menu, floating footer), and
+     [data-lgs-pop]    an element that pops out in depth over its own
+                       glassd slab ("self", or "before"/"after" when the
+                       capsule is that pseudo-element),
+   only while glassd really draws them. So a surface or an element glassd
+   does not cover keeps its CSS glass.
+
+   - Covers drop their glass background and rim. glassd draws both, from the
+     real room.
+   - Popped glass drops its tint (the light glass layer and the sheen) and its
+     rim; the slab supplies them. It keeps its backdrop-filter, which refracts
+     the in-page content behind it, and its outer shadow, which now falls on
+     the window below. Header, tab, footer and arrow capsules keep Apple's
+     dimming layer (--lgs-scrim) so white labels stay legible over bright art
+     scrolling under them.
+   - Tinted controls (Play), fills and focus rings are content: unchanged.
+   Done with tokens wherever the rule paints through one. Custom properties
+   resolve where they are used, so they are overridden on the element (or
+   the ::before/::after) that paints.
+
+   High Contrast keeps the CSS glass, so the tokens can keep it opaque.
+   Wrapped as html.lgs-on { ... } by the injector. */
+
+@media not (prefers-contrast: more) {
+
+  /* ------------------------------------------------------------------ */
+  /* 1. Covers: the surface's own glass                                  */
+  /* ------------------------------------------------------------------ */
+
+  /* main window: window glass and its rim (20-shell.css) */
+  &.lgs-native %{BasicUiRoot}[data-lgs-cover] {
+    background: transparent;
+  }
+  &.lgs-native %{BasicUiRoot}[data-lgs-cover]::after {
+    box-shadow: none;
+  }
+
+  /* bar popups (+ list, Playspace, Streaming), Quick Access, tab menus,
+     the frame menu and the floating footer: panel glass (30-bar.css,
+     35-hud.css) */
+  &.lgs-native :is(%{DashboardBarPopupContents}, %{QuickAccessMenu}, %{DashboardMenu})[data-lgs-cover],
+  &.lgs-native %{DashboardBarPopupSectionStack}[data-lgs-cover] > %{DashboardBarPopupContents},
+  &.lgs-native #Footer%{BasicFooter}%{FloatingVRFooter}[data-lgs-cover] {
+    --lgs-panel-sheen: linear-gradient(transparent, transparent);
+    --lgs-panel-bg: transparent;
+    --lgs-panel-rim: 0 0 0 0 transparent;
+  }
+
+  /* the bar platter (%{PopupBody>DashboardBar}) paints nothing in CSS */
+
+  /* ------------------------------------------------------------------ */
+  /* 2. Popped capsules drawn by a ::before / ::after                     */
+  /* ------------------------------------------------------------------ */
+
+  /* header Back (::before) and search (#header::after): their faces are
+     defined on #header (20-shell.css), so they are redefined on the
+     pseudo-element that paints them */
+  &.lgs-native %{BackContainer}[data-lgs-pop~="before"]::before,
+  &.lgs-native #header%{Profile>Header}[data-lgs-pop~="after"]::after {
+    --lgs-capsule-face: linear-gradient(var(--lgs-scrim), var(--lgs-scrim));
+    --lgs-capsule-hover: linear-gradient(var(--lgs-hover-fill), var(--lgs-hover-fill)),
+        linear-gradient(var(--lgs-scrim), var(--lgs-scrim));
+    --lgs-capsule-filled: linear-gradient(var(--lgs-fill-2), var(--lgs-fill-2)),
+        linear-gradient(var(--lgs-scrim), var(--lgs-scrim));
+    --lgs-capsule-focus: linear-gradient(var(--lgs-focus-fill), var(--lgs-focus-fill)),
+        linear-gradient(var(--lgs-scrim), var(--lgs-scrim));
+    --lgs-capsule-pressed: linear-gradient(var(--lgs-pressed-fill), var(--lgs-pressed-fill)),
+        linear-gradient(var(--lgs-scrim), var(--lgs-scrim));
+    --lgs-glass-rim: 0 0 0 0 transparent;
+  }
+
+  /* footer legend (#Footer::after, 20-shell.css) and the segmented tab
+     rows (TabHeaderRowWrapper::after: library and home in 40-library.css,
+     search in 20-shell.css, game pages in 50-appdetails.css) */
+  &.lgs-native #Footer%{BasicFooter}[data-lgs-pop~="after"]::after,
+  &.lgs-native %{TabHeaderRowWrapper}[data-lgs-pop~="after"]::after {
+    --lgs-panel-sheen: linear-gradient(transparent, transparent);
+    --lgs-glass-bg: transparent;
+    --lgs-glass-rim: 0 0 0 0 transparent;
+    --lgs-lib-glass-face: linear-gradient(var(--lgs-scrim), var(--lgs-scrim));
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* 3. Popped elements that paint their own glass                        */
+  /* ------------------------------------------------------------------ */
+
+  /* round tab-row arrows and the laser Sort & Filter capsule
+     (40-library.css): light glass face over the scrim */
+  &.lgs-native %{TabHeaderRowWrapper} %{Arrows}[data-lgs-pop~="self"],
+  &.lgs-native %{SortAndFilterContainer}[data-lgs-pop~="self"] {
+    --lgs-panel-sheen: linear-gradient(transparent, transparent);
+    --lgs-glass-rim: 0 0 0 0 transparent;
+    --lgs-lib-glass-face: linear-gradient(var(--lgs-scrim), var(--lgs-scrim));
+    --lgs-lib-glass-hover: linear-gradient(var(--lgs-hover-fill), var(--lgs-hover-fill)),
+        linear-gradient(var(--lgs-scrim), var(--lgs-scrim));
+    --lgs-lib-glass-focus: linear-gradient(var(--lgs-focus-fill), var(--lgs-focus-fill)),
+        linear-gradient(var(--lgs-scrim), var(--lgs-scrim));
+  }
+
+  /* menus and sheets: thick glass (10-primitives.css, 40-library.css).
+     The thick slab supplies tint and frost. */
+  &.lgs-native %{*BasicContextMenuModal>contextMenuContents}[data-lgs-pop~="self"],
+  &.lgs-native %{*GamepadDialogContent>ModalPosition} > [data-lgs-pop~="self"],
+  &.lgs-native %{DialogWrapper>CompatFilterDialog}[data-lgs-pop~="self"] {
+    --lgs-panel-sheen: linear-gradient(transparent, transparent);
+    --lgs-thick-bg: transparent;
+    --lgs-glass-rim: 0 0 0 0 transparent;
+  }
+
+  /* bar segments: panel glass (30-bar.css); the slab under each segment
+     and the platter under the bar supply it */
+  &.lgs-native %{BarSurface}[data-lgs-pop~="self"] {
+    --lgs-panel-sheen: linear-gradient(transparent, transparent);
+    --lgs-panel-bg: transparent;
+    --lgs-panel-rim: 0 0 0 0 transparent;
+  }
+}
