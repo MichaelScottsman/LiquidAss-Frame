@@ -53,6 +53,16 @@
   function setTarget(el) {
     try { if (RT.shell) RT.shell._setTarget(el); } catch (_) { /* shell off */ }
   }
+  function shellOptionsText(host) {
+    try { return RT.shell && typeof RT.shell._optionsText === 'function' ? RT.shell._optionsText(host) : null; } catch (_) { return null; }
+  }
+  // WN §3.4.4 "Feedback": the circle's name as P3's in-window tooltip after 0.8 s (icon-only control,
+  // PLAN §1.13); registered once P3's tooltip layer is up, removed with the helper
+  function wireTip() {
+    if (!S || S.tipOff || !RT.tooltip || typeof RT.tooltip.register !== 'function') return;
+    try { S.tipOff = RT.tooltip.register((el) => !!(el && el.classList && el.classList.contains('lgs-more')), { text: '@aria-label' }); }
+    catch (e) { log('warn', 'tooltip register', String(e && e.message || e)); }
+  }
   function laserMode(st) {
     try { const v = RT.input && RT.input.vrMode; if (v === 'laser' || v === 'gamepad') return v === 'laser'; } catch (_) { /* P3 off */ }
     return st.entry.html.getAttribute('data-lgs-vr-mode') === 'laser';
@@ -163,9 +173,11 @@
     const inGlass = !!(host.closest && host.closest('[data-lgs-mat], .lgs-sheet, [data-lgs-inglass]'));
     st.node.toggleAttribute('data-lgs-inglass', inGlass);
     const own = fiberProp(host, 'onMenuActionDescription');
-    const label = (typeof own === 'string' && own.trim()) ? own.trim() : menuLabel(doc);
+    // in laser mode Steam renders no ≡ legend: the shell's Options text (the same Steam string) instead
+    const label = (typeof own === 'string' && own.trim()) ? own.trim() : (menuLabel(doc) || shellOptionsText(host));
     if (label) st.node.setAttribute('aria-label', label); else st.node.removeAttribute('aria-label');
     place(st);
+    wireTip();
     st.node.classList.add('lgs-more-show');
     try { RT.shell && RT.shell._setTarget(host); } catch (_) { /* shell off */ }
   }
@@ -286,6 +298,7 @@
       if (S) {
         for (const h of S.regs) { try { h.off(); } catch (_) { /* gone */ } }
         for (const st of S.docs.values()) { try { st.node.remove(); } catch (_) { /* gone */ } }
+        if (S.tipOff) { try { S.tipOff(); } catch (_) { /* gone */ } S.tipOff = null; }
       }
       S = null;
       return { patchedLeft: 0 };

@@ -296,9 +296,26 @@ def purge_stale_hv(max_age=60):
 # ---------------------------------------------------------------- real laser hover (CDP)
 # L.hover dispatches untrusted events, so CSS :hover never applies. A real hover is a CDP
 # Input.dispatchMouseEvent on the surface's own target (REQ C1c->P10). Every surface hovered in a
-# step gets the pointer sent to (1400, 900) main-window texture px at the lock exit (IM 9).
+# step gets the pointer parked at the lock exit (PLAN 7 item 2, IM 9).
+#
+# The park point is (1400, 900) in CDP coordinates (the surface's CSS px), which IM 9 chose because it lies
+# OUTSIDE the main window's 1280 x 720 viewport: a pointer there hovers nothing, so :hover, the bar tooltips and
+# vrGamepadInput.m_lastHoverElem clear. Until session 5 the lab divided it by the device pixel ratio and clamped
+# it into the viewport ((933, 600) CSS on main), which lies on Home's All Games disc in the low layout, so every
+# later laser step on Home started with a disc attended (REQ C2a-R2->P10 (2)). On a surface whose viewport
+# contains (1400, 900) (none of Steam's today) the point moves just outside the viewport's far corner.
 
 HOVERED = set()
+PARK = (1400, 900)
+
+
+def park_point(w, h):
+    """The CDP pointer's park point for a surface whose viewport is w x h CSS px: (1400, 900) (IM 9), or just
+    beyond the viewport's far corner when the viewport contains it. Never inside the viewport."""
+    x, y = PARK
+    if x < w and y < h:
+        x, y = max(x, w + 40), max(y, h + 40)
+    return float(x), float(y)
 
 
 def cdp_mouse(surface, x, y):
@@ -337,15 +354,19 @@ def cdp_hover(surface, sel, dwell_ms=0):
 
 
 def cdp_unhover():
+    """Park the CDP pointer of every surface hovered in this step outside its viewport (park_point)."""
+    out = {}
     for s in list(HOVERED):
         try:
-            dims = lab_js(f"[L.surface({json.dumps(s)}).devicePixelRatio, L.surface({json.dumps(s)}).innerWidth, "
-                          f"L.surface({json.dumps(s)}).innerHeight]", surface=s if s.startswith("vr:") else None)
-            dpr, w, h = dims
-            cdp_mouse(s, min(1400 / dpr, w - 1), min(900 / dpr, h - 1))
+            dims = lab_js(f"[L.surface({json.dumps(s)}).innerWidth, L.surface({json.dumps(s)}).innerHeight]",
+                          surface=s if s.startswith("vr:") else None)
+            x, y = park_point(*dims)
+            cdp_mouse(s, x, y)
+            out[s] = [x, y]
         except Exception:  # noqa: BLE001 - a closed popup
             pass
         HOVERED.discard(s)
+    return out
 
 
 def hover_spec(spec):
@@ -408,19 +429,29 @@ def read_flags_file():
 FLAG_STEPS = "/tmp/lgs/flag-steps"
 
 
-def _lab_pid_alive(pid):
-    """Is pid a running lab process (lab.py, a native-session, a script that imports lab)?"""
+def _proc_start(pid):
+    """The process's start time (clock ticks since boot, /proc/PID/stat field 22), or None."""
+    try:
+        with open(f"/proc/{int(pid)}/stat", "rb") as f:
+            st = f.read().decode("ascii", "replace")
+        return int(st[st.rindex(")") + 2:].split()[19])
+    except (OSError, ValueError, IndexError, TypeError):
+        return None
+
+
+def _lab_pid_alive(pid, start=None):
+    """Is the process that wrote a flag-step record still running? The pid, and when the record has it, the
+    process's start time (a pid the kernel reused for another process has another start time)."""
     try:
         os.kill(int(pid), 0)
     except (ProcessLookupError, ValueError, TypeError):
         return False
     except PermissionError:
         return True
-    try:
-        with open(f"/proc/{int(pid)}/cmdline", "rb") as f:
-            return b"lab" in f.read()
-    except OSError:
+    if start is None:
         return True
+    now = _proc_start(pid)
+    return now is None or now == start
 
 
 def reap_dead_flag_steps():
@@ -446,7 +477,7 @@ def reap_dead_flag_steps():
             except OSError:
                 pass
             continue
-        if _lab_pid_alive(rec.get("pid")):
+        if _lab_pid_alive(rec.get("pid"), rec.get("start")):
             continue
         with flags_file_lock():
             cur = dict(read_flags_file() or {})
@@ -474,7 +505,8 @@ def write_flag_step(own_prev, own_set):
         os.makedirs(FLAG_STEPS, exist_ok=True)
         p = os.path.join(FLAG_STEPS, f"{os.getpid()}-{int(time.time() * 1000) % 100000000}.json")
         with open(p, "w", encoding="utf-8") as f:
-            json.dump({"pid": os.getpid(), "t": time.time(), "prev": own_prev, "set": own_set}, f)
+            json.dump({"pid": os.getpid(), "start": _proc_start(os.getpid()), "t": time.time(), "prev": own_prev,
+                       "set": own_set}, f)
         return p
     except OSError:
         return None
@@ -866,11 +898,41 @@ def target_for(surface):
     if surface.startswith("vr:"):
         return vr_target(surface)
     key = OVERLAY.get(surface) or "valve.steam.gamepadui." + surface
+    cands = []
     for t in lgs.targets():
         k = lgs.overlay_key(t)
         if k == key or k.startswith(key + "."):  # "bar" must not match "barpopup"
-            return t
-    raise SystemExit(f"lab: no CEF target for surface {surface!r}")
+            cands.append((k, t))
+    if not cands:
+        raise SystemExit(f"lab: no CEF target for surface {surface!r}")
+    if len(cands) > 1:
+        # Several windows share the alias (two barpopup windows): capture the one the JS helpers measure, the shown
+        # one (L.surfaceName, session 5). The first target could be a hidden window, whose capture waits for a frame
+        # that never comes (REQ C2b-R2->P10: `motion barpopup` timed out in its warm-up capture).
+        expr = f"(L.surfaceName ? L.surfaceName({json.dumps(surface)}) : null)"
+        try:
+            try:
+                asyncio.get_running_loop()
+                in_loop = True
+            except RuntimeError:
+                in_loop = False
+            if in_loop:
+                # called from a coroutine (capture(), motion's capture_now): lab_js runs its own event loop, so it
+                # runs on a worker thread while this loop waits
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor(1) as ex:
+                    nm = ex.submit(lab_js, expr).result(timeout=60)
+            else:
+                nm = lab_js(expr)
+        except Exception as e:  # noqa: BLE001 - fall back to the first, as before
+            print(f"lab: {surface}: {len(cands)} windows, which one is shown is unknown ({e}); the first is used",
+                  file=sys.stderr)
+            nm = None
+        if isinstance(nm, str):
+            for k, t in cands:
+                if nm == k or nm.startswith(k + ".") or nm.startswith(k + "_"):
+                    return t
+    return cands[0][1]
 
 
 async def capture(surface, out, settle):

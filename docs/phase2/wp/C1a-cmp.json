@@ -1,11 +1,11 @@
 {
- "_doc": "C1a (PLAN-1a-3, G-MOCK): live selectors for the shell's mockups. Mockup member rects are the 60 px visible capsules; the live legends are the 84 px hit rows (light inset 12), so members read dy -12, dh +24 by design (WN §3.4.1). Back and the More circle: the mockup rect is the 60 px circle, the live rect its 80 px hit box (-10, -10, +20, +20). The tab bar is drawn at 10 items, p 58 (Console on); the device has 9 items today, so the live pitch is 66 (WN §3.3.2 rule 2). Run with --flags wp.p3,wp.c1a (T2 tags, Large Title, slots, the More circle).",
+ "_doc": "C1a (PLAN-1a-3, G-MOCK): live selectors for the shell's mockups. Mockup member rects are the 60 px visible capsules; the live legends are the 84 px hit rows (light inset 12), so members read dy -12, dh +24 by design (WN §3.4.1). Back and the More circle: the mockup rect is the 60 px circle, the live rect its 80 px hit box (-10, -10, +20, +20). The tab bar is drawn at 10 items, p 58 (Console on); the device has 9 items today, so the live pitch is 66 (WN §3.3.2 rule 2). Run with --flags wp.p3,wp.c1a (T2 tags, Large Title, slots, the More circle). R2 (session 6): the library ornament hugs its members (R2-2), so the pre no longer registers ornamentSlots('library'); `trail` is Steam's laser Sort & Filter group (C2c's, the toolbar's trailing group). The window-bar row of window-nav-chrome lives in vr:systemui's atlas, whose coordinates are not the mockup's spatial layout: it is checked by AT-17 (shots, sizes) instead of cmp.",
  "surface": "main",
  "mockScale": 1,
  "mockups": {
   "window-nav-anatomy": {
    "route": "/library/tab/AllGames",
-   "pre": "(async()=>{const R=window.__LGS_RT; await R.settled(); L.nav('/library/tab/AllGames'); await L.sleep(1800);const s=R.shell.ornamentSlots('library',{widths:[300,130,156,134,120],gap:4,padding:12});const m=R.more.register('%{LibraryItemBox}',{placement:'card'}); const W=L.surface('main');const A=L.qa('main','%{LibraryItemBox}')[1]; const r=A.getBoundingClientRect();for (const t of ['pointerover','mouseover','pointermove','mousemove']) A.dispatchEvent(new (t.startsWith('pointer')?W.PointerEvent:W.MouseEvent)(t,{bubbles:true,clientX:r.x+r.width/2,clientY:r.y+r.height/2}));await L.sleep(800); setTimeout(()=>{try{s.remove();m.remove();}catch(e){}},20000); return 'more '+R.more.nodes();})()",
+   "pre": "(async()=>{const R=window.__LGS_RT; await R.settled(); L.nav('/library/tab/AllGames'); await L.sleep(1800);const m=R.more.register('%{LibraryItemBox}',{placement:'card'}); const W=L.surface('main');const A=L.qa('main','%{LibraryItemBox}')[1]; const r=A.getBoundingClientRect();for (const t of ['pointerover','mouseover','pointermove','mousemove']) A.dispatchEvent(new (t.startsWith('pointer')?W.PointerEvent:W.MouseEvent)(t,{bubbles:true,clientX:r.x+r.width/2,clientY:r.y+r.height/2}));await L.sleep(800); setTimeout(()=>{try{m.remove();}catch(e){}},20000); return 'more '+R.more.nodes();})()",
    "mockOrigin": [
     320,
     66
@@ -26,7 +26,9 @@
       -28,
       -14
      ]
-    }
+    },
+    "trail": "%{SortAndFilterContainer}",
+    "ornament": "#Footer > .lgs-orn-plate"
    }
   },
   "window-nav-tabbar": {
@@ -77,7 +79,7 @@
   },
   "window-nav-chrome": {
    "route": "/library/tab/AllGames",
-   "pre": "(async()=>{const R=window.__LGS_RT; await R.settled(); L.nav('/library/tab/AllGames'); await L.sleep(1800);const s=R.shell.ornamentSlots('library',{widths:[300,130,156,134,120],gap:4,padding:12});const m=R.more.register('%{LibraryItemBox}',{placement:'card'}); const W=L.surface('main');const A=L.qa('main','%{LibraryItemBox}')[1]; const r=A.getBoundingClientRect();for (const t of ['pointerover','mouseover','pointermove','mousemove']) A.dispatchEvent(new (t.startsWith('pointer')?W.PointerEvent:W.MouseEvent)(t,{bubbles:true,clientX:r.x+r.width/2,clientY:r.y+r.height/2}));await L.sleep(800); setTimeout(()=>{try{s.remove();m.remove();}catch(e){}},20000); return 'more '+R.more.nodes();})()",
+   "pre": "(async()=>{const R=window.__LGS_RT; await R.settled(); L.nav('/library/tab/AllGames'); await L.sleep(1800);const m=R.more.register('%{LibraryItemBox}',{placement:'card'}); const W=L.surface('main');const A=L.qa('main','%{LibraryItemBox}')[1]; const r=A.getBoundingClientRect();for (const t of ['pointerover','mouseover','pointermove','mousemove']) A.dispatchEvent(new (t.startsWith('pointer')?W.PointerEvent:W.MouseEvent)(t,{bubbles:true,clientX:r.x+r.width/2,clientY:r.y+r.height/2}));await L.sleep(800); setTimeout(()=>{try{m.remove();}catch(e){}},20000); return 'more '+R.more.nodes();})()",
    "mockOrigin": [
     320,
     -300

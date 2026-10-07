@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "about": "C1b Search (WN §4.9, PLAN §1.6, §1.7 row 'Sheets, the search sheet'; default profile). The whole search sheet is one +10 mm non-interactive crop over a thick slab. With the runtime (wp.c1b) the sheet's glass is C1b's own slab .lgs-search-glass under Steam's tabbed page (same rect; Steam's page sits in a 3D context where backdrop-filter samples nothing), for the zero state too (the zero state's content is .lgs-search-zero above it); rule 'search-sheet' pops that slab, so 05-native.css zeroes its --lgs-mat-thick-* paint under the pop, and the crop carries the content above it. 'search-sheet-t1' is the fallback when the runtime failed and Steam's page alone is the sheet (it overlaps a kept 'search-sheet' and is dropped otherwise). Popped rects never overlap (lgs_layers.js), so nothing inside the sheet pops on its own: the focused result rides on the sheet with its CSS lift x1.05. The snapshot (.lgs-snap), the scrim, the scope bar, the discs and the Software cell never pop. Click-safe: the smallest focusable inside the sheet is a 60 px segment (s >= 52 admits +10). Behind wp.c1b (PLAN §1.17); the legacy 'tabs', 'tab-arrow' and 'card' pops on /search overlap the kept sheet and are dropped by the reporter, so no supersede is needed (those ids also serve library routes).",
+  "about": "C1b Search (WN §4.9, PLAN §1.6, §1.7 row 'Sheets, the search sheet' and rule 6, §1.8; card T4 [R2-16]; default profile). The whole search sheet is one +10 mm non-interactive crop over a thick slab, a modal rule (while it is open only modal rules pop), and the hole under it is filled with the scrim's tone. With the runtime (wp.c1b) the sheet's glass is C1b's own slab .lgs-search-glass in the picture layer under Steam's content (same rect as the sheet; Steam's page sits in a 3D context where backdrop-filter samples nothing), for the zero state (880 x 500, a horizontal scale of the 960 glass) and for results and categories (960 x 500). That slab takes no pointer events (it is inert decoration under the content), so the Phase 1 hit test would always call it covered: 'hitTest' is off for it (review R2 M6); admission rule 1 (inside the main cover) still applies. The crop carries the zero state's or Steam's content above the slab; 21-search.css drops the slab's CSS tint, shadow and edge under [data-lgs-pop]. 'search-sheet-t1' is the fallback when the runtime failed and Steam's page alone is the sheet: it overlaps a kept 'search-sheet' and is dropped otherwise. Popped rects never overlap (lgs_layers.js), so nothing inside the sheet pops on its own: the focused result rides on the sheet with its CSS lift x1.05. The snapshot (.lgs-snap), the scrim, the scope bar, the discs and the Software cell never pop. Click-safe: the smallest focusable inside the sheet is a 60 px segment (s >= 52 admits +10). Behind wp.c1b (PLAN §1.17); the legacy 'tabs', 'tab-arrow' and 'card' pops on /search overlap the kept sheet and are dropped by the reporter, and while the sheet is open rule 6 keeps every non-modal rule down, so no supersede is needed (those ids also serve library routes).",
   "flag": "wp.c1b",
   "surfaces": {
     "main": {
@@ -10,8 +10,10 @@
           "sel": ".lgs-search-glass",
           "mm": 10,
           "slab": "thick",
+          "modal": true,
+          "hitTest": false,
           "hole": {
-            "fill": "auto"
+            "fill": "scrim"
           },
           "exclude": ".lgs-snap *",
           "flag": "wp.c1b",
@@ -25,8 +27,9 @@
           "sel": "%{GamepadSearch} > %{GamepadTabbedPage}",
           "mm": 10,
           "slab": "thick",
+          "modal": true,
           "hole": {
-            "fill": "auto"
+            "fill": "scrim"
           },
           "exclude": ".lgs-snap *",
           "flag": "wp.c1b",

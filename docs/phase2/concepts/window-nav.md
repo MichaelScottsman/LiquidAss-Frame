@@ -68,7 +68,7 @@ Every PLAN §1 decision that touches this concept, and where the text now carrie
 | §1.7 | One depth plan, two profiles; admission rules; {0, +10, +15, +25} mm; menus and sheets +10; destructive alerts 0; source card keeps +15 or 0 (WN's +5 withdrawn); tab bar +25 through the popup's own transform | Depth plan replaced | §3.7, §5 |
 | §1.8 | Alerts and sheets dim with Steam's overlay at black .35 in both modes; `t1` is not used for in-window modals | WN's `t1` tint .65 withdrawn | §3.3.4, §3.7, §5.3 |
 | §1.9 | Header 108 when CQ1 holds, else the three-rule fallback; C1a sets `html.lgs-hdr-108` or `html.lgs-hdr-40`; three field variants; search is WN §4; HA contributes through C1b's provider API | §3.2, §4 updated | §3.2, §4 |
-| §1.10 | Legends never hidden; capsule vs quiet legend by content; A and B always present; Sort/Filter in slot 1 in laser mode; library five slots (880); compact members instead of dropping; depth 0 | Q13 withdrawn (A and B stay in laser mode as quiet members); SET's E-ORN and SM's 1232 px limit withdrawn; fixed slots registered through `shell.ornamentSlots` (the library's 880); on `window` routes the quiet legend sits on a dim band (P-39; O3, flag `quietBacking`) | §3.4 |
+| §1.10 | Legends never hidden; capsule vs quiet legend by content; A and B always present; the ornament hugs its members on every route, library included (R2-2: HA's five slots, 880, only behind C2c's `libFixedSlots`, off); in laser mode Steam's Sort & Filter is the toolbar row's trailing group (R2-2); the quiet legend's dim band on `window` routes (R2-1, S27); compact members instead of dropping; depth 0 | Q13 withdrawn (A and B stay in laser mode as quiet members); SET's E-ORN and SM's 1232 px limit withdrawn; fixed slots registered through `shell.ornamentSlots` (the library's 880); on `window` routes the quiet legend sits on a dim band (P-39; O3, flag `quietBacking`) | §3.4 |
 | §1.11 | One More helper (60 / 80, inside its host, the host's own `onMenuButton`, one node per document); frozen target unchanged; pointer proxy in native mode only | §3.4.4 rewritten (no blur inside another glass container); the name suffix omitted on fixed-slot routes, where the More circle marks the target; §3.6 scoped to native mode | §3.4.3, §3.4.4, §3.6 |
 | §1.12 | Menus: layout by count; value menus (list page on settings routes, grid for 9–14, a scrolling column for ≥ 15); anchoring gated; GP's placement order; destructive rule by count; Power per WN §5.2 + CC §5; alerts 640, sheets ≤ 960 | §5 aligned (C1c builds it) | §5 |
 | §1.13 | Tooltips (P3): thick capsule 48 px, 0.8 s in / 0.2 s out; Steam's sounds through its bus; haptics off | §5.6; icon-only shell controls get tooltips | §3.2, §3.4.4, §5.6 |
@@ -193,6 +193,7 @@ The row is 108 px tall (24 + 60 + 24 = 81 pt, 83 mm at r = 1). There is no band.
 | Title mode | `%{SearchAndTitleContainer}%{ShowingTitle} > div` | Title 2, 30 px Bold, centred | — | y 36 | Replaces search, as Steam does (H5) |
 | Browser mode | `%{HeaderBrowser}` | 640 × 64 recessed capsule, URL 22 px white .70 | 656 × 80 | Centred | Not seen live: verify on the first Store web view |
 | Account alert | `#header_profile` | 60 px circle with Steam's avatar and a red badge | 80 × 80 | Top-right, 24 px inset | Only with active support alerts (H7) |
+| Trailing group (library routes, laser mode) | Steam's `%{SortAndFilterContainer}` (C2c's, D-C2c-12; PLAN §1.10, R2-2) | One 60 px capsule holding Steam's Sort and Filter buttons, 80 px hits | ≤ C2c's cap | Right edge at x 1256 (24 px inset; 20 px left of the account-alert circle when it shows), visible y 24–84, **≥ 20 px clear of the search capsule's visible right edge (900)**, so its hit box (from x ≥ 910) never meets the search field's (372–908) | The shell keeps this area free: no shell item is ever placed right of the search capsule on `library` routes. The group's width and ellipsis are C2c's |
 
 **Route-scoped positions** (SM §3.0, PLAN §1.1). On `/chat` the Back circle and the search circle sit in the sidebar's toolbar row (search box at (362, 14)); on `/invites` they sit in the card's top corners. These are position-only T1 rules keyed on `data-lgs-route`, written by C7 in its own file; Steam's handlers and D-pad Up (Main's `onMoveUp`) are unchanged.
 
@@ -206,7 +207,7 @@ The row is 108 px tall (24 + 60 + 24 = 81 pt, 83 mm at r = 1). There is no band.
 2. Every page root adds `padding-top: var(--lgs-hdr-pad)` (68 px in the fallback, 0 with `lgs-hdr-108`; each area pads its own page roots), and the scroll guard below keeps gamepad scroll-into-view clear of the row.
 3. **Modals:** `%{GamepadDialogOverlay} .ModalPosition` and the context-menu modal container get `padding-top: 68px`, so the modal box starts at 108, exactly as with CQ1 (revision 1 left modal tops under the toolbar). AT-2 measures the modal top in both cases.
 
-**Scroll guard** (VP P-23, IM §7: `scroll-padding` works on Steam's scrollers [PROVEN]). Focused items stay between y 124 (the row + 16) and y 612 (the ornament's top at 628 − 16) on routes with an ornament, or the glass bottom − 16 without one. The shell sets `scroll-padding-top` and `scroll-padding-bottom` on Steam's generic `%{ScrollPanel}` from two variables, `--lgs-guard-top: 124px` and `--lgs-guard-bottom: 612px` (window y); areas apply the same variables to their own scrollers, with `!important` where Steam writes scroll padding inline.
+**Scroll guard** (VP P-23, IM §7: `scroll-padding` works on Steam's scrollers [PROVEN]). Focused items stay between y 124 (the row + 16) and y 612 (the ornament's top at 628 − 16) on routes with an ornament, or the glass bottom − 16 without one (P-23 is scored at 612, PLAN §4.4, R2-11). The shell sets `scroll-padding-top` and `scroll-padding-bottom` on Steam's generic `%{ScrollPanel}` from two variables, `--lgs-guard-top: 124px` and `--lgs-guard-bottom: 612px` (window y); areas apply the same variables to their own scrollers, with `!important` where Steam writes scroll padding inline.
 
 ### 3.3 The tab-bar ornament (Steam's VR main menu, `frame.menu.<id>`)
 
@@ -300,7 +301,7 @@ One toolbar ornament per window, owned by the shell (C1a). Area concepts fill it
 | Clearance | 8 px above the panel's bottom; 27 px above the window-bar row |
 | Backing | T2 measures the union rect of the members and writes `--lgs-orn-x` / `--lgs-orn-w` on `#Footer`; `#Footer::before` (free, inventory shell §12) draws the capsule there. Without T2: two adjacent capsules (the footer legend's and Steam's laser-mode pill), 12 px apart, always in the capsule material |
 | Fixed slots | An area whose ornament must not change width registers its slots: `__LGS_RT.shell.ornamentSlots(routeKey, {widths, gap, padding})` → `{remove()}`. On that route the shell draws the backing at the fixed rect (centred; width = the slots + gaps + padding), never re-measures it, tags `#Footer[data-lgs-orn-fixed="<routeKey>"]`, omits the Options member's name suffix (§3.4.3) and keeps the Options member present in both modes (§3.4.2). The area places the members in its slots with its own T1 rules |
-| Library routes | HA §7.1's five fixed slots, 300 · 130 · 156 · 134 · 120 (840 px of slots + 4 gaps of 4 + padding 12 + 12 = **880 px**, x 200–1080), in both input modes (PLAN §1.10; C2c registers `ornamentSlots('library', {widths: [300, 130, 156, 134, 120], gap: 4, padding: 12})` and places the members) |
+| Library routes | The ornament **hugs its members**, as on every other route (PLAN §1.10, R2-2): centred, ≤ 960, compact members before anything is dropped. HA §7.1's five fixed slots (300 · 130 · 156 · 134 · 120 = 880 px, x 200–1080) run only behind C2c's flag `libFixedSlots` (off, S28), which registers `ornamentSlots('library', …)`; the shell's fixed-slot CSS and API stay for that flag. In laser mode Steam's Sort & Filter pill is the toolbar row's trailing group (§3.2), not an ornament member |
 
 **Capsule or quiet legend (material by content).**
 
@@ -313,19 +314,19 @@ One toolbar ornament per window, owned by the shell (C1a). Area concepts fill it
 - The state follows the legend's content, which follows focus; the **glass height never changes** with it (the route decides that). The capsule materializes on `materialize-in` (250 ms) and dematerializes on `materialize-out` (350 ms); the labels do not move.
 - Without T2 the ornament is always a capsule (the safe default).
 - **The dim band** (flag `quietBacking`, default `"window"`; PLAN §1.17 rule, decided by C1a, see the note below). Over a bright room, white .70 labels in the margin measure 1.1–1.5 : 1 (C1b, C1c, C1a: background L 209–236 behind "Open" and "Select"), far below VP P-39's 4.5 : 1, and the on-room shadow alone does not rescue them. So on `window` routes the quiet members sit on one soft band: black .62, 60 px tall, radius 30, its edges blurred by 7 px, spanning the quiet members with 10 px to spare; no rim, no sheen, no `backdrop-filter`, no slab in native mode. It is a shadow on the room, not glass: it darkens, it does not frost. The labels are 22 px Medium white .82 with the on-room shadow. With `quietBacking: "off"` the margin shows PLAN §1.10's bare labels. Measured on the mockups in §13.1 (contrast ≥ 4.5 : 1 over the curtain, L 236).
-- **Note for the coordinator** (REQ C1a->Coordinator in C1a's log): PLAN §1.10 fixes the quiet look as "no capsule material, labels Medium white .70"; on `window` routes that look fails the must item P-39. The band keeps "no capsule material" (it is not glass) and changes the label alpha from .70 to .82 there.
+- **Adopted** (PLAN §1.10, S27, R2-1): PLAN's quiet look ("no capsule material, labels Medium white .70") fails the must item P-39 on `window` routes, so there the band keeps "no capsule material" (it is not glass) and the labels go from .70 to .82.
 - This replaces SET §4.11's hidden ornament and its audit exception E-ORN, and revision 2's laser-mode hiding of A and B (Q13): both are withdrawn (PLAN §1.10, S5).
 
 #### 3.4.2 Members, in order, and the two input modes
 
 The shell reads the two input signals P3 sets on every Steam document (PLAN §1.4), through the one accessor `__LGS_RT.input`; revision 2's own `html.lgs-gp` / `html.lgs-laser` classes are withdrawn:
 
-- `html[data-lgs-vr-mode="gamepad" | "laser"]` (from `vrGamepadInput.IsInGamepadNav`, the getter `%{SortAndFilterContainer}` itself uses) decides **which of Steam's mode-only nodes render** (slot 1) and whether **glyph badges** show;
+- `html[data-lgs-vr-mode="gamepad" | "laser"]` (from `vrGamepadInput.IsInGamepadNav`, the getter `%{SortAndFilterContainer}` itself uses) decides **which of Steam's mode-only nodes render** (the laser Sort & Filter group, §3.2) and whether **glyph badges** show;
 - `html.lgs-input-pad` / `html.lgs-input-laser` (from `FocusNavController.NavigationSource`) decides **every state look** (hover, focus, press).
 
 | Slot | Node | Gamepad mode | Laser mode |
 |---|---|---|---|
-| 1. Laser controls | Steam's `%{SortAndFilterContainer}` (Sort with the current sort as its label; Filter), rendered by Steam only in laser mode (inventory library §6.1) | — (Steam does not render it) | Moved by T1 into the capsule's leading slot, keyed on `data-lgs-vr-mode="laser"` (it is absolutely positioned already; its buttons keep `pointer-events: auto`). Sort with a leading sort glyph and the value ("Alphabetical"); Filter with a leading filter glyph and Steam's "Filter: …" text |
+| 1. Laser controls | Steam's `%{SortAndFilterContainer}` (Sort with the current sort as its label; Filter), rendered by Steam only in laser mode and only on library routes (inventory library §6.1) | — (Steam does not render it; the same functions are the X and Y legends) | **Not an ornament member** (R2-2): the toolbar row's trailing group (§3.2), placed by C2c (D-C2c-12). Only with C2c's `libFixedSlots` does it sit in the fixed capsule's slot 1 (AT-6's fixed-slot part and AT-24 (b) run only with that flag) |
 | 2. Actions | Steam's `%{ActionButtonLegend}` nodes except A and B | All shown, label then glyph badge: "Filter X", "Sort By Y", "Options ☰" … | Every legend Steam renders is shown, labels only. Steam renders no ≡ legend under the laser (no element holds `.gpfocus`, IM §3.1), so on routes with registered More hosts (§3.4.4) the shell adds a T2 **Options** member that names the frozen target ("Options · Hollow Peaks"; no name on fixed-slot routes, §3.4.3) and dispatches like the More circle. Its label is Steam's own string for that target's ≡ action (the target's `onMenuActionDescription`), else the last ≡ legend Steam showed, else Steam's token `#LibraryHome_GameCarousel_ContextMenu` ("Options"); in laser mode a leading ⋯ glyph (the More circle's) stands where glyph badges would be. It is disabled (.38, no hover, no dispatch) when there is no target and while main's ModalManager holds any modal or context menu (in both modes, so it can never stack a second menu), and it removes itself whenever Steam renders its own ≡ legend, so there is never a duplicate. On routes with fixed slots (§3.4.1) it never leaves its slot: in gamepad mode, when Steam renders no ≡ legend (focus on the library's tab row, for example), it shows disabled in its place. On library routes it is C2c's slot 3 |
 | 3. Area slot | At most one segmented control (Steam's node, e.g. the library's VR sub-filter, if its owner's gate passes) and T2 state labels on Steam's legends (current sort, filter count) | Shown | Shown |
 | 4. Navigation | A (Select) and B (Back / Cancel / Done) legends | Quiet trailing members: Medium white .70, glyph badges | **Quiet trailing members, labels only.** Steam renders them in laser mode too (`shots/p2_lib_collections_on.png`), and they are never hidden |
@@ -453,7 +454,7 @@ Revision 1 relied on interactive crops for menus, alerts and sheets at +30–50 
 | Bottom ornament (capsule or quiet) | 0 | 0 | Inset `liquid` slab behind the capsule; no slab for the quiet legend |
 | Tab-bar ornament | **+25** | +25 | The frame-menu popup's own transform (§3.3.6) [PLAUSIBLE]; fallback Steam's +10. Never a crop |
 | Focused or hovered content card ≥ 150 px (area concepts), with the More circle inside it | +15, non-interactive crop over the cover; the laser lift starts only after 80 ms of dwell (`.lgs-dwell`) | +15, interactive | Crop over the cover |
-| Source card while its menu is open | PLAN §1.7's table: keeps +15 if it was the focused card; otherwise 0 with a CSS glow. Revision 2's +5 mm is withdrawn (it would be a fifth depth). PLAN's admission rule 6 (only the modal pops while one is open) contradicts the +15 case; until the coordinator rules (O4, §11), P6's reporter applies rule 6, so the source drops to 0 with the glow | +15 | — |
+| Source card while its menu is open | PLAN §1.7's table: keeps +15 if it was the focused card; otherwise 0 with a CSS glow. Revision 2's +5 mm is withdrawn (it would be a fifth depth). Ruled by R2-3 (PLAN §1.7): admission rule 6 holds (only the modal pops while one is open), so the source drops to 0 with the glow | +15 | — |
 | **Menus, popovers, dropdown slabs** (C1c) | **+10**, appearing with the materialize (0 → +10 on `depth`, 441 ms) | +30, growing from the source's depth | Crop + `thick` slab |
 | **Alerts** (C1c) | **+10**; **0** if it contains a destructive button (rule 4) | +30 (still 0 if destructive) | Crop + `thick` slab, or a flat `thick` plate |
 | **Sheets**, including the search sheet (C1c, C1b) | **+10** | +30 → +50 | Crop + `thick` slab |
@@ -609,24 +610,25 @@ Revision 1 used 72 px rows for every menu, which made the device's tile menu (6 
 | Items | Class | Layout | Rows | Header | Height | Width |
 |---|---|---|---|---|---|---|
 | ≤ 5 | — | One column | 72 px, 6 px apart | 40 px header row (22 px Bold, white .70) | ≤ 512 | 320–420 |
-| 6–7 | `lgs-menu-compact` | One column | **60 px visible on a contiguous 64 px pitch** (the row element is 64 px; its fill is inset 2 px) | Inline: the label as a 26 px line (19 px Semibold, white .50) at the slab's top-left | 6 actions: **502** (tile menu, measured); 7 items: 504 | 400 |
-| ≥ 8 single-level actions | `lgs-menu-grid` | **Two columns**, column-major in Steam's DOM order: `display: grid; grid-auto-flow: column; grid-template-rows: repeat(ceil(n/2), 72px)`; Cancel spans both columns as the last item | 72 px, 6 px apart, 8 px between columns | 40 px header row | Downloads Options (8): 434 | **≤ 592** (2 × 284 + 8 + 16) |
+| 6 | `lgs-menu-compact` | One column | **60 px visible on a contiguous 64 px pitch** (the row element is 64 px; its fill is inset 2 px) | Inline: the label as a 26 px line (19 px Semibold, white .50) at the slab's top-left | 6 actions: **502** (tile menu, measured) | 400 |
+| 7–10 | `lgs-menu-grid` | **Two columns**, column-major in Steam's DOM order: `display: grid; grid-auto-flow: column; grid-template-rows: repeat(ceil(n/2), 72px)`; Cancel spans both columns as the last item. Seven compact rows with a title and Cancel need 564 px, more than the 508 px box (C1c D28, R2-5) | 72 px, 6 px apart, 8 px between columns | 40 px header row | Downloads Options (8): 434 | **≤ 592** (2 × 284 + 8 + 16; columns ≥ 280) |
+| 11–14 | `lgs-menu-grid` | Two columns as above; the rows exceed the box, so the slab's row area **scrolls inside the slab**: scroll-edge fade, no scrollbar at rest (P-72), the focused row kept fully inside | As above | As above | ≤ 508 | ≤ 592 |
 
 **Value menus** (dropdowns and choices such as Sort By; PLAN §1.12):
 
 | Options | Layout |
 |---|---|
-| ≤ 8 | **Placement:** a slab anchored to its capsule, right-aligned, below, above or over it (SET §4.5). **Layout** follows the count table above: ≤ 5 one column, 6–7 compact, 8 the two-column grid (8 rows of 72 px would need 624 px) |
+| ≤ 8 | **Placement:** a slab anchored to its capsule, right-aligned, below, above or over it (SET §4.5). **Layout** follows the count table above: ≤ 5 one column, 6 compact, 7–8 the two-column grid |
 | > 8 on settings routes | SET's **list page** over the detail pane (built by C6a) |
 | 9–14 elsewhere | The two-column grid above (Sort By, 10 options: 592 × 508) |
 | ≥ 15 | One scrolling column of two-line rows (CTL C-D19) |
 
-- **Cancel** stays Steam's appended item and the last in DOM order: a 56 px quiet capsule centred under the rows, white .08 fill, Medium white .70 (HA-11).
+- **Cancel** stays Steam's appended item and the last in DOM order: a **60 px** quiet capsule (60 visible on its 60 px element, ≥ 192 wide) centred under the rows (across both columns in the grid), white .08 fill, 22 px Medium white .70, ≥ 4 px clear of the last row's fill (HA-11; 56 → 60 for VP P-80, R2-5).
 - **Exemption E-MENU** (PLAN §1.16): menu rows are ≥ 60 visible on a contiguous pitch of ≥ 64 (compact) or 78 (regular), ≥ 320 wide; this replaces the general 80 px hit rule for menu rows.
 - **Groups**: Steam's separators become 6–8 px of space, no line.
 - **Submenus** (›) open beside the menu as Steam does; their own item count chooses their layout.
 - **D-pad in the grid.** If Steam's nav node for `contextMenuContents` declares no layout, `GetLayout()` reads the grid as GEOMETRIC and the D-pad follows the picture (Left/Right between columns). If it declares `column`, Up/Down walk the same column-major order (Down from the last row of column 1 continues at the top of column 2); Left/Right do nothing. Both are usable; AT-12 records which one Steam uses.
-- AT-11b checks every case on the device: `scrollHeight == clientHeight`, Cancel inside the slab, slab ≤ 520 × 600.
+- AT-11b checks every case on the device: up to 10 items `scrollHeight == clientHeight` (no scroll); 11–14 the row area scrolls inside the slab with the focused row fully inside; Cancel inside the slab; slab ≤ 520 × 600.
 
 Shots: `p2_window-nav_menu.png` (6 actions, compact, laser hover), `p2_window-nav_sort.png` (10, grid, laser hover), `p2_window-nav_power.png` (7 grouped, grid by S24, gamepad focus).
 
@@ -736,7 +738,7 @@ PLAN §1.13: P3's tooltip layer (`device/rt/07-tooltip.js`) for in-window toolti
 | Go back | The Back circle (previous title after 0.6 s) | B |
 | Search | The search capsule, or the search circle on routes that collapse it | D-pad Up from the top row |
 | Act on the thing I looked at | The More circle inside it, or the ornament's Options member naming it (frozen target) | ☰ / X / Y / A, as the ornament's glyph badges say |
-| Page actions (sort, filter) | Ornament slot 1 (laser mode) | Y / X |
+| Page actions (sort, filter) | The toolbar row's trailing group (laser mode, library routes; R2-2) | Y / X |
 | Window controls | The window-bar row (visible with the laser) | D-pad Down from the window's bottom row → frame controls → Left/Right → A |
 | Move the window | Drag the window bar | — (as today) |
 | The dashboard bar | Point at it | View ("Cycle View"); the floating hint says so |
@@ -753,7 +755,7 @@ P3 owns the input signals (PLAN §1.4; `device/rt/04-input.js`) and sets them on
 | Signal | Source | The shell uses it for |
 |---|---|---|
 | `html.lgs-input-pad` / `html.lgs-input-laser` | `FocusNavController.NavigationSource` | Every state look on the shell's controls: laser looks on `:hover`, gamepad looks on `.gpfocus` |
-| `html[data-lgs-vr-mode="gamepad" \| "laser"]` | `vrGamepadInput.IsInGamepadNav` | Which of Steam's mode-only nodes render (ornament slot 1) and whether glyph badges show (§3.4.2) |
+| `html[data-lgs-vr-mode="gamepad" \| "laser"]` | `vrGamepadInput.IsInGamepadNav` | Which of Steam's mode-only nodes render (the laser Sort & Filter group, §3.2) and whether glyph badges show (§3.4.2) |
 
 Revision 2's own `html.lgs-gp` / `html.lgs-laser` classes are withdrawn. **Hover never moves Steam's focus** [PROVEN, IM D-7], so every delayed reveal of the shell (the Back title, the More circle, the frozen target, tooltips) is fed by P3's one attention state machine (`05-attention.js`): gamepad focus events in gamepad mode, `pointerenter` plus dwell in laser mode. Laser lift, scale and depth start only on `.lgs-dwell` (80 ms); brightness changes at once (VP P-06).
 
@@ -931,8 +933,8 @@ H2–H4 and the S rows are C1b's (`docs/phase2/wp/C1b.md`, complete for `audit/s
 |---|---|---|---|---|---|---|---|
 | F1 | Perform the focused element's actions (X, Y, ☰, A, B) | Ornament members: real buttons, label first, glyph badge trailing in gamepad mode | Click (same handler); Options acts on the frozen target | The physical button (same) | T1 + T2 | C1a | AT-6, AT-24, AT-25, PLAN-1a-1 |
 | F1-A/B | A Select / B Back legends | Quiet trailing members in **both** modes (labels only in laser mode); never hidden; alone they form the quiet legend (on the dim band in a `window` route's margin) | Click the legend (same); also a direct click on the element (Select) and the Back circle (Back) | A / B (same) | T1 | C1a | AT-24, AT-29, PLAN-1a-1 |
-| L6 | Sort (10 options), laser-mode pill | Ornament slot 1: sort glyph + "<current sort>" (library slot 1, 300 px) | Click | Y (legend "Sort By") | T1 | C1a (slot), C2c (library slots) | AT-24; PLAN-2c-1 |
-| L7 | Filter, laser-mode pill | Ornament slot 1: "Filter" (library slot 2, 130 px) | Click | X | T1 | C1a, C2c | AT-24; PLAN-2c-1 |
+| L6 | Sort (10 options), laser-mode pill | The toolbar row's trailing group (R2-2): Steam's Sort button with the current sort as its label (fixed slot 1 only with `libFixedSlots`) | Click | Y (legend "Sort By") | T1 | C2c (group), C1a (keeps the area free) | PLAN §1.10 check (C2c) |
+| L7 | Filter, laser-mode pill | The toolbar row's trailing group (R2-2): Steam's Filter button | Click | X | T1 | C2c, C1a | PLAN §1.10 check (C2c) |
 | L8 / LA A.3 | A tile's menu (Play/Install, Favorites, Add To ›, Manage ›, **Developer ›**, Properties, Cancel) | More circle inside the card; the ornament's Options member (library slot 3, no suffix: the More circle marks the frozen target; "Options · <target>" on routes without fixed slots); the compact slab (6 or 7 items) | Click the More circle, or Options (frozen target) | ☰ then D-pad + A | T1 + T2 | C1a (helper), C2c (registration), C1c (menu) | AT-25, AT-26, AT-11b |
 | SM D6 | Downloads item Options (Uninstall first, Remove, View in Library, Favorites, Add To ›, Manage ›, Developer ›, Properties) | More circle on the row; ornament Options; 8 items → two columns, Uninstall red at rest | Click | ☰ | T1 + T2 | C7 (registration), C1a, C1c | AT-26; SM F-DL |
 | SM A.10 | Legend-only groups (friend menu, media Filter, Select Game, Delete Clip, Change Device, store menu, Add to Cart) | Ornament members (labelled) or the More circle on the row | Click | The physical button (same) | T1 + T2 | C7, C1a | AT-27; SM G1–G9 |
@@ -962,7 +964,7 @@ H2–H4 and the S rows are C1b's (`docs/phase2/wp/C1b.md`, complete for `audit/s
 | C1 | Choose an item | Slab grown from its source; layout by count, no scroll up to 14 items | Click (the row under the laser lights; Steam's focus does not follow it) | D-pad + A (geometric in the grid if Steam declares no layout) | T1 + T2 | C1c | AT-11b, AT-12, C1c-1 |
 | C2 | Open a submenu | Row with ›; Steam's submenu beside it; the open parent white | Click | A or Right (same) | T1 | C1c | AT-11b (SUBMENU) |
 | C3 | Toggle a checked item | Row with the check in its leading slot | Click | A | T1 | C1c | AT-8c |
-| C4 | Dismiss | Cancel, a 56 px quiet capsule (last); an outside click | Click | B (same) | T1 | C1c | AT-11, C1c-3 |
+| C4 | Dismiss | Cancel, a 60 px quiet capsule (last; R2-5); an outside click | Click | B (same) | T1 | C1c | AT-11, C1c-3 |
 | C5 | Scroll a long menu | Value menus of ≥ 15 options: one scrolling column of two-line rows (560 × 520); settings routes > 8: C6a's list page | Wheel | D-pad | T1 | C1c, C6a | AT-11b |
 | C6 | Open the menu of the thing I looked at | The More circle inside the card or row (C1a); the menu grows from it | Click | ☰ (same) | T2 | C1a, C1c | WN AT-26, AT-11 |
 | SY A.5 | Power: Sleep, Shutdown, Restart Device, Restart Steam VR, Change Account, Sign Out, Restart Steam, Cancel | Two-group Power menu, 592 × 470; Steam's order and default focus; each item opens Steam's own confirmation or flow | Click | D-pad + A; B | T1 + T2 | C1c | CC A13, AT-11b, AT-12 (look only; never A) |
@@ -1077,14 +1079,14 @@ The user cannot be asked. Every question revision 2 left open is now decided by 
 | — | Laser dwell before lift (80 ms) | S25: adopted | On | — |
 | — | Quiet legend on `window` routes: a dim band behind the labels (§3.4.1) | C1a, under PLAN §1.17's rule: P-39 (a must) fails over a bright room without it | `"window"` | `quietBacking` (`"window"` \| `"off"`) |
 
-Still open, recorded for the coordinator (C1a's evidence log carries the detail):
+Closed by the coordinator in round R2 (PLAN §1.19):
 
-| # | Item | Default meanwhile |
+| # | Item | Ruling |
 |---|---|---|
-| O1 | PLAN §1.2's table puts achievements in `window`, while its note calls SM's quiet-legend routes (SM lists achievements among them) `window-full` | The table: achievements are `window` (§3.1.1); C5a may ask for `window-full` |
-| O2 | VP P-23 states its bottom bound as 620 (= 636 − 16); amendment A1 moved the ornament to 628 | The guard uses 612 (§3.2); V2 is asked to score P-23 at 612 |
-| O3 | PLAN §1.10's quiet look (no material, labels white .70) fails P-39 in the margin of `window` routes over a bright room | The dim band behind the labels and white .82, flag `quietBacking` (§3.4.1) |
-| O4 | PLAN §1.7: "the source card keeps +15 if it was the focused card" vs admission rule 6 (only the modal pops while one is open); raised by C2c (REQ-7) | P6's reporter applies rule 6: the source drops to 0 with the CSS glow (§3.7) |
+| O1 | PLAN §1.2's table puts achievements in `window`, while its note calls SM's quiet-legend routes (SM lists achievements among them) `window-full` | R2-10: achievements are `window` (§3.1.1) |
+| O2 | VP P-23 states its bottom bound as 620 (= 636 − 16); amendment A1 moved the ornament to 628 | R2-11: P-23 is scored at 612 (PLAN §4.4); the guard uses 612 (§3.2) |
+| O3 | PLAN §1.10's quiet look (no material, labels white .70) fails P-39 in the margin of `window` routes over a bright room | R2-1: the dim band behind the labels and white .82, flag `quietBacking` (§3.4.1, S27) |
+| O4 | PLAN §1.7: "the source card keeps +15 if it was the focused card" vs admission rule 6 (only the modal pops while one is open); raised by C2c (REQ-7) | R2-3: rule 6 holds; the source drops to 0 with the CSS glow (§3.7) |
 
 Revision 1's Q9 (Power as a grid) is closed by S24.
 

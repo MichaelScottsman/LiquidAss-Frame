@@ -14,6 +14,15 @@ mode (`native-session` reported "back to CSS only: yes"), every step's flags pop
 left, pointer at (1400, 900) after every hover step, no menu or dialog left open (13:35: route `/library/home`, 0
 modals, `native` false; the `wp.c1a`/`wp.p3` keys then in `/tmp/lgs/flags.json` belong to other agents' running steps).
 Besides this file, only the lab's own captures `shots/p2_c1a_r2_*.png` were written; no package file was touched.
+Re-checked 15:15 after a pause (no device change): C1a's files (`theme/20-shell.css`, `theme/layers/20-shell.json`,
+`theme/vr/10-systemui.css`, `device/rt/20-shell.js`) and `wp/C1a.md` are unchanged since this review; every request in
+"Requests to C1a" is still open; P3's 14:42 edit of `05-attention.js` keeps `attend().off()` silent (no `onLeave`), so
+m1 stands; `glass.py status`: theme on, no unresolved tokens. The findings below stand as written.
+Re-checked again 16:22 (a quick pass at the user's request): every C1a file still dated 08:33 or earlier (`wp/C1a.md`
+11:00); no request to C1a newly answered; `device/defaults.json` still absent and `lgs_layers.js` (edited 13:18) still
+applies a fragment's `owns` fields whatever its `flag` (l. 246–283), so M2 stands; under the lab updated since
+(`lab_gates.js` and others), `gates vr:systemui --flags wp.c1a --mode pad --only outline` (16:22, `native=off`) still
+fails OUTLINE ×2 on `%{ControllerStatusRoot} %{LargeStatusArea}::before` (M1). `glass.py status` afterwards: css-only.
 
 ## Verdict in one paragraph
 

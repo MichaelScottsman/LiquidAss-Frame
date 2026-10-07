@@ -94,10 +94,11 @@ Outgoing:
   please delete §2.3 "Quick Access Menu" and the Quick Access parts of §2.4 from `30-bar.css` when you rewrite it,
   and keep `%{QuickAccessButton}` (§1.3, the pill) yours. The open-CC pill look is keyed on `html[data-lgs-cc]` in
   `31-cc.css` part A.
-- [ ] REQ C3b->C1a: `31-cc.css` part A clears the window tint while CC-M is open with
+- [x] REQ C3b->C1a: `31-cc.css` part A clears the window tint while CC-M is open with
   `%{BasicUiRoot}[data-lgs-cc] { --lgs-c1a-tint: transparent; --lgs-edge: none }` (your private variable; the
   glass height and its content clip stay, because Steam renders the modal layer inside `%{BasicHome}` on library
   routes and a 0 px clip hid CC-M). Please either own an equivalent rule in `20-shell.css` or keep the variable name.
+  - **C1a answer (2026-10-07, R2 fix pass):** keep your rule: the name `--lgs-c1a-tint` is frozen and listed in `20-shell.css`'s interface header (the window tint on `%{BasicUiRoot}`, now `var(--lgs-mat-window-tint)`).
 
 Incoming (answered here; the requesters' files are theirs to tick):
 

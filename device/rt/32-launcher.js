@@ -16,10 +16,15 @@
 //       - the list is wrapped in our panel (.lgs-c2b-panel, which also carries Steam's
 //         DashboardBarPopupContents class so P6's barpopup cover covers it in native mode), and
 //         a pinned Liquid Glass toggle row is added below the grid, outside its focus group.
-//     The toggle row launches the switch through P2's logged action, never Steam's handler
-//     directly, and applies the LQ10 order: when main is on one of our /library/lgs/* routes it
-//     first navigates main to /library/home (replace) and waits for the route to settle
-//     (PLAN-2b-3). In test mode both calls are logged, never run.
+//     The toggle row launches the switch through P2's logged action and applies the LQ10 order:
+//     when main is on one of our /library/lgs/* routes it first navigates main to /library/home
+//     (replace) and waits for the route to settle (PLAN-2b-3). In test mode both calls are
+//     logged, never run.
+//     It fails closed (review R2 B1): Steam's own switch row element rides along in the pinned
+//     slot, and whenever P2's launch cannot run (the optional useNonSteamApps finder is missing,
+//     its scan has not answered yet, or launchNonSteam comes back refused) the press goes to
+//     Steam's own row handler instead (live), or is logged as "c2b.steamRow" (test mode). So the
+//     theme can always be switched off from "+" (HA-10).
 //
 // Strings: the toggle title is the program's own name; "Glass Shell is on" is drawn only when
 // Steam's UI language starts with "en" (PLAN 1.15). Nothing persists; remove() restores all.
@@ -34,7 +39,7 @@ __LGS_RT.define({
   deps: [],
   flag: 'wp.c2b',
   install(rt) {
-    const S = { rt, R: null, handle: null, busy: false, t3: false, t3Error: null, marked: 0 };
+    const S = { rt, R: null, handle: null, busy: false, t3: false, t3Error: null, marked: 0, steamRowLog: [] };
     LAUNCHER_STATE.cur = S;
 
     // ---------------------------------------------------------------- T2: tag the switch row
@@ -74,7 +79,7 @@ __LGS_RT.define({
     }
 
     return {
-      status: () => ({ t3: S.t3, t3Error: S.t3Error, patch: S.handle ? { count: S.handle.count, live: S.handle.live } : null, marked: S.marked }),
+      status: () => ({ t3: S.t3, t3Error: S.t3Error, patch: S.handle ? { count: S.handle.count, live: S.handle.live } : null, marked: S.marked, steamRow: S.steamRowLog.slice() }),
       // lab hook (PLAN-2b-3): run the toggle row's action path with a synthetic event; in test mode
       // P2 logs both calls and runs neither
       toggleForTest: (cmdline) => runToggle(S, { cmdline: String(cmdline || 'lgs-test') }, null, null),
@@ -171,7 +176,9 @@ function installT3(S) {
   function Toggle(props) {
     // P2's hook: Steam's own scan, which carries the switch's command line (the action logger
     // needs it; Steam's row handler is never called directly)
-    const apps = R.data.useNonSteamApps({ enabled: true, includeLiquidGlass: true });
+    // (P2's hook throws only before its own hooks run, so the hook order stays fixed)
+    let apps = null;
+    try { apps = R.data.useNonSteamApps({ enabled: true, includeLiquidGlass: true }); } catch (_) { apps = null; }
     const entry = Array.isArray(apps) ? apps.find((a) => a.isLiquidGlass) || null : null;
     let lang = 'english';
     try { lang = String(R.ui.lang() || 'english'); } catch (_) { /* default */ }
@@ -184,7 +191,9 @@ function installT3(S) {
       'aria-label': title,
       'data-lgs-wait': entry ? undefined : 'scan',
       noFocusRing: true,
-      onActivate: (e) => { if (entry) runToggle(S, entry, e, props.popupRef); },
+      // never inert: without P2's entry (finder missing, scan pending) or with a refused launch,
+      // the press goes to Steam's own switch row (props.lg) inside runToggle
+      onActivate: (e) => { runToggle(S, entry, e, props.lg); },
       children: [
         jsx('div', { className: 'lgs-c2b-toggle-disc', 'aria-hidden': 'true', children: props.icon || null }, 'i'),
         jsxs('div', { className: 'lgs-c2b-toggle-text', children: [
@@ -208,7 +217,7 @@ function installT3(S) {
       noFocusRing: true,
       children: [
         jsx(React.Fragment, { children: props.contents }, 'list'),
-        props.lg ? jsx(Toggle, { icon: props.lg.props.icon, popupRef: props.popupRef }, 'lg') : null,
+        props.lg ? jsx(Toggle, { icon: props.lg.props.icon, lg: props.lg, popupRef: props.popupRef }, 'lg') : null,
       ],
     });
   }
@@ -245,8 +254,28 @@ function toggleRowOn(rt) {
   try { return rt.flags.get('c2bToggle') === true || rt.flags.get('actionsLive') === true; } catch (_) { return false; }
 }
 
-// The toggle row's action (LQ10 order): leave our routes first, then Steam's launch of the switch.
-async function runToggle(S, entry, ev, popupRef) {
+// Steam's own switch row handler, for the cases P2's launch cannot cover (B1). Live: Steam's
+// row's onActivate (Steam's LaunchNonSteamApp of the switch). Test mode (P2's rules, the same
+// reasons as every action): logged as "c2b.steamRow", never run.
+function steamRowPress(S, steamRow, ev, why) {
+  const fn = steamRow && steamRow.props && steamRow.props.onActivate;
+  const e = { t: Date.now(), fn: 'c2b.steamRow', arg: LG_NAME, mode: 'executed', reason: why };
+  let reasons = [];
+  try { reasons = S.R.actions.mode(ev).reasons || []; } catch (_) { reasons = ['test state unreadable (fail closed)']; }
+  if (typeof fn !== 'function') { e.mode = 'refused'; e.reason = why + '; Steam\'s row handler missing'; }
+  else if (reasons.length) { e.mode = 'logged'; e.reason = why + '; ' + reasons.join('; '); }
+  else { try { fn(ev); } catch (err) { e.mode = 'error'; e.reason = why + '; ' + String((err && err.message) || err); } }
+  S.steamRowLog.push(e);
+  if (S.steamRowLog.length > 20) S.steamRowLog.splice(0, S.steamRowLog.length - 20);
+  if (e.mode !== 'executed') {
+    try { const t = S.rt.test && S.rt.test.actions; if (t && typeof t.record === 'function') t.record({ fn: e.fn, arg: e.arg, mode: e.mode, reason: e.reason, detail: null }); } catch (_) { /* no logger */ }
+  }
+  return { fn: e.fn, arg: e.arg, mode: e.mode, reason: e.reason };
+}
+
+// The toggle row's action (LQ10 order): leave our routes first, then the launch of the switch:
+// P2's launchNonSteam with the scanned command line, or Steam's own row when that cannot run.
+async function runToggle(S, entry, ev, steamRow) {
   const R = S && S.R;
   if (!R || S.busy) return null;
   S.busy = true;
@@ -267,7 +296,11 @@ async function runToggle(S, entry, ev, popupRef) {
         }
       }
     }
-    done.push(R.actions.launchNonSteam(entry.cmdline, ev));
+    let r = null;
+    if (entry && entry.cmdline) r = R.actions.launchNonSteam(entry.cmdline, ev);
+    if (!r) r = steamRowPress(S, steamRow, ev, 'the switch is not in P2\'s scan (finder missing or scan pending)');
+    else if (r.mode === 'refused') r = steamRowPress(S, steamRow, ev, 'P2 launch refused: ' + (r.reason || ''));
+    done.push(r);
     return done;
   } finally {
     S.busy = false;

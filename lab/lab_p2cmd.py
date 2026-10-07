@@ -405,6 +405,7 @@ def gates(args):
            **stamp(), "gates": {}}
     g = res["gates"]
     with Lock(surface=surface):
+        res.update(stamp())   # build, date and native as the step runs: the lock wait can be minutes (session 5)
         restore_on = theme == "off" and not surface.startswith("vr:") and __import__("lgs").is_on()
         try:
             _gates_body(surface, sj, S, route, pre, only, keep, rest_ms, theme, res, g)
@@ -506,6 +507,7 @@ def pad_bfs(args):
     flag(args, "--json")
     res = {"route": route, **stamp(), "step": {"flags": dict(STEP["flags"]), "mode": STEP["mode"], "stock": STEP["stock"]}}
     with Lock():
+        res.update(stamp())   # build, date and native as the step runs: the lock wait can be minutes (session 5)
         if route:
             lab_js(f"L.nav({json.dumps(route)})")
             time.sleep(1.5)
@@ -559,6 +561,7 @@ def focus_live(args):
     pairs = json.loads(opt(args, "--pairs-json") or opt(args, "--pairs") or "[]")   # --pairs: inline JSON (native-session steps)
     settle = float(opt(args, "--settle", 0.8))
     keep = opt(args, "--keep")          # a name prefix: captures kept as shots/<keep>_<n>.png
+    room = opt(args, "--room")          # read on the PC (focus_finish): what translucent texels are seen over
     surface = args[0]
     sj = surf_js(surface)
     states = []
@@ -569,8 +572,9 @@ def focus_live(args):
                 states.append(st)
     res = {"surface": surface, "route": route, **stamp(),
            "step": {"flags": dict(STEP["flags"]), "mode": STEP["mode"], "media": list(STEP["media"]), "stock": STEP["stock"]},
-           "states": [], "pairsIn": pairs, "keep": keep}
+           "states": [], "pairsIn": pairs, "keep": keep, "room": room}
     with Lock(surface=surface):
+        res.update(stamp())   # build, date and native as the step runs: the lock wait can be minutes (session 5)
         try:
             if route:
                 lab_js(f"L.nav({json.dumps(route)})")
@@ -657,6 +661,7 @@ def motion(args):
     if selftest:
         res["selftest"] = {"ms": float(selftest)}
     with Lock(surface=surface):
+        res.update(stamp())   # build, date and native as the step runs: the lock wait can be minutes (session 5)
         try:
             if route:
                 lab_js(f"L.nav({json.dumps(route)})")
@@ -664,7 +669,15 @@ def motion(args):
             # Let anything already running settle, so the strip holds only what the pre starts.
             time.sleep(0.3)
             res["before"] = lab_js(f"L.gates.atRest({S})", surface=sj)
-            os.remove(capture_remote(surface, f"_warm_{os.getpid()}"))   # brings the surface to the front
+            # The warm-up capture brings the surface to the front. A popup the pre opens (`motion barpopup`: the
+            # "+" popup) is not shown yet: its window renders no frame and its capture waits until the CDP timeout
+            # (REQ C2b-R2->P10, session 5). Then the warm-up is taken after the pre, with its animations paused.
+            shown = lab_js(f"(() => {{ try {{ return L.surface({S}).document.visibilityState; }} "
+                           f"catch (e) {{ return 'none'; }} }})()", surface=sj)
+            warm_after = shown != "visible"
+            res["warm"] = "after the pre (the surface was not shown before it)" if warm_after else "before the pre"
+            if not warm_after:
+                os.remove(capture_remote(surface, f"_warm_{os.getpid()}"))
             lab_js(f"L.motion.mark({S})", surface=sj)        # what runs now is not part of the strip
             if pre == MOTION_PROBE:
                 res["selftest"]["boxes"] = lab_js(f"(() => {{ const r = L.motion.probe({S}, {float(selftest)}); "
@@ -682,6 +695,11 @@ def motion(args):
                 if STEP.get("hover"):
                     run_pre(None, surface)
                     lab_js(f"L.motion.freeze({S})", surface=sj)
+            if warm_after:
+                try:
+                    os.remove(capture_remote(surface, f"_warm_{os.getpid()}"))
+                except Exception as e:  # noqa: BLE001 - the frames below say whether the surface renders
+                    res["warmError"] = str(e)[:200]
             anims = lab_js(f"L.motion.list({S})", surface=sj)
             res["animations"] = anims
             res["nonToken"] = lab_js(f"L.gates.motionAudit(L.motion.list({S}))", surface=sj)
@@ -709,6 +727,7 @@ def motion(args):
         res["atRest"] = lab_js(f"L.gates.atRest({S})", surface=sj)
         res["dpr"] = lab_js(f"L.surface({S}).devicePixelRatio", surface=sj)
         res["width"] = lab_js(f"L.surface({S}).innerWidth", surface=sj)
+        res["m"] = lab_js(f"L.gates.mOf({S})", surface=sj)     # D2 2.5 multiplier: P-53's 600 px is 600 x m here
         if route:
             lab_js(f"L.nav({json.dumps(route)})")
     print("@@motion " + json.dumps(res), flush=True)
@@ -768,6 +787,7 @@ def sgcheck_live(args):
     except (OSError, ValueError):
         extra = {}
     with Lock(both=True):
+        res.update(stamp())   # build, date and native as the step runs: the lock wait can be minutes (session 5)
         if route:
             lab_js(f"L.nav({json.dumps(route)})")
             time.sleep(1.2)
@@ -826,6 +846,7 @@ def cmp_rects(args):
            "step": {"flags": dict(STEP["flags"]), "mode": STEP["mode"], "media": list(STEP["media"]), "stock": STEP["stock"]}}
     surf = cap.split(":", 1)[0] if cap else (items[0].get("surface", "main") if items else "main")
     with Lock(surface=surf):
+        res.update(stamp())   # build, date and native as the step runs: the lock wait can be minutes (session 5)
         if route:
             lab_js(f"L.nav({json.dumps(route)})")
             time.sleep(1.2)
@@ -878,6 +899,7 @@ def conformance(args):
            "gates": {}}
     g = res["gates"]
     with Lock(surface=surface):
+        res.update(stamp())   # build, date and native as the step runs: the lock wait can be minutes (session 5)
         lab_js(f"(L.gates.exemptions({json.dumps(load_exemptions())}), 1)", surface=sj)
         if route:
             lab_js(f"L.nav({json.dumps(route)})")

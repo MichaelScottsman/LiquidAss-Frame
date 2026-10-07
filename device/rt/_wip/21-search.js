@@ -70,6 +70,7 @@ function searchSetQuery(q) {
   if (!f) return false;
   const w = f.ownerDocument.defaultView;
   const set = Object.getOwnPropertyDescriptor(w.HTMLInputElement.prototype, 'value').set;
+  if (SS && q) SS.fresh = 0;     // a query we set (Recent Searches) is not Steam's stale one
   if (SS) SS.selfSet = true;
   try {
     set.call(f, q);
@@ -78,14 +79,18 @@ function searchSetQuery(q) {
   return true;
 }
 // A fresh activation starts empty (WN §4.4 "Activated, empty"): Steam's search store keeps the last query
-// and shows it again on /search. Within 1 s of activation and before any keystroke, that stale query goes
-// to Recent Searches and the field is cleared through Steam's own handler (what its × does).
+// and shows it again on /search. Within 1 s of activation and before any keystroke, that stale query is
+// cleared through Steam's own handler (what its × does), and the sheet shows the zero state from its first
+// paint. It is not added to Recent Searches: that list holds this session's queries (WN §4.5), and a query
+// typed while search was ours is already in it (review R2 m13).
+function searchStale(q) {
+  return !!(q && SS && SS.fresh && Date.now() <= SS.fresh && !SS.typed);
+}
 function searchClearStale() {
   if (!SS || !SS.fresh || Date.now() > SS.fresh || SS.typed) return;
   const q = searchQuery();
   if (!q) return;
   SS.fresh = 0;
-  searchRemember(q);
   searchSetQuery('');
   searchNotify();
 }
@@ -98,6 +103,123 @@ function searchRemember(q) {
 function searchNotify() {
   if (!SS) return;
   for (const fn of Array.from(SS.subs)) { try { fn(); } catch (_) { /* a dead view */ } }
+}
+
+// T2 on Steam's search page (results and categories): its tab-row segments carry data-lgs-exempt="E-SEG"
+// (PLAN §1.16: judged as segments, contiguous, >= 60 x 120 compact), and Steam's "No Results Found" carries
+// the query in data-lgs-q, which 21-search.css echoes under it in quotes (P-62). Attributes only: Steam's
+// text and nodes stay Steam's. Removed on unmount and on removal.
+function searchDecorate(d) {
+  if (!SS || !d) return;
+  const rt = SS.rt;
+  try {
+    for (const t of d.querySelectorAll(rt.sel('%{GamepadSearch} %{GamepadTabbedPage>Tab}'))) {
+      if (t.closest('.lgs-snap')) continue;
+      if (t.getAttribute('data-lgs-exempt') !== 'E-SEG') t.setAttribute('data-lgs-exempt', 'E-SEG');
+    }
+    const q = searchQuery().trim();
+    for (const n of d.querySelectorAll(rt.sel('%{GamepadSearch} %{NoResultsFound}'))) {
+      if (n.closest('.lgs-snap')) continue;
+      if (!q) { n.removeAttribute('data-lgs-q'); continue; }
+      if (n.getAttribute('data-lgs-q') !== q) n.setAttribute('data-lgs-q', q);
+    }
+  } catch (_) { /* a token missing on this build: no decoration */ }
+}
+function searchUndecorate(d) {
+  if (!d || !SS) return;
+  try {
+    const tab = SS.rt.sel('%{GamepadTabbedPage>Tab}');
+    for (const e of d.querySelectorAll('[data-lgs-exempt="E-SEG"]')) if (e.matches(tab)) e.removeAttribute('data-lgs-exempt');
+    for (const e of d.querySelectorAll('[data-lgs-q]')) e.removeAttribute('data-lgs-q');
+  } catch (_) { /* gone */ }
+}
+
+// ---------------------------------------------------------------------------------------------------
+// Focus memory (AT-9c, VP P-21): B gives focus back to the card you left. Steam's own focus history puts
+// it on the last node the D-pad crossed on that page (the "All Games" tab after Up through the tab row), or
+// nowhere after a tabbed page's B. So the last content card that took DOM focus on a page (gamepad focus
+// moves DOM focus) is remembered, and after a leave back to that route it takes Steam's focus again through
+// its own nav node, found at the same place on the remounted page (Steam restores the scroll).
+
+function searchNavNode(el) {
+  const R = SS && SS.R;
+  for (let f = el && R ? R.fiber.of(el) : null, i = 0; f && i < 12; i++, f = f.return) {
+    const n = f.memoizedProps && f.memoizedProps.node;
+    if (n && typeof n.BTakeFocus === 'function') return n;
+  }
+  return null;
+}
+function searchTrackFocus(t) {
+  if (!SS || !t || t.nodeType !== 1 || !t.getBoundingClientRect) return;
+  let path = '';
+  try { path = SS.R.nav.route(); } catch (_) { return; }
+  if (searchOnRoute(path)) return;
+  if (t.closest('#header, #Footer, .lgs-snap')) return;
+  const r = t.getBoundingClientRect();
+  // content cards (posters, tiles, Home's cells): both sides >= 100 px; not rows, tabs or the page itself
+  if (Math.min(r.width, r.height) < 100 || r.width > 640 || r.height > 560) return;
+  SS.lastCard = { el: t, route: path, cx: r.left + r.width / 2, cy: r.top + r.height / 2, w: r.width, h: r.height, at: Date.now() };
+}
+function searchFindCard(d, src) {
+  if (src.el && src.el.isConnected) return src.el;
+  let list = [];
+  try { list = d.elementsFromPoint(src.cx, src.cy); } catch (_) { return null; }
+  let away = '.lgs-search-zero, .lgs-search-layer, #header, #Footer';
+  try { away += ', ' + SS.rt.sel('%{GamepadSearch}'); } catch (_) { /* token */ }
+  for (const e of list) {
+    if (e.closest(away)) continue;
+    for (let x = e, i = 0; x && i < 6; x = x.parentElement, i++) {
+      const r = x.getBoundingClientRect();
+      if (Math.abs(r.width - src.w) <= src.w * 0.12 && Math.abs(r.height - src.h) <= src.h * 0.12 && searchNavNode(x)) return x;
+    }
+  }
+  return null;
+}
+function searchRestoreFocus(src) {
+  if (!SS || !src) return;
+  const R = SS.R;
+  let n = 0;
+  const attempt = () => {
+    if (!SS || SS.restoreFor !== src) return;
+    let ok = false;
+    try {
+      if (R.nav.route() !== src.route) return;          // you went on elsewhere
+      const d = R.nav.win().document;
+      const el = searchFindCard(d, src);
+      if (el && el.classList.contains('gpfocus')) ok = true;
+      else if (el) {
+        const node = searchNavNode(el);
+        try { const tree = node.m_Tree; if (tree && typeof tree.Activate === 'function') tree.Activate(); } catch (_) { /* no tree */ }
+        node.BTakeFocus(3);
+        ok = el.classList.contains('gpfocus');
+        SS.restored = (SS.restored || 0) + 1;
+      }
+      // the card is gone (another sort, a removed game): at least one focused element (P-13)
+      if (!el && n >= 2 && !d.querySelector('.gpfocus')) R.nav.focusRoot();
+    } catch (e) { SS.rt.log('search: focus restore', String(e && e.message || e)); }
+    if (!ok && ++n < 4) SS.rt.setTimeout(attempt, 350);
+  };
+  SS.rt.setTimeout(attempt, 420);
+}
+
+// ---------------------------------------------------------------------------------------------------
+// Leaving (WN §4.4, §4.9): every leave is Steam's NavigateBack or a navigation. The history event starts
+// the dismiss at once (html.lgs-c1b-leaving: content, then glass, done by 200 ms) instead of after Steam's
+// 0.8-1.1 s route exit, plays HideModal once (not when the Back circle already played Steam's), and gives
+// focus back to the card you left.
+
+function searchLeave(to) {
+  if (!SS || SS.leaving) return;
+  SS.leaving = true;
+  let html = null;
+  try { html = SS.R.nav.win().document.documentElement; } catch (_) { /* gone */ }
+  if (html) { html.classList.add('lgs-c1b-leaving'); html.classList.remove('lgs-c1b-presented'); }
+  const steamSounded = SS.hdrAt && Date.now() - SS.hdrAt < 1500;
+  if (!steamSounded && SS.P && typeof SS.P.sound === 'function') { try { SS.P.sound('sheetOut'); } catch (_) { /* no sound */ } }
+  const src = SS.source;
+  SS.source = null;
+  if (src && src.route === to) { SS.restoreFor = src; searchRestoreFocus(src); }
+  // the class goes when the route unmounts, when search mounts again, and on removal
 }
 
 // ---------------------------------------------------------------------------------------------------
@@ -148,15 +270,26 @@ function searchTakeSnapshot() {
       if (a[i].scrollTop || a[i].scrollLeft) scroll.push([b[i], a[i].scrollTop, a[i].scrollLeft]);
     }
   } catch (_) { /* no scrollers */ }
-  // the Large Title (C1a, #header > .lgs-title) rides along at its place
+  // the Large Title (C1a, #header > .lgs-title) rides along at its place, with its own computed type and
+  // box written inline: C1a's rules key on #header > .lgs-title, which the clone is not (review R2 M3)
   let title = null;
   const lt = d.querySelector('#header > .lgs-title');
   if (lt) {
     const r = lt.getBoundingClientRect();
     if (r.width > 0) {
+      const cs = w.getComputedStyle(lt);
       title = lt.cloneNode(true);
       title.removeAttribute('id');
-      title.style.cssText += ';position:absolute;left:' + r.left + 'px;top:' + r.top + 'px;margin:0;';
+      for (const e of title.querySelectorAll('[id]')) e.removeAttribute('id');
+      const css = {
+        position: 'absolute', left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px',
+        right: 'auto', bottom: 'auto', margin: '0', 'box-sizing': 'border-box',
+        'font-family': cs.fontFamily, 'font-size': cs.fontSize, 'font-weight': cs.fontWeight, 'line-height': cs.lineHeight,
+        'letter-spacing': cs.letterSpacing, 'text-transform': cs.textTransform, color: cs.color, 'text-shadow': cs.textShadow,
+        padding: cs.padding, display: cs.display, 'align-items': cs.alignItems, 'justify-content': cs.justifyContent,
+        'white-space': 'nowrap', overflow: 'hidden', 'text-overflow': 'ellipsis', opacity: cs.opacity, visibility: 'visible',
+      };
+      for (const k of Object.keys(css)) { try { title.style.setProperty(k, css[k], 'important'); } catch (_) { /* skip */ } }
     }
   }
   return { node, scroll, title, from: R.nav.route(), ms: Date.now() - t0 };
@@ -165,7 +298,7 @@ function searchTakeSnapshot() {
 function searchOnFocusIn(ev) {
   if (!SS) return;
   const f = ev.target;
-  if (!f || f.tagName !== 'INPUT') return;
+  if (!f || f.tagName !== 'INPUT') { if (ev.type === 'focusin') searchTrackFocus(f); return; }
   const field = searchField();
   if (f !== field) return;
   const R = SS.R;
@@ -174,6 +307,12 @@ function searchOnFocusIn(ev) {
   SS.query = searchQuery();
   SS.fresh = Date.now() + 1000;
   SS.typed = false;
+  SS.leaving = false;
+  // the card to give focus back to: the last one focused on this page, when the D-pad (not the laser)
+  // brought focus to the field
+  const lc = SS.lastCard;
+  const viaPointer = ev.type === 'pointerdown';
+  SS.source = (!viaPointer && lc && lc.route === path && Date.now() - lc.at < 10 * 60 * 1000) ? lc : null;
   try { SS.snap = searchTakeSnapshot(); } catch (e) { SS.snap = null; SS.rt.warn('snapshot failed', String(e && e.message || e)); }
   SS.seeAll = false;
   // Steam itself navigates only on the first keystroke; activation opens the sheet now (WN §4.3)
@@ -187,6 +326,10 @@ function searchOnInput(ev) {
   if (!SS) return;
   if (ev.target !== searchField()) return;
   if (!SS.selfSet) SS.typed = true;
+  searchQueryChanged();
+}
+function searchQueryChanged() {
+  if (!SS) return;
   const q = searchQuery();
   if (SS.query !== q) {
     SS.query = q;
@@ -196,6 +339,20 @@ function searchOnInput(ev) {
     SS.memT = SS.rt.setTimeout(() => { SS.memT = null; searchRemember(SS.query); }, 1200);
     searchNotify();
   }
+  try { searchDecorate(SS.R.nav.win().document); } catch (_) { /* gone */ }
+}
+// Steam's × clears the field without an input event: a click in the header's search container reads the
+// query again shortly after (nothing runs while the sheet is idle; review R2 m1). A click elsewhere in the
+// header (the Back circle) is noted, because Steam then plays its own HideModal (C1b-9).
+function searchOnHeaderClick(ev) {
+  if (!SS) return;
+  const t = ev.target;
+  if (!t || !t.closest || !t.closest('#header')) return;
+  const rt = SS.rt;
+  let inField = false;
+  try { inField = !!t.closest(rt.sel('%{SearchAndTitleContainer}')); } catch (_) { /* token */ }
+  if (!inField) { SS.hdrAt = Date.now(); return; }
+  for (const ms of [60, 300]) rt.setTimeout(() => searchQueryChanged(), ms);
 }
 
 function searchOnDimClick(ev) {
@@ -209,6 +366,8 @@ function searchOnDimClick(ev) {
     if (t.closest('.lgs-search-zero') || t.closest(rt.sel('%{GamepadSearch} > %{GamepadTabbedPage}'))) return;
     if (t.closest('.lgs-search-zero, [role="dialog"]')) return;
   } catch (_) { return; }
+  // the keyboard rose for the field; leaving by the dimmed page is our path, so it goes with the sheet (m7)
+  try { const K = R.nav.win().SteamClient.OpenVR.Keyboard; if (K && typeof K.Hide === 'function') K.Hide(); } catch (_) { /* no keyboard API */ }
   R.nav.back();
 }
 
@@ -236,7 +395,8 @@ function searchCandidates(query, slot) {
   const R = SS.R;
   for (const rec of SS.providers.values()) {
     if (rec.failed || rec.slots.indexOf(slot) < 0) continue;
-    const t0 = Date.now();
+    const now = () => { try { return SS.rt.W.performance.now(); } catch (_) { return Date.now(); } };
+    const t0 = now();
     let list = null;
     try {
       list = rec.spec.rank(query, { steamBest: null, lang: R.ui.lang() });
@@ -245,9 +405,9 @@ function searchCandidates(query, slot) {
       SS.rt.warn('search provider failed; disabled for the session', { id: rec.spec.id, error: String(e && e.message || e) });
       continue;
     }
-    const ms = Date.now() - t0;
+    const ms = Math.round((now() - t0) * 100) / 100;
     rec.calls++; rec.ms = ms;
-    if (ms > SEARCH_RANK_MS * 4) { rec.skipped++; SS.rt.log('search provider slow; skipped for this query', { id: rec.spec.id, ms }); continue; }
+    if (ms > SEARCH_RANK_MS) { rec.skipped++; SS.rt.log('search provider slow; skipped for this query', { id: rec.spec.id, ms }); continue; }
     for (const c of Array.isArray(list) ? list : []) {
       if (!c || !c.name) continue;
       if (/liquid glass/i.test(String(c.name)) || (c.data && c.data.isLiquidGlass)) continue;
@@ -296,21 +456,26 @@ function searchComponents(R, rt) {
   // a failing URL steps to the next one
   function Disc({ g }) {
     const A = React.useMemo(() => { try { return R.data.art(g.appid); } catch (_) { return null; } }, [g.appid]);
+    // every candidate in Steam's order, custom art first (a shortcut lists .jpg and .png and one exists,
+    // as Home's homeArt), then Steam's cached assets; each failed load moves on to the next (m5)
     const list = React.useMemo(() => {
       if (!A) return [];
+      const L = (...xs) => [].concat(...xs.map((x) => (Array.isArray(x) ? x : (x ? [x] : [])))).filter(Boolean);
+      const cu = A.custom || {};
+      const logos = L(cu.logo, A.logo);
       const out = [];
-      const hero = (A.custom && A.custom.hero[0]) || A.hero;
-      if (hero) out.push({ src: hero, logo: (A.custom && A.custom.logo[0]) || A.logo });
-      for (const u of A.portrait || []) out.push({ src: u });
-      if (A.header) out.push({ src: A.header });
+      for (const u of L(cu.hero, A.hero)) out.push({ src: u, logos });
+      for (const u of L(cu.portrait, A.portrait)) out.push({ src: u });
+      for (const u of L(A.header)) out.push({ src: u });
       return out;
     }, [A]);
     const [i, setI] = React.useState(0);
-    const [logoOk, setLogoOk] = React.useState(true);
+    const [li, setLi] = React.useState(0);
     const cur = list[i] || null;
+    const logo = cur && cur.logos ? cur.logos[li] : null;
     const kids = [];
     if (cur) kids.push(jsx('img', { src: cur.src, alt: '', onError: () => setI(i + 1) }, 'a' + i));
-    if (cur && cur.logo && logoOk) kids.push(jsx('img', { className: 'lgs-search-logo', src: cur.logo, alt: '', onError: () => setLogoOk(false) }, 'l'));
+    if (logo) kids.push(jsx('img', { className: 'lgs-search-logo', src: logo, alt: '', onError: () => setLi(li + 1) }, 'l' + li));
     if (!cur) kids.push(jsx('span', { className: 'lgs-search-mono', children: String(g.name || '?').slice(0, 1).toUpperCase() }, 'm'));
     return jsx('div', { className: 'lgs-search-disc', children: kids });
   }
@@ -333,9 +498,8 @@ function searchComponents(R, rt) {
         children: games.map((g) => jsxs(c.Focusable, {
           className: 'lgs-search-game', noFocusRing: true, 'data-lgs-appid': g.appid,
           onActivate: (e) => { R.actions.navigate(searchAppPath(R, g.appid), {}, e); },
+          // A and B only (WN §4.5, §4.9: the zero state's ornament is the quiet legend; review R2 M5)
           onOKActionDescription: open, onCancel: back, onCancelActionDescription: backL,
-          onSecondaryButton: (e) => R.actions.primary(g.appid, e),
-          onSecondaryActionDescription: searchStr(R, 'play') || undefined,
           children: [jsx(Disc, { g }, 'd'), jsx('div', { className: 'lgs-search-name', children: g.name }, 'n')],
         }, g.appid)),
       }, 'games'));
@@ -376,25 +540,48 @@ function searchComponents(R, rt) {
     const path = (props.location && props.location.pathname) || R.nav.route();
     const q = searchQuery();
     if (SS) SS.query = q;
-    // the header's field takes Steam's stored query in the same commit as this route, and Steam's ×
-    // clears it without an input event: re-check after every commit (before paint) and while open
+    // the header's field takes Steam's stored query in the same commit as this route: re-check after every
+    // commit (before paint). Steam's × is read again by the header click listener; no timer runs at rest.
     React.useLayoutEffect(() => { searchClearStale(); if (SS && searchQuery() !== q) searchNotify(); });
+    const all = /^\/search\/?$/.test(path) || /^\/search\/tab\/all\/?$/i.test(path);
+    // Steam's stale query (cleared by the layout effect above) never shows as results: the zero state is
+    // on screen from the first paint, and the glass has its zero-state geometry from that paint (M7)
+    const zero = (!q || searchStale(q)) && all && !(SS && SS.seeAll);
+    const zeroAtMount = React.useRef(zero);
     React.useEffect(() => {
       if (!SS) return undefined;
-      return SS.rt.setInterval(() => { searchClearStale(); if (SS && searchQuery() !== SS.query) { SS.query = searchQuery(); searchNotify(); } }, 300);
-    }, []);
-    const all = /^\/search\/?$/.test(path) || /^\/search\/tab\/all\/?$/i.test(path);
-    const zero = !q && all && !(SS && SS.seeAll);
-    React.useEffect(() => {
-      if (SS && SS.P && typeof SS.P.sound === 'function') { try { SS.P.sound('sheetIn'); } catch (_) { /* no sound */ } }
+      const s = SS;
+      let html = null;
+      try { html = R.nav.win().document.documentElement; } catch (_) { /* gone */ }
+      if (html) html.classList.remove('lgs-c1b-leaving');
+      s.leaving = false;
+      if (s.P && typeof s.P.sound === 'function') { try { s.P.sound('sheetIn'); } catch (_) { /* no sound */ } }
+      // the dismiss starts on the history event that leaves /search (searchLeave), not at this unmount
+      let unlisten = null;
+      try {
+        unlisten = R.nav.inst().m_history.listen((loc) => {
+          const p = loc && loc.pathname;
+          if (typeof p === 'string' && !searchOnRoute(p)) searchLeave(p);
+        });
+      } catch (e) { s.rt.warn('search: no history listener; the sheet leaves with the route', String(e && e.message || e)); }
+      // once the sheet is on screen, Steam's page entering it later (the first keystroke) cross-fades
+      // instead of presenting the sheet again; when the route mounted straight into results, only after
+      // their own present has run (no cut animation)
+      const offP = s.rt.setTimeout(() => {
+        if (SS === s && !s.leaving && html) html.classList.add('lgs-c1b-presented');
+      }, zeroAtMount.current ? 60 : 800);
       return () => {
-        if (!SS) return;
-        if (SS.P && typeof SS.P.sound === 'function') { try { SS.P.sound('sheetOut'); } catch (_) { /* no sound */ } }
-        SS.rt.setTimeout(() => {
-          if (!SS) return;
-          if (searchOnRoute(SS.R.nav.route())) return;
-          searchRemember(SS.query);
-          SS.snap = null; SS.seeAll = false;
+        if (unlisten) { try { unlisten(); } catch (_) { /* gone */ } }
+        try { offP(); } catch (_) { /* fired */ }
+        if (html) html.classList.remove('lgs-c1b-leaving', 'lgs-c1b-presented');
+        try { searchUndecorate(R.nav.win().document); } catch (_) { /* gone */ }
+        if (SS !== s) return;
+        s.leaving = false;
+        s.rt.setTimeout(() => {
+          if (SS !== s) return;
+          if (searchOnRoute(s.R.nav.route())) return;
+          searchRemember(s.query);
+          s.snap = null; s.seeAll = false;
           // the field keeps DOM focus (and Steam's keyboard) after a click on the dimmed page: let it go
           const f = searchField();
           if (f && f.ownerDocument.activeElement === f) { try { f.blur(); } catch (_) { /* gone */ } }
@@ -402,18 +589,33 @@ function searchComponents(R, rt) {
       };
     }, []);
     const state = zero ? 'zero' : (all ? 'results' : 'category');
-    // T2 tags on Steam's tabbed page (the sheet), for tests and the depth rule; gone on unmount
+    // T2 tags on Steam's tabbed page (the sheet), for tests and the depth rule, and the decorations of
+    // searchDecorate (E-SEG, the query echo), kept up by an observer while Steam's page changes its own
+    // nodes (results arriving, the virtualised grid); gone on unmount
     React.useLayoutEffect(() => {
       if (zero) return undefined;
-      let el = null;
+      let el = null, d = null;
       try {
-        const d = R.nav.win().document;
+        d = R.nav.win().document;
         el = Array.from(d.querySelectorAll(rt.sel('%{GamepadSearch} > %{GamepadTabbedPage}'))).find((e) => !e.closest('.lgs-snap')) || null;
       } catch (_) { el = null; }
       if (!el) return undefined;
       el.setAttribute('data-lgs-search', 'sheet');
       el.setAttribute('data-lgs-search-state', state);
-      return () => { el.removeAttribute('data-lgs-search'); el.removeAttribute('data-lgs-search-state'); };
+      searchDecorate(d);
+      let mo = null, queued = false;
+      try {
+        mo = new (R.nav.win().MutationObserver)(() => {
+          if (queued) return;
+          queued = true;
+          Promise.resolve().then(() => { queued = false; searchDecorate(d); });
+        });
+        mo.observe(el, { childList: true, subtree: true });
+      } catch (_) { mo = null; }
+      return () => {
+        if (mo) { try { mo.disconnect(); } catch (_) { /* gone */ } }
+        el.removeAttribute('data-lgs-search'); el.removeAttribute('data-lgs-search-state');
+      };
     });
     // The picture layer (snapshot, scrim, the sheet's glass) is portalled into %{BasicHome}, under
     // Steam's content element: Steam's route content sits in a transformed 3D context in which a
@@ -467,7 +669,8 @@ function searchInstall(rt) {
   const root = R.Routes && R.Routes.GamepadUI && R.Routes.GamepadUI.Search && R.Routes.GamepadUI.Search.Root;
   if (typeof root !== 'function') throw new Error('search: Routes.GamepadUI.Search.Root missing');
   rt.sel('%{SearchBox}'); // throws on an unresolved token (fail closed)
-  SS = { rt, R, P: rt.W.__LGS_RT, snap: null, recent: [], providers: new Map(), subs: new Set(), handles: [], query: '', seeAll: false, memT: null, fresh: 0, typed: false, selfSet: false };
+  SS = { rt, R, P: rt.W.__LGS_RT, snap: null, recent: [], providers: new Map(), subs: new Set(), handles: [], query: '', seeAll: false, memT: null, fresh: 0, typed: false, selfSet: false,
+    lastCard: null, source: null, restoreFor: null, restored: 0, leaving: false, hdrAt: 0 };
   SS.query = searchQuery();
   rt.windows.track((w) => {
     if (w.kind !== 'main') return undefined;
@@ -478,7 +681,12 @@ function searchInstall(rt) {
     const offI = rt.listen(w.doc, 'input', searchOnInput, true);
     // a click on the dimmed page (inside the route's content, outside the sheet) leaves search (WN §4.4)
     const offD = rt.listen(w.doc, 'click', searchOnDimClick);
-    return () => { w.html.classList.remove('lgs-c1b'); offF(); offC(); offI(); offD(); };
+    // the header: Steam's × (query re-read) and the Back circle (Steam's own HideModal)
+    const offH = rt.listen(w.doc, 'click', searchOnHeaderClick, true);
+    return () => {
+      w.html.classList.remove('lgs-c1b', 'lgs-c1b-leaving', 'lgs-c1b-presented');
+      offF(); offC(); offI(); offD(); offH();
+    };
   });
   const C = searchComponents(R, rt);
   SS.C = C;
@@ -490,6 +698,12 @@ function searchInstall(rt) {
     recent: () => (SS ? SS.recent.slice() : []),
     snapshot: () => (SS && SS.snap ? { from: SS.snap.from, ms: SS.snap.ms, nodes: SS.snap.node.getElementsByTagName('*').length, scrolled: SS.snap.scroll.length, title: !!SS.snap.title } : null),
     setQuery: searchSetQuery,
+    // tests: the focus memory (AT-9c) and the dismiss state
+    debug: () => (SS ? {
+      leaving: !!SS.leaving, restored: SS.restored || 0,
+      source: SS.source ? { route: SS.source.route, w: Math.round(SS.source.w), h: Math.round(SS.source.h) } : null,
+      lastCard: SS.lastCard ? { route: SS.lastCard.route, w: Math.round(SS.lastCard.w), h: Math.round(SS.lastCard.h) } : null,
+    } : null),
   };
   rt.expose('search', api);
   return api;
@@ -504,6 +718,14 @@ function searchRemove() {
   s.subs.clear();
   s.recent = [];
   s.snap = null;
-  try { const d = s.R.nav.win().document; for (const e of d.querySelectorAll('.lgs-search-layer')) e.remove(); } catch (_) { /* gone */ }
+  s.source = null; s.lastCard = null; s.restoreFor = null;
+  try {
+    const d = s.R.nav.win().document;
+    for (const e of d.querySelectorAll('.lgs-search-layer')) e.remove();
+    d.documentElement.classList.remove('lgs-c1b', 'lgs-c1b-leaving', 'lgs-c1b-presented');
+    const tab = s.rt.sel('%{GamepadTabbedPage>Tab}');
+    for (const e of d.querySelectorAll('[data-lgs-exempt="E-SEG"]')) if (e.matches(tab)) e.removeAttribute('data-lgs-exempt');
+    for (const e of d.querySelectorAll('[data-lgs-q]')) e.removeAttribute('data-lgs-q');
+  } catch (_) { /* gone */ }
   return { patchedLeft: 0 };
 }

@@ -86,6 +86,8 @@
     else if (search === 'focus') out += `<div class="lgk-search wn-search${sw} is-focus${dim}"${did(el, 'search')}><i data-i="search"></i><span class="typed"><span class="caret"></span><span class="ph" style="margin-left:6px">${ph}</span></span></div>`;
     else if (search.startsWith('filled:')) out += `<div class="lgk-search wn-search${sw}${flag(el, 'searchfocus') ? ' is-focus' : ''}${dim}"${did(el, 'search')}><i data-i="search"></i><span class="typed">${search.slice(7)}${flag(el, 'searchfocus') ? '<span class="caret"></span>' : ''}</span><span class="lgk-btn circle clear"><i data-i="xmark" class="bold"></i></span></div>`;
     else if (search === 'circle') out += `<span class="lgk-btn circle wn-icon-circle${dim}"${did(el, 'search')}><i data-i="search"></i></span>`;
+    // library routes, laser mode: Steam's Sort & Filter as the toolbar's trailing group (PLAN §1.10, R2-2; C2c's)
+    if (el.dataset.trail) out += `<div class="wn-trail${dim}"${did(el, 'trail')}><span class="wn-trail-b"${did(el, 'trail-sort')}><i data-i="sort"></i>${el.dataset.trail}</span><span class="wn-trail-b"${did(el, 'trail-filter')}><i data-i="filter"></i>Filter</span></div>`;
     el.replaceWith(h(`<div class="wn-toolbar">${out}</div>`));
   }
 
@@ -98,6 +100,7 @@
    *   sf-filter:L    Steam's laser-mode Filter button
    *   A:/B:          nav legends: quiet trailing members in both modes, never hidden (PLAN §1.10)
    *   prefixes  * hover   ! menu open (white)   ~ gamepad focus   - disabled
+ * Library routes hug their members like every other route (R2-2); data-slots is the libFixedSlots variant only.
    * Only A and B present -> the quiet legend (no capsule glass; data-inglass on window-full routes, where it
    * sits inside the glass; otherwise on the dim band, or bare with data-quiet="bare"). Wider than 960 -> compact
    * members. data-slots="300,130,156,134,120": fixed slots (one width per member, gap 4, padding 12; no group

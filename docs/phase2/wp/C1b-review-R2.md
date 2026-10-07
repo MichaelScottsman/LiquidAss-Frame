@@ -4,12 +4,30 @@ Reviewer: independent adversarial review of package C1b (builder Status: "READY:
 
 ## Status
 
-**Complete. Verdict: fix** (11 major, 14 minor, no blocker).
+**Complete. Verdict: fix** (11 major, 14 minor, no blocker). Re-confirmed at 16:25 in a short pass (below): nothing in C1b's files has changed, and every major still reproduces.
+
+### Re-check at 16:20–16:25 (short pass, at the user's request for faster reviews)
+
+- **Files under test unchanged:** md5 `theme/21-search.css` a44a9753, `device/rt/21-search.js` 51e9d8ab, `theme/layers/21-search.json` 81113779 (mtimes 10:12, 10:04, 09:43). The only edit to `C1b.md` since this review (16:04) is P10's answer to REQ C1b->P10 #10 (`pad-bfs` recovery). The builder has answered none of the findings.
+- **Shared inputs that the findings depend on are unchanged:**
+  - `theme/20-shell.css` (08:33) still has §6 under `%{GamepadSearch}`, and REQ C1b->C1a #9 is still open, so M2(a) stands.
+  - `lab/exemptions.json` (13:11) has E-SEG only for `%{Group>Button}` and `.lgs-seg > [aria-pressed]`. Steam's search tabs are still not exempt, so M1's G-SIZE and M10's AUD stand.
+  - `device/lgs_layers.js` `covered()` (13:18) still hit-tests the centre with `elementFromPoint`. The `search-sheet` rule still targets the `pointer-events: none` `.lgs-search-glass`, and the fragment still has `"fill": "auto"` and no `"modal": true`, so M6 stands. No new native session was run.
+- **Live spot-check 1** (`js b_pad.js --flags wp.c1b,wp.p3,wp.c1a --mode pad`, 16:23, native off; scratch `c1b_r3/b.out`): the output matches session 2's `b.out` line for line.
+  - The focused "All 162" segment still computes the Phase 1 ring `rgba(0,0,0,.35) 0 0 0 2px, rgba(255,255,255,.92) 0 0 0 4px`, and P4's `::after` is still inset to 708 × 120, the size of the row (M2).
+  - The first disc gives `#Footer` "capsule Play Open Back" (M5).
+  - B from the zero state lands on "All Games 350", not the poster. B ×2 from the results grid leaves no `.gpfocus` (`none(active=BODY)`, M4).
+  - A focused result tile declares no X or ☰ (`f_tileLegends: []`), and the ornament is "quiet Select Back" (M9).
+  - Sounds: show_modal once on open and hide_modal once on B, as before.
+- **Live spot-check 2** (`pad-bfs --route /search/tab/All --pre pre_zero.js --flags wp.c1b,wp.p3,wp.c1a --mode pad`, 16:23, native off; `c1b_r3/bfz.out`): **PASS**, 8 of 8 reached and 0 irreversible. The 4 Left exits from the field, a disc and the capsules all came back by `overlay`, and B leaves to AllGames. P10's session 5 fix resolves note n2: the zero state's G-PAD row in M11 is now PASS. AT-9c (M4) is unaffected, because `pad-bfs` checks that B leaves, not where focus lands.
+- **Device after the re-check** (`js z_state.js`, 16:33): `wp.c1b` off, no test-flag overlays, `__LGS_RT.search` undefined and no `.lgs-search-layer`. Both of my steps ended on `/library/tab/AllGames`. The route at 16:33 was `/library/home` after another agent's step, so I left it alone. No room frames were taken.
+- **Not re-run** (C1b's files are unchanged, so these results stand as recorded): gates, focus, motion, native, perf, removal and the visual shots.
 
 - **Files under test** (md5, the same on the PC and the Frame, unchanged from 10:12 to 13:25): `theme/21-search.css` a44a9753, `device/rt/21-search.js` 51e9d8ab, `theme/layers/21-search.json` 81113779. `python glass.py check-theme` gave PASS at 13:00.
 - **P7** reported "Review R1 fixes complete" at 12:45, so session 2 ran the live native checks: two `native-session`s at 13:11 and 13:13. The second was needed because `hv` steps ignore `--flags` (see the notes).
 - **PLAN** was amended at 13:08 by R2-15 and R2-16. C1b's card is now T1–T4, and it owns `theme/layers/21-search.json` with a T4 line: `modal: true`, and the hole's `fill` follows the scrim. That settles old m3, and m1 and m2 are now card requirements (M6).
 - **Device left as found:** theme on, CSS only (both sessions printed "back to CSS only: yes"), route back in the library, keyboard hidden, pointer parked. Room frames: all three `hv --look` frames were viewed and deleted the same minute, with 0 left on the PC and 0 in `/tmp/lgs` on the Frame.
+- **Re-checked at 15:15**, after the usage-limit break. The three files under test still have the md5s above, and `C1b.md` is unchanged since 10:12. `coordinator.md`, edited at 14:41, changes no finding: its second pass already routes M4, M9 and M10 (its "M4, M8, m8", numbered before this file was restructured) back to C1b. A read-only `js` step (`z_state.js`) found `wp.c1b` off, no test-flag overlays at all, `__LGS_RT.search` undefined and no `.lgs-search-layer`, so nothing of this review is left on. The route was `/settings/downloads`, from another agent's later step, so I left it alone. `glass.py status`: theme on.
 - **Disclosure: flags leaked.** The four steps of the first native session that carried `--flags` (`js`, `sgcheck` ×2, `conformance`) were not popped at step exit. Their overlays (TTL 900 s) kept `wp.c1b` on from 13:12 to 13:21. I removed my four tokens with `__LGS_RT.test.flags.pop` at 13:21; `wp.c1b` is off and `search` is not installed. Eight `{wp.c1a, wp.p3}` overlays from other agents were left alone. This is a lab bug (notes, n1).
 
 ## Findings
@@ -156,7 +174,7 @@ PLAN §2.1 M3 needs "the package's own tests pass in both input modes", and the 
 | PLAN-1b-1 | Not run by the builder: `C1b-cmp.json` does not exist. Side by side: the zero state is close to its mockup (`shots/p2_cmp_c1br2_zero.png`), but the results are Steam's grid, not the mockup's All summary |
 | AT-10 | Not run; C4b's |
 | AT-16 | Partly run (results below) |
-| G-PAD zero state | `pad-bfs` 2/7 (notes, n2); the manual D-pad sweep reaches all seven |
+| G-PAD zero state | `pad-bfs` 2/7 at 13:15 (n2). **Re-run at 16:23 after P10's fix: PASS 8/8** |
 
 ### Minor
 
@@ -182,7 +200,7 @@ PLAN §2.1 M3 needs "the package's own tests pass in both input modes", and the 
 ### Notes for other owners (not C1b's)
 
 - **n1 (P10).** `native-session` steps do not pop their `--flags` overlays. Four of my steps left `{wp.c1b, wp.p3, wp.c1a}` overlays with a 900 s TTL, which I popped by token at 13:21. Eight `{wp.c1a, wp.p3}` overlays from other agents were still live at 13:21. Separately, `hv --pre` ignores `--flags` and `--mode`: the first session's `hv` pre returned `/library/tab/AllGames` after a field click, and `__LGS_RT.search` was `undefined`. contracts/lab.md §4 says they apply.
-- **n2 (P10, or C1b to check).** `pad-bfs --route /search/tab/All` on the zero state (`bfz.out`, 13:1x) visited 2 of 7. From the first disc every take was `untakeable`, while the manual D-pad (`f3.out`, `b.out`) reaches every disc, the capsules and See All, and reverses. Earlier, `L.gpTake` on a disc also failed twice (`s4` pre, session 1's `fz`). If the zero state's `Focusable`s cannot be taken by `BTakeFocus`, Steam's own focus restore may hit the same problem (compare M4).
+- **n2 (P10): resolved by P10 session 5. `pad-bfs` on the zero state passed 8 of 8 at 16:23.** Original note: `pad-bfs --route /search/tab/All` on the zero state (`bfz.out`, 13:1x) visited 2 of 7. From the first disc every take was `untakeable`, while the manual D-pad (`f3.out`, `b.out`) reaches every disc, the capsules and See All, and reverses. Earlier, `L.gpTake` on a disc also failed twice (`s4` pre, session 1's `fz`). If the zero state's `Focusable`s cannot be taken by `BTakeFocus`, Steam's own focus restore may hit the same problem (compare M4).
 - **n3 (C1a / P10).**
   - The zero state's quiet legend "Select / Back" measured CONTRAST 1.4 : 1 over the bright room (`g_zero_laser.json`); R2-1's dim band was not there.
   - In the native conformance step, P-43 FAIL is C1a's pointer proxy (1.5 px ring). P-39 FAIL (29 lines) is the AUD contrast model with the CSS glass dropped in native mode; it is not specific to search.
@@ -210,7 +228,7 @@ Times are the Frame's step times. "native" is the native layer's state as the st
 | H4 clear (laser) | `js c_clear.js --mode laser` (S2) | Not verified. The × (`svg`, 18 × 18 at (924, 43)) has opacity 0 and `pointer-events: none` until the field holds DOM focus, and synthetic clicks do not keep DOM focus (`activeElement` BODY). C1a's AT-3 owns the field | `cl.out`, `cl2.out` |
 | Shots (visual verdict) | `shot main c1b_r2b_{res_hover,res_padseg,zero,zero_disc}` (S2, native off) | The zero state reads as a visionOS sheet: thick dark glass, 44 radius, no outline, discs, 60 px capsules, legible over the dimmed page. Against it: the blurred page (m2), the missing title (M3), Dolphin's monogram (m5), truncated labels (m10). Results: the scope bar problems (M1, M2) and Steam's raw grid instead of the mockup's summary (M9, m14) | `shots/c1b_r2b_*.png` |
 | G-PAD results | `pad-bfs --route /search/tab/All --pre pre_half.js --mode pad` (11:59, native off) | 32 / 34 reached, none irreversible. Unreached: the two ‹ › arrows, also unreached with the runtime off (n4). Entry is the field. The B effect in this sweep is history from the lab's own navigations | `bfs_res.out`, `bfs_t1.out` |
-| G-PAD zero state | `pad-bfs --route /search/tab/All --pre <empty query> --mode pad` (S2) | 2 / 7 (`untakeable`, n2). The manual sweep reaches all 7 | `bfz.out` |
+| G-PAD zero state | `pad-bfs --route /search/tab/All --pre <empty query> --mode pad` (S2) | 2 / 7 at 13:15 (`untakeable`, n2). **16:23 re-run: PASS 8 / 8**, with 4 exits all back by `overlay` | `bfz.out`, `c1b_r3/bfz.out` |
 | G-FOCUS zero state | `focus … --pairs pairs_zero.json --mode pad` (11:53, native on: valid inside the sheet) | P-14: capsule +99.8 L and See All +109.3 L, PASS. Disc: lift ×1.10 plus halo (m9) | `fz.out` |
 | G-FOCUS results | `focus … --pairs pairs_res.json --mode pad` (11:53) | **P-15 0.0 L FAIL, P-16 +9.0 L FAIL** (M2) | `fr.out` |
 | G-MOTION open | `motion main --pre m_in.js --name c1b_r2b_sheet_in --mode laser` (S2, native off) | Tokens only; nothing at rest; P-53 only on P5's shared `sheet-in` scale | `mi.out`, `shots/p2_motion_c1b_r2b_sheet_in_*` |

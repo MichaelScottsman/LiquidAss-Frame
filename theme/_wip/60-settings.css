@@ -108,10 +108,12 @@
     background: var(--lgs-fill-nav) !important;
     box-shadow: none;
   }
-  /* its specular arc: a lobe at 30 % of the width fading both ways (VP P-42: never a full-width
-     top line), painted on the hit extender (its top edge is 4 px above the pill) */
+  /* its specular arc: a lobe centred at 34 % of the width fading both ways (VP P-42: never a
+     full-width top line), painted on the hit extender (its top edge is 4 px above the pill). The
+     lobe (x 12 %..56 %, i.e. 44..206 of 368) stays on the pill's straight top edge (36..332) and
+     inside its top 4 px, so it never shows above the rounded corners (review R2 m1) */
   & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}%{PagedSettingsDialog_PageList_ShowTitle>Active}::before {
-    background: radial-gradient(42% 3px at 30% calc(var(--lgs-row-gap) / 2 + 3px), rgb(255 255 255 / .45), rgb(255 255 255 / 0)) no-repeat;
+    background: radial-gradient(22% 2px at 34% calc(var(--lgs-row-gap) / 2 + 2px), rgb(255 255 255 / .45), rgb(255 255 255 / 0)) no-repeat;
   }
   & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}%{PagedSettingsDialog_PageList_ShowTitle>DisabledItem} {
     color: var(--lgs-text-disabled) !important;
@@ -255,9 +257,6 @@
     text-decoration-line: underline;
     text-decoration-color: var(--lgs-text-3);
     text-underline-offset: 3px;
-  }
-  & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageContent} a:is(:hover, .gpfocus, :focus) {
-    text-decoration-color: var(--lgs-text-1);
   }
   & %{SettingsDialogBodyText} {
     color: var(--lgs-text-1);
@@ -508,6 +507,14 @@
   & %{AppBodyPortrait} :is(%{LibraryItemBox}, %{PortraitImage>Container}, %{PortraitImage>Image}) {
     border-radius: var(--lgs-r-small);
   }
+}
+
+
+/* in-text links: the underline brightens on laser hover (laser mode) or gamepad focus (pad mode)
+   only, never on a stale :focus (review R2 m7; 04-states' input-mode scopes) */
+&:not(.lgs-input-pad) %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog}:not(%{AppProperties}, %{NotesPagedSettings}) %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageContent} a:hover,
+&:not(.lgs-input-laser) %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog}:not(%{AppProperties}, %{NotesPagedSettings}) %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageContent} a.gpfocus {
+  text-decoration-color: var(--lgs-text-1);
 }
 
 

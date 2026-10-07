@@ -1,0 +1,40 @@
+{
+  "_doc": "C2b PLAN-2b-2 / G-MOCK: data-ids of the two '+' popup mockups -> live selectors on the barpopup surface. The mockups draw the popup host at --pop-scale 1.2 (mockScale) and anchor the card's bottom on the 300 x 1024 surface's bottom, so the surface origin is (panel x, panel bottom - 1024 x 1.2) = (637.2, -333.2) mockup px in both. Each pre opens '+', activates the popup's nav tree and moves gamepad focus into the mockup's plate cell with one D-pad press (Steam paints .gpfocus in the popup only for gamepad moves): T3 (run with --flags wp.c2b,c2bToggle --mode pad) cell 8 'Frametop Display Settings' by Right from cell 7; T1 (--flags wp.c2b=false,c2bToggle=false --mode pad) cell 21 by Left from cell 22. Nothing is pressed.",
+  "surface": "barpopup",
+  "mockOrigin": [637.2, -333.2],
+  "mockScale": 1.2,
+  "mockups": {
+    "home-apps-plus-t1": {
+      "pre": "(async()=>{const W=ms=>new Promise(r=>setTimeout(r,ms));for(const p of SteamUIStore.WindowStore.VRGamepadUIMainWindowInstance.VRDashboardBarPopups)p.closePopup();await W(400);L.click('bar','%{AddWindowButton}');await W(1100);const T=s=>L.sel(s);const LIST=T('%{DashboardBarPopupList}')+':has(> '+T('%{DashboardBarPopupListHeader}')+')';let doc=null,win=null;for(const p of [...g_PopupManager.m_mapPopups.values()]){let w=null;try{w=p.window}catch(_){}if(w&&w.document&&w.document.querySelector(LIST)){doc=w.document;win=w}}if(!doc)return 'no popup';const t=FocusNavController.GetActiveContext().FindNavTreeInWindow(win);if(t&&t.Activate)t.Activate(true);await W(200);const cs=[...doc.querySelectorAll(LIST+' '+T('%{DashboardBarPopupListItem}'))];L.gpTakeEl(cs[21]);await W(150);FocusNavController.DispatchVirtualButtonClick(11);await W(700);return (cs[20].innerText||'').trim()+' gp '+cs[20].classList.contains('gpfocus')})()",
+      "map": {
+        "panel": "%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader})",
+        "head": "%{DashboardBarPopupListHeader}",
+        "grid": "%{DashboardBarPopupListScrollPanel}",
+        "cell-1": "%{DashboardBarPopupListItem}:nth-child(1)",
+        "disc-1": "%{DashboardBarPopupListItem}:nth-child(1) %{*GamepadDialogContent>FieldIcon}",
+        "label-1": "%{DashboardBarPopupListItem}:nth-child(1) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon})",
+        "cell-8": "%{DashboardBarPopupListItem}:nth-child(8)",
+        "cell-21": "%{DashboardBarPopupListItem}:nth-child(21)",
+        "cell-24": "%{DashboardBarPopupListItem}:nth-child(24)",
+        "label-22": "%{DashboardBarPopupListItem}:nth-child(22) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon})",
+        "plate": "%{DashboardBarPopupListItem}:nth-child(21) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon})"
+      }
+    },
+    "home-apps-plus": {
+      "pre": "(async()=>{const W=ms=>new Promise(r=>setTimeout(r,ms));for(const p of SteamUIStore.WindowStore.VRGamepadUIMainWindowInstance.VRDashboardBarPopups)p.closePopup();await W(400);L.click('bar','%{AddWindowButton}');await W(1100);const T=s=>L.sel(s);const LIST=T('%{DashboardBarPopupList}')+':has(> '+T('%{DashboardBarPopupListHeader}')+')';let doc=null,win=null;for(const p of [...g_PopupManager.m_mapPopups.values()]){let w=null;try{w=p.window}catch(_){}if(w&&w.document&&w.document.querySelector(LIST)){doc=w.document;win=w}}if(!doc)return 'no popup';const t=FocusNavController.GetActiveContext().FindNavTreeInWindow(win);if(t&&t.Activate)t.Activate(true);await W(200);const cs=[...doc.querySelectorAll(LIST+' '+T('%{DashboardBarPopupListItem}'))];L.gpTakeEl(cs[6]);await W(150);FocusNavController.DispatchVirtualButtonClick(12);await W(700);return (cs[7].innerText||'').trim()+' gp '+cs[7].classList.contains('gpfocus')})()",
+      "map": {
+        "panel": ".lgs-c2b-panel",
+        "head": "%{DashboardBarPopupListHeader}",
+        "grid": "%{DashboardBarPopupListScrollPanel}",
+        "cell-1": "%{DashboardBarPopupListItem}:nth-child(1)",
+        "disc-1": "%{DashboardBarPopupListItem}:nth-child(1) %{*GamepadDialogContent>FieldIcon}",
+        "label-1": "%{DashboardBarPopupListItem}:nth-child(1) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon})",
+        "cell-8": "%{DashboardBarPopupListItem}:nth-child(8)",
+        "cell-23": "%{DashboardBarPopupListItem}:nth-child(23)",
+        "label-7": "%{DashboardBarPopupListItem}:nth-child(7) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon})",
+        "plate": "%{DashboardBarPopupListItem}:nth-child(8) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon})",
+        "toggle": ".lgs-c2b-toggle"
+      }
+    }
+  }
+}

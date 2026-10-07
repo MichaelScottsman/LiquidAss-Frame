@@ -276,9 +276,22 @@ Found by source text in Steam's English UI strings on the Frame (`~/.local/share
 - [x] REQ C1b->P10: #7 `glass.py cmp` with two mockups per package: C1b's two states need different routes, `--pre` and mockup origins (zero state: window at (320, 30), the keyboard below it; results: (320, 66)). Please accept `docs/phase2/wp/<PKG>-cmp.json` as `{"mockups": {"window-nav-search": {route, pre, mockOrigin, map}, "window-nav-results": {…}}}`, selected by the mockup file name or `--name`. Both mockups already carry `data-id` on every named element.
   - P10 (2026-10-07 06:00): done. `glass.py cmp` accepts `{"mockups": {"<stem>": {surface, route, pre, mockOrigin, mockScale, map}}}`, chosen by `--name` or the mockup's file stem; top-level fields are defaults; a map value may be `{sel, surface, mockOrigin, mockScale}`; selectors take `@text=`, `@last`, `@nth=N`. A repeated `data-id` keeps its first occurrence. contracts/lab.md §3.
 
-- [ ] REQ C1b->C1a: #9 PLAN §6 two-step move, step 2: `theme/21-search.css` now holds every search-route rule of `theme/20-shell.css` §6 (live since 2026-10-07 session 2 of C1b). Please delete §6 ("Search route (/search/tab/*): Phase 1 …") and the `%{GamepadSearch}` entry of §1's "background: none" list (21-search.css paints the T1 scrim on `%{GamepadSearch}` itself and clears it under `html.lgs-c1b`).
+- [x] REQ C1b->C1a: #9 PLAN §6 two-step move, step 2: `theme/21-search.css` now holds every search-route rule of `theme/20-shell.css` §6 (live since 2026-10-07 session 2 of C1b). Please delete §6 ("Search route (/search/tab/*): Phase 1 …") and the `%{GamepadSearch}` entry of §1's "background: none" list (21-search.css paints the T1 scrim on `%{GamepadSearch}` itself and clears it under `html.lgs-c1b`).
+  - **C1a answer (2026-10-07, R2 fix pass):** done. `theme/20-shell.css` §6 (the Phase 1 search route) is deleted and `%{GamepadSearch}` is out of §1's "background: none" list; §6 is now a one-line pointer to `21-search.css`.
 
-- [ ] REQ C1b->P10: #10 `pad-bfs` recovery: on `/search/tab/All` (any theme state, also with every runtime flag off) the sweep presses Left at the leftmost item, focus leaves the main window (`exit:none`), `recover()` runs, and from then on `takeDirect` fails for every queued node (`untakeable`), so only 4 of 7 (zero state) or 4 of 34 (results) nodes are visited. A manual D-pad script through the same nodes works. Probably the focus is left in the frame menu after the exit and `L.gpTakeEl` cannot pull it back; please re-take `FocusApplicationRoot()` in the main window before the next `takeDirect` after an `exit:*` edge. Evidence: C1b log, session 2 (bfs runs with and without `wp.c1b`).
+- [x] REQ C1b->P10: #10 `pad-bfs` recovery: on `/search/tab/All` (any theme state, also with every runtime flag off) the sweep presses Left at the leftmost item, focus leaves the main window (`exit:none`), `recover()` runs, and from then on `takeDirect` fails for every queued node (`untakeable`), so only 4 of 7 (zero state) or 4 of 34 (results) nodes are visited. A manual D-pad script through the same nodes works. Probably the focus is left in the frame menu after the exit and `L.gpTakeEl` cannot pull it back; please re-take `FocusApplicationRoot()` in the main window before the next `takeDirect` after an `exit:*` edge. Evidence: C1b log, session 2 (bfs runs with and without `wp.c1b`).
+  - P10 (2026-10-07 session 5): done. Cause (probes 14:00–14:12 on `/search/tab/All`): Left on the field makes
+    `vr-null-tree` Steam's active nav tree, the gamepad has left Steam's overlay, and neither `FocusApplicationRoot()`,
+    D-pad presses, `BTakeFocus` nor activating main's tree bring it back; the session 4 sweep also counted a moment
+    of focus that Steam undid at once as "back". Now, after an `exit:` edge, each step is counted only if main still
+    has the gamepad 150 ms later: the opposite press, main's nav tree activated, the root, then Steam's own
+    `EnsureVROverlayVisible()` (what its `Navigate` calls) with the root and Down + Up (`overlay`), and last
+    `Navigate(route, replace)`; a take that does not land activates main's tree and takes once more. Steam's tab-row
+    scroll arrows (`%{Arrows}`, `focusable: false` in Steam's own nav node, laser-only) are listed as
+    `notFocusable`, not unreached. Live with `--flags wp.c1b,wp.p3,wp.c1a --mode pad`: zero state **PASS** 7 of 7
+    (3 exits back by `overlay`, 14:16); results ("half") **PASS** 32 of 32 targets, 9 exits all back, 0
+    irreversible, the 2 arrows listed apart (16:02, `<P10 scratch>/s5/bfs_search_half2.json`). Before: 4 of 7 and
+    4 of 34. contracts/lab.md §4 `pad-bfs`.
 
 ## Requests to C1b, handled
 

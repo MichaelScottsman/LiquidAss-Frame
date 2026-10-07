@@ -559,6 +559,16 @@ def gates_summary(res):
                           for e in v.get("edges", []) if not e["pass"]][:8]
         elif k == "AUD":
             items = v.get("issues", [])[:12]
+            if v.get("rematched"):
+                out[-1] += f", {v['rematched']} matched across a DOM move"
+            if v.get("preRerun"):
+                out[-1] += f", pre run again for the {' and '.join(v['preRerun'])} snapshot"
+            # In native mode the acked plates' CSS fills are transparent and glassd draws the backing, which AUD's
+            # contrast model (CSS backgrounds over the room) cannot see (session 5: T3's labels read 1.5 over the
+            # bright room in a step that ran during another agent's native session)
+            if res.get("native") == "on" and any(i.startswith("CONTRAST") for i in v.get("issues", [])):
+                items.append("(native layer on during this step: CONTRAST models only the CSS backing, not glassd's "
+                             "glass; a CSS-only verdict needs a native=off run)")
         elif k == "MOTION":
             items = (v["nonToken"] + v["atRest"]["running"] + v["atRest"]["lgsLeft"] + v["cssNonToken"])[:12]
             if v["atRest"].get("steamRunning"):
@@ -608,9 +618,24 @@ def bfs_summary(r):
         out += [f"      {name(i)}" for i in untk[:6]]
     out.append(f"  routes visited: {', '.join(r.get('routes', []))}")
     out.append(f"  unreached visible focusables: {len(r['unreached'])} of {r.get('universe', '?')}")
+    if r.get("notFocusable"):        # Steam's focusable: false nav nodes (laser-only): not G-PAD targets (session 5)
+        nf = r["notFocusable"]
+        out.append(f"  not gamepad-focusable (Steam's focusable: false, laser-only; not counted): {len(nf)}: "
+                   + ", ".join(f"{u['el'][:40]} {u.get('rect')}" for u in nf[:4]))
     out += [f"      {u['el']} \"{u.get('text', '')[:30]}\" {u['rect']}" for u in r["unreached"][:12]]
+    if r.get("inner"):     # REQ C2a-R2->P10 (6): role=button etc. with only an ancestor's nav node (laser targets)
+        inn = r["inner"]
+        out.append(f"  inside a gamepad target, no nav node of their own (laser-only; not counted): {len(inn)}: "
+                   + ", ".join(f"{u['el'][:40]} {u.get('rect')}" for u in inn[:4]))
     out.append(f"  irreversible moves: {len(r['irreversible'])}")
-    out += [f"      {name(x['from'])} -{x['dir']}-> {name(x['to'])}, back -> {name(x['back'])}" for x in r["irreversible"][:12]]
+    out += [f"      {name(x['from'])} -{x['dir']}-> {name(x['to'])}, back -> {name(x['back'])}"
+            + (f"; re-measured from a D-pad path: {x['recheck'] if isinstance(x['recheck'], str) else 'back -> ' + name(x['recheck'])}"
+               if x.get("recheck") is not None else "") for x in r["irreversible"][:12]]
+    if r.get("takeOrder"):  # REQ C2a-R2->P10 (8): irreversible only after a direct take; reversible on a D-pad path
+        out.append(f"  sweep take-order only (reversible when the source is reached by D-pad; not counted): {len(r['takeOrder'])}")
+        out += [f"      {name(x['from'])} -{x['dir']}-> {name(x['to'])}, first back -> {name(x['back'])}"
+                + (f"; on the D-pad path -{x['dir']}-> {name(x['userTo'])} and back" if x.get("userTo") is not None else "; on the D-pad path no move")
+                for x in r["takeOrder"][:6]]
     if r.get("untested"):
         out.append(f"  reversibility not tested (slider): {len(r['untested'])}")
     if r.get("b"):
@@ -642,7 +667,7 @@ def redact_bfs(r):
                 d["key"] = f"{c}|{redact_text(lab_)}{n}"
     for n in r.get("nodes", []):
         fix(n)
-    for u in r.get("unreached", []):
+    for u in r.get("unreached", []) + r.get("notFocusable", []) + r.get("inner", []):
         fix(u)
     fix(r.get("entry") or {})
     fix((r.get("init") or {}).get("entry") or {})
@@ -699,22 +724,43 @@ def focus_finish(res, pairs=None):
     pairs = pairs if pairs is not None else res.get("pairsIn", [])
     keep = res.get("keep")
     ep = p2_tool("edge_profile")
-    planes = {}
+    # What translucent texels are seen over (REQ C2a-R2->P10 (3), session 5): a live capture keeps the window's
+    # alpha, and a windowless route's band is mostly transparent; read as stored it is black (P-16 band +228 where
+    # a bright room gives +8.9). `auto` measures such a pair over P-14's bright and dark test rooms and judges the
+    # worse; `--room R` picks one; `none` is the behaviour before session 5.
+    room = ep.parse_room(res.get("room") or "auto")
+    planes, alphas = {}, {}
+
+    def plane(path, rm):
+        k = (str(path), ep.room_name(rm))
+        if k not in planes:
+            planes[k] = ep.lum(str(path), ep.W601, rm)
+        return planes[k]
     out = []
     for p in pairs:
         row = {"name": p.get("name"), "min": float(p.get("min", 40))}
         try:
-            vals = []
+            sides = []
             for side in ("a", "b"):
                 sd = p[side]
                 st = next(s for s in res["states"] if s["state"] == (sd.get("state") or ""))
                 path = ROOT / st["file"]
-                if str(path) not in planes:
-                    planes[str(path)] = ep.lum(str(path), ep.W601)
+                if str(path) not in alphas:
+                    alphas[str(path)] = ep.alpha_plane(str(path))
                 spec, inset = focus_region(sd, st, float(st.get("dpr") or 1.5))
-                vals.append(ep.region_mean(planes[str(path)], spec, inset))
+                sides.append((path, spec, inset))
                 row[side + "Region"] = spec
-            row.update({"La": round(vals[0], 1), "Lb": round(vals[1], 1), "dL": round(vals[0] - vals[1], 1)})
+            (pa, sa, ia), (pb, sb, ib) = sides
+            share = max(ep.translucent_share(alphas[str(pa)], sa, ia), ep.translucent_share(alphas[str(pb)], sb, ib))
+            per = {}
+            for rm in ep.rooms_for(room, share):
+                la = ep.region_mean(plane(pa, rm), sa, ia)
+                lb = ep.region_mean(plane(pb, rm), sb, ib)
+                per[ep.room_name(rm)] = (la, lb)
+            worst = min(per, key=lambda k: per[k][0] - per[k][1])
+            la, lb = per[worst]
+            row.update({"La": round(la, 1), "Lb": round(lb, 1), "dL": round(la - lb, 1), "room": worst,
+                        "rooms": {k: round(v[0] - v[1], 1) for k, v in per.items()}, "translucent": round(share, 3)})
             row["pass"] = row["dL"] >= row["min"]
         except (ValueError, StopIteration, KeyError) as e:
             row.update({"error": str(e), "pass": False})
@@ -739,7 +785,10 @@ def focus_summary(res):
         if "error" in r:
             out.append(f"  {r['name']}: ERROR {r['error']}")
         else:
-            out.append(f"  {r['name']}: L(A) {r['La']:.1f}  L(B) {r['Lb']:.1f}  dL {r['dL']:+.1f}  (min {r['min']:g})  "
+            over = "" if list(r.get("rooms") or {"stored": 0}) == ["stored"] else \
+                ("  over " + ", ".join(f"{k} {v:+.1f}" for k, v in r["rooms"].items())
+                 + f" (translucent {r.get('translucent', 0):.0%}, judged: {r['room']})")
+            out.append(f"  {r['name']}: L(A) {r['La']:.1f}  L(B) {r['Lb']:.1f}  dL {r['dL']:+.1f}  (min {r['min']:g}){over}  "
                        + ("PASS" if r["pass"] else "FAIL"))
     if res.get("keep"):
         out.append("  shots: " + ", ".join(s["file"] for s in res["states"]))
@@ -760,8 +809,14 @@ def cmd_focus(c, rest):
         del rest[i:i + (2 if keep else 1)]
         keep = keep or "p2_focus"
     if "--pairs" not in rest:
-        print("usage: glass.py focus SURF [--route R] [--pre JS] --pairs FILE|JSON [--keep [NAME]] [--json]")
+        print("usage: glass.py focus SURF [--route R] [--pre JS] --pairs FILE|JSON [--keep [NAME]] [--room auto|none|bright|dark|grey|black|R,G,B] [--json]")
         return 2
+    if "--room" in rest:
+        try:
+            p2_tool("edge_profile").parse_room(rest[rest.index("--room") + 1])
+        except (ValueError, IndexError) as e:
+            print(e)
+            return 2
     i = rest.index("--pairs")
     src = rest[i + 1]
     pairs = json.loads(Path(src).read_text(encoding="utf-8") if Path(src).exists() else src)
@@ -797,16 +852,29 @@ def motion_finish(res):
             a = next((a for a in anims if str(a.get("id")) == str(k)), {})
             geo[k] = {"target": a.get("target"), "name": a.get("name"), "maxDx": round(dx, 1), "maxDy": round(dy, 1),
                       "scaleMin": round(min(sc), 4) if sc else None, "scaleMax": round(max(sc), 4) if sc else None,
-                      "w": w1, "text": a.get("text")}
-    issues = []
+                      "w": w1, "text": a.get("text"), "entering": a.get("entering")}
+    issues, moves = [], []
+    # P-53's 600 px are main-window px: 600 x m on a surface with D2 2.5's multiplier m (the bar's popups: 498 bar
+    # px, so the 288 px "+" list is no window). Until session 5 the threshold was scaled by the surface's width
+    # (600 x 300 / 1280 = 141 on the popup), which judged a popup's materialize scale as a window scale change.
+    mult = res.get("m")
+    thr = 600 * float(mult) if isinstance(mult, (int, float)) and mult > 0 else 600 * (width / 1280.0)
     for k, g in geo.items():
-        wide = (g["w"] or 0) > 600 * (width / 1280.0)
+        wide = (g["w"] or 0) > thr
         if wide and g["maxDx"] > 24:
             issues.append(f"P-53 {g['name']} on {g['target']}: lateral travel {g['maxDx']} px on a {g['w']:.0f} px surface")
         if wide and g["scaleMin"] is not None and (g["scaleMin"] < 0.985 or g["scaleMax"] > 1.015):
             issues.append(f"P-53 {g['name']} on {g['target']}: window scale {g['scaleMin']}..{g['scaleMax']}")
         if max(g["maxDx"], g["maxDy"]) > 16:
-            issues.append(f"P-54 {g['name']} on {g['target']}: starts {max(g['maxDx'], g['maxDy'])} px from rest")
+            # P-54 judges what enters (a target not shown before the interaction; unknown counts as entering). A
+            # target that was shown and travels (a selection pill) is a move: listed, P-53 judges it on wide
+            # surfaces (REQ C2a-R2->P10 (4), session 5)
+            if g.get("entering") is False:
+                moves.append(f"{g['name']} on {g['target']}: travels {max(g['maxDx'], g['maxDy'])} px "
+                             "(shown before the interaction: a move, not an entry)")
+            else:
+                issues.append(f"P-54 {g['name']} on {g['target']}: starts {max(g['maxDx'], g['maxDy'])} px from rest"
+                              + ("" if g.get("entering") else " (entry not known: an older lab)"))
     reduce = "reduce" in (res.get("step") or {}).get("media", [])
     rm = []
     if reduce:
@@ -819,6 +887,7 @@ def motion_finish(res):
     rest = res.get("atRest") or {}
     res["geometry"] = geo
     res["geometryIssues"] = issues
+    res["moves"] = moves
     res["reduceIssues"] = rm
     res["pass"] = not res.get("nonToken") and not rest.get("running") and not rest.get("lgsLeft") \
         and not rest.get("infinite") and not issues and not rm
@@ -911,6 +980,9 @@ def motion_summary(res):
     out += ["    " + x for x in (res.get("nonToken") or [])[:12]]
     out.append(f"  geometry (P-53, P-54): {len(res['geometryIssues'])} issues")
     out += ["    " + x for x in res["geometryIssues"][:12]]
+    if res.get("moves"):
+        out.append(f"  moves (shown before, travel > 16 px; listed, not P-54): {len(res['moves'])}")
+        out += ["    " + x for x in res["moves"][:8]]
     if "reduce" in (res.get("step") or {}).get("media", []):
         out.append(f"  Reduce Motion (P-56): {len(res['reduceIssues'])} issues")
         out += ["    " + x for x in res["reduceIssues"][:12]]

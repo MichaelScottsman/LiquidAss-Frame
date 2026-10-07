@@ -40,7 +40,12 @@ var HOME_ROW_START = [0, 4, 9];
 var HOME_ROW_LEN = [4, 5, 4];
 var HOME_PER_PAGE = 13;
 var HOME_PER_PAGE_FOOTER = 9; // two rows when Steam shows a footer anyway (D-C2a-2, HA §3.2)
-var HOME_SECTIONS = ['recent', 'collections', 'apps'];
+// Recent, Collections, Apps, and Windows only while SteamVR reports desktop windows (HA-2, HA §3.2)
+var HOME_SECTIONS = ['recent', 'collections', 'apps', 'windows'];
+var HOME_PLATE_BOTTOM = 704; // name plates are clamped 16 px inside the 720 px overlay (HA §3.4)
+var HOME_CARD_CLOSE_MS = 460; // morph-close 441 ms, then the closing card is removed
+var HOME_PLATE_CLOSE_MS = 360; // materialize-out 350 ms
+var HOME_GRID_OUT_MS = 170; // page-out 150 ms
 var HOME_BANDS = [[14, 94], [130, 262], [318, 450], [506, 638]];
 // the low layout (D-C2a-9): rows at 236 / 416 / 596, section track at 102-166 (the native check at 09:23 had
 // the discs' lower 34 px outside the bands, so their art was hidden under the plate glass)
@@ -56,6 +61,9 @@ var HOME_STR = {
   showlib: ['#Generic_ViewInLibrary', 'Show in Library'],
   options: ['#ActionButtonLabelContextMenu', 'Options'],
   notinstalled: ['#BasicGameCarousel_NotInstalled', 'Not installed'],
+  windows: [null, 'Windows'],
+  downloading: [null, 'Downloading'],
+  update: [null, 'Update available'],
   emptyall: [null, 'Empty Collections'],
   empty: [null, 'Empty'],
   back: ['#Button_Back', 'Back'],
@@ -86,7 +94,12 @@ var HOME_GLYPH = {
   recent: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zm0 2a7 7 0 1 1 0 14 7 7 0 0 1 0-14zm-1 2v5.4l4.3 2.6 1-1.7-3.3-2V7z',
   collections: 'M3 6a2 2 0 0 1 2-2h4.2l2 2H19a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z',
   apps: 'M4 4h6v6H4zm10 0h6v6h-6zM4 14h6v6H4zm10 0h6v6h-6z',
+  windows: 'M3 5h18v14H3zm0 4h18',
+  arrow: 'M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19h14',
 };
+// Steam's per-client display status (EDisplayStatus) for Home's disc states (HA §3.3, LA-T8)
+var HOME_DL_STATUS = new Set([3, 6, 7, 18, 19, 22, 23]); // installing, updating, downloading, paused, queued
+var HOME_UPDATE_STATUS = new Set([20]); // update required
 
 var HS = null; // live state while installed
 
@@ -128,7 +141,10 @@ function homeInstall(rt) {
   HS = {
     rt, R, P, steam: null, live: 0, subs: new Set(), att: null, cardHover: null, menu: null, lang: null,
     section: 'recent', page: {}, focusKey: {}, topMem: {}, reveal: null, handles: [], glass: null, attend: null,
+    failed: false, programs: null, selfMove: 0, test: { windows: null, status: {} },
   };
+  HS.win = homeFindWindows(R, rt);
+  if (!HS.win) rt.log('home: desktop window list not found; no Windows section');
   const am = homeFindAppMenu(R);
   HS.appMenu = am.menu;
   if (!am.menu) rt.warn('home: Steam app menu not found; More circle and menu button off', am.error || am.count);
@@ -139,14 +155,24 @@ function homeInstall(rt) {
   HS.handles.push(R.routes.add('/library/lgs/steamhome', C.SteamHomeRoute, { owner: 'c2a', exact: true }));
   HS.handles.push(R.routes.override(R.Routes.Library.Home(), (steamChildren) => {
     HS.steam = steamChildren;
+    if (HS.wnPending) { HS.wnPending = false; rt.setTimeout(() => { try { R.nav.go('/library/lgs/steamhome', true); } catch (_) { /* gone */ } }, 0); }
     return R.jsx(C.HomeRoute, { kind: 'home' });
   }, { owner: 'c2a' }));
   if (rt.has('shell')) {
-    try { HS.glass = rt.use('shell').glassMode('home', () => (HS && HS.live > 0 ? 'windowless' : null)); } catch (e) { rt.warn('glassMode hook failed', String(e)); }
+    // windowless only while our Home renders; a render failure falls back to Steam's Home in a window (M7)
+    try { HS.glass = rt.use('shell').glassMode('home', () => (HS && HS.live > 0 && !HS.failed ? 'windowless' : null)); } catch (e) { rt.warn('glassMode hook failed', String(e)); }
   }
-  HS.attend = P.attend('.lgs-home-disc, .lgs-home-card', {
+  HS.attend = P.attend('.lgs-home-grid:not(.is-leaving) .lgs-home-disc, .lgs-home-card[data-state="open"]', {
     dwellMs: 80, steps: [400, 800], leaveMs: 300, surfaces: ['main'],
     onEnter(el) { const k = homeKeyOf(el); if (k && el.classList.contains('lgs-home-card')) { HS.cardHover = k; } },
+    // attention came back within the leave grace (a quick bounce, or the pad's immediate close, HA-17):
+    // restore what its reached steps had shown
+    onReenter(el, ev) {
+      const k = homeKeyOf(el);
+      if (!k || el.classList.contains('lgs-home-card')) { if (k) HS.cardHover = k; return; }
+      const st = Math.max(0, ...((ev && ev.reached) || []));
+      if (st >= 400 && !(HS.att && HS.att.key === k && HS.att.step >= st)) { HS.att = { key: k, step: st }; homeNotify(); }
+    },
     onStep(el, ms) {
       const k = homeKeyOf(el);
       if (!k) return;
@@ -175,10 +201,19 @@ function homeInstall(rt) {
     },
     state() {
       return { live: HS.live, section: HS.section, page: Object.assign({}, HS.page), att: HS.att, reveal: HS.reveal,
-        menu: HS.menu ? { key: HS.menu.key } : null, appMenu: !!HS.appMenu, footer: HS.footerState || null, lang: HS.lang };
+        menu: HS.menu ? { key: HS.menu.key } : null, appMenu: !!HS.appMenu, footer: HS.footerState || null, lang: HS.lang,
+        failed: HS.failed, windows: !!HS.win, programs: HS.programs ? HS.programs.length : null };
     },
-    // tests only (AT-23): draw as if the UI language were `code` (never Steam's setting); null resets
-    test: { lang(code) { HS.lang = code || null; homeNotify(); return HS.lang; } },
+    // the programs Home's Apps section shows (Steam's own scan and filter), for C2a's search provider
+    programs() { return HS.programs || []; },
+    test: {
+      // AT-23: draw as if the UI language were `code` (never Steam's setting); null resets
+      lang(code) { HS.lang = code || null; homeNotify(); return HS.lang; },
+      // AT-4: desktop windows as SteamVR's message would list them ([{window_id, hwnd, title}]); null resets
+      windows(list) { HS.test.windows = Array.isArray(list) ? list : null; homeNotify(); return HS.test.windows; },
+      // LA-T8: a download or update state for one app ({pct} or {update: true}); null clears
+      status(appid, st) { if (st) HS.test.status[appid] = st; else delete HS.test.status[appid]; homeNotify(); return Object.assign({}, HS.test.status); },
+    },
   };
   try { rt.expose('home', api); } catch (e) { rt.warn('home: expose failed', String(e)); }
   return api;
@@ -223,7 +258,60 @@ function homeNavNode(R, el) {
   }
   return null;
 }
-function homeFocusEl(R, el) { const n = homeNavNode(R, el); if (!n) return false; try { n.BTakeFocus(3); return true; } catch (_) { return false; } }
+// our own focus moves (explicit neighbours): Steam plays no navigation sound for BTakeFocus, so the move
+// requests BasicNav itself, as Steam's own Home does for every D-pad move (P-74, AT-21)
+function homeFocusEl(R, el, quiet) {
+  const n = homeNavNode(R, el);
+  if (!n) return false;
+  try { if (HS) HS.selfMove = Date.now(); n.BTakeFocus(3); if (!quiet) homeSound('nav'); return true; } catch (_) { return false; }
+}
+// plate ids are [A-Za-z0-9-_.:] (reporter §2.2); program keys are command lines, so they are hashed
+function homePlateKey(key) {
+  const s = String(key || '');
+  if (/^[A-Za-z0-9_.:-]{1,64}$/.test(s)) return s;
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
+  return s.charAt(0).replace(/[^A-Za-z0-9]/, 'x') + h.toString(36);
+}
+// Steam's "+" popup reads the desktop windows from a VR message hook, `(0,V.H)(y.T)?.windows` (build
+// 11094443: the popup module's function Et). Found from the popup's own source; optional: without it there
+// is no Windows section and Steam's "+" keeps the function (HA §3.2).
+function homeFindWindows(R, rt) {
+  try {
+    const f = R.find({ Plus: [['IsVRSimulatedOnDesktopWindow', 'DashboardDesktopWindowClicked', 'LaunchNonSteamApp'], (ex) => ex] });
+    const id = f.where.Plus;
+    if (!id || f.counts.Plus !== 1) return null;
+    const ch = rt.W.webpackChunksteamui;
+    if (!ch || typeof ch.push !== 'function') return null;
+    const sym = Symbol('lgs-c2a');
+    let req = null;
+    ch.push([[sym], {}, (r) => { req = r; }]);
+    for (let i = ch.length - 1; i >= 0; i--) { const c = ch[i]; if (c && c[0] && c[0][0] === sym) { ch.splice(i, 1); break; } }
+    if (!req || !req.m || !req.m[id]) return null;
+    const src = Function.prototype.toString.call(req.m[id]);
+    const m = /\(0,([\w$]+)\.([\w$]+)\)\(([\w$]+)\.([\w$]+)\)\?\?\{\}\)\?\.windows/.exec(src);
+    if (!m) return null;
+    const imp = (a) => { const r = new RegExp('[,;\\s]' + a.replace(/\$/g, '\\$') + '=[\\w$]+\\((\\d+)\\)').exec(src); return r ? r[1] : null; };
+    const hid = imp(m[1]), cid = imp(m[3]);
+    if (!hid || !cid) return null;
+    const hook = req(hid)[m[2]], type = req(cid)[m[4]];
+    if (typeof hook !== 'function' || type == null) return null;
+    return { hook, type, where: id };
+  } catch (e) { rt.warn('home: window finder failed', String(e && e.message || e)); return null; }
+}
+// a game's download or update state from Steam's local client data (EDisplayStatus), or a test override
+function homeDlState(ov) {
+  if (!ov) return null;
+  const t = HS && HS.test.status[ov.appid];
+  if (t) return t.update ? { update: true } : { pct: Math.max(0, Math.min(100, Number(t.pct) || 0)) };
+  try {
+    const p = ov.local_per_client_data || (ov.per_client_data || []).find((c) => String(c.clientid) === '0') || null;
+    const s = p ? Number(p.display_status) : 0;
+    if (HOME_DL_STATUS.has(s)) return { pct: Math.max(0, Math.min(100, Number(p.status_percentage) || 0)) };
+    if (HOME_UPDATE_STATUS.has(s)) return { update: true };
+  } catch (_) { /* no client data */ }
+  return null;
+}
 
 // ------------------------------------------------------------------ data (HA §3.2, §3.3)
 function homeArt(R, ov) {
@@ -232,7 +320,10 @@ function homeArt(R, ov) {
   const a = R.data.art(ov);
   const list = (...xs) => [].concat(...xs.map((x) => (Array.isArray(x) ? x : (x ? [x] : [])))).filter(Boolean);
   const heroes = list(a.custom.hero, a.hero), logos = list(a.custom.logo, a.logo), ports = list(a.custom.portrait, a.portrait);
-  return { heroes, logos, ports, hero: heroes[0] || null, logo: logos[0] || null, portrait: ports[0] || null };
+  // a folder's 26 px crops: the portrait candidates, then the header and the hero (soundtracks and
+  // shortcuts often have no portrait), then the icon (M4)
+  const minis = list(ports, a.custom.landscape, a.header, heroes, a.icon);
+  return { heroes, logos, ports, minis, hero: heroes[0] || null, logo: logos[0] || null, portrait: ports[0] || null };
 }
 function homeGameItem(R, ov, running) {
   return { kind: 'game', key: 'g' + ov.appid, appid: ov.appid, name: ov.display_name, ov, running: !!running && ov.appid === running };
@@ -242,7 +333,7 @@ function homeFolderItem(R, coll, opts) {
   const o = opts || {};
   return {
     kind: o.kind || 'folder', key: 'c' + coll.id, id: coll.id, name: o.name || coll.displayName,
-    count: apps.length, minis: apps.slice(0, 9).map((ov) => homeArt(R, ov).portrait).filter(Boolean),
+    count: apps.length, minis: apps.slice(0, 9).map((ov) => homeArt(R, ov).minis).filter((l) => l.length),
     nav: o.nav, tab: o.tab,
   };
 }
@@ -276,7 +367,7 @@ function homeRecent(R, cap, running) {
   const all = cs && cs.allGamesCollection;
   const allItem = {
     kind: 'all', key: 'all', name: homeStr(R, 'allgames') || '',
-    minis: all ? (all.visibleApps || all.allApps || []).slice(0, 9).map((ov) => homeArt(R, ov).portrait).filter(Boolean) : [],
+    minis: all ? (all.visibleApps || all.allApps || []).slice(0, 9).map((ov) => homeArt(R, ov).minis).filter((l) => l.length) : [],
   };
   // cap - 1 games and the All Games folder on every page (HA §3.2)
   return homeChunk(games, cap - 1).map((p) => p.concat([allItem]));
@@ -299,6 +390,14 @@ function homeCollections(R, cap) {
 function homeApps(R, programs, cap) {
   const items = (programs || []).filter((p) => !p.isLiquidGlass).map((p) => ({ kind: 'program', key: 'p' + p.key, cmdline: p.cmdline, name: p.name, icon: p.iconUrl }));
   items.sort(homeCmp);
+  return homeChunk(items, cap);
+}
+// desktop windows, in Steam's order (HA §3.2); the icon is the one Steam's "+" popup shows
+function homeWindows(list, cap) {
+  const items = (list || []).filter((w) => w && w.window_id != null).map((w) => ({
+    kind: 'window', key: 'w' + w.window_id, windowId: w.window_id, name: String(w.title || ''),
+    icon: w.hwnd != null ? 'https://steamloopback.host/windows/icon?handle=' + encodeURIComponent(w.hwnd) : null,
+  }));
   return homeChunk(items, cap);
 }
 // a folder: its title, where "Show in Library" leads, and its pages
@@ -408,20 +507,28 @@ function homeComponents(R, rt) {
     if (!A.hero && !A.port && withMono) kids.push(jsx('span', { className: 'lgs-home-mono', children: (String(name || '?').match(/[A-Za-z0-9À-￯]+/g) || ['?']).slice(0, 2).map((w) => w[0].toUpperCase()).join('') }, 'm'));
     return kids;
   };
+  // one 26 px crop: each failed load moves on to the next candidate, the last failure leaves the empty
+  // tile (never Chromium's broken-image glyph, M4)
+  function Mini({ list }) {
+    const [i, setI] = React.useState(0);
+    const u = list && list[i];
+    return jsx('i', { className: 'lgs-home-mini', children: u ? jsx('img', { src: u, alt: '', onError: () => setI((x) => x + 1) }, u) : null });
+  }
+  function Icon({ item }) {
+    const [bad, setBad] = React.useState(false);
+    return jsx('div', { className: 'lgs-home-prog', children: item.icon && !bad
+      ? jsx('img', { src: item.icon, alt: '', onError: () => setBad(true) })
+      : svg(item.kind === 'window' ? 'window' : homeGlyphFor(item.name), 'lgs-home-glyph-ic') });
+  }
   function Art({ item }) {
     if (item.kind === 'game') {
       const A = useArt(item.ov);
       return jsx('div', { className: 'lgs-home-art', children: artKids(A, true, item.name) });
     }
-    if (item.kind === 'program') {
-      return jsx('div', { className: 'lgs-home-prog', children: item.icon ? jsx('img', { src: item.icon, alt: '' }) : svg(homeGlyphFor(item.name), 'lgs-home-glyph-ic') });
-    }
-    // folders, All Games, empty collections: a 3 x 3 grid of portrait crops
+    if (item.kind === 'program' || item.kind === 'window') return jsx(Icon, { item });
+    // folders, All Games, empty collections: a 3 x 3 grid of crops
     const minis = [];
-    for (let i = 0; i < 9; i++) {
-      const u = item.minis && item.minis[i];
-      minis.push(jsx('i', { className: 'lgs-home-mini', children: u ? jsx('img', { src: u, alt: '' }) : null }, i));
-    }
+    for (let i = 0; i < 9; i++) minis.push(jsx(Mini, { list: item.minis && item.minis[i] }, i));
     return jsx('div', { className: 'lgs-home-folder', children: minis });
   }
 
@@ -430,6 +537,7 @@ function homeComponents(R, rt) {
     switch (item.kind) {
       case 'game': return A.navigate(R.Routes.Library.App.Root(item.appid), {}, ev);
       case 'program': return A.launchNonSteam(item.cmdline, ev);
+      case 'window': return A.desktopWindow(item.windowId, ev);
       case 'all': return A.navigate('/library/tab/AllGames', {}, ev);
       case 'folder':
       case 'empty':
@@ -439,21 +547,28 @@ function homeComponents(R, rt) {
     }
   }
 
-  function Cell({ item, index, focusMe, under, hidden, low, move, card, cardOn }) {
+  function Cell({ item, index, focusMe, under, underCard, hidden, low, move, card, cardOpen, cardOn, clip, ring, kind }) {
     const x = HOME_CELLS[index][0], y = low ? HOME_LOW_Y[HOME_CELLS[index][1]] : HOME_CELLS[index][1];
     const isGame = item.kind === 'game';
+    const dl = isGame ? homeDlState(item.ov) : null;
     const cls = ['lgs-home-cell', 'c2a-cell']; // c2a-cell: a stable first class for pad-bfs node keys (is-* change with state)
     if (under) cls.push('is-under');
+    if (underCard) cls.push('is-under-card');
     if (hidden) cls.push('is-hidden-label');
+    if (cardOpen) cls.push('has-card');
     if (item.running) cls.push('is-running');
-    if (isGame && !homeInstalled(item.ov)) cls.push('is-notinstalled');
+    if (isGame && !homeInstalled(item.ov) && !(dl && dl.pct != null)) cls.push('is-notinstalled');
+    if (dl && dl.pct != null) cls.push('is-downloading');
+    if (dl && dl.update) cls.push('is-update');
     const label = item.kind === 'empty' && item.key !== 'empty' && !item.name ? homeStr(R, 'empty') : item.name;
+    const discStyle = clip ? { clipPath: clip } : undefined;
     return jsxs(c.Focusable, {
       className: cls.join(' '),
-      style: { '--x': x + 'px', '--y': y + 'px' },
+      style: { '--x': x + 'px', '--y': y + 'px', '--lgs-home-ring': ring || 0 },
       'data-kind': item.kind === 'empty' ? 'empty' : item.kind,
       'data-lgs-home-key': item.key,
       'data-lgs-home-index': index,
+      'data-row': homeRowOf(index),
       // the cell's name, stable while its card opens inside it (the card adds Play, status and title text)
       'aria-label': item.name || label || undefined,
       autoFocus: !!focusMe,
@@ -469,22 +584,38 @@ function homeComponents(R, rt) {
       onMenuButton: isGame && HS.appMenu ? (e) => homeTileMenu(R, item, e && e.currentTarget) : undefined,
       onMenuActionDescription: isGame && HS.appMenu ? (homeStr(R, 'options') || undefined) : undefined,
       onGamepadFocus: (e) => {
-        HS.focusKey[HS.sectionKey || 'x'] = item.key;
+        const sk = HS.sectionKey || 'x';
+        HS.focusKey[sk] = item.key;
+        // focus that Steam moved into the grid from outside it (C1a's search capsule above a folder's grid):
+        // Up from this cell gives the move back to Steam, so it returns where it came from (P-20, M15)
+        if (kind === 'folder' && Date.now() - HS.selfMove > 250 && Date.now() - (HS.mountedAt || 0) > 600 && homeRowOf(index) === 0) HS.topBack = { ext: true, to: index, sKey: sk };
         const d = e && e.currentTarget && e.currentTarget.querySelector ? e.currentTarget.querySelector('.lgs-home-disc') : null;
         if (d && HS.P.attention && homePad()) HS.P.attention.feed(d, 'enter', 'pad');
       },
       onGamepadBlur: (e) => {
         const d = e && e.currentTarget && e.currentTarget.querySelector ? e.currentTarget.querySelector('.lgs-home-disc') : null;
         if (d && HS.P.attention) HS.P.attention.feed(d, 'leave', 'pad');
+        // gamepad: the card starts closing at the move, not after the 0.3 s grace (HA-17); a bounce back
+        // within the grace restores it through onReenter
+        if (homePad() && HS.att && HS.att.key === item.key && !(HS.menu && HS.menu.key === item.key)) { HS.att = null; homeNotify(); }
       },
       children: [
         jsxs('div', {
-          className: 'lgs-home-disc', 'data-lgs-dwell': '', 'data-lgs-plate': 'liquid', 'data-lgs-plate-id': 'home-disc-' + item.key,
+          className: 'lgs-home-disc', 'data-lgs-dwell': '', 'data-lgs-plate': 'liquid', 'data-lgs-plate-id': 'home-disc-' + homePlateKey(item.key),
           // a circle (Steam's 50 % radius would be read as 50 px); a neighbour the open card overlaps keeps its
           // full glass (only the card's own cell reads as its shadow; native check 09:23 had row-3 discs dimmed)
           'data-lgs-plate-r': 'capsule',
-          'data-lgs-plate-occluder': (under || (cardOn && !card)) ? 'false' : undefined,
-          children: [jsx(Art, { item }, 'a'), (isGame && !homeInstalled(item.ov)) ? jsx('span', { className: 'lgs-home-cloud', children: svg('cloud') }, 'c') : null],
+          'data-lgs-plate-occluder': (under || underCard || clip || (cardOn && !card)) ? 'false' : undefined,
+          style: discStyle,
+          children: [
+            jsx(Art, { item }, 'a'),
+            (isGame && !homeInstalled(item.ov) && !(dl && dl.pct != null)) ? jsx('span', { className: 'lgs-home-cloud', children: svg('cloud') }, 'c') : null,
+            (dl && dl.pct != null) ? jsx('span', { className: 'lgs-home-ring-progress', children: jsxs('svg', { viewBox: '0 0 56 56', 'aria-hidden': 'true', children: [
+              jsx('circle', { cx: 28, cy: 28, r: 22, className: 'track' }, 't'),
+              jsx('circle', { cx: 28, cy: 28, r: 22, pathLength: 100, style: { strokeDasharray: dl.pct + ' 100' } }, 'p'),
+            ] }) }, 'dl') : null,
+            (dl && dl.update) ? jsx('span', { className: 'lgs-home-update', children: svg('arrow') }, 'up') : null,
+          ],
         }, 'disc'),
         jsxs('div', { className: 'lgs-home-label', children: [item.running ? jsx('i', { className: 'lgs-home-run' }, 'r') : null, label] }, 'label'),
         // the card is the cell's expanded state, so it lives inside the cell: a click on its body is
@@ -498,55 +629,105 @@ function homeComponents(R, rt) {
   function cardRect(index, low) {
     const [x, y] = cellXY(index, low);
     const left = Math.max(16, Math.min(1280 - 16 - 320, x - 160));
-    const top = Math.max(low ? HOME_LOW_CARD_TOP : 98, Math.min(704 - 240, y - 100));
+    // low layout: rows are 180 apart, so the card sits 10 px higher to cover no more than 10 px of the
+    // next row's discs (AT-8e); row 1 still reaches 62 px into row 2 (D-C2a-9), whose discs are cut away
+    // under it (cardClips)
+    const top = Math.max(low ? HOME_LOW_CARD_TOP : 98, Math.min(HOME_PLATE_BOTTOM - 240, y - (low ? 110 : 100)));
     return { left, top };
   }
+  // the card's Play leaves the comfort zone (|x - 640| <= 400, P-29) on cells left of x 400: their
+  // action row is mirrored (More first, Play at the trailing edge, nearer the centre)
+  function cardMirror(index) { return HOME_CELLS[index][0] < 400; }
+  // what the open card covers of the other discs is cut out of them (a rounded-rect hole in the disc's
+  // clip path), so neither the CSS card nor the native crop at +15 mm carries a neighbour's art (M1)
+  function cardClips(attIndex, n, low) {
+    const out = {};
+    if (attIndex < 0) return out;
+    const { left, top } = cardRect(attIndex, low);
+    const W = 320, H = 240, r = 36, pad = 6;
+    for (let i = 0; i < n; i++) {
+      if (i === attIndex) continue;
+      const [x, y] = cellXY(i, low);
+      const dx = x - 60, dy = y - 60; // the disc's box
+      if (dx + 120 <= left - pad || dx >= left + W + pad || dy + 120 <= top - pad || dy >= top + H + pad) continue;
+      // in the disc's own coordinates: a large box (keeps the disc's shade), minus the card's rect + pad
+      const L = left - pad - dx, T = top - pad - dy, R2 = L + W + 2 * pad, B = T + H + 2 * pad, rr = r + pad;
+      const box = 'M-40 -40H160V160H-40Z';
+      const hole = 'M' + (L + rr) + ' ' + T + 'H' + (R2 - rr) + 'A' + rr + ' ' + rr + ' 0 0 1 ' + R2 + ' ' + (T + rr) + 'V' + (B - rr)
+        + 'A' + rr + ' ' + rr + ' 0 0 1 ' + (R2 - rr) + ' ' + B + 'H' + (L + rr) + 'A' + rr + ' ' + rr + ' 0 0 1 ' + L + ' ' + (B - rr)
+        + 'V' + (T + rr) + 'A' + rr + ' ' + rr + ' 0 0 1 ' + (L + rr) + ' ' + T + 'Z';
+      out[i] = 'path(evenodd, "' + box + hole + '")';
+    }
+    return out;
+  }
 
-  function Card({ item, index, low, menuOpen }) {
+  function CardStatus({ item }) {
+    const dl = homeDlState(item.ov);
+    if (dl && dl.pct != null) return jsxs(R.Fragment, { children: [svg('arrow'), jsx('span', { children: (homeLoc(R, '#Downloads_Downloading') || homeStr(R, 'downloading') || '') + ' ' + Math.round(dl.pct) + '%' }, 't')] });
+    if (dl && dl.update) return jsxs(R.Fragment, { children: [svg('arrow'), jsx('span', { children: homeStr(R, 'update') || '' }, 't')] });
+    return (!homeInstalled(item.ov) ? homeStr(R, 'notinstalled') : homePlaytime(R, item.ov)) || null;
+  }
+
+  function Card({ item, index, low, menuOpen, closing }) {
     const { left, top } = cardRect(index, low);
     const [x, y] = cellXY(index, low);
     const A = useArt(item.ov);
     const info = R.actions.primaryInfo(item.appid);
     const kind = /install/i.test(info.action || '') ? 'install' : (/update/i.test(info.action || '') ? 'update' : 'play');
     const label = info.label || R.ui.text('#AppDetails_PlayButton', 'Play') || '';
-    const status = !homeInstalled(item.ov) ? homeStr(R, 'notinstalled') : homePlaytime(R, item.ov);
     // placed relative to its cell's box (x - 100, y - 60); it morphs from the disc's rect, relative to
     // the card box (P5 lgs-morph)
     const style = { left: (left - (x - 100)) + 'px', top: (top - (y - 60)) + 'px', '--sx': (x - 60 - left) + 'px', '--sy': (y - 60 - top) + 'px', '--sw': '120px', '--sh': '120px', '--sr': '60px' };
     const optLabel = homeStr(R, 'options');
+    const cls = ['lgs-home-card'];
+    if (menuOpen) cls.push('is-menu-source');
+    if (cardMirror(index)) cls.push('is-mirror');
     return jsxs('div', {
-      className: 'lgs-home-card' + (menuOpen ? ' is-menu-source' : ''), 'data-state': 'open', 'data-lgs-home-key': item.key,
+      className: cls.join(' '), 'data-state': closing ? 'closing' : 'open', 'data-lgs-home-key': item.key,
+      'aria-hidden': closing ? 'true' : undefined,
       // a transient expansion over its neighbours while attended (REQ C2a->P10 #12)
       'data-lgs-transient': '',
-      'data-lgs-plate': 'liquid', 'data-lgs-plate-id': 'home-card', 'data-lgs-plate-tint': 'rgb(0 0 0 / .30)', style,
+      // the closing card is CSS only: glassd's slab dissolves with the pop (the layer rule wants "open")
+      'data-lgs-plate': closing ? undefined : 'liquid', 'data-lgs-plate-id': closing ? undefined : 'home-card', 'data-lgs-plate-tint': 'rgb(0 0 0 / .30)', style,
       children: [
         jsxs('div', { className: 'lgs-home-card-art', children: [
           ...artKids(A, false, item.name),
         ] }, 'art'),
-        jsx('div', { className: 'lgs-home-play', 'data-kind': kind, role: 'button', 'aria-label': label,
-          onClick: (e) => { e.stopPropagation(); R.actions.primary(item.appid, e); },
+        jsx('div', { className: 'lgs-home-play', 'data-kind': kind, role: closing ? undefined : 'button', 'aria-label': label,
+          onClick: closing ? undefined : (e) => { e.stopPropagation(); R.actions.primary(item.appid, e); },
           children: jsxs('span', { className: 'lgs-home-play-fill', children: [svg('play'), jsx('span', { children: label }, 't'), jsx('span', { className: 'lgs-home-badge', children: 'X' }, 'b')] }) }, 'play'),
-        HS.appMenu ? jsx('div', { className: 'lgs-home-more' + (menuOpen ? ' is-open' : ''), role: 'button', 'aria-label': optLabel || undefined, 'data-lgs-tip': optLabel ? 'above' : undefined,
-          onClick: (e) => { e.stopPropagation(); homeTileMenu(R, item, e.currentTarget); },
+        HS.appMenu ? jsx('div', { className: 'lgs-home-more' + (menuOpen ? ' is-open' : ''), role: closing ? undefined : 'button', 'aria-label': optLabel || undefined, 'data-lgs-tip': optLabel && !closing ? 'above' : undefined,
+          onClick: closing ? undefined : (e) => { e.stopPropagation(); homeTileMenu(R, item, e.currentTarget); },
           children: jsxs('span', { className: 'lgs-home-more-fill', children: [svg('more'), jsx('span', { className: 'lgs-home-badge', children: '≡' }, 'b')] }) }, 'more') : null,
         jsx('div', { className: 'lgs-home-card-title', children: item.name }, 'title'),
-        jsx('div', { className: 'lgs-home-card-status', children: status }, 'status'),
+        jsx('div', { className: 'lgs-home-card-status', children: jsx(CardStatus, { item }) }, 'status'),
       ],
     }, 'card-' + item.key);
   }
+  // the card in its own error boundary: a render failure closes the card and leaves Home as it was (M7)
+  function SafeCard(props) {
+    return jsx(R.ui.ErrorBoundary, { name: 'c2a-card', fallback: null,
+      onError: () => { if (HS && HS.att && HS.att.key === props.item.key) { HS.att = null; HS.rt.setTimeout(homeNotify, 0); } },
+      children: jsx(Card, props) });
+  }
 
-  function NamePlate({ item, index, low }) {
+  function NamePlate({ item, index, low, closing, onMeasure }) {
     const [x, y] = cellXY(index, low);
     const left = Math.max(16, Math.min(1264, x));
+    const ref = React.useRef(null);
+    // its real rect decides which labels it covers (D-C2a-5: text overlap only, m2)
+    React.useLayoutEffect(() => { if (!closing && onMeasure && ref.current) onMeasure(item.key, ref.current); }, [item.key, closing]);
     return jsxs('div', {
-      className: 'lgs-home-plate', 'data-lgs-home-key': item.key,
-      'data-lgs-plate': 'liquid', 'data-lgs-plate-id': 'home-plate', 'data-lgs-plate-tint': 'rgb(0 0 0 / .30)',
-      style: { left: left + 'px', top: (y + 74) + 'px', translate: '-50% 0' },
+      ref, className: 'lgs-home-plate', 'data-state': closing ? 'closing' : 'open', 'data-lgs-home-key': item.key,
+      'aria-hidden': closing ? 'true' : undefined,
+      'data-lgs-plate': closing ? undefined : 'liquid', 'data-lgs-plate-id': closing ? undefined : 'home-plate', 'data-lgs-plate-tint': 'rgb(0 0 0 / .30)',
+      // its bottom is clamped 16 px inside the overlay (HA §3.4): row 3 of the low layout (M3)
+      style: { left: left + 'px', top: Math.min(y + 74, HOME_PLATE_BOTTOM - 60) + 'px', translate: '-50% 0' },
       children: [jsx('span', { className: 'lgs-home-plate-name', children: item.name }, 'n')],
     }, 'plate-' + item.key);
   }
 
-  function TopRow({ kind, section, onSection, title, libPath, toGrid }) {
+  function TopRow({ kind, section, sections, onSection, title, libPath, toGrid }) {
     const [pill, setPill] = React.useState(null);
     React.useLayoutEffect(() => {
       let el = null;
@@ -574,7 +755,7 @@ function homeComponents(R, rt) {
       jsxs(c.Focusable, {
         className: 'lgs-home-seg', 'flow-children': 'row', 'data-lgs-plate': 'liquid', 'data-lgs-plate-id': 'home-top-seg',
         style: pill ? { '--lgs-home-pill-x': pill.x + 'px', '--lgs-home-pill-w': pill.w + 'px' } : undefined,
-        children: [jsx('div', { className: 'lgs-home-seg-pill' }, 'pill')].concat(HOME_SECTIONS.map((s) => {
+        children: [jsx('div', { className: 'lgs-home-seg-pill' }, 'pill')].concat((sections || HOME_SECTIONS).map((s) => {
           const label = homeStr(R, s);
           return jsx(c.Focusable, {
             className: 'lgs-home-seg-item c2a-seg' + (s === section ? ' is-selected' : '') + (label ? '' : ' is-glyph'), noFocusRing: true, role: 'tab', 'aria-selected': s === section,
@@ -627,12 +808,41 @@ function homeComponents(R, rt) {
     return shown;
   }
 
+  // SteamVR's desktop windows (the "+" popup's own hook); HS.win is fixed for the install, so the hook is
+  // called on every render or on none
+  function useWindows() {
+    const W = HS.win;
+    let msg = null;
+    if (W) { try { msg = W.hook(W.type); } catch (_) { msg = null; } }
+    const list = HS.test.windows || (msg && msg.windows) || [];
+    return Array.isArray(list) ? list : [];
+  }
+
+  // a cell of the grid that is leaving (section or page change): the same look, no Focusable, no plate,
+  // no hits; removed when page-out ends (M10)
+  function GhostCell({ item, index, low }) {
+    const [x, y] = cellXY(index, low);
+    const label = item.kind === 'empty' && item.key !== 'empty' && !item.name ? homeStr(R, 'empty') : item.name;
+    return jsxs('div', {
+      className: 'lgs-home-cell is-ghost', style: { '--x': x + 'px', '--y': y + 'px' }, 'data-kind': item.kind === 'empty' ? 'empty' : item.kind,
+      children: [
+        jsx('div', { className: 'lgs-home-disc', children: jsx(Art, { item }) }, 'disc'),
+        jsx('div', { className: 'lgs-home-label', children: label }, 'label'),
+      ],
+    });
+  }
+
   function HomeView({ kind, folderId }) {
     useLive();
+    React.useLayoutEffect(() => { HS.failed = false; HS.mountedAt = Date.now(); }, []);
     const footer = useSteamFooter();
     const cap = footer ? HOME_PER_PAGE_FOOTER : HOME_PER_PAGE;
     const programs = R.data.useNonSteamApps({});
-    const [section, setSectionState] = React.useState(() => (HS.reveal && HS.reveal.section) || HS.section);
+    if (programs) HS.programs = programs;
+    const wins = useWindows();
+    const sections = wins.length ? HOME_SECTIONS : HOME_SECTIONS.filter((s) => s !== 'windows');
+    const [sectionState, setSectionState] = React.useState(() => (HS.reveal && HS.reveal.section) || HS.section);
+    const section = sections.includes(sectionState) ? sectionState : 'recent';
     const sKey = kind === 'folder' ? 'folder:' + folderId : section;
     const [page, setPageState] = React.useState(() => HS.page[sKey] || 0);
     const [moving, setMoving] = React.useState(false);
@@ -647,13 +857,15 @@ function homeComponents(R, rt) {
       if (folder) return folder.pages;
       if (section === 'collections') return homeCollections(R, cap);
       if (section === 'apps') return homeApps(R, programs, cap);
+      if (section === 'windows') return homeWindows(wins, cap);
       return homeRecent(R, cap, running);
-    }, [folder, section, programs, cap, running]);
+    }, [folder, section, programs, cap, running, section === 'windows' ? wins : null]);
     // reveal({section, key}): the page that holds the program
     const rkey = HS.reveal && HS.reveal.key ? 'p' + HS.reveal.key : null;
     let pg = Math.min(page, pages.length - 1);
     if (rkey) { const rp = pages.findIndex((p) => p.some((it) => it.key === rkey)); if (rp >= 0) pg = rp; }
     const items = pages[pg] || [];
+    const gridKey = sKey + '-' + pg;
     const move = (fn, d) => {
       setDir(d);
       setMoving(true);
@@ -669,7 +881,7 @@ function homeComponents(R, rt) {
     };
     const setSection = (s) => {
       if (s === section) return;
-      const d = HOME_SECTIONS.indexOf(s) > HOME_SECTIONS.indexOf(section) ? 1 : -1;
+      const d = sections.indexOf(s) > sections.indexOf(section) ? 1 : -1;
       if (focusInGrid()) pend.current = 'mem';
       vmem.current = null;
       move(() => { HS.section = s; HS.att = null; setSectionState(s); setPageState(HS.page[s] || 0); }, d);
@@ -696,34 +908,87 @@ function homeComponents(R, rt) {
     const attItem = attIndex >= 0 ? items[attIndex] : null;
     const showCard = !!(attItem && attItem.kind === 'game' && ((att.step >= 800 && !moving) || menuKey === attItem.key));
     const showPlate = !!(attItem && attItem.kind !== 'game' && att.step >= 400 && !moving);
-    // labels whose text the card or plate covers fade (D-C2a-5): neighbours in the attended row
-    const covered = new Set();
+
+    // exits (M10): a card or name plate that closes stays as a closing copy until its exit motion ends;
+    // a grid that is replaced stays as a leaving copy for page-out
+    const [closing, setClosing] = React.useState({ card: null, plate: null });
+    const shown = React.useRef({ card: null, plate: null });
+    const lastGrid = React.useRef(null);
+    const [leaving, setLeaving] = React.useState(null);
+    React.useLayoutEffect(() => {
+      const prev = shown.current;
+      const cur = {
+        card: showCard ? { key: attItem.key, item: attItem, index: attIndex, grid: gridKey } : null,
+        plate: showPlate ? { key: attItem.key, item: attItem, index: attIndex, grid: gridKey } : null,
+      };
+      shown.current = cur;
+      for (const k of ['card', 'plate']) {
+        const p = prev[k];
+        if (p && (!cur[k] || cur[k].key !== p.key) && p.grid === gridKey) {
+          setClosing((c) => Object.assign({}, c, { [k]: p }));
+          rt.setTimeout(() => setClosing((c) => (c[k] === p ? Object.assign({}, c, { [k]: null }) : c)), k === 'card' ? HOME_CARD_CLOSE_MS : HOME_PLATE_CLOSE_MS);
+        }
+      }
+      const g = lastGrid.current;
+      lastGrid.current = { key: gridKey, items, low, dir };
+      if (g && g.key !== gridKey) {
+        setLeaving(g);
+        rt.setTimeout(() => setLeaving((l) => (l === g ? null : l)), HOME_GRID_OUT_MS);
+      }
+    });
+    const closingCard = closing.card && closing.card.grid === gridKey && !(showCard && attIndex === closing.card.index) ? closing.card : null;
+    const closingPlate = closing.plate && closing.plate.grid === gridKey && !(showPlate && attIndex === closing.plate.index) ? closing.plate : null;
+
+    // labels whose text the card or plate covers fade (D-C2a-5); under the card they go (its native crop
+    // carries nothing but the card)
+    const covered = new Set(), coveredCard = new Set();
     if (showCard) {
       const { left, top } = cardRect(attIndex, low);
       items.forEach((it, i) => {
         if (i === attIndex) return;
         const [x, y] = cellXY(i, low);
         const lx0 = x - 100, lx1 = x + 100, ly = y + 74;
-        if (ly + 26 > top && ly < top + 240 && lx1 > left && lx0 < left + 320) covered.add(i);
+        if (ly + 26 > top && ly < top + 240 && lx1 > left && lx0 < left + 320) coveredCard.add(i);
       });
     }
-    if (showPlate) {
-      const [ax, ay] = HOME_CELLS[attIndex];
-      items.forEach((it, i) => { const [x, y] = HOME_CELLS[i]; if (i !== attIndex && y === ay && Math.abs(x - ax) < 260) covered.add(i); });
-    }
+    // the plate's real rect against each label's text (m2): measured once the plate has rendered
+    const [plateCover, setPlateCover] = React.useState(null);
+    const measurePlate = React.useCallback((key, el) => {
+      try {
+        const pr = el.getBoundingClientRect();
+        const doc = el.ownerDocument;
+        const hit = [];
+        for (const lab of doc.querySelectorAll('.lgs-home-grid:not(.is-leaving) > .lgs-home-cell > .lgs-home-label')) {
+          const cell = lab.parentElement;
+          if (!cell || cell.getAttribute('data-lgs-home-key') === key) continue;
+          const rg = doc.createRange();
+          rg.selectNodeContents(lab);
+          const tr = rg.getBoundingClientRect();
+          if (tr.width > 0 && tr.right > pr.left && tr.left < pr.right && tr.bottom > pr.top && tr.top < pr.bottom) hit.push(Number(cell.getAttribute('data-lgs-home-index')));
+        }
+        setPlateCover((pc) => (pc && pc.key === key && pc.set.length === hit.length && pc.set.every((v, j) => v === hit[j]) ? pc : { key, set: hit }));
+      } catch (_) { /* measured next time */ }
+    }, []);
+    if (showPlate && plateCover && plateCover.key === attItem.key) for (const i of plateCover.set) covered.add(i);
+    const clips = showCard ? cardClips(attIndex, items.length, low) : {};
     const focusKey = rkey || HS.focusKey[sKey];
     let memIdx = items.findIndex((it) => it.key === focusKey);
     if (memIdx < 0) memIdx = 0;
+    // route entry: discs materialize in rings from the focused cell, 30 ms apart, at most 3 (HA §11)
+    const [mx, my] = cellXY(memIdx, low);
+    const ringOf = (i) => { const [x, y] = cellXY(i, low); return Math.min(3, Math.round(Math.hypot((x - mx) / 224, (y - my) / 184))); };
 
     // ---- explicit neighbours (HA §3.5)
-    const cellEl = (i) => { try { return R.nav.win().document.querySelector('.lgs-home-grid > .lgs-home-cell[data-lgs-home-index="' + i + '"]'); } catch (_) { return null; } };
-    const focusCell = (i) => homeFocusEl(R, cellEl(i));
+    const cellEl = (i) => { try { return R.nav.win().document.querySelector('.lgs-home-grid:not(.is-leaving) > .lgs-home-cell[data-lgs-home-index="' + i + '"]'); } catch (_) { return null; } };
+    const focusCell = (i, quiet) => homeFocusEl(R, cellEl(i), quiet);
     // one-step memory for the top row too (HA §3.5): Up from the cell that Down from a top-row control
-    // reached returns to that control; otherwise Up goes to the selected segment
+    // reached returns to that control; Up from a cell that Steam's own move brought into a folder's grid
+    // (from C1a's search capsule) is Steam's move back (P-20); otherwise Up goes to the selected segment
     const focusTop = (fromIdx) => {
       let el = null;
       const tm = HS.topBack;
       HS.topBack = null;
+      if (tm && tm.ext && tm.to === fromIdx && tm.sKey === sKey) return false;
       try {
         const doc = R.nav.win().document;
         if (tm && tm.to === fromIdx && tm.sKey === sKey && tm.sel) el = doc.querySelector(tm.sel);
@@ -777,7 +1042,8 @@ function homeComponents(R, rt) {
       if (pend.current == null) return undefined;
       const want = pend.current;
       pend.current = null;
-      const t = rt.setTimeout(() => focusCell(want === 'mem' ? memIdx : Math.min(want, items.length - 1)), 30);
+      // the page or section change already played its own sound
+      const t = rt.setTimeout(() => focusCell(want === 'mem' ? memIdx : Math.min(want, items.length - 1), true), 30);
       return () => { try { rt.clearTimeout(t); } catch (_) { /* gone */ } };
     }, [pg, section]);
 
@@ -788,8 +1054,8 @@ function homeComponents(R, rt) {
     const onButtonDown = (e) => {
       const b = e && e.detail && (e.detail.button != null ? e.detail.button : e.detail);
       if (kind !== 'folder' && (b === 5 || b === 6)) { // LB / RB: sections (HA-3); What's New is not in the cycle
-        const i = HOME_SECTIONS.indexOf(section) + (b === 6 ? 1 : -1);
-        if (i >= 0 && i < HOME_SECTIONS.length) setSection(HOME_SECTIONS[i]);
+        const i = sections.indexOf(section) + (b === 6 ? 1 : -1);
+        if (i >= 0 && i < sections.length) setSection(sections[i]);
         return;
       }
       if (b === 7 || b === 8) setPage(pg + (b === 8 ? 1 : -1), focusInGrid() ? 0 : null); // LT / RT: pages
@@ -799,11 +1065,14 @@ function homeComponents(R, rt) {
       const out = [];
       if (!list) return out;
       const rows = footer ? [[0, low ? HOME_LOW_Y[196] : 196]] : [[0, low ? HOME_LOW_Y[196] : 196], [2, low ? HOME_LOW_Y[572] : 572]];
+      const turn = () => setPage(pg + (side === 'next' ? 1 : -1), focusInGrid() ? 0 : null);
       for (const [row, cy] of rows) {
         const it = side === 'next' ? list[HOME_ROW_START[row]] : list[Math.min(list.length, HOME_ROW_START[row] + HOME_ROW_LEN[row]) - 1];
         if (!it) continue;
-        out.push(jsx('div', { className: 'lgs-home-peek', 'data-side': side, style: { left: (side === 'next' ? 1212 : 68) + 'px', top: cy + 'px' },
-          onClick: () => setPage(pg + (side === 'next' ? 1 : -1), focusInGrid() ? 0 : null), children: jsx(Art, { item: it }) }, side + row));
+        // the laser's page turn: P3's dwell look and the press swell (m1); the gamepad turns pages at row ends
+        out.push(jsx('div', { className: 'lgs-home-peek', 'data-side': side, 'data-kind': it.kind, 'data-lgs-dwell': '', role: 'button', 'aria-label': it.name || undefined,
+          style: { left: (side === 'next' ? 1212 : 68) + 'px', top: cy + 'px' },
+          onClick: turn, children: jsx(Art, { item: it }) }, side + row));
       }
       return out;
     };
@@ -812,20 +1081,36 @@ function homeComponents(R, rt) {
     if (kind === 'folder') { rootProps.onCancel = () => R.nav.back(); rootProps.onCancelActionDescription = homeStr(R, 'back') || undefined; }
     // At the Home root B is not handled: it bubbles to Steam's root, which goes back in history exactly as on
     // Steam's own Home (stock probe 2026-10-07: /library/tab/AllGames -> /library/home, B -> AllGames)
+    const cardFor = (i) => {
+      if (showCard && i === attIndex) return jsx(SafeCard, { item: attItem, index: attIndex, low, menuOpen: menuKey === attItem.key }, 'card-' + attItem.key);
+      if (closingCard && closingCard.index === i && items[i] && items[i].key === closingCard.key) return jsx(SafeCard, { item: closingCard.item, index: i, low, closing: true }, 'card-' + closingCard.key);
+      return null;
+    };
+    // A render failure inside Home: Steam's own Home in a window (M7, HA §3.7); a folder shows P2's page
+    const onFail = () => {
+      if (!HS || kind === 'folder') return;
+      HS.failed = true;
+      try { if (rt.has('shell')) rt.use('shell').refreshGlass(); } catch (_) { /* no shell */ }
+    };
     // the page props Steam's own Home passes (its GamepadPage: no header or footer padding, header
     // visibility 'default', minimum opacity 0)
-    return jsx(R.ui.ErrorBoundary, { name: 'c2a-home', children: jsx(c.GamepadPage, { scrollable: false, padForHeader: false, padForFooter: false, headerVisibility: 'default', minimumOpacity: 0, children: jsxs(c.Focusable, Object.assign(rootProps, {
+    return jsx(R.ui.ErrorBoundary, { name: 'c2a-home', fallback: kind === 'folder' ? undefined : (HS.steam || null), onError: onFail, children: jsx(c.GamepadPage, { scrollable: false, padForHeader: false, padForFooter: false, headerVisibility: 'default', minimumOpacity: 0, children: jsxs(c.Focusable, Object.assign(rootProps, {
       children: [
-        jsx(TopRow, { kind, section, onSection: setSection, title: folder ? folder.title : null, libPath: folder ? folder.lib : null, toGrid }, 'top'),
+        jsx(TopRow, { kind, section, sections, onSection: setSection, title: folder ? folder.title : null, libPath: folder ? folder.lib : null, toGrid }, 'top'),
+        leaving ? jsx('div', { className: 'lgs-home-grid is-leaving', 'aria-hidden': 'true',
+          children: leaving.items.map((it, i) => jsx(GhostCell, { item: it, index: i, low: leaving.low }, it.key)) }, 'leave-' + leaving.key) : null,
         jsx(c.Focusable, {
           className: 'lgs-home-grid is-entering', style: { '--lgs-page-dx': (dir * 16) + 'px' },
-          children: items.map((it, i) => jsx(Cell, { item: it, index: i, low, focusMe: i === memIdx, under: covered.has(i), hidden: (showCard || showPlate) && i === attIndex, move: moveFrom, cardOn: showCard,
-            card: showCard && i === attIndex ? jsx(Card, { item: attItem, index: attIndex, low, menuOpen: menuKey === attItem.key }, 'card-' + attItem.key) : null }, it.key)),
-        }, 'grid-' + sKey + '-' + pg),
+          children: items.map((it, i) => jsx(Cell, { item: it, index: i, low, focusMe: i === memIdx, under: covered.has(i), underCard: coveredCard.has(i),
+            hidden: (showCard || showPlate) && i === attIndex, move: moveFrom, cardOn: showCard, clip: clips[i] || null, ring: ringOf(i), kind,
+            card: cardFor(i), cardOpen: showCard && i === attIndex }, it.key)),
+        }, 'grid-' + gridKey),
         ...peek('next', next), ...peek('prev', prev),
         pages.length > 1 ? jsx('div', { className: 'lgs-home-dots', children: pages.map((_, i) => jsx('i', { className: i === pg ? 'is-on' : undefined }, i)) }, 'dots') : null,
         ...(low ? HOME_BANDS_LOW : HOME_BANDS).map(([y0, y1], i) => jsx('div', { className: 'lgs-home-band', 'data-lgs-mosaic': '', style: { top: y0 + 'px', height: (y1 - y0) + 'px' } }, 'band' + i)),
-        showPlate ? jsx(NamePlate, { item: attItem, index: attIndex, low }, 'plate') : null,
+        showPlate ? jsx(NamePlate, { item: attItem, index: attIndex, low, onMeasure: measurePlate }, 'plate-' + attItem.key) : null,
+        closingPlate && items[closingPlate.index] && items[closingPlate.index].key === closingPlate.key
+          ? jsx(NamePlate, { item: closingPlate.item, index: closingPlate.index, low, closing: true }, 'plate-out-' + closingPlate.key) : null,
       ],
     })) }) });
   }
@@ -839,6 +1124,11 @@ function homeComponents(R, rt) {
   // window. B goes back to Home (HA §3.6) instead of opening the tab bar as on Steam's root.
   function SteamHomeRoute() {
     useLive();
+    // entered before our Home rendered once in this install (a history entry): Steam's Home children are
+    // captured by the Home override, so pass through Home and come back (m15)
+    React.useEffect(() => {
+      if (HS && !HS.steam) { HS.wnPending = true; R.nav.go(R.Routes.Library.Home(), true); }
+    }, []);
     if (!HS || !HS.steam) return null;
     const wn = homeStr(R, 'whatsnew');
     return jsx(c.Focusable, {

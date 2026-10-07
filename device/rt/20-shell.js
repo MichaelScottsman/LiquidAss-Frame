@@ -409,6 +409,7 @@
     const quiet = legends.length > 0 && legends.every((el) => !el.hasAttribute('data-lgs-t2') && QUIET.has(el.getAttribute('data-lgs-btn')));
     setAttr(footer, 'data-lgs-orn', legends.length ? (quiet ? 'quiet' : 'capsule') : null);
     applyOrnPlate(footer, legends.length ? (quiet ? 'quiet' : 'capsule') : null);
+    morphOrnament(footer, legends.length ? (quiet ? 'quiet' : 'capsule') : null);
     // flag quietBacking: "off" shows PLAN §1.10's bare quiet labels in the margin
     const qb = S.rt.flags.get('quietBacking');
     setAttr(footer, 'data-lgs-band', (qb === 'off' || qb === false) ? 'off' : null);
@@ -434,6 +435,29 @@
       const width = b.right - a.left + 24;
       setAttr(footer, 'data-lgs-orn-compact', width > 960 ? '' : null);
     } else if (footer.hasAttribute('data-lgs-orn-compact')) footer.removeAttribute('data-lgs-orn-compact');
+  }
+  // WN §7 "Ornament legend change": the capsule's width follows its members at once in layout (anchors);
+  // its glass and E3 edge ride `snappy` from the old width as a scale FLIP (LAB: scale only, no layout
+  // animation). The capsule is centred, so the default origin keeps both ends symmetric. Web Animations
+  // with no fill: nothing stays applied when it ends (MO R11); none under Reduce Motion (P-56).
+  function morphOrnament(footer, look) {
+    const plate = footer.querySelector(':scope > .lgs-orn-plate');
+    const w = look === 'capsule' && plate ? plate.getBoundingClientRect().width : 0;
+    const prev = S.ornFooter === footer ? S.ornW : 0;
+    S.ornFooter = footer;
+    S.ornW = w;
+    if (!(w > 0 && prev > 0) || Math.abs(w - prev) < 3 || typeof footer.animate !== 'function') return;
+    const M = S.rt.shared && S.rt.shared.motion;
+    if (!M || typeof M.timing !== 'function') return;
+    const win = footer.ownerDocument.defaultView;
+    if (typeof M.reduced === 'function' && M.reduced(win)) return;
+    const t = M.timing('snappy', {});
+    const s0 = Math.max(.5, Math.min(2, prev / w));
+    for (const pe of ['::after', '::before']) {
+      try { footer.animate([{ scale: s0 + ' 1' }, { scale: '1 1' }], { duration: t.duration, easing: t.easing, pseudoElement: pe }); }
+      catch (_) { /* no pseudo-element animations */ }
+    }
+    S.ornMorphs = (S.ornMorphs || 0) + 1;
   }
   function schedule() {
     if (!S || S.pending) return;
@@ -683,7 +707,7 @@
     S.backAria.clear();
     for (const n of doc.querySelectorAll('#Footer .lgs-opt, #header .lgs-back-reveal, #Footer > .lgs-orn-plate')) n.remove();
     for (const n of doc.querySelectorAll('[data-lgs-plate-id="shell-back"], [data-lgs-plate-id="shell-search"]')) clearPlate(n);
-    for (const n of doc.querySelectorAll('#header [data-lgs-reveal]')) n.removeAttribute('data-lgs-reveal');
+    for (const n of doc.querySelectorAll('#header[data-lgs-reveal], #header [data-lgs-reveal]')) n.removeAttribute('data-lgs-reveal');
     if (S.revealReg) { try { S.revealReg.off(); } catch (_) { /* gone */ } S.revealReg = null; }
     for (const f of doc.querySelectorAll('#Footer')) {
       for (const a of ['data-lgs-orn', 'data-lgs-orn-compact', 'data-lgs-orn-fixed', 'data-lgs-band']) f.removeAttribute(a);
@@ -754,9 +778,11 @@
         },
         // set by the More helper (20-more.js) from attention; not for areas
         _setTarget(el) { setTarget(el); },
+        // the ≡ description for the More circle's label and tooltip when Steam shows no ≡ legend (laser)
+        _optionsText(el) { return S ? optionsText(el || null) : null; },
         status() {
           return S ? { route: S.route, header: Object.assign({}, S.hdr, { rewrites: S.hdrRewrites }), tab: S.tab, opt: S.opt, hooks: Array.from(S.hooks.keys()), slots: Array.from(S.slots.keys()),
-            footer: S.footer ? { orn: S.footer.getAttribute('data-lgs-orn'), fixed: S.footer.getAttribute('data-lgs-orn-fixed') } : null } : null;
+            footer: S.footer ? { orn: S.footer.getAttribute('data-lgs-orn'), fixed: S.footer.getAttribute('data-lgs-orn-fixed'), w: S.ornW || 0, morphs: S.ornMorphs || 0 } : null } : null;
         },
       };
       rt.expose('shell', api);

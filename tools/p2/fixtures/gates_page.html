@@ -86,6 +86,11 @@
   .segrow { position: absolute; left: 20px; display: flex; }
   .segrow .seg { width: 130px; height: 60px; display: flex; align-items: center; justify-content: center; border-radius: 30px; }
   #segs1 { top: 200px; font-size: 22px; } #segs2 { top: 300px; font-size: 20px; }
+  /* case 15 (shown alone, session 5): AUD rematch across a DOM move (C2b's T3 wraps and sorts Steam's own rows) */
+  #rlist { display: none; position: absolute; left: 20px; top: 20px; width: 300px; }
+  #rlist .rbox { width: 320px; }
+  #rlist .toggle { width: 300px; height: 64px; }
+  #rlist .row { height: 64px; margin-bottom: 4px; border-radius: 32px; background: rgb(60 60 70 / .6); display: flex; align-items: center; padding: 0 20px; }
 </style>
 </head>
 <body>
@@ -130,6 +135,7 @@
   <div class="lcell Focusable" role="button"><div class="lbl ell" id="L9">Half SBS Toggle Program Extra Words</div></div>
   <div class="lcell Focusable" role="button"><div class="lbl fit" id="L10">Qbittorrentclient</div></div>
 </div>
+<div id="rlist"><div id="rbox" class="rbox Focusable" role="group"><div class="row Focusable" role="button">Alpha</div><div class="row Focusable" role="button">Beta</div><div class="row Focusable" role="button">Gamma</div><div class="row Focusable" role="button">Dup</div><div class="row Focusable" role="button">Dup</div><div class="row Focusable" role="button">Delta</div></div></div>
 <div id="misc"><div id="key1" class="key Focusable" role="button" onclick="void 0">g</div>
   <div id="segs1" class="segrow"><div class="seg Focusable" role="button">Wide A</div><div class="seg Focusable" role="button">Wide B</div><div class="seg Focusable" role="button">Wide C</div></div>
   <div id="segs2" class="segrow"><div class="seg Focusable" role="button">Cmp A</div><div class="seg Focusable" role="button">Cmp B</div><div class="seg Focusable" role="button">Cmp C</div></div>
@@ -321,6 +327,36 @@
     const segs = (s14.exempt || []).filter((e) => e.id === 'E-SEG');
     ok('14 E-SEG: 140 for a 22 px label (fails at 130), 120 compact (passes)', segs.length === 6 && segs.filter((e) => /Wide/.test(e.el)).every((e) => e.pass === false && /needs >= 60 x 140/.test(e.why)) && segs.filter((e) => /Cmp/.test(e.el)).every((e) => e.pass === true && /compact/.test(e.why)), segs.map((e) => e.why));
     misc.style.display = 'none';
+    // 15 (session 5, REQ C2b-R2->P10): the theme wraps the rows in a panel and sorts them (T3) and puts a toggle row
+    // where the list box was (the box moves one place down): AUD matches each unique row to its themed self by its
+    // text (no GONE) and the list box by its class (its text changed with its rows), never compares the toggle with
+    // the box (a path collision), and judges what it matched (Gamma SHRUNK); a repeated identity ("Dup", one
+    // removed) and a renamed row ("Delta" -> "Epsilon") are never matched: their GONE stays
+    const rl = document.getElementById('rlist'), rbox = document.getElementById('rbox');
+    rl.style.display = 'block';
+    G.exemptions({});
+    const ra = L.snap('main');
+    const rows = [...rbox.children];
+    const wrap = document.createElement('div');
+    wrap.className = 'panel';
+    for (const t of ['Gamma', 'Alpha', 'Beta', 'Dup', 'Delta']) wrap.appendChild(rows.find((x) => x.textContent === t));
+    rows.filter((x) => x.textContent === 'Dup' && x.parentElement !== wrap).forEach((x) => x.remove());
+    wrap.lastChild.textContent = 'Epsilon';
+    rbox.appendChild(wrap);
+    const tg = document.createElement('div');
+    tg.className = 'toggle Focusable'; tg.setAttribute('role', 'button'); tg.textContent = 'Toggle';
+    rl.insertBefore(tg, rbox);
+    wrap.firstChild.style.height = '40px';           // Gamma, matched, then judged: SHRUNK
+    const rb = L.snap('main');
+    const d15 = G.audDiff(ra, rb);
+    tg.remove();
+    const gone15 = d15.issues.filter((x) => /^GONE/.test(x));
+    ok('15 AUD rematch: moved rows matched by text, the list box by its class, no comparison across a path collision; a repeated or renamed identity stays GONE',
+      d15.rematched === 4 && (d15.pathCollisions || 0) >= 1 && !gone15.some((x) => /"(Alpha|Beta|Gamma)"/.test(x) || /rbox/.test(x))
+      && gone15.filter((x) => /"Dup"/.test(x)).length === 2 && gone15.some((x) => /"Delta"/.test(x))
+      && d15.issues.some((x) => /^SHRUNK/.test(x) && /"Gamma"/.test(x)) && !d15.issues.some((x) => /^SHRUNK/.test(x) && /rbox/.test(x)),
+      { rematched: d15.rematched, rematch: d15.rematch, collisions: d15.pathCollisions, issues: d15.issues });
+    rl.style.display = 'none';
     others.forEach((e) => { e.style.display = ''; });
     return { pass: out.every((x) => x.pass), cases: out, size: { checked: s.checked, fails: s.fails.length, skipped: s.skipped.length, inPlace: (s.inPlace || []).length } };
   };

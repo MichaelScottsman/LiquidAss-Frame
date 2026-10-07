@@ -51,6 +51,12 @@
   transform-origin: 50% 100%;
   animation: lgs-mat-large-in var(--lgs-motion-mat-in, 250ms linear) backwards;
 }
+/* the content channel (HA 4: glass 0-92 %, content 35-100 %; motion.md
+   lgs-mat-content-in): the header and the grid sharpen in after the glass.
+   In T3 the panel is the glass and its children carry the channel (5.) */
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) > * {
+  animation: lgs-mat-content-in var(--lgs-motion-mat-in, 250ms linear) backwards;
+}
 /* two lists (windows, then programs): Steam stacks two cards and lets them
    share the 1024 px host; keep them one glass apart */
 %{DashboardBarPopupSectionStack}:has(> %{DashboardBarPopupList} > %{DashboardBarPopupListHeader}) {
@@ -120,19 +126,49 @@
   background: transparent !important;
   color: var(--lgs-text-1) !important;
   animation: none !important;
+  /* the cell's light layer (::after, z -1) paints above the glass, under
+     the disc and label */
+  isolation: isolate;
 }
-/* Steam's separator and active dot: unused in a grid */
-%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}::after,
+/* Steam's active dot: unused in a grid */
 %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}::before {
   background: transparent !important;
   box-shadow: none !important;
   /* Steam's dot sits at left -6px: it must not take the neighbour's hits */
   pointer-events: none;
 }
-/* Steam's separator hangs .5 px below the row: inside the cell, so the last
-   row does not make the grid scroll by 1 px (and show a bottom fade) */
+/* Steam's separator becomes the cell's light layer (HA 4, the mockup's
+   .hp-cell.is-hover / .is-focus): the whole 72 x 96 cell lights, white .14
+   on focus and .08 under the laser, never a scale (rows and cells do not
+   scale, P-05). Inside the cell, so the last row does not scroll by 1 px. */
 %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}::after {
-  bottom: 0 !important;
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  width: auto !important;
+  height: auto !important;
+  border-radius: var(--lgs-r-row);
+  background: rgb(255 255 255 / var(--lgs-c2b-cell-focus, .14)) !important;
+  box-shadow: none !important;
+  opacity: 0;
+  z-index: -1;
+  pointer-events: none;
+  /* out on fade (441 ms) */
+  transition: opacity var(--lgs-d-fade, 441ms) var(--lgs-ease-b0, ease);
+}
+&:not(.lgs-input-pad) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:hover::after {
+  opacity: calc(.08 / .14);
+  transition-duration: var(--lgs-d-hover-in, 294ms);
+}
+/* gamepad focus: on at once, entering through P5's lgs-focus-in, so the
+   first frame already shows --lgs-focus-first (60 %) of the look (P-18) */
+&:not(.lgs-input-laser) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}.gpfocus::after,
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:is(:active, .lgs-pressed)::after {
+  opacity: 1;
+  transition-duration: 0s;
+}
+&:not(.lgs-input-laser) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}.gpfocus::after {
+  animation: lgs-focus-in var(--lgs-d-hover-in, 294ms) var(--lgs-ease-b0, ease) backwards;
 }
 %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem} %{*GamepadDialogContent>FieldLeftColumn},
 %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem} %{*GamepadDialogContent>FieldLabelRow} {
@@ -170,8 +206,26 @@
   background: rgb(255 255 255 / .11);
   box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / .22);
   color: var(--lgs-text-1);
-  transition: background-color var(--lgs-d-hover-in, 294ms) var(--lgs-ease-b0, ease),
-              box-shadow var(--lgs-d-hover-in, 294ms) var(--lgs-ease-b0, ease);
+  isolation: isolate;
+  /* laser hover out on fade (441 ms), in on hover-in (3.) */
+  transition: background-color var(--lgs-d-fade, 441ms) var(--lgs-ease-b0, ease);
+}
+/* the disc's focus layer (3.): + white .32, a spot in the upper third, the
+   arc x 1.5 and a blurred glow; under the icon, above the disc's fill */
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem} %{*GamepadDialogContent>FieldIcon}::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  z-index: -1;
+  background:
+    radial-gradient(circle at 50% 30%, rgb(255 255 255 / var(--lgs-focus-spot, .16)), transparent 70%),
+    rgb(255 255 255 / var(--lgs-focus-add, .32));
+  box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / var(--lgs-focus-arc, .55)),
+              0 0 calc(var(--lgs-white-glow-blur, 22px) * .5) 0 rgb(255 255 255 / .18);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--lgs-d-fade, 441ms) var(--lgs-ease-b0, ease);
 }
 %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem} %{PopupBody>Icon} {
   width: 34px;
@@ -239,26 +293,43 @@
 /* 3. States: the light lives on the disc (rows never scale, VP P-05)     */
 /* ---------------------------------------------------------------------- */
 
-/* laser hover (keys on :hover, never on .gpfocus under the laser) */
+/* laser hover (keys on :hover, never on .gpfocus under the laser): in on
+   hover-in (294 ms), out on fade */
 &:not(.lgs-input-pad) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:hover %{*GamepadDialogContent>FieldIcon} {
   background:
     radial-gradient(circle at 50% 30%, rgb(255 255 255 / var(--lgs-hover-spot, .12)), transparent 70%),
     rgb(255 255 255 / calc(.11 + var(--lgs-hover-add, .08)));
+  transition-duration: var(--lgs-d-hover-in, 294ms);
 }
-/* gamepad focus: + white .32, a spot in the upper third, the arc x 1.5 */
-&:not(.lgs-input-laser) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}.gpfocus %{*GamepadDialogContent>FieldIcon} {
-  background:
-    radial-gradient(circle at 50% 30%, rgb(255 255 255 / var(--lgs-focus-spot, .16)), transparent 70%),
-    rgb(255 255 255 / calc(.11 + var(--lgs-focus-add, .32)));
-  box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / var(--lgs-focus-arc, .55)),
-              0 0 calc(var(--lgs-white-glow-blur, 22px) * .5) 0 rgb(255 255 255 / .18);
+/* gamepad focus: the disc's focus layer on at once, entering through P5's
+   lgs-focus-in (first frame = --lgs-focus-first, 60 %, P-18), out on fade */
+&:not(.lgs-input-laser) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}.gpfocus %{*GamepadDialogContent>FieldIcon}::before,
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:is(:active, .lgs-pressed) %{*GamepadDialogContent>FieldIcon}::before {
+  opacity: 1;
+  transition-duration: 0s;
 }
-/* press: + .06 and the spot spreads (laser :active, gamepad .lgs-pressed) */
+&:not(.lgs-input-laser) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}.gpfocus %{*GamepadDialogContent>FieldIcon}::before {
+  animation: lgs-focus-in var(--lgs-d-hover-in, 294ms) var(--lgs-ease-b0, ease) backwards;
+}
+/* press: + .06 and the spot spreads (laser :active, gamepad .lgs-pressed),
+   over the focus layer */
 %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:is(:active, .lgs-pressed) %{*GamepadDialogContent>FieldIcon} {
   background:
     radial-gradient(circle at 50% 50%, rgb(255 255 255 / var(--lgs-press-spot, .22)), transparent 85%),
-    rgb(255 255 255 / calc(.11 + var(--lgs-focus-add, .32) + var(--lgs-press-add, .06)));
+    rgb(255 255 255 / calc(.11 + var(--lgs-press-add, .06)));
   transition-duration: var(--lgs-d-interactive, 210ms);
+}
+/* High Contrast (tokens.md): focus = white .30 + the allowed 2 px stroke,
+   no spot, no glow */
+@media (prefers-contrast: more) {
+  &:not(.lgs-input-laser) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}.gpfocus::after {
+    background: rgb(255 255 255 / .30) !important;
+    box-shadow: inset 0 0 0 2px rgb(255 255 255 / .70) !important;
+  }
+  %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem} %{*GamepadDialogContent>FieldIcon}::before {
+    background: rgb(255 255 255 / .30);
+    box-shadow: none;
+  }
 }
 /* Steam's gamepad FocusRing: the disc carries the focus (one focused look) */
 %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{FocusRingHint} {
@@ -291,11 +362,29 @@
   white-space: nowrap;
   pointer-events: none;
 }
-%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:is(.gpfocus, :hover) %{Marquee>Content} {
-  display: block;
+/* the plate's text: the whole name on one line (keyed on the input mode
+   like the plate, P-01: a stale .gpfocus under the laser changes nothing) */
+&:not(.lgs-input-laser) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}.gpfocus %{Marquee>Content},
+&.lgs-input-laser %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}.lgs-dwell:hover %{Marquee>Content},
+&:not(.lgs-input-laser):not(.lgs-input-pad) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:hover %{Marquee>Content} {
+  display: block !important;
+  max-height: none;
   white-space: nowrap;
   -webkit-line-clamp: none;
   text-overflow: ellipsis;
+  animation: none !important;
+}
+/* the labels the plate lies over fade to .22 (HA 4, PLAN-2b-4): the plate
+   sits in the label band of its own row, so its row-mates' labels fade
+   (left of it, right of it), on fade (441 ms) both ways. ATT is the
+   attended cell, keyed on the input mode as the plate. */
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser .lgs-dwell:hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not(:nth-child(4n)) + %{DashboardBarPopupListItem} %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser .lgs-dwell:hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):is(:nth-child(4n+1), :nth-child(4n+2)) + %{DashboardBarPopupListItem} + %{DashboardBarPopupListItem} %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser .lgs-dwell:hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):nth-child(4n+1) + %{DashboardBarPopupListItem} + %{DashboardBarPopupListItem} + %{DashboardBarPopupListItem} %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:has(+ %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser .lgs-dwell:hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not(:nth-child(4n+1))) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:has(+ %{DashboardBarPopupListItem} + %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser .lgs-dwell:hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):is(:nth-child(4n+3), :nth-child(4n))) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:has(+ %{DashboardBarPopupListItem} + %{DashboardBarPopupListItem} + %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser .lgs-dwell:hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):nth-child(4n)) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}) {
+  opacity: .22;
 }
 &:not(.lgs-input-laser) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}.gpfocus:nth-child(4n+1) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
 &.lgs-input-laser %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}.lgs-dwell:hover:nth-child(4n+1) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
@@ -376,6 +465,16 @@ div.lgs-c2b-panel[data-lgs-c2b] {
   min-height: 0;
   max-height: none;
 }
+/* the content channel in T3: the panel is the glass, its children (Steam's
+   list or stack, the toggle row) sharpen in after it; the list's own
+   children ride their parent (no second channel) */
+div.lgs-c2b-panel[data-lgs-c2b] > *,
+div.lgs-c2b-panel[data-lgs-c2b] > %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) {
+  animation: lgs-mat-content-in var(--lgs-motion-mat-in, 250ms linear) backwards;
+}
+.lgs-c2b-panel %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) > * {
+  animation: none;
+}
 
 /* the toggle row: 64 tall recessed platter, outside the grid's focus group */
 .lgs-c2b-toggle {
@@ -388,12 +487,30 @@ div.lgs-c2b-panel[data-lgs-c2b] {
   margin: 10px 6px 0;
   padding: 0 12px 0 10px;
   box-sizing: border-box;
-  border-radius: 32px;
+  /* HA 4: radius 28 */
+  border-radius: 28px;
   background: rgb(0 0 0 / .22);
   box-shadow: inset 0 2px 5px rgb(0 0 0 / .22);
   color: var(--lgs-text-1);
   cursor: pointer;
-  transition: background-color var(--lgs-d-hover-in, 294ms) var(--lgs-ease-b0, ease);
+  isolation: isolate;
+  transition: background-color var(--lgs-d-fade, 441ms) var(--lgs-ease-b0, ease);
+}
+/* its focus layer: + white .32, the spot and the arc; on at once through
+   lgs-focus-in (first frame 60 %, P-18), out on fade */
+.lgs-c2b-toggle::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: -1;
+  background:
+    radial-gradient(ellipse at 50% 30%, rgb(255 255 255 / var(--lgs-focus-spot, .16)), transparent 70%),
+    rgb(255 255 255 / var(--lgs-focus-add, .32));
+  box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / var(--lgs-focus-arc, .55));
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--lgs-d-fade, 441ms) var(--lgs-ease-b0, ease);
 }
 .lgs-c2b-toggle-disc {
   flex: none;
@@ -468,17 +585,33 @@ div.lgs-c2b-panel[data-lgs-c2b] {
   right: auto;
   left: 3px;
 }
-/* row states: laser hover warms it, gamepad focus lights it (+ .32 and the arc) */
+/* row states: laser hover warms it, gamepad focus lights it (+ .32 and the
+   arc, through the focus layer above; the recess clears at once) */
 &:not(.lgs-input-pad) .lgs-c2b-toggle:hover {
   background: rgb(255 255 255 / var(--lgs-hover-add, .08));
+  transition-duration: var(--lgs-d-hover-in, 294ms);
 }
 &:not(.lgs-input-laser) .lgs-c2b-toggle.gpfocus {
-  background:
-    radial-gradient(ellipse at 50% 30%, rgb(255 255 255 / var(--lgs-focus-spot, .16)), transparent 70%),
-    rgb(255 255 255 / var(--lgs-focus-add, .32));
-  box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / var(--lgs-focus-arc, .55));
+  background: transparent;
+  box-shadow: none;
+  transition-duration: 0s;
+}
+&:not(.lgs-input-laser) .lgs-c2b-toggle.gpfocus::before,
+.lgs-c2b-toggle:is(:active, .lgs-pressed)::before {
+  opacity: 1;
+  transition-duration: 0s;
+}
+&:not(.lgs-input-laser) .lgs-c2b-toggle.gpfocus::before {
+  animation: lgs-focus-in var(--lgs-d-hover-in, 294ms) var(--lgs-ease-b0, ease) backwards;
 }
 .lgs-c2b-toggle:is(:active, .lgs-pressed) {
-  background: rgb(255 255 255 / calc(var(--lgs-focus-add, .32) + var(--lgs-press-add, .06)));
+  background: rgb(255 255 255 / var(--lgs-press-add, .06));
+  box-shadow: none;
   transition-duration: var(--lgs-d-interactive, 210ms);
+}
+@media (prefers-contrast: more) {
+  .lgs-c2b-toggle::before {
+    background: rgb(255 255 255 / .30);
+    box-shadow: inset 0 0 0 2px rgb(255 255 255 / .70);
+  }
 }

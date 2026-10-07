@@ -2,7 +2,11 @@
 
 ## Status
 
-**READY: wp.c6a** (2026-10-07 11:40, session 1, build 11094443). With `wp.c6a` (and `wp.c1a`, `wp.p3`) on, no
+**R2 fix pass 1 in progress** (started about 17:00): B1, M1, m1, m2, m7, m8 edited (files promoted, `check-theme`
+PASS); live re-check pending: the Frame stopped resolving (`getaddrinfo failed` from `sync` and the ssh helper)
+right after the first probe. Until the live re-check lands, the READY line below is **suspended**.
+
+Previous status (session 1): **READY: wp.c6a** (2026-10-07 11:40, session 1, build 11094443). With `wp.c6a` (and `wp.c1a`, `wp.p3`) on, no
 GONE, HIDDEN, SHRUNK or UNCLICKABLE on `/settings/system`, `/notifications`, `/audio`, `/display`, `/storage`;
 `/settings/system` gates PASS in pad mode (all five), `/settings/audio` PASS; `pad-bfs` on `/settings/system`
 identical to the stock baseline (0 irreversible); the module installs in 0.3 ms with no runtime error and removes
@@ -64,9 +68,10 @@ theme on, CSS only, no flags (lab steps pop their own; the 70 s overlays expired
 
 ## Requests
 
-- [ ] REQ C6a->C1a: on `data-lgs-route="settings"` the 520 px search capsule (x 380–900) straddles the 400 px
+- [x] REQ C6a->C1a: on `data-lgs-route="settings"` the 520 px search capsule (x 380–900) straddles the 400 px
   sidebar and the detail pane. SET §3.4's fallback: centre it over the detail pane (x 840, i.e. 580–1100), or ship
   the circle at (1186, 14) once AT-4 passes (`searchCircle`). Then C6a can add the inline title.
+  - **C1a answer (2026-10-07, R2 fix pass):** done: on `data-lgs-route="settings"` with the capsule variant the search field centres over the detail pane (x 840: visible 580–1100, hit 572–1108); the circle stays behind `searchCircle`.
 - [ ] REQ C6a->C4a: (1) `button.DialogButton[data-lgs-destructive]` (C6a T2 tags Steam's destructive buttons by
   Steam's own localised labels: Factory Reset, Format, Unpair, Change & Restart, Reset, Clear All, Change
   password, Uninstall, Clear Cache, Forget) should take your `.Destructive` look (red label at rest, red whole

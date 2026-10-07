@@ -17,8 +17,8 @@
        (.lgs-search-scrim, a click goes back), the zero state
        ([data-lgs-search="sheet"][data-lgs-search-state="zero"], 880 x 500
        at (200, 100)), and Steam's page hosted as the sheet once you type.
-   This file also takes over Phase 1's search-route rules from
-   20-shell.css §6 (PLAN §6 two-step move; C1a deletes §6 after it).
+   This file took over Phase 1's search-route rules from 20-shell.css §6
+   (PLAN §6 two-step move; C1a deleted §6 on 2026-10-07).
 
    Never touched: Steam's handlers, the grid's virtualisation, the tab
    row's scroll or ModalPosition. Only geometry, paint and type. */
@@ -120,25 +120,38 @@
   box-shadow: none !important;
   opacity: 0 !important;
 }
+/* the row: ‹ (80) + the scope track centred in the rest + › (80); Steam's
+   spacers take no width, so the track gets 960 - 160 = 800 px and sits on
+   the sheet's centre line (P-36: equal insets) */
 %{GamepadSearch} %{TabRow} {
   box-sizing: border-box;
   height: var(--lgs-c1b-bar);
   width: 100%;
   margin: 0;
-  padding: 0 10px;
+  padding: 0;
   align-items: center;
 }
 %{GamepadSearch} %{TabRowTabs},
 %{GamepadSearch} %{TabsRowScroll} {
   height: var(--lgs-c1b-bar);
+  flex: 1 1 auto;
+  min-width: 0;
 }
 %{GamepadSearch} %{FixCenterAlignScroll} {
   height: var(--lgs-c1b-bar);
   align-items: center;
+  justify-content: center;
   gap: 0;
+  padding: 0;
+  margin: 0 auto;
 }
 %{GamepadSearch} %{TabRowSpacer} {
   height: 60px;
+  width: 0;
+  min-width: 0;
+  flex: 0 0 0;
+  padding: 0;
+  margin: 0;
 }
 
 /* the 64 px track: black .30 recessed fill around the segments (4 px),
@@ -167,29 +180,42 @@
   pointer-events: none;
 }
 
-/* segments: 60 tall in the 64 track (PLAN §1.3: 56-60), ≥ 120 wide
-   (E-SEG compact), 22 Semibold title case,
-   Steam's count after the label in white .70 */
+/* segments: the compact segment (PLAN §1.10 "too many members": 20 px
+   labels, 16 px padding; E-SEG compact: ≥ 120 wide), because six regular
+   ones (≥ 140) do not fit the 800 px between the arrows. 60 tall in the 64
+   track (PLAN §1.3: 56-60), sized to their content and never shrunk, so a
+   count always sits 6 px after its own label and 32 px before the next one.
+   Each segment is the containing block of its own light (P4's --lgs-ill
+   ::after, tokens.md §3.2). T2 tags them data-lgs-exempt="E-SEG". */
 %{GamepadSearch} %{GamepadTabbedPage>Tab} {
+  position: relative;
   box-sizing: border-box;
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 6px;
   height: 60px !important;
   max-height: none !important;
   min-width: 120px;
   margin: 0;
-  padding: 0 22px;
+  padding: 0 16px;
   border-radius: var(--lgs-r-capsule, 999px);
   background-color: transparent;
   color: var(--lgs-text-1);
-  font: 600 22px/1 var(--lgs-font);
+  font: 600 20px/1 var(--lgs-font);
+  white-space: nowrap;
   text-transform: none;
   letter-spacing: 0;
-  box-shadow: none !important;
   --lgs-ill: raised;
   transition: background-color var(--lgs-motion-snappy, 488ms ease), color var(--lgs-d-swap, 120ms) linear;
+}
+/* no ring in any input mode (P-17; the light is P4's glow): the doubled
+   class outranks any `Tab.gpfocus` ring (Phase 1's 20-shell.css §6 drew one
+   until C1a deleted §6 on 2026-10-07) without naming .gpfocus */
+%{GamepadSearch} %{GamepadTabbedPage>Tab}%{GamepadTabbedPage>Tab} {
+  box-shadow: none !important;
+  outline: none !important;
 }
 %{GamepadSearch} %{GamepadTabbedPage>Tab} %{GamepadTabbedPage>TabTitle} {
   font: inherit;
@@ -198,13 +224,13 @@
   color: inherit;
 }
 %{GamepadSearch} %{GamepadTabbedPage>Tab} %{TabCount} {
-  font: 500 22px/1 var(--lgs-font);
+  font: 500 20px/1 var(--lgs-font);
   letter-spacing: 0;
   color: var(--lgs-text-2);
   opacity: 1;
   margin: 0;
 }
-%{GamepadSearch} %{GamepadTabbedPage>Tab}:hover {
+&:not(.lgs-input-pad) %{GamepadSearch} %{GamepadTabbedPage>Tab}:hover {
   background-color: transparent;
   color: var(--lgs-text-1);
 }
@@ -220,12 +246,14 @@
   color: var(--lgs-text-on-selected-2) !important;
   opacity: 1 !important;
 }
-%{GamepadSearch} %{GamepadTabbedPage>Tab}.gpfocus {
+/* gamepad focus selects in Steam's tabbed page; the focused segment is the
+   white pill and its outer glow (never under the laser, P-01 / P-02) */
+&:not(.lgs-input-laser) %{GamepadSearch} %{GamepadTabbedPage>Tab}.gpfocus {
   background-color: var(--lgs-selected-fill) !important;
   color: var(--lgs-text-on-selected) !important;
   --lgs-ill: white;
 }
-%{GamepadSearch} %{GamepadTabbedPage>Tab}.gpfocus %{TabCount} {
+&:not(.lgs-input-laser) %{GamepadSearch} %{GamepadTabbedPage>Tab}.gpfocus %{TabCount} {
   color: var(--lgs-text-on-selected-2) !important;
   opacity: 1 !important;
 }
@@ -233,6 +261,7 @@
 /* Steam's paging arrows ‹ ›: 60 px plain circles in an 80 px hit box
    (the light is drawn inset 10 by the illumination hook) */
 %{GamepadSearch} %{TabHeaderRowWrapper} %{Arrows} {
+  position: relative;
   box-sizing: border-box;
   flex: 0 0 auto;
   width: 80px;
@@ -250,8 +279,8 @@
   width: 26px;
   height: 26px;
 }
-%{GamepadSearch} %{TabHeaderRowWrapper} %{Arrows}:hover,
-%{GamepadSearch} %{TabHeaderRowWrapper} %{Arrows}.gpfocus {
+&:not(.lgs-input-pad) %{GamepadSearch} %{TabHeaderRowWrapper} %{Arrows}:hover,
+&:not(.lgs-input-laser) %{GamepadSearch} %{TabHeaderRowWrapper} %{Arrows}.gpfocus {
   color: var(--lgs-text-1) !important;
   background-color: transparent !important;
 }
@@ -306,7 +335,7 @@
   background-color: var(--lgs-fill-1, rgb(255 255 255 / .06));
 }
 /* Phase 1's ring on the focused tile goes (P-42: no rings) */
-%{GamepadSearch} %{ResultTemplate}.gpfocuswithin %{ResultTemplateImage} {
+&:not(.lgs-input-laser) %{GamepadSearch} %{ResultTemplate}.gpfocuswithin %{ResultTemplateImage} {
   box-shadow: 0 6px 18px rgb(0 0 0 / .35) !important;
 }
 
@@ -321,10 +350,10 @@
 %{GamepadSearch} %{GamepadSearch>Icon} {
   color: var(--lgs-text-2);
 }
-%{GamepadSearch} %{ResultTemplate}.gpfocuswithin %{GamepadSearch>Description},
-%{GamepadSearch} %{ResultTemplate}.gpfocuswithin %{GamepadSearch>Icon},
-%{GamepadSearch} %{ResultTemplate}:hover %{GamepadSearch>Description},
-%{GamepadSearch} %{ResultTemplate}:hover %{GamepadSearch>Icon} {
+&:not(.lgs-input-laser) %{GamepadSearch} %{ResultTemplate}.gpfocuswithin %{GamepadSearch>Description},
+&:not(.lgs-input-laser) %{GamepadSearch} %{ResultTemplate}.gpfocuswithin %{GamepadSearch>Icon},
+&:not(.lgs-input-pad) %{GamepadSearch} %{ResultTemplate}:hover %{GamepadSearch>Description},
+&:not(.lgs-input-pad) %{GamepadSearch} %{ResultTemplate}:hover %{GamepadSearch>Icon} {
   color: var(--lgs-text-1) !important;
 }
 
@@ -342,7 +371,10 @@
   text-shadow: none;
 }
 
-/* No results: Steam's "No Results Found" as a centred Title 3 */
+/* No results: Steam's "No Results Found" as a centred Title 3, and the
+   query echoed under it in Callout, in quotes (P-62). T2 copies the query
+   into data-lgs-q on Steam's node (21-search.js); the echo is generated
+   content, so Steam's text node stays Steam's. */
 %{GamepadSearch} %{NoResultsFound} {
   font: 700 28px/1.25 var(--lgs-font);
   text-transform: none;
@@ -350,6 +382,16 @@
   color: var(--lgs-text-1);
   text-shadow: none;
   text-align: center;
+}
+%{GamepadSearch} %{NoResultsFound}[data-lgs-q]::after {
+  content: "\201C" attr(data-lgs-q) "\201D";
+  display: block;
+  margin-top: 10px;
+  font: 500 22px/1.3 var(--lgs-font);
+  color: var(--lgs-text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ------------------------------------------------------------------ */
@@ -366,13 +408,21 @@
                            clip-path), painted before Steam's content */
   pointer-events: none;
 }
-.lgs-search-glass[data-lgs-search-state="zero"] {
-  left: 200px !important;
-  width: 880px !important;
-}
-/* zero state -> results: the glass widens 880 -> 960 on snappy (WN §4.9) */
+/* zero state -> results: the glass widens 880 -> 960 on snappy (WN §4.9).
+   The glass keeps the results rect (960 at x 160) and the zero state is a
+   horizontal scale of it (880 / 960 about the centre), so the morph is a
+   scale transition (LAB: scale, translate, opacity only), never left or
+   width; the radius is pre-stretched so the scaled corners stay 44 px
+   round. The state is set in the render that mounts the glass, so the
+   first paint already has it (no 960 -> 880 jump on a stale query). */
 .lgs-search-glass {
-  transition: left var(--lgs-motion-snappy, 488ms ease), width var(--lgs-motion-snappy, 488ms ease);
+  transform-origin: 50% 0;
+  transition: scale var(--lgs-motion-snappy, 488ms ease);
+}
+.lgs-search-glass[data-lgs-search-state="zero"] {
+  scale: calc(880 / 960) 1;
+  border-radius: calc(var(--lgs-r-sheet, 44px) * 960 / 880) / var(--lgs-r-sheet, 44px);
+  --lgs-sheet-s0: calc(.97 * 880 / 960) .97;
 }
 /* the page you left: a decorative clone, never focused, never clicked */
 .lgs-snap {
@@ -415,6 +465,33 @@
 .lgs-search-glass[data-lgs-pop] {
   background: none;     /* glassd's thick slab is the glass in native mode */
   box-shadow: none;     /* and carries the shadow */
+  --lgs-edge: none;     /* and the edges (material, not CSS) */
+}
+
+/* Dismiss (WN §4.9, PLAN §1.5: inside Steam's ≤ 200 ms exit; content
+   before glass). Steam keeps the search route mounted for its own exit
+   transition (0.8-1.1 s after B), and the picture layer lives outside the
+   route, so 21-search.js sets html.lgs-c1b-leaving on the history event
+   that leaves /search: the content fades out in 100 ms, then the glass, the
+   scrim and the picture in 150 ms (page-out, linear), all done by 200 ms.
+   Under Reduce Motion these are already fades of <= 200 ms. */
+&.lgs-c1b-leaving .lgs-search-zero,
+&.lgs-c1b-leaving %{GamepadSearch} > %{GamepadTabbedPage} > * {
+  animation: lgs-fade-out 100ms linear forwards !important;
+}
+&.lgs-c1b-leaving .lgs-search-layer {
+  animation: lgs-fade-out var(--lgs-motion-page-out, 150ms linear) 50ms forwards;
+}
+/* Zero state -> results (the first keystroke): the sheet is already
+   presented, so Steam's page does not present it again (no second
+   sheet-in); its content cross-fades in on fade while the glass morphs
+   880 -> 960 under it (html.lgs-c1b-presented, set by 21-search.js once the
+   sheet has been on screen) */
+&.lgs-c1b.lgs-c1b-presented %{GamepadSearch} > %{GamepadTabbedPage} {
+  animation: none;
+}
+&.lgs-c1b.lgs-c1b-presented %{GamepadSearch} > %{GamepadTabbedPage} > * {
+  animation: lgs-fade-in var(--lgs-motion-fade, 441ms linear) backwards;
 }
 
 /* zero state: 880 x 500 at (200, 100), content inset 40 (WN §4.5) */
@@ -447,10 +524,14 @@
   gap: 24px;
 }
 /* Recent Games: 120 px discs (content, not glass: specular arc + contact
-   shadow), one-line 20 px Medium label, 160 px pitch */
+   shadow), one-line 20 px Medium label, cells 160 wide on a 160 px pitch
+   (WN §4.5: five cells fill the 800 px between the 40 px insets) */
+.lgs-search-row[data-lgs-search="recent"] {
+  gap: 0;
+}
 .lgs-search-game {
   box-sizing: border-box;
-  width: 136px;
+  width: 160px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -467,15 +548,19 @@
   background: rgb(255 255 255 / .08);
   box-shadow: var(--lgs-shadow-contact, 0 6px 18px rgb(0 0 0 / .35)), inset 0 1.5px 1.5px -1px rgb(255 255 255 / .45);
   --lgs-ill: card;
-  scale: calc(1 + .10 * var(--lgs-lift, 0));
-  transition: scale var(--lgs-motion-snappy, 488ms ease);
+  transition: scale var(--lgs-motion-hover-in, 294ms ease), box-shadow var(--lgs-motion-hover-in, 294ms ease);
 }
-.lgs-search-game.gpfocus .lgs-search-disc {
+/* attention (PLAN §1.4, Home's disc recipe, 41-home.css C3): gamepad focus
+   at once; laser only after the 80 ms dwell (P3's .lgs-dwell, P-06), the
+   sheen at once through --lgs-ill: card; plain hover only with P3 off */
+&:not(.lgs-input-laser) .lgs-search-game.gpfocus .lgs-search-disc,
+&.lgs-input-laser .lgs-search-game:is(.lgs-dwell:hover, .lgs-attend-80) .lgs-search-disc,
+&:not(.lgs-input-laser):not(.lgs-input-pad) .lgs-search-game:hover .lgs-search-disc {
   scale: 1.10;
-  box-shadow: 0 10px 26px rgb(0 0 0 / .45), 0 0 0 0 transparent, 0 0 22px 6px rgb(255 255 255 / .40);
+  box-shadow: 0 6px 18px rgb(0 0 0 / .40), 0 0 26px 2px rgb(255 255 255 / .22), inset 0 1.5px 1.5px -1px rgb(255 255 255 / .45);
 }
-.lgs-search-game:hover .lgs-search-disc {
-  scale: 1.10;
+&:not(.lgs-input-laser) .lgs-search-game.gpfocus .lgs-search-disc {
+  --lgs-focus: 1;
 }
 .lgs-search-disc img {
   position: absolute;
@@ -501,7 +586,7 @@
   color: var(--lgs-text-1);
 }
 .lgs-search-name {
-  max-width: 136px;
+  max-width: 152px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -528,10 +613,10 @@
   outline: none;
   --lgs-ill: raised;
 }
-.lgs-search-cap.gpfocus {
+&:not(.lgs-input-laser) .lgs-search-cap.gpfocus {
   background: rgb(255 255 255 / .42);
 }
-.lgs-search-cap:hover {
+&:not(.lgs-input-pad) .lgs-search-cap:hover {
   background: rgb(255 255 255 / .18);
 }
 .lgs-search-cap svg {
@@ -567,7 +652,9 @@
     animation: lgs-fade-in var(--lgs-d-reduce, 180ms) linear backwards;
   }
   %{GamepadSearch} %{ResultTemplateImage},
-  .lgs-search-disc {
-    transition: none;
+  .lgs-search-disc,
+  .lgs-search-glass {
+    transition: none;      /* the 880 -> 960 morph is a cut; the content
+                              cross-fade carries the change (P-56) */
   }
 }

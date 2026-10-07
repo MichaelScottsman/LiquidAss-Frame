@@ -1,7 +1,7 @@
 // Development helpers evaluated in SharedJSContext (prepended with
 // lgs_index.js). Installs window.__LGS_LAB; lives in memory only.
 (function () {
-  if (window.__LGS_LAB && window.__LGS_LAB.v === 13) return;
+  if (window.__LGS_LAB && window.__LGS_LAB.v === 14) return;
   // SteamVR's own pages (vrwebhelper) are single documents with no popup
   // manager; every helper then works on this page.
   const SINGLE = typeof window.g_PopupManager === 'undefined';
@@ -27,16 +27,30 @@
     }).filter((p) => p.win && p.win.document);
   }
 
-  function surface(alias) {
-    if (SINGLE) return window;
+  // Phase 2 (P10, session 5): several windows can share an alias (two `barpopup` windows, 92520001 and 92520007,
+  // one per popup kind; the tooltips). The one shown wins (document.visibilityState 'visible'), else the first, as
+  // before. Until session 5 the first in the popup map won even while it was hidden, so `barpopup` could name a
+  // closed window while the "+" popup was open in the other one (an empty AUD snapshot, a capture that waits for
+  // a frame that never comes: REQ C2b-R2->P10). lab.target_for() asks surfaceName() so CDP captures the same
+  // window.
+  function pick(alias) {
     const ps = popups();
     const rx = ALIAS[alias];
-    let p = rx ? ps.find((x) => rx.test(x.name)) : null;
     const base = 'valve.steam.gamepadui.' + alias;
-    if (!p) p = ps.find((x) => x.name.startsWith(base + '.') || x.name.startsWith(base + '_'));
-    if (!p) p = ps.find((x) => x.name.includes(alias));
-    if (!p) throw new Error('no surface ' + alias + ' (have: ' + ps.map((x) => x.name).join(', ') + ')');
-    return p.win;
+    let c = rx ? ps.filter((x) => rx.test(x.name)) : [];
+    if (!c.length) c = ps.filter((x) => x.name.startsWith(base + '.') || x.name.startsWith(base + '_'));
+    if (!c.length) c = ps.filter((x) => x.name.includes(alias));
+    if (!c.length) throw new Error('no surface ' + alias + ' (have: ' + ps.map((x) => x.name).join(', ') + ')');
+    const shown = (x) => { try { return x.win.document.visibilityState === 'visible'; } catch (_) { return false; } };
+    return c.find(shown) || c[0];
+  }
+  function surface(alias) {
+    if (SINGLE) return window;
+    return pick(alias).win;
+  }
+  function surfaceName(alias) {
+    if (SINGLE) return 'vr:' + (document.title || 'page');
+    return pick(alias).name;
   }
 
   // Resolve %{Token} in a selector to hashed classes.
@@ -541,6 +555,6 @@
     };
   }
 
-  window.__LGS_LAB = { v: 13, single: SINGLE, mark, restore, openThings, perf, surface, sel, q, qa, click, clickText, sleep, pad, focused, nav, back, route, outline, styles, classes, surfaces, readable, snap, diff, textCut };
+  window.__LGS_LAB = { v: 14, single: SINGLE, mark, restore, openThings, perf, surface, surfaceName, sel, q, qa, click, clickText, sleep, pad, focused, nav, back, route, outline, styles, classes, surfaces, readable, snap, diff, textCut };
   Object.defineProperty(window.__LGS_LAB, 'index', { get: IX, enumerable: true });
 })();

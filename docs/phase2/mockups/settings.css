@@ -78,8 +78,8 @@
 /* ------------------------------------------------------------------ detail toolbar (x 400..1280, y 0..108) */
 .st-tb { position: absolute; left: 400px; top: 0; width: 880px; height: 108px; z-index: 4; }
 .st-tb-back { position: absolute !important; left: 24px; top: 24px; }
-/* the list page's Cancel: Steam's menu Cancel item as the 56 px quiet capsule (PLAN §1.12, HA-11), centred on the row */
-.st-tb-lead { position: absolute !important; left: 24px; top: 26px; --s: 56px; padding: 0 30px !important; background: rgb(255 255 255 / .08) !important;
+/* the list page's Cancel: Steam's menu Cancel item as a 60 px quiet capsule (SET §3.4; PLAN R2-5: 60, not 56), on the toolbar row */
+.st-tb-lead { position: absolute !important; left: 24px; top: 24px; --s: 60px; padding: 0 30px !important; background: rgb(255 255 255 / .08) !important;
   color: var(--lg-text-2) !important; font: 500 22px/1 var(--lg-font) !important; }
 .st-tb-title { position: absolute; left: 100px; right: 100px; top: 35px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .st-tb-find { position: absolute !important; right: 24px; top: 24px; color: var(--lg-text-2); }
@@ -310,8 +310,9 @@
 .st-vr .sw.on { background: var(--lg-green); }
 .st-vr .sw.on::after { left: 41px; }
 /* refresh rate: SteamVR's radio circles at 104 px (72 main px), 116 px pitch; selected = white */
-.st-vr .hz { display: flex; gap: 12px; }
-.st-vr .hz > span { display: grid; place-items: center; width: 104px; height: 104px; border-radius: 50%; background: var(--lg-fill-thin); font: 600 32px/1 var(--lg-font); font-variant-numeric: tabular-nums; position: relative; }
+/* refresh-rate circles: 86 SteamVR px at a 121 px pitch = 60 main px at 84 (CTL R10, §7.4; REQ C4a->C6a) */
+.st-vr .hz { display: flex; gap: 35px; }
+.st-vr .hz > span { display: grid; place-items: center; width: 86px; height: 86px; border-radius: 50%; background: var(--lg-fill-thin); font: 600 29px/1 var(--lg-font); font-variant-numeric: tabular-nums; position: relative; }
 .st-vr .hz > span.is-hover::after { content: ""; position: absolute; inset: 0; border-radius: 50%; mix-blend-mode: plus-lighter;
   background: radial-gradient(circle at 46% 40%, rgb(255 255 255 / .16), transparent 70%), rgb(255 255 255 / .08); }
 /* SteamVR's value-on-handle slider as a 92 px capsule; the knob carries the value (RangeLabel) */

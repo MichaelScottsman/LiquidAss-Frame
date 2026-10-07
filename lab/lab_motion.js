@@ -8,7 +8,7 @@
 // the lab captures it. release() plays them again (from the last f) and forgets the step's state.
 (function () {
   const L = window.__LGS_LAB;
-  if (!L || !L.gates || (L.motion && L.motion.v === 2)) return;
+  if (!L || !L.gates || (L.motion && L.motion.v === 3)) return;
 
   const PROPS_SKIP = new Set(['offset', 'computedOffset', 'easing', 'composite']);
   function props(a) {
@@ -27,9 +27,32 @@
   let before = new WeakSet();
   let tagged = [];
   let paused = [];
+  // The elements shown before the pre (rendered, not hidden by display, visibility or opacity 0, with a box that
+  // meets the viewport). P-54 ("nothing enters from the periphery: toasts, menus and sheets start <= 16 px from
+  // their rest position") judges what ENTERS: an animated target that was not shown before the interaction (a
+  // new node, a popup that was hidden, a panel waiting off-screen). A target that was shown and travels to a new
+  // place (a segmented control's selection pill) is a move, which P-53 limits on surfaces wider than 600 px
+  // (REQ C2a-R2->P10 (4), session 5: the tool flagged Home's pill's designed 156 px travel as P-54).
+  let shownBefore = null;
+  function shownNow(w) {
+    const set = new WeakSet();
+    const vw = w.innerWidth, vh = w.innerHeight;
+    const opts = { checkOpacity: true, checkVisibilityCSS: true, opacityProperty: true, visibilityProperty: true };
+    for (const el of w.document.querySelectorAll('body *')) {
+      try {
+        if (typeof el.checkVisibility === 'function' && !el.checkVisibility(opts)) continue;
+        const r = el.getBoundingClientRect();
+        if (r.width < 1 || r.height < 1 || r.right <= 0 || r.bottom <= 0 || r.left >= vw || r.top >= vh) continue;
+        set.add(el);
+      } catch (_) { /* detached */ }
+    }
+    return set;
+  }
   function mark(alias) {
-    before = new WeakSet(L.surface(alias).document.getAnimations());
+    const w = L.surface(alias);
+    before = new WeakSet(w.document.getAnimations());
     tagged = []; paused = [];
+    try { shownBefore = shownNow(w); } catch (_) { shownBefore = null; }
     return true;
   }
   const fresh = (w) => w.document.getAnimations().filter((a) => !before.has(a));
@@ -67,6 +90,8 @@
         id: tagged.length - 1, props: props(a), total: Math.round(total(a)),
         targetRect: r ? [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)] : null,
         text: !!(tg && (tg.innerText || '').trim()),
+        // P-54 judges entries only (see shownBefore); null = unknown (judged as an entry)
+        entering: shownBefore && tg ? !shownBefore.has(tg) : null,
       }));
     });
     return out;
@@ -94,7 +119,7 @@
   function release() {
     let n = 0;
     for (const a of paused) { try { if (a.playState === 'paused') { a.play(); n++; } } catch (_) { /* removed */ } }
-    paused = []; tagged = []; before = new WeakSet();
+    paused = []; tagged = []; before = new WeakSet(); shownBefore = null;
     return n;
   }
   function moAudit(alias) {
@@ -133,5 +158,5 @@
     for (const id of ['a', 'b']) { const e = d.getElementById('lgs-p10-motion-probe-' + id); if (e) { e.remove(); n++; } }
     return n;
   }
-  L.motion = { v: 2, mark, freeze, list, seek, release, moAudit, props, probe, probeRemove };
+  L.motion = { v: 3, mark, freeze, list, seek, release, moAudit, props, probe, probeRemove, shownNow };
 })();

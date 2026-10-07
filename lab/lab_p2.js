@@ -3,7 +3,7 @@
 // window.__LGS_LAB with new members only; every Phase 1 member is unchanged.
 (function () {
   const L = window.__LGS_LAB;
-  if (!L || L.p2 === 4) return;
+  if (!L || L.p2 === 5) return;
   const SINGLE = L.single;
   const sleep = L.sleep;
 
@@ -70,17 +70,27 @@
     if (ms) await sleep(ms);
     return L.readable(el).join(' ');
   }
+  // The park point (PLAN 7 item 2, IM 9): (1400, 900) CSS px, outside the main window's 1280 x 720 viewport, so
+  // the pointer rests on nothing; on a viewport that contains it, just beyond its far corner. Until session 5 this
+  // was (1400, 900) / 1.5 = (933, 600), inside main and on Home's All Games disc (REQ C2a-R2->P10 (2)).
+  function park(w) {
+    let x = 1400, y = 900;
+    if (x < w.innerWidth && y < w.innerHeight) { x = Math.max(x, w.innerWidth + 40); y = Math.max(y, w.innerHeight + 40); }
+    return [x, y];
+  }
   function unhover() {
     if (hovered) {
       const { w, el } = hovered;
       hovered = null;
-      try { for (const t of ['pointerout', 'pointerleave', 'mouseout', 'mouseleave']) evAt(w, el, t, 1400 / 1.5, 900 / 1.5); } catch (_) { /* gone */ }
+      const [x, y] = park(w);
+      try { for (const t of ['pointerout', 'pointerleave', 'mouseout', 'mouseleave']) evAt(w, el, t, x, y); } catch (_) { /* gone */ }
     }
     if (!SINGLE) {
       try {
         const w = L.surface('main');
         const b = w.document.body;
-        for (const t of ['pointermove', 'mousemove']) evAt(w, b, t, 1400 / 1.5, 900 / 1.5);
+        const [x, y] = park(w);
+        for (const t of ['pointermove', 'mousemove']) evAt(w, b, t, x, y);
       } catch (_) { /* no main */ }
     }
     return true;
@@ -124,5 +134,5 @@
     });
   }
 
-  Object.assign(L, { p2: 4, navNode, gpTake, gpTakeEl, gpEl, root, hover, unhover, focusables, anims, visible, FOCUSABLE });
+  Object.assign(L, { p2: 5, navNode, gpTake, gpTakeEl, gpEl, root, hover, unhover, focusables, anims, visible, FOCUSABLE });
 })();

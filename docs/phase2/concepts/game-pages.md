@@ -833,7 +833,7 @@ The surface is `vr:controllerbindingui`, its own 2400 × 1350 overlay (page 2 of
 | **GQ19** | Which handler does Steam run for button 14 on an Activity event card, and can a laser control call it? | AT-OPT | The event "⋯" (optional) |
 | **GQ20** | Menu rows: D2 §3.7 (72 + 6 = 78 px pitch) against D2 §4 / §17 #1 (80 px). Owner: WN / Foundation | Decision | AT-SIZE on menus |
 | Q-A | Approval for the additions: the Controller Bindings capsule, the Steam Input link, and the event "⋯" | User decision, asked **after** GQ11a–d, AT-BIND-RETURN, AT-T3-ROUTE and AT-OPT pass | §4.12, §4.4 |
-| Q-B | The Back text-run exception (shared with WN Q8) for the binding UI | User / coordinator decision | §4.14 |
+| Q-B | *(Closed at plan time, PLAN R2 coordinator REQ.)* The Back text-run exception (shared with WN Q8) for the binding UI: decided by S4 as E-BACK (PLAN §1.16; S4's source column lists GP Q-B) | — | §4.14 |
 
 ---
 

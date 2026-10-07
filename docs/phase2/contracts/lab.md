@@ -27,13 +27,15 @@ agents never see them.
 | `--flags a,b,c=v` | Runtime flags on for this step only. `a` means `a=true`; `c=v` parses `v` as JSON (`true`, `false`, numbers, `"str"`), else a string. Example: `--flags wp.c2a,interactivePops` | the lock exit |
 | `--mode laser\|pad` | Input-mode stub: only **our** classes change, never Steam's getters (§1.2) | the lock exit |
 | `--media reduce\|contrast\|reduce,contrast` | CDP `Emulation.setEmulatedMedia` on every Steam UI window (and the SteamVR page for `vr:` surfaces): `prefers-reduced-motion: reduce`, `prefers-contrast: more` | the CDP sessions close at the lock exit |
-| `--hover SEL[,MS]` | A **real** laser hover: CDP `Input.dispatchMouseEvent` (mouseMoved) to the centre of SEL on the command's surface, after its `--pre`, held MS ms (default 300) and for the rest of the step; CSS `:hover` applies (untrusted `L.hover` events never set it). Also as `--pre "@hover SEL[,MS]"` and as `focus` states `"@hover SEL[,MS]"` / `"@unhover"` | the pointer is sent to (1400, 900) main-window texture px on every hovered surface at the lock exit (IM §9) |
+| `--hover SEL[,MS]` | A **real** laser hover: CDP `Input.dispatchMouseEvent` (mouseMoved) to the centre of SEL on the command's surface, after its `--pre`, held MS ms (default 300) and for the rest of the step; CSS `:hover` applies (untrusted `L.hover` events never set it). Also as `--pre "@hover SEL[,MS]"` and as `focus` states `"@hover SEL[,MS]"` / `"@unhover"` | the pointer is **parked** on every hovered surface at the lock exit (PLAN §7 item 2, IM §9): (1400, 900) in CDP coordinates (CSS px), outside the main window's 1280 × 720 viewport, so it rests on nothing (on a viewport that contains that point, just beyond its far corner). Until session 5 the lab divided the point by the pixel ratio and clamped it into the viewport, (933, 600) on main, which lies on Home's All Games disc (REQ C2a-R2->P10 (2)) |
 | `--stock` | The stock UI for the step: the theme (CSS and runtime) is turned off after the lock is taken, if it was on (TL-1 baselines, before-shots) | the theme is turned back on at the lock exit |
 
 The options are stripped from the argument list before the command sees it, so they can go anywhere after the
 command name. Each step prints one stderr line `step: flags=… mode=… media=… native=on|off` with what was really
 applied (`(none)` when an adapter was missing, see below) and the native layer's state at the time. Every result
-JSON carries `build`, `date` and `native` (`on`/`off`/`unknown`): `native-session` releases the lab locks between
+JSON carries `build`, `date` and `native` (`on`/`off`/`unknown`), taken once the step holds its lock (since session
+5; before, they were taken before the lock wait, which can last minutes, and a step that ran during another agent's
+native session could say `native: off`): `native-session` releases the lab locks between
 its steps, so another agent's CSS-tier step can run while native mode is on, and its evidence says so (R1 m2).
 
 ### 1.1 How `--flags` is applied
@@ -47,6 +49,16 @@ its steps, so another agent's CSS-tier step can run while native mode is on, and
    keys are put back to their previous values (or removed); an empty object removes the file, as P1's
    `lgs flags` does. A session override someone put there before or during the step is kept (R1 m1).
 3. While `__LGS_RT` is absent the runtime part reports `(no runtime)` and only the file is written.
+4. **A step killed before its lock exit** (SIGKILL, a dropped SSH session) would leave its keys in the flags file,
+   where they act as session flags for everyone until `lgs off` (C2b review R2: `c2bToggle` and `wp.c2b` stayed on
+   from 13:13). Since session 5 each step that writes the file also writes a record
+   `/tmp/lgs/flag-steps/<pid>-<n>.json` (its keys, their previous values, its own values, its pid and the process's
+   start time) and deletes it at its exit. Every lock entry undoes the records of processes that are gone (pid
+   absent, or the pid reused by a process with another start time) as that step's exit would have: each key back to
+   its previous value or removed, but only while the file still holds the value that step wrote (a later writer's
+   value is kept); the runtime's session flags are then set from the file again, and stderr says `lab: put back
+   session flags a killed lab step had left on: …`. Keys a step left before session 5 have no record: `lgs flags`
+   (the coordinator) removes them.
 
 ### 1.2 How `--mode` is applied
 
@@ -56,14 +68,15 @@ its steps, so another agent's CSS-tier step can run while native mode is on, and
    (`lgs-input-pad` or `lgs-input-laser`, and `data-lgs-vr-mode="gamepad"|"laser"`), remembers the previous
    values and restores them at the exit.
 3. `--mode pad` also calls `FocusApplicationRoot()` (SR §4, `vr-null-tree`) so gamepad focus exists.
-   `--mode laser` also moves the synthetic pointer to (1400, 900) at the exit (IM §9).
+   `--mode laser` also parks the synthetic pointer at the exit (`L.unhover()`: its leave and move events at
+   (1400, 900) CSS px, outside the viewport, as the CDP park above; IM §9).
 
 ## 2. Locks
 
 | Lock (on the Frame) | Held by | Wait |
 |---|---|---|
 | `/tmp/lgs/lab.lock` | every Steam step (Phase 1 rule) | 240 s, then the command fails with `lab: lock busy` |
-| `/tmp/lgs/lab-vr.lock` | every `vr:` step, and Steam steps that also touch systemui (`sgcheck`, `hv`, `native-session` setup); `hv` takes `lab.lock` first as well when it holds a `--route`/`--pre` layer open for the capture | 240 s |
+| `/tmp/lgs/lab-vr.lock` | every `vr:` step, and Steam steps that also touch systemui (`sgcheck`, `hv`, `native-session` setup); `hv` takes `lab.lock` first as well when it holds a `--route`/`--pre`/`--hover` layer open for the capture or has a Steam step option (`--mode`, `--flags`, `--media`, `--stock`; session 5) | 240 s |
 | `/tmp/lgs/native.lock` | `native-session` for its whole duration | 1800 s |
 
 **Order** (no deadlocks): `native.lock` → `lab.lock` → `lab-vr.lock`. A step that needs both lab locks takes
@@ -109,12 +122,14 @@ brightest quarter of `dL` along row `Y` (max over 3 rows) minus the glass 10 px 
 (AT-23, G-OUTLINE), or no visible edge at all (brightest quarter < 8 dL: `edge: "none"`). Luma 601 by default
 (`--luma 709` for WN §8.2's revision 2 table). `--json` for machine output.
 
-### `python glass.py focus --png FILE --pair NAME=A:B[:MIN] ... [--luma 601|709] [--inset N]`
+### `python glass.py focus --png FILE --pair NAME=A:B[:MIN] ... [--luma 601|709] [--inset N] [--room R]`
 
 Luma of region pairs in an existing image (mockup render or live shot). Regions: `rect:x0,y0,x1,y1`,
 `circle:cx,cy,r`. Prints `L(A)`, `L(B)`, `dL = A − B` per pair and PASS when `dL ≥ MIN` (default 40).
 `--luma 601` (VP SHOT: 0.299 R + 0.587 G + 0.114 B, the default) or `709` (WN's measure script).
-`--inset 6` shrinks each rect by 6 px (VP SHOT definition; default 0 for explicit regions).
+`--inset 6` shrinks each rect by 6 px (VP SHOT definition; default 0 for explicit regions). `--room` as for live
+`focus` (§4, session 5): a PNG with translucent texels in a pair's regions is measured over the bright and dark test
+rooms by default; an opaque render is measured as stored.
 
 ### `python glass.py cmp MOCK.html [LIVE.png] [--id PKG] [--name WHAT] [--size 1920x1080] [--live] [--live-rects FILE] [--surface S] [--json]`
 
@@ -195,7 +210,16 @@ The depth rules over a check model (§5) given as a file (TL-4, unit tests, othe
 ## 4. Live commands
 
 All hold `lab.lock` (plus `lab-vr.lock` where noted) for their whole run and leave the UI as they found it
-(menus closed by `L.restore()`, pointer at (1400, 900) after a synthetic hover, route restored).
+(menus closed by `L.restore()`, the pointer parked outside the viewport after a hover (§1), route restored, SteamVR
+pages themed again after a `--theme off` step on a `vr:` surface (REQ P8->P10, session 5: until then a before-shot
+of a SteamVR page left the daemon's page theming paused for up to 300 s)).
+
+**Surfaces with several windows** (session 5, REQ C2b-R2->P10): Steam keeps two `barpopup` windows (92520001 and
+92520007, one per popup kind) and several tooltip windows. An alias names **the one that is shown**
+(`document.visibilityState` `visible`), else the first, both in the JS helpers (`L.surface`, `L.surfaceName`) and
+for CDP (`target_for`: captures, hovers). Until session 5 the JS helpers took the first window in Steam's popup map
+and CDP the first target, even while hidden: `barpopup` could name a closed window while the "+" popup was open in
+the other one (an empty AUD snapshot; a capture waiting for a frame that never came).
 
 ### `python glass.py gates SURF [--route R] [--pre JS] [--only aud,size,type,outline,motion] [--theme on|off] [--rest S] [--json] [--shot NAME]`
 
@@ -229,6 +253,24 @@ Rules, from PLAN §4.1 and VP §6:
   session 5 a text box ≥ 300 × 300 passed as a pane, cut or not). These AUD rules (`scroll-container`,
   `container-pane`, `text-whole`) say what SHRUNK measures; they are not PLAN §1.16 exemptions and are listed for
   the coordinator in `wp/P10.md` (REQ P10->Coordinator, session 5).
+  **Records the theme moved in the DOM** (session 5, REQ C2b-R2->P10): AUD keys are DOM paths, so a control the
+  theme re-parents or reorders (C2b's T3 wraps Steam's own "+" rows in its panel and sorts them A–Z) has no record
+  at its stock path, and the theme may put a new element at that path (T3's toggle row where Steam's list box was).
+  So: (a) records at the same path with another kind or another first readable class are not the same element and
+  are not compared (`pathCollisions`); (b) a stock record left without a themed record is matched to the one
+  unmatched themed record of the same kind, first class and text (case and spaces ignored; a control's text is its
+  innerText, value or aria-label), when that identity is unique among the unmatched records on both sides; (c) then
+  to the one of the same kind and first class when that class (not a bare tag name, `Panel` or `Focusable`) occurs
+  exactly once in each whole snapshot (a list box whose text changed with its rows). A control with its own
+  activation handler on stock is never matched to one without. The pair is then judged as usual (HIDDEN, SHRUNK,
+  UNCLICKABLE, CONTRAST, its exemption line). An empty or repeated identity is never matched: its GONE stays. The
+  result says `rematched` (count) and `rematch` (the first 12; "(by its class)" for (c)). Until session 5 every row
+  in T3 read GONE, and T3's toggle row was compared with Steam's list box (SHRUNK 260 × 569 → 276 × 64). (`audit`,
+  the Phase 1 command, keeps its path-only diff.)
+  **No data is not a pass** (session 5): when the theme switch closed a popup the pre opened (or a runtime patch
+  unmounted what it drew), the pre is run again (`preRerun: ["stock"|"themed"]`); a snapshot that still holds no
+  control or text run makes AUD fail with `VACUOUS …` (`conformance`: P-39 BLOCKED) instead of reporting 0 issues
+  over nothing (the "+" popup with `wp.c2b`, "controls 0, texts 0").
 - **SIZE** (P-08, P-80, P-83; SM G2b method): every visible focusable or clickable control: visible short side
   ≥ 60 (fields ≥ 64); hit region sampled with `elementFromPoint` on a 4 px grid over B = max(80, w) × 80
   centred on the control's **visible** rect (REQ C2a->P10 #13; for a fully visible control its own centre, and
@@ -262,7 +304,11 @@ Rules, from PLAN §4.1 and VP §6:
   draw their outermost row as a uniform line on the stock UI too (barpopup: 31 L against 19–26 L above it), so that
   texel is not the slab's edge; the rim rows above it are measured as usual. The capture is the one
   file the result names (`OUTLINE.shotLocal`); a missing capture is an `error` and a FAIL, never 0 probes and a
-  PASS (R1 m3). High Contrast is exempt from the ring, rim and shadow-line rules.
+  PASS (R1 m3). High Contrast is exempt from the ring, rim and shadow-line rules (P-42), and since session 5 from
+  the edge profile too (REQ C2a-R2->P10 (5): its 2 px edge is D2's High Contrast glass, which the profile read as a
+  line, ratios .66–.99): while the surface matches `prefers-contrast: more` (`--media contrast`) each profile is still
+  measured and listed with `highContrast: true` and its own verdict as `judgedPass`, but it does not fail OUTLINE;
+  the summary says "High Contrast: rings, rims, lines and edge profiles not judged, P-42".
 - **MOTION** (P-52, P-58, §1.5): 1 s after the pre, `getAnimations()` has nothing in `playState: running`, no
   `lgs-*` animation left, no infinite iterations; every `lgs-*` animation and every transition seen during the
   step has a token duration (D2 §11.2: 210, 294, 441, 488, 510, 607, 735, 514, 662, 250, 350 ms, and 150–200 ms
@@ -340,12 +386,20 @@ Gamepad reachability over the four directions (G-PAD, P-20 to P-24), one lock:
    tree is not Steam's active one) activates main's tree and takes once more (`retook` counts these); a node that
    still cannot be taken is `untakeable`, and the summary lists such nodes. Exits do not enter `pass` (leaving the
    window at its edge is an edge, as on stock Steam).
-4. Reversibility: for every edge `a -Down-> b` it checks `b -Up-> a` (and Right/Left), except at edges.
+4. Reversibility: for every edge `a -Down-> b` it checks `b -Up-> a` (and Right/Left), except at edges. A failed
+   check is measured once more on a user path (REQ C2a-R2->P10 (8)): `a` is reached by D-pad from a recorded way
+   in (the source taken, then the press that found `a`), because a direct `BTakeFocus` leaves a group's own focus
+   memory on whatever the sweep took last; then the same press and its opposite. Back on `a` (or no move at all
+   there): the first result was the sweep's take order, listed under `takeOrder` with the user-path target
+   (`userTo`), not counted. Otherwise, or when `a` has no way in to replay (the entry), it stays in `irreversible`
+   with `recheck` (where the opposite press went the second time, or `not replayable`). Home's What's New
+   -Left-> Recent (a direct take of Recent first) is such a case: on the D-pad path What's New -Left-> Apps and back.
 5. B (unless `--no-b`): once at the end, B through `DispatchVirtualButtonClick(2)` from the entry focus;
    records whether the topmost layer closed or the route went back, then restores the route.
 
 Output: `{route, entry, nodes: [{id, el, text, rect, route, key}], edges: {id: {up, down, left, right}}, routes,
-universe, unreached: [...], irreversible: [...], untested: [...], exits: [...], retook, navs, b: {...}, pass}`. Budget
+universe, unreached: [...], notFocusable: [...], inner: [...], irreversible: [{from, dir, to, back, recheck,
+userTo}], takeOrder: [...], untested: [...], exits: [...], retook, replayed, navs, b: {...}, pass}`. Budget
 defaults: `--max 120` nodes, `--budget 150` s (the step then ends with `truncated: true`; each exit costs about
 2–3 s to recover, so a large route such as `/library/tab/AllGames` with 350 posters needs a larger budget or a
 `--start`). `--out FILE` (PC) also writes the JSON.
@@ -354,6 +408,24 @@ defaults: `--max 120` nodes, `--budget 150` s (the step then ends with `truncate
   hold no other such element (a Settings row whose focus goes to its dropdown is a container, not a target),
   shown (not `display: none`, `visibility: hidden` or opacity < .05) but possibly scrolled out of view.
   `unreached` = universe minus the nodes reached; `pass` = nothing unreached, nothing irreversible, not truncated.
+  A nav node Steam itself declares `focusable: false` (its Panel's `m_Properties`) can never take gamepad focus and
+  is not a target (session 5): the tab row's scroll arrows `%{Arrows}` (laser-only, with an `onClick`; the gamepad
+  pages tabs with the bumpers) were the only "unreached" items left on `/search/tab/All` and two of
+  `/library/tab/AllGames`'s. Such leaves are listed under `notFocusable` (and in the summary), never counted; their
+  function's gamepad path is the ledger's to show, and a theme patch that made a stock target non-focusable shows as
+  a difference against the route's `--stock` run.
+  A target must own its nav node (REQ C2a-R2->P10 (6)): the nearest fiber that carries a `node` is the element's
+  own (`node.m_element === el`; `L.navNode` walks up to 12 fibers, so a plain `div role="button"` inside a focusable
+  cell found the cell's node). Elements with only an ancestor's node, such as Home's card Play and More inside the
+  focused cell, are laser targets inside a gamepad target: listed under `inner` (and in the summary), never counted;
+  their gamepad path (X, the menu button) is the ledger's to show. The cell holding them is now a leaf itself.
+- **Nodes that are not mounted** (a tab panel that follows focus, the other page of a paged grid) are reached again
+  by replaying a recorded way in: up to three per node, those whose source is mounted now first (REQ C2a-R2->P10
+  (7)). A node that cannot be taken is tried once more at the end of the queue, when later nodes may have given it
+  another way in, and only then is `untakeable`. Home's paged grid: All Games repeats on every page under one key,
+  so a page-1 cell found only from page 1 could not be replayed while page 2 was shown; on the second try it is
+  reached from page 2 (its first cell -Left-> back onto page 1). A node that repeats on every page with one key
+  (All Games) is measured on whichever page shows when it is taken.
 - **Other routes.** A move that changes the route inside the start route's first segment (Steam Settings:
   selection follows focus) is an ordinary edge; the node remembers its route and is expanded only when it is
   also in the universe (the Settings sidebar), so the sweep walks every sidebar item but not every page.
@@ -365,7 +437,7 @@ defaults: `--max 120` nodes, `--budget 150` s (the step then ends with `truncate
 - B is pressed once at the end from the entry focus; `b.effect` is `closed a layer`, `route A -> B` (Steam's
   history back) or `nothing`. It does not enter `pass` (G-PAD's B rule is judged with a `--pre` that opens a layer).
 
-### `python glass.py focus SURF [--route R] [--pre JS] --pairs FILE|JSON [--json] [--keep]`
+### `python glass.py focus SURF [--route R] [--pre JS] --pairs FILE|JSON [--room auto|none|bright|dark|grey|black|R,G,B] [--json] [--keep]`
 
 Live luma pairs (G-FOCUS, VP SHOT): each pair names two states and an element in each; one capture per distinct
 state; luma (601 weights) averaged inside the element's rect × 1.5 inset by 6 shot px.
@@ -383,14 +455,27 @@ optional: `shape: "rect"|"pill"|"circle"` (default rect), `inset` (shot px, defa
 × the surface's devicePixelRatio) to measure the band 8–16 px outside the rect instead (P-16). `min` defaults to 40.
 Output per pair: `La, Lb, dL, pass`; overall `pass` when every pair passes (exit 0/1). `--settle S` (default 0.8 s)
 waits after each state before the capture. The captures are deleted unless `--keep [NAME]`, which keeps them as
-`shots/NAME_<n>.png` (default NAME `p2_focus`). The pointer is sent to (1400, 900) and the route restored at the end.
+`shots/NAME_<n>.png` (default NAME `p2_focus`). The pointer is parked (§1) and the route restored at the end.
+
+**Rooms** (session 5, REQ C2a-R2->P10 (3)): a live capture keeps the window's alpha, and the headset shows a
+translucent texel over the room. Read as stored, a transparent texel is black: on a windowless route C2a's P-16 glow
+band read +219.5 L where the same capture gives +7.6 over a bright room (the reviewer measured +8.9 at L 225).
+`--room auto` (default): a pair whose regions hold translucent texels (alpha < .98 on more than 1 % of either) is
+measured over P-14's **bright and dark test rooms** (AUD's uniform rooms, L 210 and L 24) and judged by the worse;
+each pair prints `over bright …, dark … (translucent N %, judged: R)` and the JSON carries `rooms`, `room` and
+`translucent`. An opaque pair (mockup renders, TL-2) is measured as stored, unchanged. `--room bright|dark|grey|black`
+or `--room R,G,B`: that room only; `--room none`: as stored (the behaviour before session 5). The same option works
+on `focus --png`.
 
 `@text=` works in every lab selector (`L.q`, `L.qa`, `L.click`, `L.gpTake`, `L.hover`).
 
 ### `python glass.py motion SURF [--route R] --pre JS [--name ID_INTERACTION] [--at 0,.15,.35,.5,.75,1] [--json]` (or `--selftest MS`)
 
-1. Records the animations already running (not part of the strip), then runs the pre and, **in the same
-   evaluation**, pauses every animation it started (`Animation.pause()`; `getAnimations()` flushes style, so the
+1. A warm-up capture brings the surface to the front, then the step records the animations already running (not
+   part of the strip) and runs the pre. A surface the pre opens (`motion barpopup` with the "+" popup) is not shown
+   before it, and a capture of a hidden window waits for a frame until the CDP timeout (REQ C2b-R2->P10): since
+   session 5 its warm-up is taken right after the pre, with the animations already paused (`warm` in the JSON). The
+   pre runs and, **in the same evaluation**, the step pauses every animation it started (`Animation.pause()`; `getAnimations()` flushes style, so the
    CSS animations and transitions the pre starts exist and are held at t = 0 before a frame runs). A `@hover` pre
    pauses right after the CDP hover. The pre must not await an animation's `finished`. (Until R1 this used CDP
    `Animation.setPlaybackRate 0`, which did not hold the clock: frames lagged their f by about 100 ms, R1 M1.)
@@ -405,8 +490,20 @@ waits after each state before the capture. The captures are deleted unless `--ke
    `shots/p2_motion_<name>_<f>.png` (f printed with `%g`: `_0`, `_0.15`, …, `_1`), plus
    `shots/p2_motion_<name>_strip.png`: the frames side by side, cropped to the animated region, labelled.
 4. Geometry from each animated target's rect per frame (PC): P-53 (lateral travel > 24 px or a scale change > 1.5 %
-   on a target wider than 600 px), P-54 (a start > 16 px from rest). With `--media reduce`: P-56 (anything but
-   opacity, or > 200 ms).
+   on a target wider than 600 main-window px, i.e. 600 × m on a surface with D2 §2.5's multiplier m: 498 bar px on
+   the bar's popups; until session 5 the threshold was scaled by the surface's width, 141 px on the 300 px "+"
+   popup, which judged the popup's materialize scale as a window scale change), P-54 (a start > 16 px from rest) for a target that **enters**. With `--media
+   reduce`: P-56 (anything but opacity, or > 200 ms).
+   **Entries** (session 5, REQ C2a-R2->P10 (4)): P-54 reads "nothing enters from the periphery: toasts, menus and
+   sheets start ≤ 16 px from their rest position". Before the pre the step records every element that is shown
+   (rendered, not hidden by `display`, `visibility` or opacity 0 on it or an ancestor, with a box that meets the
+   viewport). An animated target that was not shown (a new node, a popup that was hidden, a panel waiting off-screen)
+   enters, and P-54 judges it; one that was shown and travels (Home's segmented-control pill, 156 px) is a **move**:
+   listed under `moves`, not P-54 (P-53 still judges travel on targets wider than 600 px). Each animation in the JSON
+   says `entering: true|false` (`null` from an older lab, judged as an entry). Offline test:
+   `python tools/p2/test_motion_page.py` (`tools/p2/fixtures/motion_page.html`: a pill that moves 156 px, a new menu
+   sliding 120 px, a new toast 8 px, a hidden sheet shown with a 40 px slide, an off-screen drawer sliding in 300 px;
+   only the pill is a move).
 5. Plays the paused animations again (from the last f), waits `--rest` s (default 1), and checks nothing is left
    (P-52, §1.5).
 6. Prints a summary (or the JSON with `--json`); exit 0 when the automatic part passes. G-MOTION's filmstrip
@@ -429,7 +526,7 @@ layer with a `hole` sets `holes: true` (R3 waived, PLAN §1.7 rule 3). Scene-gra
 default profile fail R8. Run it as a `native-session` step: without the reporter it prints
 `BLOCKED: native layer off` (exit 3). `--out` writes the result with the raw live data.
 
-### `python glass.py hv NAME [--offaxis DEG] [--rect x0,y0,x1,y1] [--full] [--look] [--route R] [--pre JS|"@hover SEL[,MS]"] [--surface S] [--settle S] [--grabs N] [--gap S]` (holds `lab-vr.lock`; both lab locks with `--route`/`--pre`)
+### `python glass.py hv NAME [--offaxis DEG] [--rect x0,y0,x1,y1] [--full] [--look] [--route R] [--pre JS|"@hover SEL[,MS]"] [--surface S] [--settle S] [--grabs N] [--gap S]` (holds `lab-vr.lock`; both lab locks with `--route`/`--pre`/`--hover` or any Steam step option)
 
 1. Builds `native/spike/hvgrab` on the Frame if missing (`g++`, the spike's own `build.sh`).
 2. **Fresh frames** (REQ P7->P10): SteamVR refreshes `system.HeadsetView` only while someone samples it, so the
@@ -596,7 +693,7 @@ that fails its criterion fails G-SIZE:
 | E-SWITCH | hit ≥ 95 % own over 86 × 80 around its centre, no other target |
 | E-CHECK | hit ≥ 95 % own over 80 × 80 |
 | E-MINI | hit ≥ 95 % own over 80 × 80; another target only if it is the field it clears |
-| E-SEG | ≥ 60 × 120 and contiguous with the next segment (gap ≤ 2) |
+| E-SEG | ≥ 60 × 140, or ≥ 60 × 120 for a compact segment (its label under 22 px: CTL §8.3's regular label is 22 px), and contiguous with the next segment (gap ≤ 2) (PLAN §1.16, CTL §8.3 / §18.1; REQ Coordinator->P10 R2-15 (4), session 5: until then every segment passed at 120) |
 | E-BAR | ≥ 64 × 72 bar px |
 | E-BACK | `aria-label` set and the centre hits it |
 | E-KEY | PLAN §1.16 "Steam's geometry, identical to stock": scoped to SIZE, TYPE and OUTLINE (`_scope`, session 5), so **AUD still judges the keys** against stock (GONE, HIDDEN, SHRUNK, UNCLICKABLE, CONTRAST): the criterion is a comparison with stock, which is what AUD makes. Lists the visible key `%{*KeyboardKey}` and its focusable parent `%{KeyboardKeyHitArea}`, which SIZE judges (REQ C4b->P10); also through C4b's `data-lgs-exempt="E-KEY"` on the key grid. In SIZE `pass: null` |
@@ -630,7 +727,10 @@ failing), panes versus a leaf target in AUD, text runs judged as text (a narrowe
 larger type waived; an ellipsis, smaller type and a cut block ≥ 300 × 300 kept), E-GRID (labels) (an ellipsized
 label waived; a label cut without an ellipsis, a three-line label, a T3-shortened label without the cell's
 `aria-label` and a plate outside a resting cell kept; with the `aria-label`, the attended cell's plate inside the
-popup and a short label waived) and E-KEY's scope (SIZE exempt, AUD still SHRUNK) (34 cases, plus case 0).
+popup and a short label waived; a single long word cut by a line-clamped box kept, REQ C2b-R2->P10), E-KEY's scope
+(SIZE exempt, AUD still SHRUNK), E-SEG's 140 / 120 widths and AUD's re-match across a DOM move (rows wrapped and
+sorted matched by text, the list box by its class, a path collision not compared; a repeated or renamed identity
+stays GONE) (38 cases, plus case 0).
 
 ## 7. New lab helpers (`L`, in SharedJSContext)
 
@@ -638,7 +738,8 @@ popup and a short label waived) and E-KEY's scope (SIZE exempt, AUD still SHRUNK
 |---|---|
 | `L.gpTake(surface, sel)` | Give gamepad focus to the element (`node.BTakeFocus(3)` through its fiber). Returns `L.focused()` |
 | `L.root()` | `FocusApplicationRoot()` then Down + Up, so gamepad focus exists (SR §4) |
-| `L.hover(surface, sel, ms)` | Synthetic laser hover (pointerover/enter/move at the centre) for `ms`, then leaves it; `L.unhover()` moves to (1400, 900) |
+| `L.hover(surface, sel, ms)` | Synthetic laser hover (pointerover/enter/move at the centre) for `ms`, then leaves it; `L.unhover()` sends its leave and move events at (1400, 900) CSS px, outside the viewport (the park point, §1; until session 5 (933, 600)) |
+| `L.surfaceName(alias)` | The Steam popup name an alias resolves to: the shown window among several (`barpopup`), else the first (session 5) |
 | `L.focusables(surface)` | Visible focusable elements with rects |
 | `L.anims(surface)` | `getAnimations()` summary (name, duration, delay, easing, iterations, playState, target) |
 | `L.gates.*` | The sweeps used by `gates` (size, type, outline, motion) |
@@ -659,10 +760,10 @@ date, ready to paste into an evidence log.
 | `native-session` | **live** | 2026-10-07 |
 | `gates` | **live** (`--theme off` for stock baselines: AUD skipped, theme given back at the end) | 2026-10-07 |
 | `pad-bfs` | **live** (`--out FILE` saves the JSON) | 2026-10-07 |
-| `focus` | **live** (both forms) | 2026-10-07 |
-| `hv` | **live** (with `--offaxis`, P7's `test.yaw`; streamed fetch, exit 3 when the verdict is withheld; since session 4 two grabs per frame and `--route`/`--pre` layers) | 2026-10-07 |
+| `focus` | **live** (both forms; `--room` since session 5) | 2026-10-07 |
+| `hv` | **live** (with `--offaxis`, P7's `test.yaw`; streamed fetch, exit 3 when the verdict is withheld; since session 4 two grabs per frame and `--route`/`--pre` layers; since session 5 step options in `native-session` steps) | 2026-10-07 |
 | `sgcheck` | **live** (both forms; live as a `native-session` step) | 2026-10-07 |
-| `motion` | **live** (pause + seek + two rAFs since R1; `--selftest MS`) | 2026-10-07 |
+| `motion` | **live** (pause + seek + two rAFs since R1; `--selftest MS`; P-54 entries only since session 5) | 2026-10-07 |
 | `cmp` | **live** (multi-mockup cmp.json, per-element surface/origin/scale) | 2026-10-07 |
 | `ledger` | **live** | 2026-10-07 |
 | `perf --ab` | **live** (R2-13's ABBA verdict; session 4) | 2026-10-07 |
@@ -752,3 +853,43 @@ date, ready to paste into an evidence log.
   - `conformance` P-23's bottom bound is 612 with a bottom ornament, else the glass bottom − 16 (PLAN R2-11, REQ
     Coordinator->P10 (2)); the conformance step records the route's `layout`.
   - New `perf SURF --ab stock|theme [--rounds N]`: R2-13's ABBA verdict (REQ Coordinator->P10 (3)).
+- 2026-10-07 (session 5, REQ batch 3): **behaviour changes** for other packages:
+  - `hv` inside `native-session` applies its own step options (`--mode`, `--flags`, `--media`, `--stock`; P7's
+    recheck: an `hv` step's `--mode laser` was dropped, so laser-only surfaces such as the frame menu were missing
+    from those looks), and any Steam step option makes `hv` a Steam step (both lab locks); the settle is 1.5 s in
+    native mode; the metrics JSON says `mode` and `native` (§4 `hv`, `native-session`).
+  - The pointer is parked at (1400, 900) CSS px, **outside** the viewport, at every lock exit after a hover and by
+    `L.unhover()` (was (933, 600) on main, on Home's All Games disc; REQ C2a-R2->P10 (2)) (§1).
+  - An alias with several windows (`barpopup`) names the shown one, in the JS helpers and for CDP alike (REQ
+    C2b-R2->P10) (§4); `motion` takes its warm-up capture after the pre when the pre opens the surface.
+  - `gates` AUD: E-GRID waives only on the cell; a label run in a cell has its own line, E-GRID (labels) [R2-15],
+    which also treats a single word cut by a line-clamped box as a cut (REQ C2b-R2->P10); text runs are judged as
+    text (`text-whole`; a cut or smaller string stays SHRUNK, a text box is no longer a pane; REQ C7->P10);
+    records the theme moved in the DOM are re-matched by a unique identity (`rematched`; C2b's T3); a popup the theme
+    switch closed gets the pre again (`preRerun`) and an empty snapshot is `VACUOUS` (a FAIL; `conformance` P-39
+    BLOCKED); E-KEY is scoped to SIZE, TYPE and OUTLINE, so AUD judges the keys against stock (REQ C4b->P10);
+    `_pending` exemptions are reported, never waived (§6).
+  - `gates` SIZE: the obscured test uses the box on the visible rect and finds where along each axis the box could
+    be clear (a box wholly in the ornament band can now be scrolled clear); a partly visible control in a scroller
+    that cannot bring it clear is sampled where it is (REQ C2a->P10 #13). E-SEG needs ≥ 140 wide (120 for a compact
+    segment, label under 22 px) [R2-15 (4)].
+  - `gates` OUTLINE: under `prefers-contrast: more` the edge profiles are measured and listed, not judged (P-42;
+    REQ C2a-R2->P10 (5)).
+  - `focus --room` (default `auto`): pairs whose regions hold translucent texels are measured over the bright and
+    dark test rooms and judged by the worse (was: read over black; REQ C2a-R2->P10 (3)) (§3, §4).
+  - `motion` P-54 judges entries only; a target shown before the interaction that travels is listed under `moves`
+    (REQ C2a-R2->P10 (4)); offline test `tools/p2/test_motion_page.py`. P-53's 600 px are 600 × m on the surface.
+  - Result stamps (`build`, `date`, `native`) are taken once the step holds its lock; `gates` notes when AUD's
+    CONTRAST ran with the native layer on (glassd's backing is not in the CSS contrast model).
+  - `pad-bfs` recovers after an exit through main's nav tree, the root, Steam's `EnsureVROverlayVisible()` and, last,
+    `Navigate(route, replace)`, each held 150 ms; a take that does not land activates main's tree and takes once more
+    (`retook`); untakeable nodes are listed; Steam's `focusable: false` nav nodes are `notFocusable`, not unreached
+    (REQ C1b->P10 #10, C2a->P10 #14, C2a-R2->P10 (1)) (§4).
+  - `perf --ab`: the subject runs get the step's flag overlay, input-mode stub and action logger again after each
+    `lgs on` (`reapplied`).
+  - `pad-bfs` (REQ C2a-R2->P10 (6)-(8)): a target must own its nav node (others are `inner`, not counted); a node
+    that is not mounted is replayed from any of up to three recorded ways in and is retried once at the end of the
+    queue before it is `untakeable`; a failed reversibility check is measured again with the source reached by
+    D-pad, and a pure take-order result goes to `takeOrder` (not counted) (§4 `pad-bfs`).
+  - Flags a killed step left in the flags file are put back at the next lock entry (`/tmp/lgs/flag-steps`, §1.1
+    item 4); SteamVR pages a `--theme off` step stripped are themed again at its lock exit (REQ P8->P10).

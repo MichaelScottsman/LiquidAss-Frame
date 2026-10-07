@@ -3,7 +3,7 @@
 // lab_helpers.js and lab_p2.js; extends window.__LGS_LAB with L.gates.
 (function () {
   const L = window.__LGS_LAB;
-  if (!L || (L.gates && L.gates.v === 8)) return;
+  if (!L || (L.gates && L.gates.v === 9)) return;
 
   // D2 2.5: the multiplier m of each surface (sizes in main-window px x m).
   const M = [[/^main$/, 1], [/^frame\.menu|^tooltip|^notifications|^floatingfooter/, 0.9], [/^bar|^barpopup/, 0.83],
@@ -1021,9 +1021,67 @@
         `(4) ${own ? 'its text is the stock name' : aria ? "the cell's aria-label is the stock name" : 'the full name is not in the DOM (text "' + f.full.slice(0, 24) + '", aria-label "' + f.aria.slice(0, 24) + '")'}` };
   }
 
+  // Records the theme moved in the DOM (session 5, REQ C2b-R2->P10). AUD keys are DOM paths, so a control the theme
+  // re-parents or reorders (C2b's T3 wraps Steam's own "+" rows in its panel and sorts them A-Z) has no record at its
+  // stock path and read as GONE although it is the same control: in T3 every stock row was GONE and G-AUD could not
+  // judge T3 at all. A stock record with no themed record at its path is matched to the one themed record at a path
+  // stock does not have, of the same kind, the same first readable class and the same text (case and spaces
+  // ignored: a control's text is its innerText, value or aria-label), when that identity is unique among the
+  // unmatched records on both sides, and, for a control with its own activation handler on stock, the themed one
+  // has its own handler too. The pair is then judged as usual (HIDDEN, SHRUNK, UNCLICKABLE, CONTRAST, exemptions).
+  // An empty or repeated identity is never matched: its GONE stays.
+  function rematch(a, b) {
+    const cls = (r) => String(r.el || '').split(' ')[0];
+    const idOf = (r) => { const t = normText(r.text); return t ? r.kind + '|' + cls(r) + '|' + t : null; };
+    const out = Object.assign({}, b), pairs = [];
+    // A record at the same path that is another element (another kind or first class: the theme put a new element
+    // where Steam's was, e.g. T3's toggle row at the old scroll region's path) is not that element: both sides are
+    // left unmatched for the passes below (until session 5 they were compared, a SHRUNK between unrelated boxes).
+    let collided = 0;
+    for (const k of Object.keys(a)) {
+      if (out[k] && (out[k].kind !== a[k].kind || cls(out[k]) !== cls(a[k]))) { out['~' + k] = out[k]; delete out[k]; collided++; }
+    }
+    const take = (ka, kb, by) => {
+      const x = a[ka], y = out[kb];
+      if (x.kind === 'ctl' && x.act === true && y.act === false) return false;
+      out[ka] = y;
+      delete out[kb];
+      pairs.push({ el: x.el + (x.text ? ' "' + x.text + '"' : ''), from: ka, to: kb, by });
+      return true;
+    };
+    const group = (keys, rec, f) => {
+      const m = new Map();
+      for (const k of keys) { const i = f(rec[k]); if (i) m.set(i, (m.get(i) || []).concat([k])); }
+      return m;
+    };
+    // pass 1: the same kind, first class and text, unique among the unmatched records on both sides
+    let lostA = Object.keys(a).filter((k) => !out[k]), newB = Object.keys(out).filter((k) => !a[k]);
+    let ma = group(lostA, a, idOf), mb = group(newB, out, idOf);
+    for (const [i, ks] of ma) { const qs = mb.get(i); if (ks.length === 1 && qs && qs.length === 1) take(ks[0], qs[0], 'text'); }
+    // pass 2: a container whose text changed with its content (Steam's list scroll panel once T3 moved a row out):
+    // the same kind and first class, when that class is not a bare tag name and occurs exactly once in each whole
+    // snapshot
+    const TAGS = new Set(['div', 'span', 'a', 'button', 'input', 'img', 'svg', 'p', 'li', 'ul', 'ol', 'section', 'label',
+      'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'textarea', 'select', 'video', 'canvas', 'g', 'path', 'Panel', 'Focusable']);
+    const kc = (r) => { const c = cls(r); return c && !TAGS.has(c) ? r.kind + '|' + c : null; };
+    const allA = group(Object.keys(a), a, kc), allB = group(Object.keys(b), b, kc);
+    lostA = Object.keys(a).filter((k) => !out[k]); newB = Object.keys(out).filter((k) => !a[k]);
+    const nb = group(newB, out, kc);
+    for (const ka of lostA) {
+      const i = kc(a[ka]);
+      if (!i || (allA.get(i) || []).length !== 1 || (allB.get(i) || []).length !== 1) continue;
+      const qs = nb.get(i);
+      if (qs && qs.length === 1 && out[qs[0]]) take(ka, qs[0], 'class');
+    }
+    return { b: out, pairs, collided };
+  }
+
   function audDiff(a, b) {
     const ex = [], scoped = [];
     const a2 = {}, b2 = {};
+    const themedRecords = Object.keys(b).length;
+    const rm = rematch(a, b);
+    b = rm.b;
     for (const k of Object.keys(a)) {
       // a label run inside an E-GRID cell: only its own line waives its SHRUNK (R2-15); other kinds as usual
       const labLine = (b[k] && b[k].labLine) || a[k].labLine;
@@ -1092,10 +1150,14 @@
     r.exempt = ex;
     // every record of each snapshot, exempt ones included (an empty snapshot is a vacuous AUD, see gates)
     r.stockRecords = Object.keys(a).length;
-    r.themedRecords = Object.keys(b).length;
+    r.themedRecords = themedRecords;
+    // records matched across a DOM move (rematch): how many, and the first few
+    r.rematched = rm.pairs.length;
+    if (rm.pairs.length) r.rematch = rm.pairs.slice(0, 12).map((x) => x.el + (x.by === 'class' ? ' (by its class)' : ''));
+    if (rm.collided) r.pathCollisions = rm.collided;
     r.pass = r.issues.length === 0;
     return r;
   }
 
-  L.gates = { v: 8, clipBox, pendingOf, labelFacts, labelVerdict, shadowLines, pseudoBox, visibleRect, topModal, hitStats, exemptCheck, exemptMatch, exemptCriterion, obscuredInfo, topScroller, canScroll, partOfHost, ownHandler, fillRect, isMenuCancel, isScrollDriven, isOurs, ourSheets, audDiff, mOf, exemptions, exemptId, controls, size, type, outline, animsNow, motionAudit, atRest, cssAudit, isTokenMs, isTokenEase, TOKENS };
+  L.gates = { v: 9, rematch, clipBox, pendingOf, labelFacts, labelVerdict, shadowLines, pseudoBox, visibleRect, topModal, hitStats, exemptCheck, exemptMatch, exemptCriterion, obscuredInfo, topScroller, canScroll, partOfHost, ownHandler, fillRect, isMenuCancel, isScrollDriven, isOurs, ourSheets, audDiff, mOf, exemptions, exemptId, controls, size, type, outline, animsNow, motionAudit, atRest, cssAudit, isTokenMs, isTokenEase, TOKENS };
 })();

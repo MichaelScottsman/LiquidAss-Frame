@@ -21,7 +21,30 @@
    and keyboard pages. */
 
 /* 0. Shared values for the SteamVR pages (--lgs-vr-*): theme/vr/00-vr-tokens.css
-   (P4), bundled before this file (PLAN §6 two-step move, done). */
+   (P4), bundled before this file (PLAN §6 two-step move, done).
+   C1a's own glass recipes for this page (Phase 2 tokens only; no Phase 1
+   alias, PLAN §6, review R2 m11). P4's E3 hook is not bundled into
+   SteamVR pages, so a slab's edge is the material's E4/E5 dark inner edge
+   plus the lit top lip: never a closed rim (VP P-42/P-43, review R2 M1). */
+& {
+  --lgs-c1a-vr-lip: inset 0 1.5px 1.5px -1px rgb(255 255 255 / .22);
+  --lgs-c1a-vr-panel-shade: var(--lgs-mat-panel-shade), var(--lgs-c1a-vr-lip);
+  /* thick glass where the room shows through a quad (no backdrop blur
+     reaches the room here): the tint .80 (PLAN §1.13, WN §8.4) */
+  --lgs-c1a-vr-thick-bg:
+      linear-gradient(180deg, rgb(255 255 255 / .08), rgb(255 255 255 / 0) 35%),
+      rgb(36 37 42 / .80);
+  --lgs-c1a-vr-thick-shade: var(--lgs-mat-thick-shade), var(--lgs-c1a-vr-lip);
+  --lgs-c1a-vr-panel-tint: rgb(28 30 40 / calc(.67 + var(--lgs-dial) * .22));
+  --lgs-c1a-vr-hover: linear-gradient(rgb(255 255 255 / var(--lgs-hover-add)), rgb(255 255 255 / var(--lgs-hover-add)));
+  --lgs-c1a-vr-press: linear-gradient(rgb(255 255 255 / calc(var(--lgs-hover-add) + var(--lgs-press-add))), rgb(255 255 255 / calc(var(--lgs-hover-add) + var(--lgs-press-add))));
+}
+@media (prefers-contrast: more) {
+  & {
+    --lgs-c1a-vr-thick-bg: var(--lgs-mat-thick-bg);
+    --lgs-c1a-vr-panel-tint: rgb(11 13 16 / .94);
+  }
+}
 
 /* ------------------------------------------------------------------ */
 /* 1. Window grab bar (GrabHandle panel, laser-only)                   */
@@ -62,7 +85,7 @@
 }
 %{ResizeHandleButton}:hover %{ResizeSVG},
 %{ResizeHandleButton}%{ResizeHandleButton>ForceActive} %{ResizeSVG} {
-  color: var(--lgs-knob);
+  color: rgb(255 255 255);
 }
 
 
@@ -151,10 +174,8 @@
    (PLAN §1.13; CSS-only: thick tint .80 + edge, WN §8.4), 30 systemui px
    Semibold; the panel is width: fit-content, so it grows with the text. */
 .ControlBarButtonTooltip {
-  background:
-    linear-gradient(180deg, rgb(255 255 255 / .08), rgb(255 255 255 / 0) 35%),
-    rgb(36 37 42 / .80);
-  box-shadow: var(--lgs-mat-thick-shade);
+  background: var(--lgs-c1a-vr-thick-bg);
+  box-shadow: var(--lgs-c1a-vr-thick-shade);
   border-radius: var(--lgs-r-capsule);
   color: var(--lgs-text-1);
   font-weight: 600;
@@ -164,13 +185,16 @@
   text-shadow: none;
 }
 
-/* 3.2 More Options popout: a panel-glass menu with rounded inset rows
-   (row highlight drawn by our ::before; Steam's row paddings and the 1px
-   separators stay, recoloured as hairlines). */
+/* 3.2 More Options popout (WN §3.5.2): thick glass, radius 44; the rows
+   keep SteamVR's own heights (the panel's quad follows the DOM; WN's 96 px
+   rows wait for the static mock, AT-17). Each row's light is a rounded
+   pill of our ::before with 8 px between pills; Steam's 1 px separators
+   become space (P-43). Focus is light, never a ring (P-17): + .32, the
+   spot in the upper third and the lit arc, as the frame controls (§3). */
 %{AdditionalOptions} {
-  background: var(--lgs-panel-sheen), var(--lgs-panel-bg);
-  box-shadow: var(--lgs-panel-rim);
-  border-radius: var(--lgs-r-menu);
+  background: var(--lgs-c1a-vr-thick-bg);
+  box-shadow: var(--lgs-c1a-vr-thick-shade);
+  border-radius: var(--lgs-r-sheet);
   isolation: isolate;
 }
 %{AdditionalOptions} .ButtonControl%{AdditionalOptionsRow},
@@ -182,7 +206,7 @@
   color: var(--lgs-text-1);
 }
 %{AdditionalOptions} > .ButtonControl:not(:first-child) {
-  border-top-color: var(--lgs-separator);
+  border-top-color: transparent;
 }
 %{AdditionalOptions} .ButtonControl%{AdditionalOptionsRow} > .Icon path,
 %{AdditionalOptions} .ButtonControl%{AdditionalOptionsRow} > .Icon circle {
@@ -190,58 +214,61 @@
 }
 %{AdditionalOptions} .ButtonControl%{AdditionalOptionsRow} > %{AdditionalOptionsLabel} {
   color: var(--lgs-text-1);
-  text-shadow: var(--lgs-text-shadow);
+  text-shadow: none;
 }
 %{AdditionalOptions} .ButtonControl%{AdditionalOptionsRow}::before {
   content: "";
   position: absolute;
-  inset: 3px 8px;
+  inset: 4px 12px;
   z-index: -1;
-  border-radius: var(--lgs-r-row);
+  border-radius: var(--lgs-r-capsule);
   background: transparent;
   pointer-events: none;
-  transition: background-color var(--lgs-t-fast) var(--lgs-ease),
-              box-shadow var(--lgs-t-fast) var(--lgs-ease);
+  transition: background var(--lgs-d-hover-in, 294ms) var(--lgs-ease-b0, ease-out),
+              box-shadow var(--lgs-d-hover-in, 294ms) var(--lgs-ease-b0, ease-out);
 }
 %{AdditionalOptions} .ButtonControl%{AdditionalOptionsRow}:first-child::before {
-  top: 8px;
+  top: 12px;
 }
 %{AdditionalOptions} .ButtonControl%{AdditionalOptionsRow}:last-child::before {
-  bottom: 8px;
+  bottom: 12px;
 }
 %{AdditionalOptions} .ButtonControl%{AdditionalOptionsRow}:hover::before {
-  background-color: var(--lgs-hover-fill);
+  background: var(--lgs-c1a-vr-hover);
 }
 %{AdditionalOptions} .ButtonControl%{AdditionalOptionsRow}%{GamepadFocused}::before {
-  background-color: var(--lgs-focus-fill);
-  box-shadow: inset 0 0 0 2px var(--lgs-focus-outline);
+  background:
+    radial-gradient(circle at 50% 30%, rgb(255 255 255 / var(--lgs-focus-spot)), rgb(255 255 255 / 0) 75%),
+    linear-gradient(rgb(255 255 255 / var(--lgs-focus-add)), rgb(255 255 255 / var(--lgs-focus-add)));
+  box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / var(--lgs-focus-arc));
 }
 %{AdditionalOptions} .ButtonControl%{AdditionalOptionsRow}:active::before {
-  background-color: var(--lgs-pressed-fill);
+  background: var(--lgs-c1a-vr-press);
 }
 
-/* 3.3 Frame gamepad-mode pill under laser-only pages.
-   "Use Laser Mouse to Interact" (Disabled) = panel glass capsule;
-   "Enter Gamepad Mode" = the tinted primary. Hit-area padding stays. */
+/* 3.3 Frame gamepad-mode pill under laser-only pages (WN §3.5.2).
+   "Use Laser Mouse to Interact" (Disabled) = quiet panel glass, white .70;
+   "Enter Gamepad Mode" = the blue whole fill. Hit-area padding stays. */
 %{ButtonPill} {
-  background: var(--lgs-panel-sheen), var(--lgs-panel-bg);
-  box-shadow: var(--lgs-panel-rim);
-  color: var(--lgs-text-1);
-  text-shadow: var(--lgs-text-shadow);
-  transition: background-color var(--lgs-t-fast) var(--lgs-ease);
+  background: var(--lgs-mat-panel-bg);
+  box-shadow: var(--lgs-c1a-vr-panel-shade);
+  color: var(--lgs-text-2);
+  text-shadow: none;
+  transition: background-color var(--lgs-d-hover-in, 294ms) var(--lgs-ease-b0, ease-out);
 }
 %{ButtonHitArea}:not(%{ButtonPill>Disabled}) %{ButtonPill} {
-  background: var(--lgs-panel-sheen), var(--lgs-tint-primary);
+  background: var(--lgs-tint-primary);
+  box-shadow: var(--lgs-c1a-vr-lip);
   color: #fff;
 }
 %{ButtonHitArea}:not(%{ButtonPill>Disabled}):hover:not(:active) %{ButtonPill} {
-  background: var(--lgs-tint-lift), var(--lgs-tint-primary);
+  background: var(--lgs-c1a-vr-hover), var(--lgs-tint-primary);
 }
 %{ButtonHitArea}:not(%{ButtonPill>Disabled}):active %{ButtonPill} {
-  background: var(--lgs-tint-lift), var(--lgs-tint-lift), var(--lgs-tint-primary);
+  background: var(--lgs-c1a-vr-press), var(--lgs-tint-primary);
 }
 %{ButtonHitArea}%{ButtonPill>Disabled} %{ButtonPill} {
-  background: var(--lgs-panel-sheen), var(--lgs-panel-bg);
+  background: var(--lgs-mat-panel-bg);
 }
 
 
@@ -270,9 +297,9 @@
   bottom: max(4px, calc(anchor(--lgs-vr-ctl-batt bottom, 4px) - 10px));
   left: 18px;
   right: 18px;
-  border-radius: var(--lgs-r-panel);
-  background: var(--lgs-panel-sheen), var(--lgs-panel-bg);
-  box-shadow: var(--lgs-panel-rim);
+  border-radius: var(--lgs-r-row);
+  background: var(--lgs-mat-panel-bg);
+  box-shadow: var(--lgs-c1a-vr-panel-shade);
   pointer-events: none;
 }
 /* hand glyph: SteamVR's grey PNG drawn white (alpha kept) */
@@ -347,19 +374,19 @@
    glass stops at the padding edge so the rim sits on the visible edge. */
 .TransitionAppImage {
   border-color: transparent;
-  border-radius: var(--lgs-r-panel);
+  border-radius: var(--lgs-r-row);
 }
 .TransitionAppImage.Waiting::after {
-  border-radius: var(--lgs-r-panel);
+  border-radius: var(--lgs-r-row);
 }
 .TransitionAppLabels {
-  background: var(--lgs-panel-sheen), var(--lgs-panel-bg);
+  background: var(--lgs-mat-panel-bg);
   background-clip: padding-box;
-  box-shadow: var(--lgs-panel-rim);
+  box-shadow: var(--lgs-c1a-vr-panel-shade);
   border-color: transparent;
-  border-radius: var(--lgs-r-panel);
+  border-radius: var(--lgs-r-row);
   color: var(--lgs-text-1);
-  text-shadow: var(--lgs-text-shadow);
+  text-shadow: none;
 }
 .TransitionAppLabels .AppStatus {
   color: var(--lgs-text-2);
@@ -367,9 +394,9 @@
 
 /* 5.2 IPD readout */
 .IPDParent {
-  background: var(--lgs-panel-sheen), var(--lgs-panel-bg);
-  box-shadow: var(--lgs-panel-rim);
-  border-radius: var(--lgs-r-panel);
+  background: var(--lgs-mat-panel-bg);
+  box-shadow: var(--lgs-c1a-vr-panel-shade);
+  border-radius: var(--lgs-r-row);
   --ipddescriptiontext: var(--lgs-text-2);
   --ipdvaluetext: var(--lgs-text-1);
 }
@@ -379,67 +406,67 @@
   stroke: var(--lgs-green);
 }
 .ProgressContainer .CircularProgressbar .CircularProgressbar-background {
-  fill: var(--lgs-panel-bg);
+  fill: var(--lgs-c1a-vr-panel-tint);
 }
 
 /* 5.4 Refresh-rate change and gamepad-unsupported pills */
 [class*="framerate_FramerateRoot_"],
 [class*="gamepadunsupportedmessage_GamepadUnsupportedRoot_"] {
-  background: var(--lgs-panel-sheen), var(--lgs-panel-bg);
+  background: var(--lgs-mat-panel-bg);
   /* SteamVR's 1-3px borders stay (geometry) but go clear around the glass */
   background-clip: padding-box;
-  box-shadow: var(--lgs-panel-rim);
+  box-shadow: var(--lgs-c1a-vr-panel-shade);
   border-color: transparent;
   border-radius: var(--lgs-r-capsule);
   color: var(--lgs-text-1);
-  text-shadow: var(--lgs-text-shadow);
+  text-shadow: none;
 }
 
 /* 5.5 Play-area setup / boundary prompts */
 [class*="roomsetup_RoomSetupContainer_"] {
-  background: var(--lgs-panel-sheen), var(--lgs-panel-bg);
-  box-shadow: var(--lgs-panel-rim);
-  border-radius: var(--lgs-r-panel);
+  background: var(--lgs-mat-panel-bg);
+  box-shadow: var(--lgs-c1a-vr-panel-shade);
+  border-radius: var(--lgs-r-row);
   color: var(--lgs-text-1);
 }
 [class*="roomsetup_RoomSetupContainer_"] [class*="roomsetup_Title_"] {
   color: var(--lgs-text-1);
-  text-shadow: var(--lgs-text-shadow);
+  text-shadow: none;
 }
 [class*="roomsetup_RoomSetupContainer_"] [class*="roomsetup_Body_"] {
   color: var(--lgs-text-2);
 }
 [class*="roomsetup_RoomSetupContainer_"] [class*="roomsetup_ButtonControl_"] {
-  background: var(--lgs-fill-2);
-  box-shadow: var(--lgs-control-rim);
+  background: var(--lgs-raised-bg);
+  box-shadow: var(--lgs-raised-shadow);
   border-radius: var(--lgs-r-capsule);
   color: var(--lgs-text-1);
-  transition: background-color var(--lgs-t-fast) var(--lgs-ease);
+  transition: background-color var(--lgs-d-hover-in, 294ms) var(--lgs-ease-b0, ease-out);
 }
 /* laser-only panel: the strong laser hover (section 0) */
 [class*="roomsetup_RoomSetupContainer_"] [class*="roomsetup_ButtonControl_"]:hover {
-  background: var(--lgs-vr-hover-fill);
-  box-shadow: var(--lgs-control-rim), var(--lgs-vr-hover-rim);
+  background: var(--lgs-c1a-vr-hover), var(--lgs-raised-bg);
+  box-shadow: var(--lgs-vr-hover-rim);
   color: var(--lgs-text-1);
 }
 [class*="roomsetup_RoomSetupContainer_"] [class*="roomsetup_ButtonControl_"]:active {
-  background: var(--lgs-pressed-fill);
+  background: var(--lgs-c1a-vr-press), var(--lgs-raised-bg);
 }
 [class*="roomsetup_RoomSetupContainer_"] [class*="roomsetup_ButtonControl_"][class*="roomsetup_Colorful_"] {
   background: var(--lgs-tint-primary);
   color: #fff;
 }
 [class*="roomsetup_RoomSetupContainer_"] [class*="roomsetup_ButtonControl_"][class*="roomsetup_Colorful_"]:hover {
-  background: var(--lgs-tint-lift), var(--lgs-tint-primary);
+  background: var(--lgs-c1a-vr-hover), var(--lgs-tint-primary);
 }
 
 /* 5.6 Steam not ready / boot overlay */
 [class*="loadingthrobber_LoadingRoot_"] {
-  background: var(--lgs-panel-sheen), var(--lgs-panel-bg);
+  background: var(--lgs-mat-panel-bg);
   background-clip: padding-box;
-  box-shadow: var(--lgs-panel-rim);
+  box-shadow: var(--lgs-c1a-vr-panel-shade);
   border-color: transparent;
-  border-radius: var(--lgs-r-panel);
+  border-radius: var(--lgs-r-row);
   color: var(--lgs-text-1);
 }
 [class*="loadingthrobber_LoadingRoot_"] [class*="loadingthrobber_Body_"] {
@@ -452,29 +479,29 @@
 }
 [class*="loadingthrobber_LoadingRoot_"] [class*="loadingthrobber_ButtonControl_"]:hover {
   background-color: var(--lgs-tint-primary);
-  background-image: var(--lgs-tint-lift);
+  background-image: var(--lgs-c1a-vr-hover);
 }
 /* the spinner's black disc (Steam-owned ::before): panel glass disc */
 [class*="loadingthrobber_LoadingThrobberContainer_"]::before {
-  background: var(--lgs-panel-sheen), var(--lgs-panel-bg);
-  box-shadow: var(--lgs-panel-rim);
+  background: var(--lgs-mat-panel-bg);
+  box-shadow: var(--lgs-c1a-vr-panel-shade);
 }
 
 /* 5.7 Persistent notifications (tracking recording, casting): each
    indicator a small panel-glass capsule. Their own fade animation stays. */
 [class*="persistentnotifications_TrackingDataRecordingNotification_"],
 [class*="persistentnotifications_CastingVRScreenNotification_"] {
-  background: var(--lgs-panel-sheen), var(--lgs-panel-bg);
-  box-shadow: var(--lgs-panel-rim);
+  background: var(--lgs-mat-panel-bg);
+  box-shadow: var(--lgs-c1a-vr-panel-shade);
   border-radius: var(--lgs-r-capsule);
 }
 
 /* 5.8 Frame guided tour / learning topics: the tooltip card is panel
    glass; the blue guide line and dots keep their semantic blue. */
 %{TopPanelContainer} {
-  background: var(--lgs-panel-sheen), var(--lgs-panel-bg);
-  box-shadow: var(--lgs-panel-rim);
-  border-radius: var(--lgs-r-panel);
+  background: var(--lgs-mat-panel-bg);
+  box-shadow: var(--lgs-c1a-vr-panel-shade);
+  border-radius: var(--lgs-r-row);
   border-bottom-color: var(--lgs-blue);
 }
 %{TourTooltipContainer}%{RightFlow} %{TopPanelContainer} {
@@ -485,7 +512,7 @@
   color: var(--lgs-text-1);
 }
 %{LearningTopicParagraph} {
-  text-shadow: var(--lgs-text-shadow);
+  text-shadow: none;
 }
 %{BodyText} {
   color: var(--lgs-text-2);
@@ -495,8 +522,8 @@
   border-radius: var(--lgs-r-capsule);
 }
 %{ButtonContainer} %{LearnMoreButton} {
-  background: var(--lgs-fill-2);
-  box-shadow: var(--lgs-control-rim);
+  background: var(--lgs-raised-bg);
+  box-shadow: var(--lgs-raised-shadow);
   color: var(--lgs-text-1);
 }
 %{ButtonContainer} %{BlueButton},
@@ -506,5 +533,5 @@
   color: #fff;
 }
 %{ButtonContainer} %{BlueButton}:hover {
-  background: var(--lgs-tint-lift), var(--lgs-tint-primary);
+  background: var(--lgs-c1a-vr-hover), var(--lgs-tint-primary);
 }

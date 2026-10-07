@@ -10,7 +10,7 @@
 // keyboard) is recorded and undone.
 (function () {
   const L = window.__LGS_LAB;
-  if (!L || L.single || (L.bfs && L.bfs.v === 11)) return;
+  if (!L || L.single || (L.bfs && L.bfs.v === 13)) return;
   const sleep = L.sleep;
   const CODE = { up: 9, down: 10, left: 11, right: 12 };
   const OPP = { up: 'down', down: 'up', left: 'right', right: 'left' };
@@ -53,6 +53,25 @@
     return c + '|' + t + '#' + n;
   };
   const desc = (el) => { const r = el.getBoundingClientRect(); return { el: L.readable(el).slice(0, 3).join(' ') || el.tagName.toLowerCase(), text: text(el), rect: [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)] }; };
+  // A nav node Steam itself declares `focusable: false` (its Panel's m_Properties) can never take gamepad focus: the
+  // tab row's scroll arrows (`%{Arrows}`, laser-only, with an onClick; the gamepad pages tabs with the bumpers). It
+  // is not a G-PAD target: such leaves are listed under `notFocusable` and do not count as unreached (session 5;
+  // C1b's /search results and /library/tab/AllGames each had their two arrows "unreached"). Their function's
+  // gamepad path is the function ledger's to show; a theme patch that turned a stock target non-focusable shows up
+  // as a difference against the same route's `--stock` run.
+  const notFocusable = (el) => { try { const n = L.navNode(el); return !!(n && n.m_Properties && n.m_Properties.focusable === false); } catch (_) { return false; } };
+  // The element's own nav node: L.navNode walks up to 12 fibers, so a plain `div role="button"` inside a focusable
+  // cell (Home's card Play / More) finds the cell's node. A G-PAD target is an element whose nearest node is its own
+  // (Steam's node.m_element is the element; probe 2026-10-07 16:25 on Home: 18 own, the card's two actions not).
+  // Elements with only an ancestor's node are laser targets inside a gamepad target, listed under `inner` (their
+  // gamepad path, e.g. X / the menu button, is the function ledger's to show), not unreached (REQ C2a-R2->P10 (6)).
+  const ownNode = (el) => {
+    let n = null;
+    try { n = L.navNode(el); } catch (_) { return null; }
+    if (!n) return null;
+    if ('m_element' in n) return n.m_element === el ? n : null;
+    return n;                                    // older build without m_element: as before
+  };
   const isSlider = (el) => !!(el && (el.querySelector('input[type=range]') || /Slider/i.test(L.readable(el).join(' ')) || el.closest('[class*="Slider"]')));
   const seg = (p) => (p || '').split('/')[1] || '';
 
@@ -73,10 +92,11 @@
   }
   // Leaf focusables: visible elements with a nav node that hold no other such element (a row whose
   // focus goes to its dropdown, or a page panel, is a container, not a target).
-  function leaves(onscreen) {
+  function leaves(onscreen, inner) {
     const w = W(), all = [];
     for (const el of w.document.querySelectorAll(L.FOCUSABLE)) {
       if (el.closest('[id^="lgs-"]') || !L.navNode(el)) continue;
+      if (!ownNode(el)) { if (inner) inner.push(el); continue; }
       const r = el.getBoundingClientRect();
       if (r.width < 2 || r.height < 2) continue;
       all.push(el);
@@ -194,14 +214,37 @@
   }
   // A node that is not mounted now (a tab panel that follows focus, a page in a pager) is reached again the
   // way the sweep found it: take its parent, press the same direction.
-  async function take(S, i, depth) {
+  // Every recorded way in is tried, the first one first (REQ C2a-R2->P10 (7)): in a paged grid that mounts one page,
+  // a cell that repeats on every page with the same label (Home's All Games) is one node, so a later-page cell found
+  // from it cannot be replayed from that node (the take lands on the page shown and the press goes elsewhere), but
+  // it can from its page neighbour (... cell 9 -Right-> page 2). `seen` stops cycles; at most 3 ways in per node.
+  const mounted = (S, i) => !!(S.nodes[i].el && S.nodes[i].el.isConnected);
+  async function take(S, i, depth, seen) {
     if (await takeDirect(S, i)) return true;
-    const p = S.parent[i];
-    if (!p || (depth || 0) > 8) return false;
-    if (!(await take(S, p.a, (depth || 0) + 1))) return false;
-    const m = await press(S, p.dir);
-    if (m.r === 'node' && keyOf(m.el) === S.nodes[i].key) { S.nodes[i].el = m.el; S.replayed++; return true; }
-    if (m.recover) await recover(S, /^exit:/.test(m.r) ? p.dir : null);
+    depth = depth || 0;
+    seen = seen || new Set();
+    if (depth > 8 || seen.has(i)) return false;
+    seen.add(i);
+    // ways whose source is mounted now first (a page turn unmounts the other page's cells)
+    const ways = (S.into[i] || []).slice(0, 3).sort((x, y) => (mounted(S, y.a) ? 1 : 0) - (mounted(S, x.a) ? 1 : 0));
+    for (const p of ways) {
+      if (seen.has(p.a)) continue;
+      if (!(await take(S, p.a, depth + 1, seen))) continue;
+      const m = await press(S, p.dir);
+      if (m.r === 'node' && keyOf(m.el) === S.nodes[i].key) { S.nodes[i].el = m.el; S.replayed++; return true; }
+      if (m.recover) await recover(S, /^exit:/.test(m.r) ? p.dir : null);
+    }
+    return false;
+  }
+  // `a` reached the way a user reaches it: its first way in pressed from the source node, so groups update their own
+  // focus memory (a direct BTakeFocus does not). Used to re-measure an irreversible edge (REQ C2a-R2->P10 (8)).
+  async function viaPad(S, a) {
+    for (const p of (S.into[a] || []).slice(0, 3)) {
+      if (!(await take(S, p.a))) continue;
+      const m = await press(S, p.dir);
+      if (m.r === 'node' && keyOf(m.el) === S.nodes[a].key) { S.nodes[a].el = m.el; return true; }
+      if (m.recover) await recover(S, /^exit:/.test(m.r) ? p.dir : null);
+    }
     return false;
   }
   async function recover(S, dir) {
@@ -225,7 +268,7 @@
 
   async function init(o) {
     o = o || {};
-    const S = window.__LGS_BFS = { route: L.route(), nodes: [], info: [], byKey: new Map(), edges: {}, rev: [], untested: [], exits: [], queue: [], parent: {}, replayed: 0, retook: 0, navs: 0, seen: new Set(), moves: 0, t0: Date.now() };
+    const S = window.__LGS_BFS = { route: L.route(), nodes: [], info: [], byKey: new Map(), edges: {}, rev: [], takeOrder: [], untested: [], exits: [], queue: [], parent: {}, into: {}, inner: new Map(), deferred: new Set(), replayed: 0, retook: 0, navs: 0, seen: new Set(), moves: 0, t0: Date.now() };
     inst().FocusApplicationRoot();
     await sleep(300);
     // the first press both activates focus and moves it (SR 4): Down then Up
@@ -240,7 +283,9 @@
     // Settings: selection follows focus) are expanded only when they are also in the universe (the
     // sidebar); other nodes there are recorded as reached leaves.
     S.universe = new Map();
-    for (const f of leaves()) { const k = keyOf(f.el); if (!S.universe.has(k)) S.universe.set(k, desc(f.el)); }
+    S.nf = new Map();
+    const inner = []; for (const f of leaves(false, inner)) { const k = keyOf(f.el); if (notFocusable(f.el)) { if (!S.nf.has(k)) S.nf.set(k, desc(f.el)); continue; } if (!S.universe.has(k)) S.universe.set(k, desc(f.el)); }
+    for (const el of inner) { const r = el.getBoundingClientRect(); if (r.width >= 2 && r.height >= 2 && L.visible(W(), el)) { const k = keyOf(el); if (!S.inner.has(k)) S.inner.set(k, desc(el)); } }
     S.entry = nodeFor(S, start);
     S.queue.push(S.entry);
     S.seen.add(S.entry);
@@ -255,7 +300,13 @@
       const a = S.queue.shift();
       S.edges[a] = S.edges[a] || {};
       for (const dir of ['down', 'right', 'up', 'left']) {
-        if (!(await take(S, a))) { S.edges[a][dir] = 'untakeable'; break; }
+        if (S.edges[a][dir] !== undefined) continue;    // measured before the node was deferred
+        // Not takeable now: tried once more at the end of the queue, when later nodes may give it another way in
+        // (a later-page cell's Left back onto this page; REQ C2a-R2->P10 (7)); only then untakeable.
+        if (!(await take(S, a))) {
+          if (!S.deferred.has(a)) { S.deferred.add(a); S.queue.push(a); } else S.edges[a][dir] = 'untakeable';
+          break;
+        }
         const m = await press(S, dir);
         if (m.r !== 'node') {
           S.edges[a][dir] = m.r;
@@ -267,13 +318,38 @@
         }
         const b = nodeFor(S, m.el);
         if (S.parent[b] === undefined && b !== S.entry) S.parent[b] = { a, dir };
+        if (b !== S.entry && b !== a) { const into = S.into[b] = S.into[b] || []; if (into.length < 3 && !into.some((p) => p.a === a && p.dir === dir)) into.push({ a, dir }); }
         S.edges[a][dir] = b;
         // reversibility, as a user does it: the opposite press right away (focus memory intact)
         const back = await press(S, OPP[dir]);
         const ok = back.r === 'node' && keyOf(back.el) === S.nodes[a].key;
         if (back.r === 'skip:slider') S.untested.push({ a, dir, b, why: 'opposite move would change a slider' });
-        else if (!ok) S.rev.push({ a, dir, b, back: back.r === 'node' ? nodeFor(S, back.el) : back.r });
-        if (back.recover) await recover(S, /^exit:/.test(back.r) ? OPP[dir] : null);
+        else if (!ok) {
+          const first = back.r === 'node' ? nodeFor(S, back.el) : back.r;
+          if (back.recover) await recover(S, /^exit:/.test(back.r) ? OPP[dir] : null);
+          // Re-measured once on a user path (REQ C2a-R2->P10 (8)): `a` reached by D-pad from its way in (not by a
+          // direct take, which leaves a group's focus memory on the last node the sweep took), then the same press
+          // and the opposite one. Back on `a` now: the first result was the sweep's take order, listed under
+          // `takeOrder`, not a defect. Otherwise (or when `a` has no way in to replay: the entry) it stays irreversible.
+          // On the user path the press itself can land elsewhere (Home: What's New -Left-> Apps, the group's memory,
+          // where the direct-take order gave Recent): that move and its opposite press are what is judged then.
+          let again = null, to2 = null;
+          if (await viaPad(S, a)) {
+            const m2 = await press(S, dir);
+            if (m2.r === 'edge') again = 'ok';         // no move there on the user path: nothing to undo
+            else if (m2.r === 'node') {
+              to2 = nodeFor(S, m2.el);
+              const back2 = await press(S, OPP[dir]);
+              again = back2.r === 'node' && keyOf(back2.el) === S.nodes[a].key ? 'ok' : (back2.r === 'node' ? nodeFor(S, back2.el) : back2.r);
+              if (back2.recover) await recover(S, /^exit:/.test(back2.r) ? OPP[dir] : null);
+            } else {
+              again = 'press ' + m2.r;
+              if (m2.recover) await recover(S, /^exit:/.test(m2.r) ? dir : null);
+            }
+          }
+          if (again === 'ok') S.takeOrder.push({ a, dir, b, back: first, userTo: to2 });
+          else S.rev.push({ a, dir, b, back: first, recheck: again === null ? 'not replayable' : again, userTo: to2 });
+        }
         const expand = S.nodes[b].route === S.route || S.universe.has(S.nodes[b].key);
         if (!S.seen.has(b) && expand && S.nodes.length <= S.max) { S.seen.add(b); S.queue.push(b); }
       }
@@ -288,7 +364,8 @@
     await recover(S);
     // unreached: leaf focusables visible on the start route (at init and now) that no node matches
     const keys = new Set(S.nodes.map((n) => n.key));
-    for (const f of leaves()) { const k = keyOf(f.el); if (!S.universe.has(k)) S.universe.set(k, desc(f.el)); }
+    const inner = []; for (const f of leaves(false, inner)) { const k = keyOf(f.el); if (notFocusable(f.el)) { if (!S.nf.has(k)) S.nf.set(k, desc(f.el)); continue; } if (!S.universe.has(k)) S.universe.set(k, desc(f.el)); }
+    for (const el of inner) { const r = el.getBoundingClientRect(); if (r.width >= 2 && r.height >= 2 && L.visible(W(), el)) { const k = keyOf(el); if (!S.inner.has(k)) S.inner.set(k, desc(el)); } }
     const unreached = [...S.universe.entries()].filter(([k]) => !keys.has(k)).map(([, d]) => d);
     let b = null;
     if (!o.noB) {
@@ -305,16 +382,18 @@
     const res = {
       route: S.route, entry: S.info[S.entry], nodes: S.info.map((x, i) => Object.assign({ id: i }, x)), edges: S.edges,
       routes: [...new Set(S.info.map((x) => x.route))],
-      irreversible: S.rev.map((r) => ({ from: r.a, dir: r.dir, to: r.b, back: r.back })),
+      irreversible: S.rev.map((r) => ({ from: r.a, dir: r.dir, to: r.b, back: r.back, recheck: r.recheck, userTo: r.userTo })),
+      // irreversible on the first measurement only: back on `from` when `from` was reached by D-pad (REQ C2a-R2->P10 (8))
+      takeOrder: S.takeOrder.map((r) => ({ from: r.a, dir: r.dir, to: r.b, back: r.back, userTo: r.userTo })),
       untested: S.untested.map((r) => ({ from: r.a, dir: r.dir, to: r.b, why: r.why })), universe: S.universe.size,
       // moves that left the main window, and how focus came back (REQ C1b->P10 #10, C2a->P10 #14)
       exits: S.exits.map((r) => ({ from: r.a, dir: r.dir, to: r.to, back: r.back })),
-      unreached, b, moves: S.moves, replayed: S.replayed, retook: S.retook, navs: S.navs, seconds: Math.round((Date.now() - S.t0) / 100) / 10, truncated: S.queue.length > 0,
+      unreached, notFocusable: [...S.nf.values()], inner: [...S.inner.values()], b, moves: S.moves, replayed: S.replayed, retook: S.retook, navs: S.navs, seconds: Math.round((Date.now() - S.t0) / 100) / 10, truncated: S.queue.length > 0,
     };
     res.pass = unreached.length === 0 && res.irreversible.length === 0 && !res.truncated;
     delete window.__LGS_BFS;
     return res;
   }
 
-  L.bfs = { v: 11, init, step, finish, keyOf, leaves, regain, activateMain };
+  L.bfs = { v: 13, init, step, finish, keyOf, leaves, regain, activateMain };
 })();

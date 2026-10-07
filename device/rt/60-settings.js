@@ -13,7 +13,18 @@
 //     centres the circle and the title as one group (the circle is an absolute ::before: P6 crops it);
 //   - data-lgs-title on the dialog root: Steam's "#MainTabsSettings" (C1a draws the Large Title);
 //   - data-lgs-destructive on page buttons whose label equals one of Steam's localised destructive
-//     labels (SET §4.7; never popped, PLAN §1.7 rule 4). Unmatched buttons stay neutral.
+//     labels (SET §4.7; never popped, PLAN §1.7 rule 4). Unmatched buttons stay neutral;
+//   - the same label scan on the top modal card (dialogs opened from a settings page: Hostname's
+//     "Change & Restart", network details' "Forget"), and data-lgs-destructive on the .Primary confirm
+//     of a dialog first seen within SET_ORIGIN_MS of a click / gamepad A on a tagged button (Audio
+//     "Reset" opens a plain "Confirm" that restarts the device). C1c's tagDestructive then makes the
+//     card one flat thick plate (its scan() is called), and 22-presentations.json's exclude keeps the
+//     card down (review R2 B1);
+//   - data-lgs-scrolled on the dialog root while the page content is scrolled (scrollTop > 0): the
+//     hero's +10 mm pop is dropped then (60-settings.json), so it slides under the toolbar row flat
+//     (SET §5; review R2 M1).
+// A click or gamepad A on a settings route runs a short burst of ticks (a dialog's tags land within
+// about 40 ms); a scroll of the page content updates data-lgs-scrolled at once.
 // It never calls a Steam setter, never clicks, never moves a React node and adds no nodes. Every
 // attribute and style property it sets is removed on remove(); a missing Steam node skips a step.
 
@@ -35,13 +46,19 @@ var SET_DESTRUCTIVE_TOKENS = [
   'Audio_Reset_Config', 'Settings_Developer_ClearGameLaunchInterstitialsSeenButton',
   'Settings_System_Change_User_Password_Change', 'ContentManagement_UninstallButton',
   'DownloadSettings_ClearDownloadCacheButton', 'Settings_Internet_Forget', 'Settings_Controller_PairingInfo_Forget',
-  'Settings_Controller_Frame_Pairing_Forget',
+  'Settings_Controller_Frame_Pairing_Forget', 'Settings_Internet_WebBrowserDataDeleteButton',
 ];
+// labels that are not destructive on one page: Developer "Format" only opens Storage (review R2 m2)
+var SET_PAGE_SAFE = { developer: ['Settings_System_FormatSD_Btn_Format', 'ContentManagement_Format'] };
+// a dialog first seen this soon after a tagged button's activation is that button's confirmation
+var SET_ORIGIN_MS = 4000;
+var SET_BURST_MS = [40, 120, 260, 520, 1000];
 
 function setInstall(rt) {
   var S = SETS = {
     rt: rt, marks: new Map(), styled: new Set(), keys: new WeakMap(), glyphs: new Map(),
     destructive: null, title: null, lastTitleRoot: null,
+    lastAct: 0, cards: new WeakMap(), scanned: new WeakMap(), burst: false, safe: new Map(),
   };
   S.sel = {
     dialog: rt.sel('%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog}') +
@@ -50,12 +67,36 @@ function setInstall(rt) {
     active: rt.sel('%{PagedSettingsDialog_PageList_ShowTitle>Active}'),
     icon: rt.sel('%{PagedSettingsDialog_PageList_ShowTitle>PageListItem_Icon}'),
     content: rt.sel('%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageContent}'),
+    overlay: rt.sel('%{GamepadDialogOverlay}'),
+    card: rt.sel('%{*GamepadDialogContent_InnerWidth>GamepadDialogContent}'),
   };
+  rt.windows.track(function (w) {
+    if (w.kind !== 'main') return;
+    var opt = { capture: true, passive: true };
+    rt.listen(w.doc, 'click', function (e) { setOnActivate(S, e); }, opt);
+    rt.listen(w.doc, 'vgp_onbuttondown', function (e) {
+      var d = e && e.detail;
+      var b = d && (d.button != null ? d.button : d);
+      if (b === 1) setOnActivate(S, e);   // A
+    }, opt);
+    rt.listen(w.doc, 'scroll', function (e) { setOnScroll(S, e); }, opt);
+  });
   rt.setInterval(function () { setTick(S); }, SET_TICK_MS);
   setTick(S);
   return {
     status: function () { return setStatus(S); },
     tick: function () { setTick(S); return setStatus(S); },
+    test: {
+      // run our handlers on a fake event (never dispatched to Steam): the gamepad path's A, a scroll
+      feed: function (type, target, detail) {
+        var ev = { type: type, target: target, detail: detail || {} };
+        if (type === 'vgp_onbuttondown') { if (ev.detail.button === 1) setOnActivate(S, ev); }
+        else if (type === 'click') setOnActivate(S, ev);
+        else if (type === 'scroll') setOnScroll(S, ev);
+        else throw new Error('settings.test.feed: unknown type ' + type);
+        return { lastAct: S.lastAct };
+      },
+    },
   };
 }
 
@@ -145,6 +186,79 @@ function setGlyph(S, key, item) {
   return uri;
 }
 
+function setNow(S) {
+  try { return S.rt.W.performance.now(); } catch (_) { return Date.now(); }
+}
+
+// labels that stay neutral on this page (SET_PAGE_SAFE)
+function setSafeLabels(S, page) {
+  if (S.safe.has(page)) return S.safe.get(page);
+  var set = new Set();
+  var toks = SET_PAGE_SAFE[page] || [];
+  for (var i = 0; i < toks.length; i++) {
+    var v = setLoc(S, toks[i]);
+    if (v) set.add(v);
+  }
+  if (set.size || !toks.length) S.safe.set(page, set);
+  return set;
+}
+
+// the card of the top open modal in main (Steam's GamepadDialogOverlay), or null
+function setTopCard(S, doc) {
+  var ov = doc.querySelector(S.sel.overlay);
+  if (!ov) return null;
+  var kids = ov.children;
+  for (var i = kids.length - 1; i >= 0; i--) {
+    var k = kids[i];
+    if (k.classList.contains('ModalOverlayContent') && k.classList.contains('active') &&
+        !k.classList.contains('ModalOverlayBackground')) {
+      return k.querySelector(S.sel.card);
+    }
+  }
+  return null;
+}
+
+// a click or gamepad A on a settings route: note a tagged button's activation, then tick soon
+function setOnActivate(S, e) {
+  if (SETS !== S) return;
+  if (setPath(S).indexOf('/settings') !== 0) return;
+  var t = e && e.target;
+  try {
+    if (t && t.nodeType === 1 && t.closest('[data-lgs-destructive]')) S.lastAct = setNow(S);
+  } catch (_) { /* detached */ }
+  if (S.burst) return;
+  S.burst = true;
+  var left = SET_BURST_MS.length;
+  SET_BURST_MS.forEach(function (ms) {
+    S.rt.setTimeout(function () {
+      if (--left === 0) S.burst = false;
+      setTick(S);
+    }, ms);
+  });
+}
+
+// the page content scrolled: data-lgs-scrolled on the dialog root at once (the hero's pop drops)
+function setOnScroll(S, e) {
+  if (SETS !== S) return;
+  var t = e && e.target;
+  if (!t || t.nodeType !== 1) return;
+  try {
+    if (!t.matches(S.sel.content)) return;
+    var root = t.closest(S.sel.dialog);
+    if (!root) return;
+    var on = t.scrollTop > 0.5;
+    if (on === root.hasAttribute('data-lgs-scrolled')) return;
+    if (on) {
+      root.setAttribute('data-lgs-scrolled', '');
+      var set = S.marks.get(root);
+      if (!set) { set = new Set(); S.marks.set(root, set); }
+      set.add('data-lgs-scrolled');
+    } else {
+      root.removeAttribute('data-lgs-scrolled');
+    }
+  } catch (_) { /* detached */ }
+}
+
 function setDestructiveLabels(S) {
   if (S.destructive && S.destructive.size) return S.destructive;
   var set = new Set();
@@ -213,14 +327,36 @@ function setTick(S) {
         try { S.rt.use('shell').refreshGlass(); } catch (_) { /* optional */ }
       }
     }
-    // destructive buttons (by Steam's own localised labels)
-    var labels = setDestructiveLabels(S);
     var content = root.querySelector(S.sel.content);
+    // scrolled content: the hero's pop drops (60-settings.json excludes [data-lgs-scrolled])
+    if (content && content.scrollTop > 0.5) setMark(S, want, root, 'data-lgs-scrolled', '');
+    // destructive buttons (by Steam's own localised labels), on the page and in its open dialog
+    var labels = setDestructiveLabels(S);
+    var safe = page ? setSafeLabels(S, page) : null;
     if (content && labels.size) {
       var btns = content.querySelectorAll('button.DialogButton');
       for (var j = 0; j < btns.length && j < 200; j++) {
         var t = (btns[j].textContent || '').trim();
-        if (t && labels.has(t)) setMark(S, want, btns[j], 'data-lgs-destructive', '');
+        if (t && labels.has(t) && !(safe && safe.has(t))) setMark(S, want, btns[j], 'data-lgs-destructive', '');
+      }
+    }
+    var card = setTopCard(S, doc);
+    if (card) {
+      if (!S.cards.has(card)) S.cards.set(card, !!(S.lastAct && setNow(S) - S.lastAct < SET_ORIGIN_MS));
+      var tagged = 0;
+      var mbs = labels.size ? card.querySelectorAll('.DialogButton') : [];
+      for (var m = 0; m < mbs.length && m < 40; m++) {
+        var mt = (mbs[m].textContent || '').trim();
+        if (mt && labels.has(mt)) { setMark(S, want, mbs[m], 'data-lgs-destructive', ''); tagged++; }
+      }
+      if (S.cards.get(card)) {
+        var pri = card.querySelector('.DialogFooter .DialogButton.Primary') || card.querySelector('.DialogButton.Primary');
+        if (pri) { setMark(S, want, pri, 'data-lgs-destructive', ''); tagged++; }
+      }
+      // C1c flattens the card (data-lgs-plate="thick"); its observer does not see our attribute
+      if (tagged && S.scanned.get(card) !== tagged) {
+        S.scanned.set(card, tagged);
+        if (S.rt.has('menus')) { try { S.rt.use('menus').scan(); } catch (_) { /* optional */ } }
       }
     }
   }
@@ -247,6 +383,13 @@ function setUnstyle(el) {
   } catch (_) { /* gone */ }
 }
 
+function setModalStatus(S, doc) {
+  var c = setTopCard(S, doc);
+  if (!c) return null;
+  return { origin: !!S.cards.get(c), tagged: c.querySelectorAll('[data-lgs-destructive]').length,
+    plate: c.getAttribute('data-lgs-plate') };
+}
+
 function setStatus(S) {
   var main = S.rt.windows.main();
   var doc = main && main.doc;
@@ -259,6 +402,8 @@ function setStatus(S) {
     title: root ? root.getAttribute('data-lgs-title') : null,
     marks: S.marks.size,
     destructive: doc ? doc.querySelectorAll('[data-lgs-destructive]').length : 0,
+    scrolled: root ? root.hasAttribute('data-lgs-scrolled') : false,
+    modal: doc ? setModalStatus(S, doc) : null,
     glyphs: S.glyphs.size,
   };
 }

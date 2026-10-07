@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>P10 motion fixture</title>
+<!--
+  Offline fixture for lab/lab_motion.js (P10, contracts/lab.md section 4, `motion`; session 5, REQ C2a-R2->P10 (4)):
+  python tools/p2/test_motion_page.py runs it in a local headless Chromium at 1280 x 720 and finishes the result
+  with glass.py's motion_finish. P-54 judges what ENTERS; a target that was shown before the interaction and
+  travels is a move. Cases:
+    pill   a selection pill shown before the pre, sliding 156 px (Home's segmented control): a move, not P-54
+    menu   a new node entering with a 120 px slide: P-54
+    toast  a new node entering with an 8 px slide: an entry within 16 px, no issue
+    sheet  a node hidden (display: none) before the pre, shown with a 40 px slide: P-54
+    drawer a node shown but waiting off-screen (left of the viewport), sliding in 300 px: P-54 (it enters from the
+           periphery although it was rendered)
+  The lab helpers run in their single-page mode (no Steam popups), as on SteamVR's pages.
+-->
+<style>
+  html, body { margin: 0; padding: 0; width: 1280px; height: 720px; overflow: hidden; background: #222; font: 500 20px sans-serif; color: #fff; }
+  #seg { position: absolute; left: 100px; top: 100px; width: 480px; height: 60px; border-radius: 30px; background: rgb(60 60 70 / .6); }
+  #pill { position: absolute; left: 4px; top: 4px; width: 152px; height: 52px; border-radius: 26px; background: #fff;
+          transition: translate 488ms linear; }
+  #sheet { display: none; position: absolute; left: 700px; top: 200px; width: 400px; height: 300px; border-radius: 40px;
+           background: rgb(60 60 70 / .8); transition: translate 488ms linear; }
+  #drawer { position: absolute; left: -320px; top: 400px; width: 300px; height: 200px; border-radius: 30px;
+            background: rgb(60 60 70 / .8); transition: translate 488ms linear; }
+  .menu { position: absolute; left: 100px; top: 300px; width: 320px; height: 240px; border-radius: 30px; background: rgb(60 60 70 / .8);
+          transition: translate 488ms linear; }
+  .toast { position: absolute; left: 700px; top: 40px; width: 300px; height: 80px; border-radius: 40px; background: rgb(60 60 70 / .8);
+           transition: translate 488ms linear; }
+</style>
+</head>
+<body>
+<div id="seg"><div id="pill" class="fx-pill"></div></div>
+<div id="sheet" class="fx-sheet"></div>
+<div id="drawer" class="fx-drawer"></div>
+<pre id="result"></pre>
+<script src="../../../device/lgs_index.js"></script>
+<script src="../../../lab/lab_helpers.js"></script>
+<script src="../../../lab/lab_p2.js"></script>
+<script src="../../../lab/lab_gates.js"></script>
+<script src="../../../lab/lab_motion.js"></script>
+<script>
+async function runMotionTest() {
+  const L = window.__LGS_LAB;
+  const out = { viewport: [innerWidth, innerHeight] };
+  try {
+    L.motion.mark('main');
+    // the interaction: every change in one task, as a pre does it
+    const pill = document.getElementById('pill');
+    pill.style.translate = '156px 0';
+    const menu = document.createElement('div');
+    menu.className = 'menu'; menu.id = 'menu'; menu.style.translate = '0 120px';
+    document.body.appendChild(menu);
+    const toast = document.createElement('div');
+    toast.className = 'toast'; toast.id = 'toast'; toast.style.translate = '0 -8px';
+    document.body.appendChild(toast);
+    const sheet = document.getElementById('sheet');
+    sheet.style.display = 'block'; sheet.style.translate = '0 40px';
+    void getComputedStyle(menu).translate; void getComputedStyle(toast).translate; void getComputedStyle(sheet).translate;
+    menu.style.translate = '0 0'; toast.style.translate = '0 0'; sheet.style.translate = '0 0';
+    document.getElementById('drawer').style.translate = '300px 0';
+    out.frozen = L.motion.freeze('main');
+    const anims = L.motion.list('main');
+    out.animations = anims;
+    // nothing ran before mark(), so list()'s ids follow document.getAnimations(): id -> the target's element id
+    out.targetIds = {};
+    document.getAnimations().forEach((a, i) => { const t = a.effect && a.effect.target; out.targetIds[i] = t ? t.id : null; });
+    out.frames = [];
+    for (const f of [0, 0.5, 1]) {
+      const sk = await L.motion.seek('main', f);
+      out.frames.push({ f, file: 'shots/_p10_motion_fixture_none_' + f + '.png', rects: sk.rects, seeked: sk.seeked });
+    }
+    out.released = L.motion.release();
+    out.width = innerWidth;
+  } catch (e) {
+    out.error = String(e && e.stack || e);
+  }
+  document.getElementById('result').textContent = JSON.stringify(out);
+}
+if (location.hash === '#auto') runMotionTest();
+</script>
+</body>
+</html>

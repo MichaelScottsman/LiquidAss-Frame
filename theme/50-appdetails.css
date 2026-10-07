@@ -185,8 +185,11 @@
     justify-content: flex-start;
   }
   /* the stats block is not reached by the D-pad (GP §0.4): it leaves the row
-     and sits above the cluster, y 334-394 (label over value, Steam's order);
-     its tooltip source is a 60 px tall target */
+     and sits above the cluster, y 334-394, as one line per stat ("Last
+     played Oct 2", the mockup's .gp-stats: label then value, Steam's order);
+     its tooltip source is a 60 px tall target. One line keeps the text inside
+     Steam's 46 px overflow-hidden wrapper (R2 M1: label over value clipped
+     the value's bottom third) */
   & %{StatusAndStats} {
     position: absolute;
     left: 0;
@@ -213,7 +216,11 @@
     padding: 0;
   }
   & %{StatusAndStats} %{GameStatRight} {
-    gap: 0;
+    display: flex;
+    flex-direction: row;
+    align-items: baseline;
+    gap: 6px;
+    white-space: nowrap;
   }
   & %{StatusAndStats} %{PlayBarLabel} {
     font: var(--lgs-type-subhead);
