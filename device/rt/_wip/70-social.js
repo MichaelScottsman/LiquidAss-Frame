@@ -40,11 +40,13 @@ function smInstall(rt) {
     invites: rt.sel('%{HiddenFrame>InvitesList}'),
     root: rt.sel('%{BasicUiRoot}'),
   };
-  if (rt.has('more')) {
-    var more = rt.use('more');
-    S.regs.push(more.register('%{FriendsChats} .friendlistListContainer .friend', { placement: 'row' }));
-    S.regs.push(more.register('%{DownloadsPage} %{SectionItemWrapper}', { placement: 'row' }));
-  }
+  // More hosts are registered only while their page is shown: Steam keeps the friends UI mounted on
+  // other routes, and C1a's Options member appears wherever a registered host is in the document.
+  S.more = rt.has('more') ? rt.use('more') : null;
+  S.hosts = [
+    { page: rt.sel('%{FriendsChats}'), sel: '%{FriendsChats} .friendlistListContainer .friend', reg: null },
+    { page: rt.sel('%{DownloadsPage}'), sel: '%{DownloadsPage} %{SectionItemWrapper}', reg: null },
+  ];
   rt.setInterval(function () { smTick(S); }, SM_TICK_MS);
   smTick(S);
   return {
@@ -58,6 +60,11 @@ function smRemove() {
   if (!S) return { patchedLeft: 0 };
   for (var i = 0; i < S.regs.length; i++) { try { S.regs[i].remove(); } catch (_) { /* gone */ } }
   S.regs.length = 0;
+  if (S.hosts) {
+    for (var j = 0; j < S.hosts.length; j++) {
+      if (S.hosts[j].reg) { try { S.hosts[j].reg.remove(); } catch (_) { /* gone */ } S.hosts[j].reg = null; }
+    }
+  }
   smClear(S, null);
   return { patchedLeft: 0 };
 }
@@ -101,6 +108,17 @@ function smTick(S) {
     s.add(name);
   }
 
+  // More hosts: registered while their page is visible
+  if (S.more) {
+    for (var h = 0; h < S.hosts.length; h++) {
+      var H = S.hosts[h];
+      var pg = doc.querySelector(H.page);
+      var shown = !!(pg && pg.getClientRects().length);
+      if (shown && !H.reg) { try { H.reg = S.more.register(H.sel, { placement: 'row' }); } catch (_) { H.reg = null; } }
+      else if (!shown && H.reg) { try { H.reg.remove(); } catch (_) { /* gone */ } H.reg = null; }
+    }
+  }
+
   // /chat: the open conversation's row
   var chats = doc.querySelector(S.sel.chats);
   if (chats) {
@@ -136,7 +154,7 @@ function smStatus(S) {
   var cur = doc ? doc.querySelector('[data-lgs-current]') : null;
   var inv = doc ? doc.querySelector(S.sel.invites) : null;
   return {
-    more: S.regs.length,
+    more: S.hosts ? S.hosts.filter(function (x) { return !!x.reg; }).length : 0,
     current: !!cur,
     invitesPlate: inv ? inv.getAttribute('data-lgs-plate') : null,
     marks: S.marks.size,

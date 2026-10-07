@@ -5,12 +5,30 @@ Package card: `docs/phase2/PLAN.md` §2.4 "C6b SteamVR Settings". Concept: `docs
 
 ## Status
 
-**In progress** (2026-10-07, session 1, 12:05). T1 `theme/vr/30-settings.css` rewritten and live (draft
-`theme/_wip/vr-30-settings.css`); T2 `device/vr/systemui.settings.js` (flag `wp.c6b`) synced. First gates run (pad,
-11:52) fixed: glass moved from a pseudo onto `.SettingsSidebarPageContainer` (the audit reads element backgrounds),
-segmented label specificity, knob shadow ring, ornament edge, ARIA roles (`tab`, `switch`). Re-run of gates, Play
-Area shot, T-VR-EXIT and P-S5 in progress; then the native check. The Steam lab lock is heavily contended (24 waiters
-at 11:20): every SteamVR-page step needs a Steam-lock holder (scratch `vrseq.sh`: a sleeping `js` step, retried).
+**M2 and M3 reached** (2026-10-07, session 1, 10:50-12:55; the only C6b session). Steam build 11094443.
+
+- **T1 (live, unflagged):** `theme/vr/30-settings.css` rewritten (draft identical in `theme/_wip/vr-30-settings.css`,
+  `check-theme` PASS, synced): Steam's footprint (1858 × 952 glass, r 78, on `.SettingsSidebarPageContainer`), the
+  scrolling 576 px sidebar (104 / 115 rows, .18 pill + lobe), "SteamVR" title, platter rows (115, 35 px labels,
+  32 px descriptions), 86 / 121 refresh circles, 92 px sliders, title-case 86 px capsules, purple advanced dot,
+  thick-glass popovers with the leading check slot, the modal fit rule, the Advanced Settings ornament straddling the
+  glass bottom. Shared `.SettingsMain` looks (also Now Playing's modals) kept and made gate-clean.
+- **T2 (flag `wp.c6b`):** `device/vr/systemui.settings.js`: Back circle (`SwitchToPage` to Steam), icon circles,
+  section hero, Off/On → switches (knob = SteamVR's own sliding pill), ARIA `tab` / `switch`, `E-SWITCH` exemption.
+  `remove()` takes everything away (checked: 0 attributes, no node after removal).
+- **Evidence:** gates on `vr:systemui` (General, laser with T2; pad and laser T1): AUD, TYPE, MOTION PASS; SIZE and
+  OUTLINE fail only on C1a's elements (REQ C6b->C1a). P-S5, T-VR-EXIT, T-VR-SW (live, read only), P-S6, T-VR-FOOT
+  (DOM) PASS. `pad-bfs`: not applicable (laser-only SteamVR page; its gamepad path is T-VR-EXIT).
+- **Native:** no fragment possible (SteamVR pages are not reporter surfaces). Native check run (P7 M3): `hv` look shows
+  a stale dark cover over the SteamVR panel in native mode (REQ C6b->P8); `sgcheck /settings/lgsvr`: only legacy R2.
+- **Not built (fallbacks documented):** inline title (D6); mockup re-renders (expedited).
+- **Device left:** theme on, CSS only (native off after the session), Steam's page active, SteamVR settings on
+  General, RAM test script removed (`/tmp/lgs/vr-scripts/` empty), no flags of C6b's left.
+
+READY: wp.c6b (evidence: Evidence rows "laser, T2 present" 12:28, P-S5 12:33, T-VR-EXIT 12:12, T-VR-SW 11:52; no
+GONE / HIDDEN / UNCLICKABLE on SteamVR's page; page-script status `err: null`; the remaining gate failures are C1a's).
+Caveat for V1: a flag flip during a session is picked up late by the daemon (REQ C6b->P8); with `defaults.json` the
+script loads at unit start.
 
 ## M0 note: SET conformed to PLAN §1 (expedited: no mockup re-render)
 
@@ -78,7 +96,9 @@ CSS-only glass above is what native mode shows here too.
 | SET T-VR-EXIT | 2026-10-07 12:12 | scratch `c6b/p4a.js` in `vr:systemui` (page shown): `frame.inputFocus.FocusLeftFrameMenu()`; then a lock-free read of `.gpfocus` in every Steam popup; then `FocusApplicationRoot()` | **PASS**: `.gpfocus` in `valve.steam.gamepadui.frame.menu…` on the **VR Settings** item: the gamepad path out of SteamVR's page (D-pad Left → tab bar) works with the theme | — |
 | G-AUD/SIZE/TYPE/OUTLINE/MOTION, `vr:systemui` General, **laser, T2 present** | 2026-10-07 12:28 | `gates vr:systemui --mode laser --pre <settings_open, hold 70 s> --json`, T2 from a RAM copy in `/tmp/lgs/vr-scripts/` (REQ C6b->P8) | AUD **PASS**, TYPE **PASS** (22), MOTION **PASS**, SIZE: 12 checked, 3 switches **E-SWITCH pass** ("hit 100% own over 86 x 80"); the only failures are C1a's (frame-control P-08, ControllerStatus P-42 rims: REQ C6b->C1a) | scratch `c6b/g4_laser.json` |
 | same, **pad** (T1 only: the page script was stripped by the AUD theme toggle and not back yet) | 2026-10-07 12:29 | `gates vr:systemui --mode pad …` | AUD **PASS**, TYPE **PASS** (32), MOTION **PASS**; SIZE / OUTLINE only C1a's findings | scratch `c6b/g4_pad.json` |
-| same, Play Area (T1) | 2026-10-07 12:21 | `gates vr:systemui --mode pad` (SteamVR had stayed on Play Area) | AUD 2 SHRUNK (AuroraPalette button 265 → 221 tall; "Speed" label 567 → 351 wide): **fixed** (stock right column 500; the colour button keeps its own padding), re-run pending | scratch `c6b/g3_pad.json` |
+| same, Play Area (T1) | 2026-10-07 12:21 | `gates vr:systemui --mode pad` (SteamVR had stayed on Play Area) | AUD 2 SHRUNK (AuroraPalette button 499 × 265 → 499 × 221; "Speed" label 567 × 36 → 351 × 45): **fixed** (column 1180 = 813 main px like C6a's 816, stock right column 500, the colour button keeps its own padding) | scratch `c6b/g3_pad.json` |
+| Play Area re-measure after the fix | 2026-10-07 12:50 | scratch `c6b/probe_play.js` (page shown, Play Area row clicked, General clicked again, back to Steam) | **PASS**: "Speed" 437 × 45 (area 0.96 of stock, AUD's floor 0.85), AuroraPalette 499 × 265 = stock. (A full gates re-run on Play Area at 12:42 did not get the page: another agent's step switched the frame back, `now=5`) | — |
+| G-AUD/SIZE/TYPE/OUTLINE/MOTION, General, laser (T1, after all fixes) | 2026-10-07 12:44 | `gates vr:systemui --mode laser --pre <settings_open 70 s> --json` | AUD **PASS**, TYPE **PASS**, MOTION **PASS**; SIZE / OUTLINE: only C1a's findings | scratch `c6b/g7_gen.json` |
 | SET P-S5 (Back circle) | 2026-10-07 12:33 | scratch `c6b/ps5b.js` in `vr:systemui` (T2 from the RAM copy): show SteamVR's page, wait for `.lgs-c6b-back`, `elementFromPoint` at its centre, dispatch a `click` there (as the laser's mouse event arrives) | **PASS**: Back `[22,176,116,116]` (panel (20, 20), the 86 px disc inside), the centre hits it, `aria-label` "Back" (SteamVR's `#back`); active page 1 (`system.settings`) → 5 (Steam). Same step: hero `data-lgs-title` "General" / `data-lgs-sec` general, 8 `role=tab` rows, 5 `role=switch` groups | — |
 | Look vs SET §4.10 / `p2_settings_steamvr.png` (by eye) | 2026-10-07 12:33 | `shot vr:systemui p2_c6b_general_t2c` (T2), `p2_c6b_video_t2b`, `p2_c6b_playarea_t2` (T1) composited over a grey room | Footprint, Back + "SteamVR" at Steam's title place, sidebar icon circles and the .18 selected pill, compact hero, platter rows with 3 px separators, 86 px refresh circles at 121, 92 px slider with the value on the knob, green switches, the Advanced ornament straddling the glass bottom: as the concept. T1 alone (flag off): the same without Back, icons, hero and switches (Off/On stay segmented) | `shots/p2_c6b_*_t2*.png` |
 | G-PAD (`pad-bfs`) | — | not applicable | SteamVR's page has no Steam route and no gamepad focus of its own (SET §4.10: laser only); its gamepad path is T-VR-EXIT above (D-pad Left → tab bar). The Steam-side way in (`/settings/lgsvr`) is C6a's route | — |

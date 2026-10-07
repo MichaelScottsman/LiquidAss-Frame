@@ -136,3 +136,13 @@ theme on, CSS only, no flags (lab steps pop their own; the 70 s overlays expired
   CSS only: yes (both sessions).
 - Runtime: `settings` installs in 0.3 ms with `wp.c6a` (`rt.status`), no error or warning in the runtime log;
   `use('settings').status()` on `/settings/power`: page `power`, glyph, title "Settings", 25 marks.
+- Final gate runs (12:37–12:45, `--flags wp.c6a,wp.c1a,wp.p3`, laser): `/settings/system` **PASS** (all five, AUD
+  0 issues), `/settings/display` **PASS** (native off), `/settings/storage` (native off): AUD, TYPE, OUTLINE,
+  MOTION pass, SIZE 10 fails on Steam's sort button (28 px) and the row art inside the 58 px virtualised rows
+  (storage T3). A `pad-bfs` re-run at 12:3x happened while another agent's native session was live (1 node,
+  "untakeable"; `native: on`): not comparable; the CSS-only run above (identical to stock) stands.
+- G-REMOVE spot check: after the flag step, on `/settings/system`: 0 `data-lgs-page`, `data-lgs-hero`,
+  `data-lgs-title`, `data-lgs-destructive`, no `--lgs-set-*` style property, module `off`. Destructive tags with
+  the flag: System "Factory Reset", Audio "Reset", Developer "Format | Clear All | Change User Password".
+- Device left: theme on, CSS only (`html` has no native class), route `/library/home`, no test flag overlay, no
+  `wp.c6a` in `/tmp/lgs/flags.json` (it holds another agent's step flags), 0 headset frames on either machine.
