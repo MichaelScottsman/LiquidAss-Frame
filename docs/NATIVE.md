@@ -304,7 +304,7 @@ Building the binary changes nothing by itself: native mode needs `lgs on --nativ
 D=~/.local/share/glass-shell/device
 python3 $D/lgs_shell.py start --native --glassd ~/.local/share/glass-shell/native/spike/fakeglassd --stay
 python3 $D/lgs_shell.py start --native --stay          # real glassd, no camera (--no-feed is added)
-python3 $D/lgs_shell.py start --native --feed --stay   # real glassd with the camera: only with the user's OK
+python3 $D/lgs_shell.py start --native --feed --stay   # real glassd with the feed (in memory; allowed since the user asked for real glass in phase 2)
 python3 $D/lgs_shell.py start --css                    # CSS only (also the default without --native)
 python glass.py shell start --native --stay            # the same from the PC (arguments are passed on)
 ```

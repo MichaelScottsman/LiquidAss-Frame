@@ -178,6 +178,8 @@ Part of the Frame's interface is drawn by SteamVR, not Steam: `vrwebhelper` page
 - Power actions: shutdown, restart, suspend.
 - Exit or stop a game.
 - Uninstall or delete anything.
-- Touch `/dev/video99` or the camera.
+- Save, keep or upload frames of the room. That covers `/dev/video99` and `hvgrab` captures, and glassd `--dump-room` and `--dump` outputs while the feed is live. Look at them, then delete them at once, on the Frame and locally.
+  - glassd itself may read `/dev/video99` in memory. The user asked for real glass over the room in phase 2.
+  - Do not run other camera readers.
 
 If a menu item would perform an action, look at it, don't click it.

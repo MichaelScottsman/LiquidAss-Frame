@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Glass Shell P2 — Settings: System (top of page)</title>
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="settings.css">
+</head>
+<body>
+<div class="lgk-view" data-room="lounge">
+
+  <!-- ============ tab-bar ornament (Steam's frame.menu popup, x 1.10): Settings selected -->
+  <div class="lgk-pop" style="left:212px; top:28px; --pop-scale:1.10" data-dz="25" data-tier="T1 vars + T3/T4 always visible + T5 liquid">
+    <div class="lgk-glass lgk-tabbar" data-mat="liquid" data-lens style="position:relative; --r:40px; --dz:25; gap:16px; padding:12px; width:80px; --lg-btn:56px">
+      <div class="lgk-tab"><i data-i="home"></i></div>
+      <div class="lgk-tab"><i data-i="library"></i></div>
+      <div class="lgk-tab"><i data-i="store"></i></div>
+      <div class="lgk-tab"><i data-i="friends"></i></div>
+      <div class="lgk-tab"><i data-i="media"></i></div>
+      <div class="lgk-tab"><i data-i="download"></i></div>
+    </div>
+    <div class="lgk-glass lgk-tabbar" data-mat="liquid" data-lens style="position:relative; margin-top:16px; --r:40px; --dz:25; gap:16px; padding:12px; width:80px; --lg-btn:56px">
+      <div class="lgk-tab is-nav-selected" style="background:var(--lg-fill-nav)"><i data-i="gear"></i></div>
+      <div class="lgk-tab"><i data-i="vr"></i></div>
+      <div class="lgk-tab"><i data-i="power"></i></div>
+    </div>
+  </div>
+
+  <!-- ============ Steam's main window, /settings/system -->
+  <div class="lgk-overlay" style="left:320px; top:66px">
+    <div class="lgk-glass st-win" data-mat="window" data-dz="0" data-tier="T5 window (T1: smoky tint)">
+
+      <!-- sidebar: Steam's PageListColumn, 400 px, one material step darker -->
+      <div class="st-side">
+        <span class="lgk-btn circle st-back"><i data-si="back" style="--is:28px"></i></span>
+        <div class="st-side-title t-large">Settings</div>
+        <div class="st-list"><div class="st-list-inner">
+          <div class="st-nav lgk-row is-nav-selected"><span class="st-chip" data-c="gray"><i data-i="gear"></i></span>System<span class="trail"><span class="st-badge">1</span></span></div>
+          <div class="st-nav lgk-row is-hover" style="--hx:72%; --hy:46%"><span class="st-chip" data-c="blue"><i data-i="wifi"></i></span>Internet</div>
+          <div class="st-nav lgk-row"><span class="st-chip" data-c="gray"><i data-si="drive"></i></span>Storage</div>
+          <div class="st-nav lgk-row"><span class="st-chip" data-c="blue"><i data-i="bluetooth"></i></span>Bluetooth</div>
+          <div class="st-gap"></div>
+          <div class="st-nav lgk-row"><span class="st-chip" data-c="blue"><i data-si="display"></i></span>Display</div>
+          <div class="st-nav lgk-row"><span class="st-chip" data-c="green"><i data-si="bolt"></i></span>Power</div>
+          <div class="st-nav lgk-row"><span class="st-chip" data-c="pink"><i data-i="speaker"></i></span>Audio</div>
+          <div class="st-nav lgk-row"><span class="st-chip" data-c="orange"><i data-i="controller"></i></span>Controller</div>
+        </div></div>
+      </div>
+
+      <!-- Steam's search capsule, centred over the detail pane (shell-owned element, placed per route) -->
+      <div class="lgk-search st-search"><i data-i="search"></i><span class="ph">Search for games or profiles</span></div>
+
+      <!-- detail pane: Steam's page scroller; content column 760 px centred -->
+      <div class="st-scroll top">
+        <div class="st-col" style="top:118px">
+          <div class="st-hero">
+            <span class="st-chip lg" data-c="gray"><i data-i="gear"></i></span>
+            <div class="t-title1">System</div>
+          </div>
+          <div class="st-secbar" style="margin-top:22px">
+            <span class="lgk-btn capsule is-nav-selected" style="background:var(--lg-fill-nav)">Updates</span>
+            <span class="lgk-btn capsule">Beta Participation</span>
+            <span class="lgk-btn capsule">System Settings</span>
+            <span class="lgk-btn capsule">SteamOS Crash Report</span>
+            <span class="lgk-btn capsule">About</span>
+          </div>
+
+          <div class="st-plat" style="margin-top:28px">
+            <div class="st-r"><span class="lab">Select preferred language</span><span class="st-pop">English<i data-si="updown"></i></span></div>
+          </div>
+
+          <div class="st-sh">Updates</div>
+          <div class="st-plat">
+            <div class="st-r first two">
+              <span class="st-chip" data-c="orange" style="width:32px; height:32px; --is:18px"><i data-si="reset"></i></span>
+              <span class="lab">Software Updates<span class="desc">Update available: SteamOS 3.8.12</span></span>
+              <span class="lgk-btn capsule primary" style="--s:60px">Apply</span>
+            </div>
+            <div class="st-r last"><span class="lab">Update available:</span><span class="val">SteamOS 3.8.12</span></div>
+          </div>
+
+          <div class="st-sh">Beta Participation</div>
+          <div class="st-plat">
+            <div class="st-r first"><span class="lab">OS Update Channel</span><span class="st-pop">Beta<i data-si="updown"></i></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- bottom ornament: Steam's #Footer legend as real buttons (+25 mm) -->
+    <div class="lgk-glass lgk-toolbar st-orn" data-mat="liquid" data-lens style="--dz:25; gap:8px" data-dz="25" data-tier="T1 layout + T4 pop + T5 liquid">
+      <span class="lgk-btn capsule plain"><span class="lgk-glyph">A</span>Select</span>
+      <span class="lgk-btn capsule plain"><span class="lgk-glyph">B</span>Back</span>
+    </div>
+  </div>
+
+  <!-- ============ SteamVR frame controls (systemui, x 0.75), idle-dim -->
+  <div class="lgk-pop" style="left:849px; top:802px; --pop-scale:.75; opacity:.72" data-tier="T1 vr:systemui">
+    <div class="lgk-glass lgk-toolbar" data-mat="panel" style="position:relative; height:80px; gap:8px; padding:0 8px; --r:40px">
+      <span class="lgk-btn circle plain" style="--s:64px"><i data-i="keyboard"></i></span>
+      <span class="lgk-btn circle plain" style="--s:64px"><i data-i="float"></i></span>
+      <span class="lgk-btn circle plain" style="--s:64px"><i data-i="theater"></i></span>
+      <span class="lgk-btn circle plain" style="--s:64px"><i data-i="more"></i></span>
+    </div>
+  </div>
+
+  <!-- ============ dashboard bar (x 1.20) -->
+  <div class="lgk-pop" style="left:578px; top:878px; --pop-scale:1.20; display:flex; gap:16px" data-tier="bar quad">
+    <div class="lgk-glass lgk-toolbar" data-mat="liquid" data-lens style="position:relative; height:80px; gap:8px; padding:0 8px; --r:40px">
+      <span class="lgk-btn circle" style="--s:64px; background:rgb(255 255 255 / .16)"><i data-i="controller"></i></span>
+      <span class="lgk-btn circle lgk-art" data-art="poster:0:" style="--s:64px; background-size:cover; background-position:50% 35%"></span>
+      <span class="lgk-btn circle lgk-art" data-art="poster:3:" style="--s:64px; background-size:cover; background-position:50% 35%"></span>
+      <span class="lgk-btn circle plain" style="--s:64px"><i data-i="plus"></i></span>
+    </div>
+    <div class="lgk-glass lgk-toolbar" data-mat="liquid" data-lens style="position:relative; height:80px; gap:8px; padding:0 8px 0 20px; --r:40px">
+      <span class="t-headline t-num">4:56</span>
+      <span class="t-num" style="display:inline-flex; align-items:center; gap:6px; height:36px; padding:0 12px; border-radius:18px; background:rgb(255 255 255 / .14); font:600 18px/1 var(--lg-font)">
+        <span style="width:22px; height:11px; border-radius:3px; box-shadow:inset 0 0 0 2px rgb(255 255 255 / .8); position:relative; display:inline-block"><span style="position:absolute; left:3px; top:3px; bottom:3px; width:13px; border-radius:1px; background:var(--lg-green)"></span></span>82%</span>
+      <span class="lgk-btn circle plain" style="--s:64px"><i data-i="bell"></i></span>
+      <span class="lgk-btn circle plain" style="--s:64px"><i data-i="grid"></i></span>
+    </div>
+  </div>
+  <div class="lgk-windowbar" style="left:870px; top:996px"></div>
+
+  <!-- laser on the Internet row (SteamVR draws beam and dot) -->
+  <svg style="position:absolute; inset:0; width:1920px; height:1080px; pointer-events:none; z-index:40" viewBox="0 0 1920 1080">
+    <defs><linearGradient id="beam" x1="1" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".35" stop-color="#dbe8ff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity=".9"/></linearGradient></defs>
+    <polygon points="1460,1095 1472,1095 593,291 591,291" fill="url(#beam)" opacity=".5"/>
+  </svg>
+  <div class="lgk-laser-dot" style="left:592px; top:291px"></div>
+</div>
+<script src="settings-icons.js"></script>
+<script src="kit.js"></script>
+</body>
+</html>
