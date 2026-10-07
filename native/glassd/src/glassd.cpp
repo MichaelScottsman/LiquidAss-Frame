@@ -68,6 +68,7 @@ constexpr uint64_t kMs = 1000000ull;
 constexpr uint64_t kGraceNs = 400 * kMs;       // no room integration this long after a dashboard change
 constexpr uint64_t kGhostNs = 600 * kMs;       // a removed slab's cell stays drawn (and reserved) this long
 constexpr uint64_t kMaskPeriodNs = 250 * kMs;  // feed masks are rebuilt (with fresh geometry) this often
+const v3 kTestEye{0, 1.1f, 0};                 // --test-backdrop: head position (standing space)
 
 std::atomic<bool> g_quit{false};
 std::atomic<bool> g_dumpRequest{false}, g_loseRequest{false};
@@ -103,6 +104,14 @@ struct Options {
     float predictMs = 20.f;   // head pose prediction for rendering
     float timeout = 0.f;      // exit after N seconds (0 = run until stopped)
     int feedDownsample = 4;
+    // Verification without a wearer (README "Verifying without the headset"):
+    // a procedural room instead of the feed, a fixed head, composite views.
+    int testPattern = -1;     // --test-backdrop: 0 room, 1 stripes; -1 off
+    bool testHole = false;    // room-hole: the room behind the UI stays unknown
+    float testHead[3] = {0, 0, 0};  // eye offset from the test head (m)
+    bool dumpView = false;    // also write <name>-view.png (room + cover + slabs)
+    bool bench = false;       // render every frame (GPU timing)
+    float phasePin = -1;      // --phase M: every piece of glass at materialize progress M (dumps)
 };
 
 void usage() {
@@ -131,6 +140,12 @@ void usage() {
         "  --feed DEV         passthrough feed device (default /dev/video99); --no-feed to skip it\n"
         "  --timeout S        exit after S seconds\n"
         "  --orphan-ok        keep running when the parent process exits (detached lab runs)\n"
+        "  --test-backdrop P  no camera: a procedural room (room, room-hole, stripes), a fixed head and\n"
+        "                     fixed geometry (the spec's quad, else the window 1.43 m ahead); dumps are safe to keep\n"
+        "  --test-head X,Y,Z  with --test-backdrop: move the eye by X,Y,Z metres (off-axis views)\n"
+        "  --dump-view        with --dump: also write DIR/<name>-view.png, the room with the cover and slabs on it\n"
+        "  --bench            render every frame at --fps (GPU timing in the status line)\n"
+        "  --phase M          pin every cover and slab at materialize progress M (0..1), for dumps\n"
         "SIGUSR1 dumps the room map and surfaces (to the --dump paths, else /tmp/lgs/glassd-dump/).\n"
         "SIGUSR2 (test aid) treats every overlay as lost: destroys and recreates it.\n"
         "Exit codes: 0 stopped, 1 setup error, 2 bad arguments, 75 temporary (lock held, SteamVR absent or gone).\n");
@@ -170,6 +185,19 @@ bool parseArgs(int argc, char **argv, Options &o) {
             std::string v;
             ok = next(v) && std::sscanf(v.c_str(), "%f,%f,%f", &o.zone[0], &o.zone[1], &o.zone[2]) == 3;
         }
+        else if (a == "--test-backdrop") {
+            std::string v;
+            ok = next(v) && (v == "room" || v == "room-hole" || v == "stripes");
+            o.testPattern = v == "stripes" ? 1 : 0;
+            o.testHole = v == "room-hole";
+        }
+        else if (a == "--test-head") {
+            std::string v;
+            ok = next(v) && std::sscanf(v.c_str(), "%f,%f,%f", &o.testHead[0], &o.testHead[1], &o.testHead[2]) == 3;
+        }
+        else if (a == "--dump-view") o.dumpView = true;
+        else if (a == "--bench") o.bench = true;
+        else if (a == "--phase") ok = nextf(o.phasePin);
         else if (a == "--once") o.once = true;
         else if (a == "--force") o.force = true;
         else if (a == "--demo") o.demo = true;
@@ -191,6 +219,7 @@ bool parseArgs(int argc, char **argv, Options &o) {
     if (o.out.empty())
         o.out = o.keyPrefix == kDefaultPrefix ? std::string(kShmDir) + "/glassd-out.json"
                                               : std::string(kShmDir) + "/" + o.keyPrefix + "out.json";
+    if (o.testPattern >= 0) o.noFeed = true;  // the test room replaces the camera
     o.scale = std::clamp(o.scale, 0.25f, 1.5f);
     o.fps = std::clamp(o.fps, 1.f, 144.f);
     o.feedHz = std::clamp(o.feedHz, 1.f, 60.f);
@@ -199,40 +228,164 @@ bool parseArgs(int argc, char **argv, Options &o) {
 }
 
 // ---------------------------------------------------------------- materials
+// Material v2 (docs/phase2/glassd-material.md). Every edge cue is physical:
+// no term draws a line of constant width.
 struct Material {
-    float tintA;    // tint opacity (adapted to the room's brightness in the shader)
-    float frost;    // room-map mip level
-    float bezelM;   // squircle bezel width, metres (lensing profile)
-    float refrM;    // max inward shift across the bezel, metres (lensing strength)
-    float lensMag;  // interior magnification
-    float disp;     // dispersion (fraction of the bezel shift)
-    float rim;      // rim light strength (key on top, 0.4x fill below, edge line)
-    float rimW;     // rim light / inner shadow width, metres
-    float sheen, spec, darkEdge, trans;
+    float thetaRef;   // thickness the preset is tuned for (see thickness())
+    float tintA;      // mix toward a neutral of the band luminance
+    float frost;      // interior frost, room-map mip (one map texel = 0.35 deg)
+    float edgeFrost;  // frost where the bezel bends the most (the bend must show)
+    float edgeClear;  // how much the lens band drops tint and tone compression (a polished bevel)
+    float bezelM;     // squircle bezel width, metres (clamped to the shape's half size and corner radius)
+    float thick;      // slab thickness / bezel width as the light sees it: where the highlight sits, how thin it is
+    float lensThick;  // the same for refraction: deeper, so the bend spans the lens band
+    float lensDeg;    // ray deviation at the rim, degrees (lensing strength)
+    float disp;       // dispersion: R bends (1 - disp) x, B (1 + disp) x
+    float bandK;      // share of the room's luminance swing kept (rest pulled to the band)
+    float dim;        // backdrop dimming (clear glass over media)
+    float spec;       // key specular (crescent on the light-facing bezel)
+    float gloss;      // key specular exponent
+    float fill;       // opposite transmitted highlight, fraction of the key
+    float fres;       // Fresnel reflection of the room on grazing bezel
+    float sheen;      // top-down sheen
+    float dark;       // darkened band inside the edge (E4)
+    float darkW;      // its width, metres
+    float occ;        // occlusion inside the lower edge (E5)
+    float shadow;     // contact shadow outside a cover's shapes (needs room in the texture)
+    float slabShadow; // shadow a slab of this material casts on the cover behind it
 };
 
-// The design bible's presets (NATIVE.md "Materials"), at dial 0.5. The dial
-// moves tint x0.7 -> x1.3 and frost -1 -> +1 mip.
-Material materialFor(const std::string &name, float dial) {
-    Material m;
-    //                               tint  frost bezel   refr    mag     disp   rim    rimW    sheen spec   dark   trans
-    if (name == "liquid")      m = {0.18f, 1.4f, 0.016f, 0.016f, 0.015f, 0.35f, 1.20f, 0.005f, 1.0f, 1.15f, 0.55f, 0.97f};
-    else if (name == "panel")  m = {0.50f, 3.4f, 0.012f, 0.004f, 0.004f, 0.20f, 0.70f, 0.007f, 1.0f, 1.00f, 0.40f, 0.93f};
-    else if (name == "thick")  m = {0.45f, 4.2f, 0.014f, 0.000f, 0.000f, 0.00f, 0.70f, 0.008f, 1.0f, 1.00f, 0.40f, 0.93f};
-    else /* window */          m = {0.55f, 3.6f, 0.020f, 0.006f, 0.006f, 0.25f, 0.60f, 0.012f, 1.0f, 1.00f, 0.45f, 0.93f};
+// Presets at dial 0.5 and their reference thickness (DESIGN2 §6.1).
+Material materialPreset(const std::string &name) {
+    //                          thRef  tint   frost edgeF eClr  bezel   thick lensT lens  disp    bandK dim    spec   gloss fill   fres   sheen dark   darkW   occ    shadow slabSh
+    if (name == "liquid") return {0.25f, 0.14f, 1.3f, 0.3f, 0.60f, 0.016f, 0.50f, 1.5f, 7.0f, 0.020f, 0.60f, 0.00f, 0.90f, 40.f, 0.07f, 0.20f, 0.8f, 0.05f, 0.006f, 0.06f, 0.10f, 0.22f};
+    if (name == "clear")  return {0.25f, 0.06f, 0.6f, 0.1f, 0.60f, 0.016f, 0.50f, 1.6f, 9.0f, 0.025f, 0.75f, 0.35f, 0.90f, 40.f, 0.07f, 0.20f, 0.6f, 0.04f, 0.006f, 0.05f, 0.08f, 0.20f};
+    if (name == "panel")  return {0.60f, 0.40f, 3.4f, 1.0f, 0.40f, 0.012f, 0.40f, 1.2f, 3.0f, 0.020f, 0.35f, 0.00f, 0.80f, 50.f, 0.07f, 0.15f, 1.0f, 0.08f, 0.008f, 0.08f, 0.12f, 0.24f};
+    if (name == "thick")  return {0.85f, 0.30f, 4.0f, 1.2f, 0.35f, 0.014f, 0.40f, 1.2f, 2.5f, 0.020f, 0.32f, 0.00f, 0.75f, 50.f, 0.07f, 0.14f, 1.0f, 0.09f, 0.010f, 0.09f, 0.12f, 0.28f};
+    /* window */          return {1.00f, 0.50f, 3.6f, 1.2f, 0.30f, 0.020f, 0.35f, 1.2f, 2.0f, 0.020f, 0.30f, 0.00f, 0.70f, 60.f, 0.05f, 0.12f, 1.0f, 0.10f, 0.014f, 0.07f, 0.00f, 0.00f};
+}
+
+// Thickness from the shorter side (Steam px at the window's scale): 0 at
+// 44 px, 0.5 at 176 px, 1 at >= 704 px. DESIGN2 §6.1 defines θ from the
+// longer side; the shorter side is used because it is what bounds a slab's
+// bezel, and a 600 px wide, 64 px tall tab bar must stay thin liquid glass.
+float thickness(float minSide) { return std::clamp(std::log2(std::max(minSide, 1.f) / 44.f) / 4.f, 0.f, 1.f); }
+
+// The preset for this size (P5 "size changes the material": bigger glass is
+// thicker, frostier and lenses less; small glass is thinner and lenses more)
+// and the dial (tint x0.7 -> x1.3, frost -1 -> +1 mip, the band tighter).
+Material materialFor(const std::string &name, float dial, float minSide) {
+    Material m = materialPreset(name);
+    const float dt = thickness(minSide) - m.thetaRef;  // -1..1
+    m.frost = std::max(0.f, m.frost + 0.8f * dt);
+    m.edgeFrost = std::max(0.f, m.edgeFrost + 0.6f * dt);
+    m.tintA = std::clamp(m.tintA + 0.12f * dt, 0.f, 0.9f);
+    m.lensDeg *= std::clamp(1.f - 0.55f * dt, 0.4f, 1.6f);
+    m.spec *= std::clamp(1.f - 0.25f * dt, 0.6f, 1.3f);
+    m.dark *= std::clamp(1.f + 0.5f * dt, 0.5f, 1.5f);
+    m.occ *= std::clamp(1.f + 0.5f * dt, 0.5f, 1.5f);
+    m.slabShadow *= std::clamp(1.f + 0.6f * dt, 0.5f, 1.6f);
     dial = std::clamp(dial, 0.f, 1.f);
     m.tintA = std::min(0.95f, m.tintA * (0.7f + 0.6f * dial));
     m.frost = std::max(0.f, m.frost - 1.f + 2.f * dial);
+    m.edgeFrost = std::min(m.frost, std::max(0.f, m.edgeFrost - 0.5f + dial));
+    m.bandK = std::clamp(m.bandK * (1.3f - 0.6f * dial), 0.f, 1.f);
     return m;
 }
 
+// Materialize (MO §9): one progress m per piece of glass; the optics come in
+// in order: light first, then the bend, then frost and tint, then shading.
+float ramp(float x, float a, float b) { return std::clamp((x - a) / (b - a), 0.f, 1.f); }
+struct Phased {
+    float light, lens, frost, tint, shade, shadow, alpha;
+};
+Phased phaseMap(float m, bool reduceMotion) {
+    m = std::clamp(m, 0.f, 1.f);
+    if (reduceMotion) return {1, 1, 1, 1, 1, 1, m};  // coverage only
+    const float s = ramp(m, 0.f, 0.3f);
+    return {ramp(m, 0.f, 0.6f), ramp(m, 0.f, 0.7f), ramp(m, 0.2f, 0.92f), ramp(m, 0.2f, 0.92f), ramp(m, 0.3f, 0.92f),
+            ramp(m, 0.4f, 1.f), s * s * (3.f - 2.f * s)};
+}
+
+// Closed-form spring (MO §8): y = x - target with y(0) = y0, y'(0) = v0;
+// d = perceptual duration (s), bounce 0 (critically damped).
+void springB0(float y0, float v0, float t, float d, float &y, float &v) {
+    const float w = 2.f * 3.14159265f / d, e = std::exp(-w * t), B = v0 + w * y0;
+    y = e * (y0 + B * t);
+    v = e * (B - w * (y0 + B * t));
+}
+
+// Displayed materialize progress of one piece of glass, animated toward the
+// spec's target (docs/phase2/glassd-material.md, "Materialize").
+struct PhaseAnim {
+    bool init = false;
+    float target = 1, x = 1, v = 0;   // target, value and velocity now
+    float y0 = 0, v0 = 0;             // spring start (relative to target)
+    float lin0 = 1;                   // linear ramp start value
+    uint64_t t0 = 0;
+    bool spring = false;              // large glass rides a spring, small glass a linear ramp
+    float ms = -1;                    // linear ramp duration override (ms), -1 = by size
+    // Sets the target; first sight starts at `from` (0 = materialize) or at the target.
+    void set(float tgt, bool springMode, float msOverride, float from, uint64_t now) {
+        tgt = std::clamp(tgt, 0.f, 1.f);
+        if (!init) {
+            init = true;
+            x = from >= 0 ? std::clamp(from, 0.f, 1.f) : tgt;
+            target = x;
+            v = 0;
+            t0 = now;
+        }
+        spring = springMode;
+        ms = msOverride;
+        if (tgt != target) {
+            target = tgt;
+            y0 = x - tgt;
+            v0 = v;
+            lin0 = x;
+            t0 = now;
+        }
+    }
+    // Advances to `now`; returns true while still moving.
+    bool step(uint64_t now, bool reduceMotion) {
+        if (!init) return false;
+        // (t0 may be a little later than `now`: the spec is applied mid-iteration)
+        const float t = now > t0 ? float(double(now - t0) / 1e9) : 0.f;
+        if (x == target && v == 0) return false;
+        const bool up = target > lin0;
+        if (reduceMotion || !spring || ms >= 0) {
+            // linear: materialize-in 250 ms, materialize-out 350 ms (MO §3.2);
+            // Reduce Motion: a 180 ms coverage fade
+            // (a full 0 <-> 1 sweep takes dur; a retarget keeps that speed)
+            const float dur = ms >= 0 ? ms / 1000.f : reduceMotion ? 0.18f : up ? 0.25f : 0.35f;
+            v = 0;
+            if (dur <= 0) { x = target; return false; }
+            x = up ? std::min(target, lin0 + t / dur) : std::max(target, lin0 - t / dur);
+            return x != target;
+        }
+        // spring: sheet-in (d 0.5, b 0) up, sheet-out (d 0.35, b 0) down
+        float y, vv;
+        springB0(y0, v0, t, up ? 0.5f : 0.35f, y, vv);
+        x = std::clamp(target + y, 0.f, 1.f);
+        v = vv;
+        if (std::fabs(y) < 0.001f && std::fabs(vv) < 0.01f) { x = target; v = 0; return false; }
+        return true;
+    }
+};
+
 // --------------------------------------------------------------------- spec
+// Materialize fields, optional on a surface and on a slab (README "Phase").
+struct PhaseSpec {
+    float phase = 1;        // target materialize progress 0..1
+    bool materialize = false;  // "appear": "materialize": first sight starts at 0
+    float ms = -1;          // "phaseMs": linear ramp duration (ms) instead of the size's default
+};
 struct SlabSpec {
     std::string id, material = "liquid";
     float w = 0, h = 0, r = 0;
     bool hasPos = false;
     float x = 0, y = 0;
     float dz = 0.015f;
+    PhaseSpec ph;
 };
 struct ShapeSpec {
     float x = 0, y = 0, w = 0, h = 0, r = 0;
@@ -251,12 +404,21 @@ struct SurfSpec {
     bool hasQuad = false;
     v3 qO, qU, qV;
     std::vector<SlabSpec> slabs;
+    PhaseSpec ph;
 };
 struct Spec {
     long long seq = 0;
     float dial = 0.5f;
+    bool reduceMotion = false;
     std::vector<SurfSpec> surfaces;
 };
+
+void readPhase(const JVal &o, PhaseSpec &ph) {
+    ph.phase = std::clamp(float(o.num("phase", 1.0)), 0.f, 1.f);
+    if (!std::isfinite(ph.phase)) ph.phase = 1;
+    ph.materialize = o.str("appear", "") == "materialize";
+    ph.ms = o.has("phaseMs") ? std::clamp(float(o.num("phaseMs", -1)), 0.f, 10000.f) : -1.f;
+}
 
 const char *kDemoSpec = R"({"seq": 1, "dial": 0.5, "surfaces": [
   {"name": "main", "overlayKey": "valve.steam.gamepadui.main", "texW": 1920, "texH": 1080, "radius": 48,
@@ -281,6 +443,7 @@ bool parseSpec(const std::string &text, Spec &out, std::string &err) {
     out = Spec{};
     out.seq = (long long)root.num("seq", 0);
     out.dial = float(root.num("dial", 0.5));
+    out.reduceMotion = root.boolean("reduceMotion", false);
     const JVal *surfs = root.get("surfaces");
     if (!surfs || surfs->type != JVal::Arr) return true;
     for (const JVal &s : surfs->a) {
@@ -293,6 +456,7 @@ bool parseSpec(const std::string &text, Spec &out, std::string &err) {
         ss.radius = float(s.num("radius", 0));
         ss.material = s.str("material", "window");
         ss.visible = s.boolean("visible", true);
+        readPhase(s, ss.ph);
         if (ss.name.empty() || ss.name.size() > 128 || ss.texW <= 0 || ss.texH <= 0 || ss.texW > 8192 || ss.texH > 8192) continue;
         if (const JVal *sh = s.get("shapes"); sh && sh->type == JVal::Arr) {
             ss.hasShapes = true;
@@ -322,6 +486,7 @@ bool parseSpec(const std::string &text, Spec &out, std::string &err) {
                 b.x = float(q.num("x", 0));
                 b.y = float(q.num("y", 0));
                 b.dz = float(q.num("dz", 0.015));
+                readPhase(q, b.ph);
                 if (b.id.empty() || b.id.size() > 128 || b.w < 1 || b.h < 1) continue;
                 ss.slabs.push_back(b);
             }
@@ -348,6 +513,8 @@ struct SlabSlot {
     SlabSpec s;
     int x = 0, y = 0, w = 0, h = 0;  // cell in the glassd texture
     uint64_t ghostUntilNs = 0;       // ghosts: removed from the spec, drawn until then
+    uint64_t stillSinceNs = 0;       // its element's x/y last changed then (its shadow waits for it to settle)
+    PhaseAnim anim;                  // materialize progress
 };
 
 struct Surface {
@@ -371,6 +538,9 @@ struct Surface {
     uint64_t geoOkNs = 0, findNs = 0;
     std::string geoNote = "none", geoLogged;
     bool rendered = false, announced = false, warnedShapes = false, atlasOn = false;
+    PhaseAnim anim;                  // the cover's materialize progress
+    Target lowTex;                   // the cover at 1/4 resolution, mipmapped (glass.frag pass 1): its flat
+                                     // interior for pass 2, and what slabs see behind them
     int submittedW = 0, submittedH = 0;  // what SteamVR holds (mouse scale follows it)
     int submitFails = 0, createTries = 0;
     uint64_t createNs = 0, submitFailSinceNs = 0, lastSubmitNs = 0;
@@ -389,7 +559,10 @@ struct GpuTimer {
     int head = 0;
     bool active = false;
     float ms = 0;  // EMA
+    float last = 0;  // the latest frame's
     bool have = false;
+    bool keep = false;            // --bench: keep every frame's time
+    std::vector<float> samples;
     void init(Gfx &gfx) {
         g = &gfx;
         if (g->timerQuery) glGenQueries(4, q);
@@ -420,6 +593,8 @@ struct GpuTimer {
             busy[i] = false;
             if (disjoint) continue;
             float v = float(ns) / 1e6f;
+            last = v;
+            if (keep) samples.push_back(v);
             ms = have ? ms + (v - ms) * 0.1f : v;
             have = true;
         }
@@ -525,7 +700,8 @@ class Glassd {
  private:
     Options opt;
     Gfx gfx;
-    Program progGlass, progUpdate, progPush, progPull;
+    Program progGlass, progUpdate, progPush, progPull, progRow, progHfill, progTest, progView;
+    bool testRoomDone = false;
     GLuint vao = 0;
     Room room;
     FeedCapture feed;
@@ -556,6 +732,7 @@ class Glassd {
     std::deque<uint64_t> overlayLosses;
     // dashboard / room gating
     uint64_t dashChangeNs = 0, lastShotNs = 0;
+    uint64_t hideShotNs[2] = {0, 0};  // extra feed shots right after the dashboard hides
     bool graceDone = true;
     uint64_t roomSkipped = 0;
     // stats
@@ -588,9 +765,14 @@ class Glassd {
         const std::string common = shaderSource("common.glsl");
         const std::string vs = head + common + "\n" + shaderSource("fullscreen.vert");
         auto fs = [&](const char *n) { return head + common + "\n" + shaderSource(n); };
+        const std::string testLib = shaderSource("testroom.glsl");
+        auto fsTest = [&](const char *n) { return head + common + "\n" + testLib + "\n" + shaderSource(n); };
         return linkProgram(progGlass, vs, fs("glass.frag"), "glass") &&
                linkProgram(progUpdate, vs, fs("room_update.frag"), "room_update") &&
-               linkProgram(progPush, vs, fs("push.frag"), "push") && linkProgram(progPull, vs, fs("pull.frag"), "pull");
+               linkProgram(progPush, vs, fs("push.frag"), "push") && linkProgram(progPull, vs, fs("pull.frag"), "pull") &&
+               linkProgram(progRow, vs, fs("row.frag"), "row") && linkProgram(progHfill, vs, fs("hfill.frag"), "hfill") &&
+               linkProgram(progTest, vs, fsTest("testroom.frag"), "testroom") &&
+               linkProgram(progView, vs, fsTest("view.frag"), "view");
     }
 
     // --------------------------------------------------------------- setup
@@ -648,14 +830,19 @@ class Glassd {
         glBindVertexArray(vao);
         if (!loadPrograms()) return false;
         room.radius = opt.roomDepth;
-        if (!room.init(gfx, progUpdate, progPush, progPull, vao)) return false;
+        if (!room.init(gfx, progUpdate, progPush, progPull, progRow, progHfill, vao)) return false;
         renderTimer.init(gfx);
         roomTimer.init(gfx);
+        renderTimer.keep = opt.bench;
         cal.load();
         std::printf("feed calibration %s: u=%.4fx%+.4f v=%.4fy%+.4f latency %.1f ms, %s eye\n", cal.source.c_str(), cal.a, cal.b,
                     cal.c, cal.d, cal.latencyMs, cal.eye ? "right" : "left");
         eyeToHead = fromVR(vr::VRSystem()->GetEyeToHeadTransform(cal.eye ? vr::Eye_Right : vr::Eye_Left));
         if (!opt.noFeed) feed.start(opt.feedDev, opt.feedDownsample);
+        if (opt.testPattern >= 0)
+            std::printf("test backdrop: no camera, fixed head at %.2f %.2f %.2f (eye offset %.2f %.2f %.2f), window 1.43 m ahead\n",
+                        double(kTestEye.x), double(kTestEye.y), double(kTestEye.z), double(opt.testHead[0]), double(opt.testHead[1]),
+                        double(opt.testHead[2]));
         if (opt.demo) {
             Spec s;
             std::string e;
@@ -668,6 +855,7 @@ class Glassd {
     }
 
     void teardown() {
+        benchSummary();
         feed.stop();
         if (vr::VRSystem()) writeOut(true);  // fps 0, "exiting": the layout stays readable
         if (vr::VROverlay()) {
@@ -895,7 +1083,9 @@ class Glassd {
             int w = 0, h = 0;
             if (b) cellSize(*b, w, h);
             if (b && w == sl.w && h == sl.h) {
+                if (b->x != sl.s.x || b->y != sl.s.y || b->hasPos != sl.s.hasPos) sl.stillSinceNs = now;
                 sl.s = *b;
+                setSlabPhase(sl, now);
                 i++;
                 continue;
             }
@@ -919,6 +1109,8 @@ class Glassd {
         for (const SlabSpec *b : fresh) {
             SlabSlot sl;
             sl.s = *b;
+            sl.stillSinceNs = now;
+            setSlabPhase(sl, now);
             cellSize(*b, sl.w, sl.h);
             // a ghost of the same id and size comes back to life
             bool revived = false;
@@ -927,6 +1119,8 @@ class Glassd {
                     SlabSlot g = s.ghosts[k];
                     g.s = *b;
                     g.ghostUntilNs = 0;
+                    g.stillSinceNs = now;
+                    setSlabPhase(g, now);
                     s.ghosts.erase(s.ghosts.begin() + long(k));
                     s.slots.push_back(g);
                     revived = changed = true;
@@ -945,6 +1139,26 @@ class Glassd {
         for (auto it = s.dropped.begin(); it != s.dropped.end();) it = findSpec(*it) ? std::next(it) : s.dropped.erase(it);
         return changed;
     }
+
+    // Materialize targets: covers and thick slabs (menus, sheets) ride the
+    // sheet springs, other slabs the linear 250/350 ms ramps.
+    void setSlabPhase(SlabSlot &sl, uint64_t now) {
+        sl.anim.set(sl.s.ph.phase, sl.s.material == "thick", sl.s.ph.ms, sl.s.ph.materialize ? 0.f : -1.f, now);
+    }
+    void setCoverPhase(Surface &s, uint64_t now) {
+        s.anim.set(s.spec.ph.phase, true, s.spec.ph.ms, s.spec.ph.materialize ? 0.f : -1.f, now);
+    }
+    // Advances every materialize animation; true while any still moves.
+    bool stepPhases(uint64_t now) {
+        bool moving = false;
+        for (auto &s : surfaces) {
+            moving |= s->anim.step(now, spec.reduceMotion);
+            for (auto &sl : s->slots) moving |= sl.anim.step(now, spec.reduceMotion);
+            for (auto &sl : s->ghosts) moving |= sl.anim.step(now, spec.reduceMotion);
+        }
+        return moving;
+    }
+    float phaseOf(const PhaseAnim &a) const { return opt.phasePin >= 0 ? std::clamp(opt.phasePin, 0.f, 1.f) : a.init ? a.x : 1.f; }
 
     void expireGhosts(uint64_t now) {
         for (auto &s : surfaces)
@@ -1020,6 +1234,7 @@ class Glassd {
             if (s->spec.hasShapes != ss.hasShapes || s->spec.material != ss.material || s->spec.shapes.size() != ss.shapes.size())
                 s->warnedShapes = false;
             s->spec = ss;
+            setCoverPhase(*s, now);
             syncSlots(*s, now);
             ensureOverlay(*s);
             ensureBuffers(*s);
@@ -1154,6 +1369,26 @@ class Glassd {
                 return;
             }
         }
+        if (opt.testPattern >= 0) {
+            // Test backdrop: the window 1.43 m ahead of the fixed test head,
+            // at the window's nominal 0.98 m width (moving the eye with
+            // --test-head does not move the window).
+            Geometry g;
+            const float mpp = 0.98f / 1920.f;
+            g.U = {mpp, 0, 0};
+            g.V = {0, -mpp, 0};
+            g.N = {0, 0, 1};
+            g.O = kTestEye + v3{0, 0, -1.43f} - g.U * (tw * 0.5f) - g.V * (th * 0.5f);
+            g.mpp = mpp;
+            g.valid = true;
+            s.geo = s.rawGeo = g;
+            s.geoOk = true;
+            s.rescaled = false;
+            s.geoOkNs = now;
+            s.geoNote = "test";
+            if (s.spec.overlayKey == kMainKey) mainMpp = mpp;
+            return;
+        }
         if (!fetch) {
             if (!s.geo.valid) {
                 s.geo = fallbackGeometry(s, head);
@@ -1218,6 +1453,46 @@ class Glassd {
         faceHead(s.geo, tw, th, head);
     }
 
+    // A surface quad as a feed mask; zone = extra metres beyond the margin:
+    // side, top, bottom.
+    static void addMask(std::vector<MaskQuad> &out, const Geometry &g, float texW, float texH, const float zone[3], float mg) {
+        if (!g.valid || g.fallback || out.size() >= 16) return;
+        MaskQuad m;
+        float lu = length(g.U), lv = length(g.V);
+        m.O = g.O;
+        m.U = g.U * (1.f / lu);
+        m.V = g.V * (1.f / lv);
+        m.u0 = -mg - zone[0];
+        m.u1 = texW * lu + mg + zone[0];
+        m.v0 = -mg - zone[1];
+        m.v1 = texH * lv + mg + zone[2];
+        out.push_back(m);
+    }
+
+    // --test-backdrop: fill the room map with the procedural room once the
+    // spec is known; room-hole leaves what the UI would hide from the feed
+    // unknown (the same masks as live, seen from the map centre).
+    void makeTestRoom(const Pose &head, uint64_t now) {
+        std::vector<MaskQuad> hole;
+        const float none[3] = {0, 0, 0};
+        for (auto &s : surfaces) {
+            if (!s->spec.visible) continue;
+            refreshGeometry(*s, head, now, false);
+            const bool isMain = s->spec.overlayKey == kMainKey;
+            addMask(hole, s->geo, float(s->spec.texW), float(s->spec.texH), isMain ? opt.zone : none, opt.margin);
+        }
+        room.generate(progTest, opt.testPattern, opt.testHole, hole);
+        float known = 0, lum = 0;
+        room.stats(known, lum);
+        envLuma = std::max(0.06f, lum);
+        envSet = true;
+        std::printf("test room %s%s: %.0f%% known, mean luma %.2f\n", opt.testPattern == 1 ? "stripes" : "room",
+                    opt.testHole ? " (hole behind the UI)" : "", double(known * 100), double(lum));
+        testRoomDone = true;
+        roomDirty = true;
+        if (!firstRoomNs) firstRoomNs = now;
+    }
+
     // Steam surfaces as seen by the feed, from geometry fetched now. Only while
     // the dashboard shows them. masksComplete says whether every visible spec
     // surface got a mask; the room map does not integrate while it is false.
@@ -1228,20 +1503,8 @@ class Glassd {
         masksBuiltNs = now;
         masksComplete = true;
         if (!dash || opt.noMask) return;
-        // zone = extra metres beyond the margin: side, top, bottom
         auto add = [&](const Geometry &g, float texW, float texH, const float zone[3], float marginScale) {
-            if (!g.valid || g.fallback || masks.size() >= 16) return;
-            MaskQuad m;
-            float lu = length(g.U), lv = length(g.V);
-            const float mg = opt.margin * marginScale;
-            m.O = g.O;
-            m.U = g.U * (1.f / lu);
-            m.V = g.V * (1.f / lv);
-            m.u0 = -mg - zone[0];
-            m.u1 = texW * lu + mg + zone[0];
-            m.v0 = -mg - zone[1];
-            m.v1 = texH * lv + mg + zone[2];
-            masks.push_back(m);
+            addMask(masks, g, texW, texH, zone, opt.margin * marginScale);
         };
         // The main window gets a wider "dashboard zone": SteamVR's own panels
         // (grab bar, frame controls, frame menus, side panels) sit around it and
@@ -1340,6 +1603,10 @@ class Glassd {
         if (!poseAt(target, hmd)) return;
         const uint64_t t0 = monoNowNs();
         roomTimer.begin();
+        // While streaming, frames come 30 times a second: blend slowly. While
+        // the dashboard is hidden they are sparse shots: each one counts more,
+        // so a changed room (lights on) is caught within a few shots.
+        room.ema = dash ? 0.22f : 0.6f;
         room.uploadFeed(frame);
         room.integrate(hmd * eyeToHead, cal, masks);
         room.fill();
@@ -1374,15 +1641,24 @@ class Glassd {
         return v;
     }
 
+    // A slab's shadow on the cover behind it (glass.frag uShBox / uShPar).
+    struct Caster {
+        float cx, cy, hw, hh, r, alpha, off, soft;
+    };
+
     // One piece of glass: the union of `shapes` (region-local Steam px) in the
-    // region (rx, ry, rw, rh) of the current target.
-    void drawGlass(Surface &s, const Geometry &g, const Pose &head, const Material &m, int rx, int ry, int rw, int rh, v3 elem,
-                   const std::vector<ShapeSpec> &shapes, float dz) {
+    // region (rx, ry, rw, rh) of the current target. m is already sized
+    // (materialFor), ph the materialize ramps. under: a slab that sees the
+    // cover copy behind it. casters: slab shadows to draw on a cover.
+    void drawGlass(Surface &s, const Geometry &g, const Pose &head, const Material &m, const Phased &ph, int rx, int ry, int rw,
+                   int rh, v3 elem, const std::vector<ShapeSpec> &shapes, float dz, bool under, const std::vector<Caster> &casters,
+                   int pass = 0, float scale = 0.f) {
         if (shapes.empty()) return;
         Program &p = progGlass;
         glViewport(rx, ry, rw, rh);
         p.set("uOrigin", float(rx), float(ry));
-        p.set("uScale", s.scale);
+        p.set("uScale", scale > 0 ? scale : s.scale);
+        p.set("uPass", pass);
         p.set("uElemOff", elem.x, elem.y);
         const int n = std::min(int(shapes.size()), kMaxShapes);
         float sh[4 * kMaxShapes] = {}, rads[kMaxShapes] = {};
@@ -1414,23 +1690,66 @@ class Glassd {
         // Material widths are converted with one design scale for all surfaces:
         // Steam's panels share a metres-per-pixel in the scene graph.
         const float mpp = designMpp();
-        const float bezel = std::max(1.f, std::min(m.bezelM / mpp, minHalf));
-        p.set("uBezel", bezel);
-        p.set("uRimW", std::max(1.f, m.rimW / mpp));
-        p.set("uRefr", std::min(m.refrM / mpp, 0.8f * bezel));
-        p.set("uLensMag", m.lensMag);
-        p.set("uFrost", m.frost);
+        p.set("uBezel", std::max(1.f, std::min(m.bezelM / mpp, minHalf)));
+        p.set("uThick", m.thick);
+        p.set("uLensThick", m.lensThick);
+        p.set("uLens", m.lensDeg * ph.lens * 0.0174533f);
         p.set("uDisp", m.disp);
-        p.set("uTintA", m.tintA);
-        p.set("uTrans", m.trans);
-        p.set("uRim", m.rim);
-        p.set("uSheen", m.sheen);
-        p.set("uSpec", m.spec);
-        p.set("uDarkEdge", m.darkEdge);
+        p.set("uFrost", m.frost * ph.frost);
+        p.set("uEdgeFrost", m.edgeFrost * ph.frost);
+        p.set("uEdgeClear", m.edgeClear);
+        p.set("uTintA", m.tintA * ph.tint);
+        p.set("uBandMid", 0.314f);  // L 80 of 255: the middle of text-bearing glass (DESIGN2 §6.3)
+        p.set("uBandK", 1.f + (m.bandK - 1.f) * ph.tint);
+        p.set("uDim", m.dim * ph.tint);
+        p.set("uSpec", m.spec * ph.light);
+        p.set("uGloss", m.gloss);
+        p.set("uFill", m.fill);
+        p.set("uFres", m.fres * ph.light);
+        p.set("uSheen", m.sheen * ph.tint);
+        p.set("uDark", m.dark * ph.shade);
+        p.set("uDarkW", std::max(2.f, m.darkW / mpp));
+        p.set("uOcc", m.occ * ph.shade);
+        p.set("uShadow", m.shadow * ph.shadow);
+        p.set("uShadowW", 0.006f / mpp);
+        p.set("uShadowY", 0.003f / mpp);
+        p.set("uAlpha", ph.alpha);
+        p.set("uUnder", under ? 1 : 0);
+        if (under) {
+            // room-map mip -> cover mip: a map texel (0.35 deg) over a cover texel's angle
+            const float lowScale = s.scale / 4.f;
+            const v3 mid = g.O + g.U * (s.spec.texW * 0.5f) + g.V * (s.spec.texH * 0.5f);
+            const float dist = std::max(0.3f, length(mid - head.t));
+            const float coverDeg = mpp / lowScale / dist * 57.2958f;
+            p.set("uCoverLod", std::log2((360.f / float(room.W)) / coverDeg));
+            p.set("uCoverSize", float(s.lowTex.w), float(s.lowTex.h));
+            p.set("uCoverScale", lowScale);
+            p.set("uSteamSize", float(s.spec.texW), float(s.spec.texH));
+        }
+        const int nc = std::min<int>(int(casters.size()), 12);
+        glUniform1i(p.loc("uNSh"), nc);
+        if (nc) {
+            float box[48], par[48];
+            for (int i = 0; i < nc; i++) {
+                const Caster &c = casters[size_t(i)];
+                box[i * 4] = c.cx; box[i * 4 + 1] = c.cy; box[i * 4 + 2] = c.hw; box[i * 4 + 3] = c.hh;
+                par[i * 4] = c.r; par[i * 4 + 1] = c.alpha; par[i * 4 + 2] = c.off; par[i * 4 + 3] = c.soft;
+            }
+            glUniform4fv(p.loc("uShBox"), nc, box);
+            glUniform4fv(p.loc("uShPar"), nc, par);
+        }
         glDrawArrays(GL_TRIANGLES, 0, 3);
     }
 
-    void renderSurface(Surface &s, const Pose &head) {
+    // Where a slab's element sits on its surface (Steam px).
+    static void slabRect(const Surface &s, const SlabSlot &sl, float &ex, float &ey, float &sw, float &sh) {
+        ex = sl.s.hasPos ? sl.s.x : (s.spec.texW - sl.s.w) * 0.5f;
+        ey = sl.s.hasPos ? sl.s.y : (s.spec.texH - sl.s.h) * 0.5f;
+        sw = sl.w / s.scale;  // the cell is sl.w x sl.h glassd px = (w, h) Steam px at this scale
+        sh = sl.h / s.scale;
+    }
+
+    void renderSurface(Surface &s, const Pose &head, uint64_t now) {
         DmaTarget &b = s.bufs[s.next];
         glBindFramebuffer(GL_FRAMEBUFFER, b.fbo);
         glViewport(0, 0, s.gw, s.gh);
@@ -1446,8 +1765,11 @@ class Glassd {
         glScissor(0, 0, s.bw, s.bh);
         glClear(GL_COLOR_BUFFER_BIT);
         const Geometry &g = s.geo;
-        // cover: the union of its shapes, one pass, in the backdrop region
+        const float mpp = designMpp();
+        // cover: the union of its shapes, one pass, in the backdrop region,
+        // with the shadows of the settled slabs in front of it
         const std::vector<ShapeSpec> shapes = coverShapes(s);
+        bool coverDrawn = false, hasLow = false;
         if (!shapes.empty()) {
             float x0 = 1e9f, y0 = 1e9f, x1 = -1e9f, y1 = -1e9f;
             for (const ShapeSpec &q : shapes) {
@@ -1456,28 +1778,93 @@ class Glassd {
                 x1 = std::max(x1, q.x + q.w);
                 y1 = std::max(y1, q.y + q.h);
             }
-            const int sx0 = std::max(0, int(std::floor(x0 * s.scale)) - 1), sy0 = std::max(0, int(std::floor(y0 * s.scale)) - 1);
-            const int sx1 = std::min(s.bw, int(std::ceil(x1 * s.scale)) + 1), sy1 = std::min(s.bh, int(std::ceil(y1 * s.scale)) + 1);
+            float minSide = 1e9f;
+            for (const ShapeSpec &q : shapes) minSide = std::min(minSide, std::min(q.w, q.h));
+            const Material cm = materialFor(s.spec.material, spec.dial, minSide);
+            // the contact shadow falls outside the shapes: widen the scissor
+            const float pad = cm.shadow > 0 ? (0.006f + 0.003f) / mpp : 0.f;
+            const int sx0 = std::max(0, int(std::floor((x0 - pad) * s.scale)) - 1);
+            const int sy0 = std::max(0, int(std::floor((y0 - pad) * s.scale)) - 1);
+            const int sx1 = std::min(s.bw, int(std::ceil((x1 + pad) * s.scale)) + 1);
+            const int sy1 = std::min(s.bh, int(std::ceil((y1 + pad) * s.scale)) + 1);
             if (sx1 > sx0 && sy1 > sy0) {
+                std::vector<Caster> casters;
+                for (const SlabSlot &sl : s.slots) {
+                    // like the daemon's pop rule: only once the element held still for 150 ms
+                    const float settle = ramp(float(double(now - sl.stillSinceNs) / 1e6), 150.f, 300.f);
+                    const Material sm = materialFor(sl.s.material, spec.dial, std::min(sl.s.w, sl.s.h));
+                    const float a = sm.slabShadow * settle * phaseMap(phaseOf(sl.anim), spec.reduceMotion).shadow;
+                    if (a < 0.005f || casters.size() >= 12) continue;
+                    float ex, ey, sw, sh;
+                    slabRect(s, sl, ex, ey, sw, sh);
+                    const float dz = std::max(0.f, sl.s.dz);
+                    casters.push_back({ex + sw * 0.5f, ey + sh * 0.5f, sw * 0.5f, sh * 0.5f, std::min(sl.s.r, 0.5f * std::min(sw, sh)), a,
+                                       (0.002f + dz * 0.4f) / mpp, (0.003f + dz * 0.4f) / mpp});
+                }
+                const Phased cph = phaseMap(phaseOf(s.anim), spec.reduceMotion);
+                // Pass 1: the flat interior at 1/4 resolution (it is frosted by
+                // several degrees); pass 2: the edge band in full, pass 1 inside.
+                // Every edge term ends within `inner` of the edge: the bezel,
+                // the shading bands (1.6 x their width), plus 1.5 low texels.
+                const float lowScale = s.scale / 4.f;
+                const float inner = std::max(std::min(cm.bezelM / mpp, 0.5f * minSide), 1.6f * std::max(2.f, cm.darkW / mpp)) +
+                                    1.5f / lowScale + 2.f;
+                const bool twoPass = opt.debugView == 0 && minSide > 2.f * inner + 8.f / lowScale;
+                hasLow = twoPass || !s.slots.empty() || !s.ghosts.empty();
+                if (hasLow) {
+                    const int lw = (s.bw + 3) / 4, lh = (s.bh + 3) / 4;
+                    if (s.lowTex.w != lw || s.lowTex.h != lh) {
+                        s.lowTex.destroy();
+                        s.lowTex.create(lw, lh, gfx.halfFloatTargets ? GL_RGBA16F : GL_RGBA8, true);
+                        // transparent border: where a bent ray leaves the cover, its edge blurs into the room
+                        glBindTexture(GL_TEXTURE_2D, s.lowTex.tex);
+                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 6);  // slabs sample up to mip 4.5
+                    }
+                    glDisable(GL_SCISSOR_TEST);
+                    s.lowTex.bind();
+                    drawGlass(s, g, head, cm, cph, 0, 0, lw, lh, {0, 0, 0}, shapes, 0.f, false, casters, 1, lowScale);
+                    if (!s.slots.empty() || !s.ghosts.empty()) {
+                        glActiveTexture(GL_TEXTURE3);
+                        s.lowTex.mipmap();
+                    }
+                    glBindFramebuffer(GL_FRAMEBUFFER, b.fbo);
+                    glEnable(GL_SCISSOR_TEST);
+                    glActiveTexture(GL_TEXTURE3);
+                    glBindTexture(GL_TEXTURE_2D, s.lowTex.tex);
+                    glActiveTexture(GL_TEXTURE0);
+                    progGlass.set("uLowSize", float(lw), float(lh));
+                    progGlass.set("uLowScale", lowScale);
+                    progGlass.set("uInner", inner);
+                }
                 glScissor(sx0, sy0, sx1 - sx0, sy1 - sy0);
-                drawGlass(s, g, head, materialFor(s.spec.material, spec.dial), 0, 0, s.bw, s.bh, {0, 0, 0}, shapes, 0.f);
+                drawGlass(s, g, head, cm, cph, 0, 0, s.bw, s.bh, {0, 0, 0}, shapes, 0.f, false, casters, twoPass ? 2 : 0);
+                coverDrawn = true;
             }
         }
+        // what the slabs see behind them: pass 1's quarter-resolution cover
+        // (mipmapped; the cover's highlights are left out, its frost hides them)
+        const bool under = coverDrawn && hasLow && (!s.slots.empty() || !s.ghosts.empty());
         // slabs (and fading ghosts): the element's exact size; world point =
         // element position + dz
         auto drawSlab = [&](const SlabSlot &sl) {
-            const Material m = materialFor(sl.s.material, spec.dial);
-            const float ex = sl.s.hasPos ? sl.s.x : (s.spec.texW - sl.s.w) * 0.5f;
-            const float ey = sl.s.hasPos ? sl.s.y : (s.spec.texH - sl.s.h) * 0.5f;
-            // the cell is sl.w x sl.h glassd px = (w, h) Steam px at this scale
-            const float sw = sl.w / s.scale, sh = sl.h / s.scale;
+            float ex, ey, sw, sh;
+            slabRect(s, sl, ex, ey, sw, sh);
+            const Material m = materialFor(sl.s.material, spec.dial, std::min(sl.s.w, sl.s.h));
             const int gx0 = std::max(0, sl.x - 1), gy0 = std::max(s.bh, sl.y - 1);
             const int gx1 = std::min(s.gw, sl.x + sl.w + 1), gy1 = std::min(s.gh, sl.y + sl.h + 1);
             glScissor(gx0, gy0, gx1 - gx0, gy1 - gy0);
             glClear(GL_COLOR_BUFFER_BIT);  // the cell's gutter may hold an older cell's pixels
             glScissor(sl.x, sl.y, sl.w, sl.h);
-            drawGlass(s, g, head, m, sl.x, sl.y, sl.w, sl.h, {ex, ey, 0}, {{0, 0, sw, sh, sl.s.r}}, sl.s.dz - 0.0008f);
+            drawGlass(s, g, head, m, phaseMap(phaseOf(sl.anim), spec.reduceMotion), sl.x, sl.y, sl.w, sl.h, {ex, ey, 0},
+                      {{0, 0, sw, sh, sl.s.r}}, sl.s.dz - 0.0008f, under, {});
         };
+        if (under) {
+            glActiveTexture(GL_TEXTURE2);
+            glBindTexture(GL_TEXTURE_2D, s.lowTex.tex);
+            glActiveTexture(GL_TEXTURE0);
+        }
         for (const SlabSlot &sl : s.slots) drawSlab(sl);
         for (const SlabSlot &sl : s.ghosts) drawSlab(sl);
         glDisable(GL_SCISSOR_TEST);
@@ -1505,19 +1892,23 @@ class Glassd {
         p.use();
         glBindVertexArray(vao);
         glDisable(GL_BLEND);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, room.push.back().tex);  // 1x1: the known room's mean
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, room.filled.tex);
         p.set("uRoom", 0);
+        p.set("uRoomAvg", 1);
+        p.set("uCover", 2);
+        p.set("uLow", 3);
         p.set("uRoomSize", float(room.W), float(room.H));
         p.set("uCenter", room.center.x, room.center.y, room.center.z);
         p.set("uRadius", room.radius);
-        p.set("uEnvLuma", envLuma);
-        const v3 l2 = normalize(v3{-0.35f, 0.94f, 0});
-        p.set("uLight2", l2.x, l2.y);
-        const v3 l3 = normalize(v3{-0.3f, 0.85f, 0.45f});
-        p.set("uLight3", l3.x, l3.y, l3.z);
+        // One key light for every surface, fixed in the world: from above,
+        // about 20 deg left of vertical, a little in front (DESIGN2 §6.2 R2).
+        const v3 key = normalize(v3{-0.30f, 0.90f, 0.32f});
+        p.set("uKeyL", key.x, key.y, key.z);
         p.set("uDebug", opt.debugView);
-        for (Surface *s : todo) renderSurface(*s, head);
+        for (Surface *s : todo) renderSurface(*s, head, now);
         renderTimer.end();
         glFinish();  // SteamVR samples the dmabufs from another process
         cpuMs = cpuMs * 0.9f + float(double(monoNowNs() - t0) / 1e6) * 0.1f;
@@ -1662,6 +2053,12 @@ class Glassd {
         mkdirs(dir);
         for (auto &s : surfaces) {
             if (s->last < 0) continue;
+            // materialize progress of every piece of glass at this frame
+            char tb[48];
+            std::snprintf(tb, sizeof tb, " (t=%.3f, spec seq %lld)", double(monoNowNs()) / 1e9, spec.seq);
+            std::string ph = "phase " + s->spec.name + "=" + std::to_string(phaseOf(s->anim)).substr(0, 5);
+            for (const SlabSlot &sl : s->slots) ph += " " + sl.s.id + "=" + std::to_string(phaseOf(sl.anim)).substr(0, 5);
+            std::printf("%s%s\n", ph.c_str(), tb);
             DmaTarget &b = s->bufs[s->last];
             std::vector<uint8_t> px = readPixels(b.fbo, s->gw, s->gh);
             for (size_t i = 0; i < px.size(); i += 4) {  // premultiplied -> straight for PNG
@@ -1678,7 +2075,97 @@ class Glassd {
             std::printf("dumped %s (%dx%d, geometry %s: centre %.2f %.2f %.2f, %.2f x %.2f m, head %.2f m away at %.0f deg off-normal)\n",
                         path.c_str(), s->gw, s->gh, s->geoNote.c_str(), mid.x, mid.y, mid.z, length(g.U) * s->spec.texW,
                         length(g.V) * s->spec.texH, length(toHead), ang);
+            if (opt.dumpView) dumpView(*s, px, dir + "/" + sanitizeKey(s->spec.name) + "-view.png");
         }
+    }
+
+    // What the wearer would see of one surface (view.frag): the room around
+    // it, the cover and the slabs at their world positions, from the current
+    // head. `straight` is the surface texture as dumped (straight alpha).
+    void dumpView(Surface &s, const std::vector<uint8_t> &straight, const std::string &path) {
+        if (!s.geo.valid) return;
+        // back to premultiplied for the compositing shader
+        std::vector<uint8_t> px = straight;
+        for (size_t i = 0; i < px.size(); i += 4)
+            for (int c = 0; c < 3; c++) px[i + c] = uint8_t((px[i + c] * unsigned(px[i + 3]) + 127) / 255);
+        GLuint tex = 0;
+        glGenTextures(1, &tex);
+        glBindTexture(GL_TEXTURE_2D, tex);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, s.gw, s.gh, 0, GL_RGBA, GL_UNSIGNED_BYTE, px.data());
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        const float tw = float(s.spec.texW), th = float(s.spec.texH);
+        const float m = std::clamp(0.08f * std::max(tw, th), 48.f, 200.f);
+        const float x0 = -m, y0 = -m, x1 = tw + m, y1 = th + m;
+        const int ow = std::max(1, int(std::lround((x1 - x0) * s.scale))), oh = std::max(1, int(std::lround((y1 - y0) * s.scale)));
+        Target out;
+        if (!out.create(ow, oh, GL_RGBA8, false)) {
+            std::printf("view target %dx%d failed\n", ow, oh);
+            out.destroy();
+            glDeleteTextures(1, &tex);
+            return;
+        }
+        out.bind();
+        glDisable(GL_BLEND);
+        glDisable(GL_SCISSOR_TEST);
+        Program &p = progView;
+        p.use();
+        glBindVertexArray(vao);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, room.filled.tex);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, tex);
+        p.set("uRoom", 0);
+        p.set("uTex", 1);
+        p.set("uRect", x0, y0, x1, y1);
+        const Geometry &g = s.geo;
+        p.set("uO", g.O.x, g.O.y, g.O.z);
+        p.set("uU", g.U.x, g.U.y, g.U.z);
+        p.set("uV", g.V.x, g.V.y, g.V.z);
+        p.set("uN", g.N.x, g.N.y, g.N.z);
+        p.set("uEye", lastRenderHead.t.x, lastRenderHead.t.y, lastRenderHead.t.z);
+        p.set("uCenter", room.center.x, room.center.y, room.center.z);
+        p.set("uRadius", room.radius);
+        p.set("uPattern", opt.testPattern);
+        p.set("uTexSize", float(s.gw), float(s.gh));
+        p.set("uScale", s.scale);
+        p.set("uSteamSize", tw, th);
+        std::vector<const SlabSlot *> sl;
+        for (const SlabSlot &q : s.slots) sl.push_back(&q);
+        std::stable_sort(sl.begin(), sl.end(), [](const SlabSlot *a, const SlabSlot *b) { return a->s.dz < b->s.dz; });
+        if (sl.size() > 16) sl.resize(16);
+        float rect[64] = {}, cell[64] = {}, dz[16] = {};
+        for (size_t i = 0; i < sl.size(); i++) {
+            const SlabSlot &q = *sl[i];
+            rect[i * 4] = q.s.hasPos ? q.s.x : (tw - q.s.w) * 0.5f;
+            rect[i * 4 + 1] = q.s.hasPos ? q.s.y : (th - q.s.h) * 0.5f;
+            rect[i * 4 + 2] = q.w / s.scale;
+            rect[i * 4 + 3] = q.h / s.scale;
+            cell[i * 4] = float(q.x);
+            cell[i * 4 + 1] = float(q.y);
+            cell[i * 4 + 2] = float(q.w);
+            cell[i * 4 + 3] = float(q.h);
+            dz[i] = q.s.dz;
+        }
+        glUniform1i(p.loc("uNSlab"), int(sl.size()));
+        if (!sl.empty()) {
+            glUniform4fv(p.loc("uSlabRect"), GLsizei(sl.size()), rect);
+            glUniform4fv(p.loc("uSlabCell"), GLsizei(sl.size()), cell);
+            glUniform1fv(p.loc("uSlabDz"), GLsizei(sl.size()), dz);
+        }
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+        std::vector<uint8_t> o = readPixels(out.fbo, ow, oh), rgb(size_t(ow) * oh * 3);
+        for (size_t i = 0, n = size_t(ow) * oh; i < n; i++)
+            for (int c = 0; c < 3; c++) rgb[i * 3 + c] = o[i * 4 + c];
+        stbi_write_png(path.c_str(), ow, oh, 3, rgb.data(), ow * 3);
+        std::printf("dumped %s (%dx%d: the surface plus %.0f px around, eye %.2f %.2f %.2f)\n", path.c_str(), ow, oh, double(m),
+                    double(lastRenderHead.t.x), double(lastRenderHead.t.y), double(lastRenderHead.t.z));
+        glActiveTexture(GL_TEXTURE0);
+        out.destroy();
+        glDeleteTextures(1, &tex);
     }
     void dumpRoom(const std::string &path) {
         mkdirs(dirname(path));
@@ -1731,6 +2218,37 @@ class Glassd {
         lastStatusNs = now;
     }
 
+    // --bench: GPU clock samples (MHz) from devfreq, for the summary
+    std::vector<float> benchClock;
+    uint64_t benchClockNs = 0;
+    void benchSample(uint64_t now) {
+        if (!opt.bench || now - benchClockNs < 100 * kMs) return;
+        benchClockNs = now;
+        if (FILE *f = std::fopen("/sys/class/devfreq/3d00000.gpu/cur_freq", "r")) {
+            long long hz = 0;
+            if (std::fscanf(f, "%lld", &hz) == 1 && hz > 0) benchClock.push_back(float(hz / 1e6));
+            std::fclose(f);
+        }
+    }
+    void benchSummary() {
+        std::vector<float> v = renderTimer.samples;
+        if (v.size() < 10) return;
+        v.erase(v.begin(), v.begin() + long(v.size() / 10));  // skip the warm-up tenth
+        std::sort(v.begin(), v.end());
+        std::vector<float> c = benchClock;
+        std::sort(c.begin(), c.end());
+        const float med = v[v.size() / 2], p90 = v[v.size() * 9 / 10], mhz = c.empty() ? 0.f : c[c.size() / 2];
+        std::printf("bench: %zu frames, gpu median %.2f ms, p90 %.2f ms, min %.2f ms; GPU clock median %.0f MHz (%.2f ms at 903 MHz)\n",
+                    v.size(), double(med), double(p90), double(v.front()), double(mhz), mhz > 0 ? double(med * mhz / 903.f) : 0.0);
+        // Frames that overlap the compositor's own GPU work read longer (the
+        // timer counts the time the GPU spends on it in between): a second mode.
+        int hist[8] = {};
+        for (float x : v) hist[std::min(7, int(x / 0.5f))]++;
+        std::printf("bench: frames per 0.5 ms bin:");
+        for (int i = 0; i < 8; i++) std::printf(" %s%.1f:%d", i == 7 ? ">=" : "<", double((i + 1) * 0.5f - (i == 7 ? 0.5f : 0.f)), hist[i]);
+        std::printf("\n");
+    }
+
     void loop() {
         lastStatusNs = lastOutNs = lastLoopNs = lastHealthNs = monoNowNs();
         uint64_t fpsWindowNs = lastStatusNs, fpsFrames = 0, lastSpecCheckNs = 0;
@@ -1759,9 +2277,12 @@ class Glassd {
                     if (s->ov != vr::k_ulOverlayHandleInvalid) loseOverlay(*s, "SIGUSR2 test");
             healthCheck(now);
             if (g_quit) break;
+            benchSample(now);
 
             Pose hmd;
-            if (samplePose(0.f, hmd)) {
+            const bool test = opt.testPattern >= 0;
+            if (test) hmd.t = kTestEye;  // fixed test head, looking down -z
+            if (test || samplePose(0.f, hmd)) {
                 hist.emplace_back(now, hmd);
                 while (hist.size() > 2 && now - hist.front().first > 1500000000ull) hist.pop_front();
                 room.follow(hmd.t, dt);
@@ -1785,13 +2306,17 @@ class Glassd {
             }
             expireGhosts(now);
 
-            const bool dash = opt.dashOverride >= 0 ? opt.dashOverride == 1 : vr::VROverlay()->IsDashboardVisible();
+            const bool dash = opt.dashOverride >= 0 ? opt.dashOverride == 1 : test || vr::VROverlay()->IsDashboardVisible();
             if (dash != lastDash) {
                 std::printf("dashboard %s\n", dash ? "visible" : "hidden");
                 lastDash = dash;
                 dashChangeNs = now;
                 graceDone = false;
                 masksNs = 0;
+                // Right after the dashboard hides, the wearer still faces where
+                // the window was: two shots then see the room it hid.
+                hideShotNs[0] = dash ? 0 : now + 600 * kMs;
+                hideShotNs[1] = dash ? 0 : now + 2000 * kMs;
             }
             if (!graceDone && now - dashChangeNs >= kGraceNs) {
                 graceDone = true;
@@ -1815,12 +2340,21 @@ class Glassd {
                     feed.requestShot();
                     lastShotNs = now;
                 }
+                for (uint64_t &t : hideShotNs)
+                    if (t && now >= t) {
+                        if (!stream && opt.idleHz > 0) feed.requestShot();
+                        t = 0;
+                    }
             }
 
             // Head pose for rendering; while tracking is lost keep the last one
             // (or a standing head at the origin) so dumps and priming still work.
             Pose head;
-            if (samplePose(opt.predictMs / 1000.f, head)) {
+            if (test) {
+                head.t = kTestEye + v3{opt.testHead[0], opt.testHead[1], opt.testHead[2]};
+                lastHead = head;
+                haveLastHead = true;
+            } else if (samplePose(opt.predictMs / 1000.f, head)) {
                 lastHead = head;
                 haveLastHead = true;
             } else if (haveLastHead) {
@@ -1828,20 +2362,25 @@ class Glassd {
             } else {
                 head.t = {0, 1.6f, 0};
             }
-            updateMasks(dash, head, now);
-            updateRoom(dash, now);
+            if (test) {
+                if (!testRoomDone && !surfaces.empty()) makeTestRoom(head, now);
+            } else {
+                updateMasks(dash, head, now);
+                updateRoom(dash, now);
+            }
             roomTimer.poll();
 
             // 0.08 deg / 1 mm: well under a frosted texel, above tracking jitter
             const bool moved = poseAngle(head, lastRenderHead) > 0.0014f || length(head.t - lastRenderHead.t) > 0.001f;
             const bool due = now >= nextRenderNs;
+            const bool animating = stepPhases(now);  // materialize ramps render at full rate
             // Room-only changes are slow (EMA, and the area behind the window is
             // masked while it shows): re-render for them at most ~6 Hz.
             const bool roomDue = roomDirty && now - lastRenderNs >= 160000000ull;
             // Continuous rendering only while the dashboard is visible; one priming
             // frame after a layout change so new buffers never sit empty.
             const bool renderNow = !surfaces.empty() &&
-                                   ((active && (anyVisible || opt.force || opt.once) && due && (moved || roomDue || layoutDirty)) ||
+                                   ((active && (anyVisible || opt.force || opt.once) && due && (moved || roomDue || layoutDirty || animating || opt.bench)) ||
                                     (layoutDirty && due) || dumpDue);
             if (renderNow) {
                 const bool forced = opt.force || opt.once || dumpDue || !active;
@@ -1868,6 +2407,8 @@ class Glassd {
                 const bool sig = g_dumpRequest.exchange(false);
                 std::string dir = !opt.dumpDir.empty() ? opt.dumpDir : (sig ? "/tmp/lgs/glassd-dump" : "");
                 std::string roomPath = !opt.dumpRoom.empty() ? opt.dumpRoom : (sig ? "/tmp/lgs/glassd-dump/room.png" : "");
+                renderTimer.poll();
+                std::printf("dump frame: gpu %.2f ms%s\n", double(renderTimer.last), renderTimer.have ? "" : " (no timer)");
                 if (!roomPath.empty()) dumpRoom(roomPath);
                 if (!dir.empty()) dumpSurfaces(dir);
                 dumpedOnce = true;

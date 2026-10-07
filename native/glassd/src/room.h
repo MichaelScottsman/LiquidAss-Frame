@@ -24,9 +24,10 @@ class Room {
     int cur = 0;
     std::vector<Target> push, pull;
     Target filled;
+    Target sectors, rowFill;  // 32 x H/2: known room per row and azimuth sector, and the row fill (row.frag, hfill.frag)
     GLuint feedTex = 0;
     int feedW = 0, feedH = 0, feedLevels = 1;
-    Program *upd = nullptr, *pushP = nullptr, *pullP = nullptr;
+    Program *upd = nullptr, *pushP = nullptr, *pullP = nullptr, *rowP = nullptr, *hfillP = nullptr;
     GLuint vao = 0;
     v3 center;
     bool centerSet = false;
@@ -35,8 +36,11 @@ class Room {
     uint64_t updates = 0;
     float emptyFill = 0.06f;  // linear grey shown before anything is known
 
-    bool init(Gfx &g, Program &update, Program &pushProg, Program &pullProg, GLuint vertexArray) {
+    bool init(Gfx &g, Program &update, Program &pushProg, Program &pullProg, Program &rowProg, Program &hfillProg,
+              GLuint vertexArray) {
         upd = &update;
+        rowP = &rowProg;
+        hfillP = &hfillProg;
         pushP = &pushProg;
         pullP = &pullProg;
         vao = vertexArray;
@@ -48,6 +52,8 @@ class Room {
         }
         if (!(g.halfFloatTargets && buildPyramid(GL_RGBA16F)) && !buildPyramid(GL_RGBA8)) return Gfx::fail("room pyramid target");
         if (!filled.create(W, H, GL_SRGB8_ALPHA8, true, GL_REPEAT)) return Gfx::fail("room filled target");
+        if (!sectors.create(32, H / 2, push[0].fmt, false) || !rowFill.create(32, H / 2, push[0].fmt, false, GL_REPEAT))
+            return Gfx::fail("room row fill targets");
         fill();
         return true;
     }
@@ -103,6 +109,43 @@ class Room {
         glGenerateMipmap(GL_TEXTURE_2D);
     }
 
+    static void setMasks(Program &p, const std::vector<MaskQuad> &masks) {
+        const int n = int(std::min<size_t>(masks.size(), 16));
+        std::vector<float> qo(48), qu(48), qv(48), qe(64);
+        for (int i = 0; i < n; i++) {
+            const MaskQuad &m = masks[size_t(i)];
+            qo[i * 3] = m.O.x; qo[i * 3 + 1] = m.O.y; qo[i * 3 + 2] = m.O.z;
+            qu[i * 3] = m.U.x; qu[i * 3 + 1] = m.U.y; qu[i * 3 + 2] = m.U.z;
+            qv[i * 3] = m.V.x; qv[i * 3 + 1] = m.V.y; qv[i * 3 + 2] = m.V.z;
+            qe[i * 4] = m.u0; qe[i * 4 + 1] = m.u1; qe[i * 4 + 2] = m.v0; qe[i * 4 + 3] = m.v1;
+        }
+        glUniform1i(p.loc("uNQ"), n);
+        if (n) {
+            glUniform3fv(p.loc("uQO"), n, qo.data());
+            glUniform3fv(p.loc("uQU"), n, qu.data());
+            glUniform3fv(p.loc("uQV"), n, qv.data());
+            glUniform4fv(p.loc("uQE"), n, qe.data());
+        }
+    }
+
+    // --test-backdrop: the procedural room replaces every feed frame (once).
+    // With hole, texels behind the given quads stay unknown.
+    void generate(Program &p, int pattern, bool hole, const std::vector<MaskQuad> &quads) {
+        glDisable(GL_BLEND);
+        glBindVertexArray(vao);
+        Target &dst = map[1 - cur];
+        dst.bind();
+        p.use();
+        p.set("uPattern", pattern);
+        p.set("uHole", hole ? 1 : 0);
+        p.set("uCenter", center.x, center.y, center.z);
+        setMasks(p, quads);
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+        cur = 1 - cur;
+        updates++;
+        fill();
+    }
+
     // Blends the uploaded feed frame into the map. feedEye: feed eye pose
     // (eye -> standing) at the frame's display time.
     void integrate(const Pose &feedEye, const FeedCalib &cal, const std::vector<MaskQuad> &masks) {
@@ -125,22 +168,7 @@ class Room {
         const float mapTexel = 2.f * 3.14159265f / float(W);
         const float feedTexel = 2.f * std::atan(0.5f / std::fabs(cal.a)) / float(std::max(1, feedW));
         p.set("uFeedLod", std::max(0.f, std::log2(mapTexel / std::max(feedTexel, 1e-6f))));
-        const int n = int(std::min<size_t>(masks.size(), 16));
-        std::vector<float> qo(48), qu(48), qv(48), qe(64);
-        for (int i = 0; i < n; i++) {
-            const MaskQuad &m = masks[size_t(i)];
-            qo[i * 3] = m.O.x; qo[i * 3 + 1] = m.O.y; qo[i * 3 + 2] = m.O.z;
-            qu[i * 3] = m.U.x; qu[i * 3 + 1] = m.U.y; qu[i * 3 + 2] = m.U.z;
-            qv[i * 3] = m.V.x; qv[i * 3 + 1] = m.V.y; qv[i * 3 + 2] = m.V.z;
-            qe[i * 4] = m.u0; qe[i * 4 + 1] = m.u1; qe[i * 4 + 2] = m.v0; qe[i * 4 + 3] = m.v1;
-        }
-        glUniform1i(p.loc("uNQ"), n);
-        if (n) {
-            glUniform3fv(p.loc("uQO"), n, qo.data());
-            glUniform3fv(p.loc("uQU"), n, qu.data());
-            glUniform3fv(p.loc("uQV"), n, qv.data());
-            glUniform4fv(p.loc("uQE"), n, qe.data());
-        }
+        setMasks(p, masks);
         p.set("uPrev", 0);
         p.set("uFeed", 1);
         glActiveTexture(GL_TEXTURE0);
@@ -167,8 +195,26 @@ class Room {
             glBindTexture(GL_TEXTURE_2D, i == 0 ? map[cur].tex : push[i - 1].tex);
             glDrawArrays(GL_TRIANGLES, 0, 3);
         }
+        // the row fill for the level-0 pull: known room per row and sector,
+        // then each row continued from its nearest known sectors
+        Program &rp = *rowP;
+        rp.use();
+        rp.set("uSrc", 0);
+        sectors.bind();
+        glBindTexture(GL_TEXTURE_2D, push[0].tex);
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+        Program &hp = *hfillP;
+        hp.use();
+        hp.set("uSrc", 0);
+        rowFill.bind();
+        glBindTexture(GL_TEXTURE_2D, sectors.tex);
+        glDrawArrays(GL_TRIANGLES, 0, 3);
         Program &pl = *pullP;
         pl.use();
+        pl.set("uRow", 2);
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, rowFill.tex);
+        glActiveTexture(GL_TEXTURE0);
         pl.set("uFine", 0);
         pl.set("uCoarse", 1);
         pl.set("uEmpty", emptyFill, emptyFill, emptyFill * 1.08f);

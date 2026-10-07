@@ -58,7 +58,12 @@ The build needs `openvr.h` v2.15.6 (with `IVRIPCResourceManagerClient::ImportDma
 | `--orphan-ok` | | Keep running when the parent exits (detached lab runs only) |
 | `--dash on\|off\|auto` | auto | Test override for `IsDashboardVisible` |
 | `--no-mask` | | Debug: integrate the feed without masking the UI |
-| `--debug-view N` | 0 | Debug shading: 1 backdrop only, 2 light only, 3 bezel (`t`, rim `t`, slope), 4 room-map UV |
+| `--debug-view N` | 0 | Debug shading: 1 backdrop only (what the glass sees, bent), 2 light only, 3 bezel (`t`, lens strength, slope), 4 room-map UV, 5 how well the room behind is known |
+| `--test-backdrop P` | | No camera: a procedural room instead of the feed (`room`; `room-hole`, the same with the room behind the UI unknown; `stripes`, a lensing chart), a fixed head and fixed geometry (the spec's `quad`, else the window 1.43 m ahead). Dumps show no room imagery and may be kept |
+| `--test-head X,Y,Z` | 0,0,0 | With `--test-backdrop`: move the eye by X, Y, Z metres (off-axis views; the glass stays put) |
+| `--dump-view` | | With `--dump`: also write `DIR/<name>-view.png`, what the wearer would see: the room around the surface (with `--test-backdrop` the procedural room itself, as sharp as passthrough), the cover and the slabs at their depths |
+| `--bench` | | Render every frame at `--fps` (GPU timing in the status line) |
+| `--phase M` | | Pin every cover and slab at materialize progress M (0..1), for dumps (see *Phase*) |
 
 - `kill -USR1 <pid>` writes the room map and every surface to the `--dump` paths. Without them it writes to `/tmp/lgs/glassd-dump/`.
 - `kill -USR2 <pid>` (test aid) treats every overlay as lost: it destroys and recreates them, as after a compositor hiccup.
@@ -76,6 +81,13 @@ The fields follow NATIVE.md: `seq`, `dial`, `surfaces[]` with `name`, `overlayKe
   - Absent: a `material: "window"` surface is covered whole with `radius`; any other material gets **no cover** and one warning line. An opaque rectangle over a popup's whole, mostly transparent window would hide whatever is behind it.
 - **`slabs[].x`, `.y`, `.dz`**: the element's position in Steam texture pixels and its depth (`lgs_shell.py` already sends these). The slab's world point is the element's position on the surface plus `dz − 0.8 mm` toward the viewer. Without them the slab is centred on the surface at 15 mm.
 - **`surfaces[].quad`** (optional) `{"O": [x,y,z], "U": [x,y,z], "V": [x,y,z]}`: the surface's world placement (standing space): position of Steam pixel (0,0) and world steps per Steam pixel to the right and down. When present it replaces the overlay transform (see *Geometry*), for a daemon that can read the placement from the scene graph.
+- **`material`** (surfaces and slabs): `window`, `panel`, `liquid`, `thick` or `clear` (see *Materials*). Unknown names render as `window`.
+- **Phase** (optional, surfaces and slabs; all backward compatible: without them everything is fully materialized at once, as before):
+  - `phase` 0..1 (default 1): the materialize target. glassd animates toward it itself; the daemon writes targets only when they change.
+  - `appear: "materialize"`: the first time this surface or slab id is seen, it starts at 0 and ramps to `phase`. Without it a new id appears at `phase` at once.
+  - `phaseMs`: a linear ramp of that many ms (a full 0 to 1 sweep) instead of the default curve; `0` jumps.
+  - top level `reduceMotion: true`: ramps become a 180 ms coverage fade with every optical term at its target.
+  - The curves, the optics ramp and the rules for covers are in [`docs/phase2/glassd-material.md`](../../docs/phase2/glassd-material.md) (*Materialize*). To take a slab away with a dematerialize, set its `phase` to 0, wait for the ramp (350 ms, or 514 ms for `thick`), then remove it.
 
 ### Output: `glassd-out.json`
 
@@ -136,7 +148,7 @@ SteamVR's v4l2cam fills `/dev/video99` **only while a reader is attached**, and 
 - The **first buffer after STREAMON is stale**: the loopback hands back the last frame of the previous session (sequence 0), seconds or minutes old, but it would be stamped "now" with today's head pose. Every attach skips it (`tools/feedprobe.cpp` shows this).
 - Kept frames are box-downsampled to 480×270 RGBA and timestamped at dequeue; all-black frames are skipped.
 
-### Room model (`src/room.h`, `shaders/room_update.frag`, `push.frag`, `pull.frag`)
+### Room model (`src/room.h`, `shaders/room_update.frag`, `push.frag`, `row.frag`, `hfill.frag`, `pull.frag`)
 
 1. **Feed camera.**
    - The calibration comes from `~/.config/liquid-glass-frame/feed.cfg` (`a b c d latency_ms eye`), as written by the Liquid Glass Frame app.
@@ -145,11 +157,15 @@ SteamVR's v4l2cam fills `/dev/video99` **only while a reader is attached**, and 
 2. **Map.** A 1024×512 equirectangular map in standing space; each texel is a direction from the map centre. The centre follows the head with a 10 s time constant. The room is assumed to lie on a 2.2 m sphere. Each texel:
    - projects into the feed (tangent → affine → feed UV), and fades out within 4% of the feed's edge;
    - **is masked** when the feed ray to it crosses a visible Steam surface's world quad, plus `--margin` (see *Masks*);
-   - **blends** with an exponential moving average: 0.22 per update, but a texel seen for the first time takes the feed value outright. Unknown texels keep their last value. Alpha records how well the texel is known.
+   - **blends** with an exponential moving average: 0.22 per update while the feed streams (30 frames a second), 0.6 per one-frame shot while the dashboard is hidden (shots are sparse, so each counts more and a changed room is caught within a few shots). A texel seen for the first time takes the feed value outright. Texels that are masked or out of view keep their last good value; nothing ever decays. Alpha records how well the texel is known.
 3. **When it integrates.** Never within 0.4 s of a dashboard visibility change (the UI fades in or out, and SteamVR places the window again when the dashboard opens), and never a frame captured before that. While the dashboard shows, only with masks built after that from geometry fetched then, and only if **every** visible spec surface got a mask (`masks=N(incomplete)` in the status line otherwise). Skipped frames are counted (`room=… skipped`).
-4. **Fill.** A push-pull pyramid (RGBA16F) fills texels that were never seen with low-frequency colour from the known ones (a dark grey before anything is known). The result is an sRGB, mipmapped, horizontally wrapping texture that the glass samples.
+4. **Fill** (texels never seen, e.g. the room behind a dashboard that never closed):
+   - a push-pull pyramid (RGBA16F) gives low-frequency colour from the known texels around (a dark grey before anything is known);
+   - a **row fill** (`row.frag`, `hfill.frag`) averages the known room per row in 32 azimuth sectors of 11.25°, then continues each row from the nearest known sectors to its left and right, interpolated by distance. Rooms are mostly horizontal structure (floor, desk, wall, ceiling), so the hole behind the window continues the wall beside it at the same height. An unknown texel takes 75 % of the row fill and 25 % of the push-pull;
+   - the filled map keeps **alpha = how well the texel is known**, so the glass can tell measured room from fill (more frost there, the room's mean hue, a stronger sheen: *Glass*).
+   The result is an sRGB, mipmapped, horizontally wrapping texture that the glass samples.
 
-The map takes a shot every 5 s while the dashboard is hidden, so when the dashboard opens the room behind the window is already known, although the window then hides it from the feed.
+The map takes a shot every 5 s while the dashboard is hidden, plus two shots 0.6 s and 2 s after it hides (the wearer still faces where the window was, so these see the room it hid). When the dashboard opens, the room behind the window is then already known, although the window hides it from the feed.
 
 ### Masks
 
@@ -169,48 +185,56 @@ Rebuilt every 250 ms (and right after the grace period of a dashboard change) wh
 - A rejected or failed fetch keeps the last good quad for rendering (`stale(…)`), or uses a quad 1.43 m in front of the head (`fallback(…)`); masks never use either.
 - **Popups use the window's scale.** Steam's popups report overlay transforms whose *size* disagrees with what the scene graph draws: the bar claims 1800 px over 0.37 m (0.2 mm/px) and the footer 900 px over 0.37 m, against main's 0.51 mm/px, although their scene-graph panels (`PooledPopup-…`) use the same metres-per-pixel `M` as the window. For a non-main surface whose scale differs from main's by more than 8%, glassd keeps the reported centre and orientation and uses main's metres-per-pixel (`steam(rescaled x2.50)` for the bar). Checked against the feed on 2026-10-07 (headset resting, dashboard open): the bar's icons spanned feed u 0.47–0.82; the rescaled quad's visible part predicted 0.48–0.79, the reported quad's 0.57–0.70; its height matched. A user-resized main window would change main's scale but probably not the bar's; the spec's `quad` is the way to give exact placements.
 
-### Glass (`shaders/glass.frag`, ported from `vr/shaders/glass.frag`)
+### Glass (`shaders/glass.frag`, material v2)
 
-One fullscreen draw per piece of glass: the cover (the union of its shapes) in the backdrop region, and each slab in its atlas cell. For every texel:
+The full model, its parameters and the before/after evidence are in [`docs/phase2/glassd-material.md`](../../docs/phase2/glassd-material.md). In short: **no term draws a line of constant width**; every edge cue comes from the glass's shape and one light.
 
-- **Shape.** The signed distance is the minimum over the shapes (up to 8), so coverage, bezel and rims follow the union's outline; magnification and sheen span the union's bounding box.
-- **World point.** The texel's world point is computed on the surface quad: the element offset plus `dz` for slabs.
-- **Backdrop.** The view ray from the head (pose predicted 20 ms ahead) hits the room sphere and samples the map with a 4-tap frosted lookup at the material's mip level.
-- **Squircle bezel.** `h = (1 − (1 − t)⁴)^¼` tilts the normal and drives lensing: an inward shift in panel space (the same in both eyes) plus slight interior magnification.
-- **Dispersion.** R and B are sampled at ± the bezel shift, only where the bezel bends the ray.
-- **Adaptive tint.** Room luminance behind the glass (mip 6.5) drives the tint: over bright rooms the tint is darker and stronger (`tintA × 1.45`); over dark rooms it is lighter (`× 0.75`).
-- **Inner shadow.** A darkened band just inside the rim.
-- **Light from above.**
-  - Fresnel and key specular;
-  - a key rim on the top edge and a 0.4× fill rim on the bottom edge;
-  - a crisp edge line;
-  - a top-down sheen.
-  The rim and inner-shadow widths are independent of the bezel, so 30 mm capsules still get a slim rim.
-- **Output.** Antialiased coverage, premultiplied.
+One fullscreen draw per piece of glass: first the cover (the union of its shapes) in the backdrop region, then each slab in its atlas cell. For every texel:
+
+- **Shape.** Signed distance and its analytic gradient from the nearest of up to 8 rounded rects (the union's outline).
+- **World point.** On the surface quad: the element offset plus `dz` for slabs.
+- **Bezel.** A squircle `h = (1 − (1 − t)⁴)^¼` over the bezel width (never wider than the corner radius, so corners stay smooth). Its slope tilts the normal.
+- **What is behind.** The view ray (head pose predicted 20 ms ahead), bent by the bezel like a prism (Snell at the curved face and the flat back, n = 1.5, toward the thick side), meets the room sphere, or for a slab the **cover behind it**: the cover's quarter-resolution pass (below; mipmapped, transparent border), so a slab on the window shows window glass, and an ornament straddling the window's edge shows that edge through its own bezel. The interior is not bent. Frost is a mip level (4 rotated taps), lower in the lens band so the bend shows; R and B bend 2 % less and more (dispersion), with the same filter.
+- **Tone.** The frosted room is pulled toward a luminance band around L 80 of 255 (DESIGN2 §6.3), keeping a material-dependent share of the room's swing and all of its hue, then mixed toward a neutral of the same luminance by the tint. Glass over glass adds half its tint and sits slightly lighter. The lens band keeps more of the room (a polished bevel).
+- **Unknown room** (the map's alpha): one mip more frost, a little more tint toward the known room's mean hue, a stronger top-down sheen.
+- **Light.** One key light fixed in the world (from above, about 20° left of vertical, a little in front), the same for every surface:
+  - a Blinn-Phong highlight where the bezel normal faces it: a thin crescent on the top edge, brightest at the upper-left corner, fading to nothing down the sides;
+  - a weaker transmitted highlight on the opposite (lower-right) rim;
+  - Fresnel reflection of the room on the grazing outer bezel, weighted toward the lit side;
+  - a top-down sheen across the shape.
+- **Shade.** A soft darkened band inside the edge, strongest away from the light (E4); occlusion just inside the lower edge (E5); on a cover, the soft shadows of the slabs in front of it (offset and softness grow with `dz`; only for slabs whose element held still for 150 ms, never under the slab itself); outside a cover's shapes, where the texture has room, an optional contact shadow.
+- **Output.** Antialiased coverage × the materialize alpha, premultiplied, sRGB-encoded.
+- **Two passes for covers.** The interior is very low frequency, so pass 1 renders the cover at 1/4 resolution (RGBA16F, linear, premultiplied by coverage) and pass 2 runs the whole shader only within the edge band (the bezel or 1.6 × the darkened band, plus 1.5 low-resolution texels; about 54 Steam px on the window) and reads pass 1 inside it. Pass 1, mipmapped, is also what slabs see behind them. `--debug-view` renders covers in one pass.
 
 Material widths are converted to pixels with the **main window's** metres per pixel for every surface (see *Geometry*).
 
-### Materials (at `dial` 0.5)
+### Materials (at `dial` 0.5, at each preset's reference size)
 
-| | tint | frost (mip) | bezel | lens shift | dispersion | rim | rim width |
-|---|---|---|---|---|---|---|---|
-| `window` | 0.55 | 3.6 | 20 mm | 6 mm | 0.25 | 0.6 (soft) | 12 mm |
-| `panel` | 0.50 | 3.4 | 12 mm | 4 mm | 0.20 | 0.7 | 7 mm |
-| `liquid` | 0.18 | 1.4 | 16 mm | 16 mm | 0.35 | 1.2 (bright) | 5 mm |
-| `thick` | 0.45 | 4.2 | 14 mm | — | — | 0.7 | 8 mm |
+| | tint | frost / band frost (mip) | bezel | lens at rim | key spec | tone swing kept | slab shadow | use |
+|---|---|---|---|---|---|---|---|---|
+| `window` | 0.50 | 3.6 / 1.2 | 20 mm | 2.0° | 0.70 | 30 % | — | The Steam window, SteamVR settings and Now Playing |
+| `panel` | 0.40 | 3.4 / 1.0 | 12 mm | 3.0° | 0.80 | 35 % | 0.24 | Popup quads over the room |
+| `thick` | 0.30 | 4.0 / 1.2 | 14 mm | 2.5° | 0.75 | 32 % | 0.28 | Menus, sheets, alerts, the keyboard platter |
+| `liquid` | 0.14 | 1.3 / 0.3 | 16 mm | 7.0° | 0.90 | 60 % | 0.22 | Ornaments, toolbars, bar segments, floating controls |
+| `clear` | 0.06 | 0.6 / 0.1 | 16 mm | 9.0° | 0.90 | 75 % | 0.20 | Over media only: dims what is behind by 35 % |
 
-- The dial scales tint ×0.7 → ×1.3 and frost −1 → +1 mip.
+- **Size changes the material** (bible P5): thickness θ from the shape's shorter side (0 at 44 px, 0.5 at 176 px, 1 at ≥ 704 px) shifts each preset from its reference θ: bigger glass is frostier (+0.8 mip per unit θ), more tinted, lenses less, has a dimmer highlight and deeper shading and shadow; smaller glass the reverse.
+- The dial scales tint ×0.7 → ×1.3, frost −1 → +1 mip, and tightens the tone band.
 - One map texel is 0.35°, so mip 3.6 is a blur of about 4°.
-- The values live in `materialFor()` in `src/glassd.cpp`.
+- All values live in `materialPreset()` and `materialFor()` in `src/glassd.cpp`.
+
+### Phase (materialize)
+
+Each cover and slab has a materialize progress `m`, animated toward the spec's `phase` (see *Input*): a linear 250 ms ramp up and 350 ms down for small glass (MO `materialize-in/out`), the `sheet-in` / `sheet-out` springs (d 0.5 / 0.35, bounce 0, closed form, retargetable) for covers and `thick` slabs. `m` drives the optics in order (MO §9): highlights over 0–0.6, lensing over 0–0.7, frost and tint over 0.2–0.92, shading over 0.3–0.92, shadows over 0.4–1, coverage `smoothstep(0, 0.3, m)`. glassd renders at full rate while any ramp moves and goes back to on-demand rendering when all have settled.
 
 ### Scheduling
 
 - **Dashboard visible** (`IsDashboardVisible`) and a surface visible:
-  - glassd renders when the head moves (> 0.08° or 1 mm) or the layout changes, up to `--fps`;
+  - glassd renders when the head moves (> 0.08° or 1 mm), the layout changes or a materialize ramp moves, up to `--fps`;
   - room-map changes alone re-render at most at about 6 Hz.
 - **Dashboard hidden:**
   - one priming frame after any layout change (no geometry fetch), nothing else;
-  - a one-frame feed shot every `1/--idle-hz` s.
+  - a one-frame feed shot every `1/--idle-hz` s, plus two shots 0.6 s and 2 s after the dashboard hides.
 - The loop wakes at once on a spec change (inotify), otherwise every 4 ms while active and 10 ms while hidden.
 - **Status line** every 5 s, for example:
 
@@ -237,11 +261,15 @@ The previous version streamed for its whole lifetime: v4l2cam 18% even while hid
 
 | What | Result |
 |---|---|
-| Render, `main` 1440×810 backdrop + 2–3 slabs, bar, footer | 0.9–1.7 ms GPU (timer queries); 2.2–2.7 ms CPU including `glFinish` |
-| Room update (upload, map, push-pull, mips) | 0.3–0.6 ms GPU, about 30/s while showing |
-| Spec → `glassd-out.json` | median 2.1 ms, p95 4.2 ms, max 6.6 ms (600 random slab changes, `tools/test_atlas.py`) |
+| Render, material v1, `main` 1440×810 backdrop + 2–3 slabs, bar, footer | 0.9–1.7 ms GPU (timer queries); 2.2–2.7 ms CPU including `glFinish` |
+| Render, **material v2**, `--bench` over the test room (2026-10-07, after the SteamOS 20261006 update; median of about 800 frames at 72 fps, GPU clock as the governor chose it) | window cover alone 0.95 ms (629 MHz); window + 6 slabs 1.52 ms (680 MHz); the full test scene (window, 6 slabs, a bar of 2 capsules) 1.69 ms (680 MHz), i.e. 1.27 ms scaled to 903 MHz. Material v1 on the same scene: 1.27 ms (629 MHz). See `docs/phase2/glassd-material.md` |
+| Live in `lgs on --native` (window with 6 slabs, bar, footer; headset idle) | status-line EMA 1.9–2.5 ms; the EMA includes frames that overlap the compositor's own GPU work (next row) |
+| Frame-time distribution | two modes: about 80 % of frames at the cost above (1.0–2.0 ms for the full scene), 15–20 % at 3.5 ms or more. The second mode is the compositor's GPU work interleaved with ours: `GL_TIME_ELAPSED` counts it. It is as frequent for v1 (p90 3.6 ms) and grows with job length |
+| Room update (upload, map, push-pull, mips) | 0.3–0.6 ms GPU, about 30/s while showing (v1); 0.4–1.0 ms with the row fill (v2, live) |
+| Spec → `glassd-out.json` | median 2.1 ms, p95 4.2 ms, max 6.6 ms (600 random slab changes, `tools/test_atlas.py`); material v2: median 2.1 ms, p95 4.3 ms, max 10.6–16.7 ms (300 and 900 changes) |
 | Atlas churn (600 random focus moves, cards, buttons, a 900×700 sheet) | 0 live slabs moved, 0 overlaps, 0 UVs outside the texture, 0 texture resizes, 0 re-packs |
-| Leaks over that churn | vrcompositor fds and dmabufs and glassd's fds and RSS (60 MB) flat |
+| Leaks over that churn | vrcompositor fds and dmabufs and glassd's fds and RSS (60 MB) flat; material v2 over 900 changes: glassd 86 fds and 64 MB before and after |
+| Materialize timing (`tools/test_phase.sh`) | 0.10 s after `phase` 0 → 1: liquid slabs 0.41 (linear 250 ms), window and menu 0.36 (sheet-in spring; closed form 0.358); 0.38 s: spring 0.956 (closed form 0.953) |
 | Feed | mmap with 2 buffers, about 90 frames/s delivered while streaming, 30/s kept |
 
 ## Verifying without the headset
@@ -258,12 +286,16 @@ All tools use a test key prefix and private output paths, so they run next to a 
 | `tools/test_feedcost.sh` | v4l2cam / vrcompositor / glassd CPU while hidden (shots at three rates) and while streaming. Needs no other feed reader (the Liquid Glass Frame app also streams) |
 | `build/feedprobe [sessions ms gap buffers]` | How the loopback behaves on short attaches (stale first buffer, time to the first fresh frame). Prints numbers only |
 | `build/inview` | Where Steam's window and bar corners land in the feed (u, v) for the current head pose. Prints numbers only |
+| `tools/test_phase.sh` | Materialize timing: flips every piece of glass from `phase` 0 to 1 and back, logs the displayed phase at fixed delays (no camera, nothing shown) |
+| `tools/test_material.sh [DIR] [args]` | The material over the procedural test room (no camera, so the dumps may be kept): `tools/test_material.json` (the window with a circle, a capsule, a primary capsule, a menu, a side ornament and a toolbar straddling its bottom edge, plus a bar of liquid capsules below it) over `room`, `room-hole` (the room behind the UI unknown), `stripes` (a lensing chart) and `room-offaxis` (eye 0.35 m right, 0.1 m up). Writes `DIR/<backdrop>/{main,bar}.png` and `…-view.png`. Extra args go to glassd, e.g. `--phase 0.35` or `--debug-view 1` |
 
 ```sh
 mkdir -p /tmp/lgs/t
 ./glassd --demo --key-prefix glassd-test. --out /tmp/lgs/t/out.json --once --warmup 3 \
          --dump /tmp/lgs/t/d --dump-room /tmp/lgs/t/room.png    # look, then: rm -rf /tmp/lgs/t
 ./glassd --demo --no-mask --debug-view 1 ...   # backdrop only: the feed's view lands on the window
+./glassd --spec tools/test_material.json --key-prefix glassd-test. --out /tmp/lgs/t/out.json --once --warmup 0          --test-backdrop room --dump /tmp/lgs/t/d --dump-view   # no camera: safe to keep
+./glassd --spec tools/test_material.json --key-prefix glassd-test. --out /tmp/lgs/t/out.json          --test-backdrop room --bench --timeout 15               # GPU ms per frame at --fps (status lines)
 /opt/steamvr/bin/linuxarm64/vrcmd --overlays | grep -A1 glassd
 ```
 
@@ -275,12 +307,12 @@ mkdir -p /tmp/lgs/t
 
 | Path | What |
 |---|---|
-| `src/glassd.cpp` | Options, spec and output, overlays and dmabufs, layout, geometry, masks, materials, scheduling, health, dumps |
+| `src/glassd.cpp` | Options, spec and output, overlays and dmabufs, layout, geometry, masks, materials and phase, scheduling, health, dumps and views |
 | `src/atlas.h` | Stable shelf allocator for slab cells |
 | `src/gfx.h` | GBM, EGL, GLES context; targets; programs; dmabuf render targets |
 | `src/feed.h` | V4L2 capture thread (attach on demand), feed calibration |
-| `src/room.h` | Room map: integrate, push-pull fill, stats |
+| `src/room.h` | Room map: integrate, push-pull and row fill, the test room, stats |
 | `src/json.h`, `src/vmath.h` | Minimal JSON reader; vectors and poses |
-| `shaders/` | `common.glsl`, `fullscreen.vert`, `room_update.frag`, `push.frag`, `pull.frag`, `glass.frag` (embedded at build time) |
-| `tools/` | Verification tools and tests (above); `ovgrab.cpp` reads an overlay back through `IVROverlayView` |
+| `shaders/` | `common.glsl`, `fullscreen.vert`, `room_update.frag`, `push.frag`, `row.frag`, `hfill.frag`, `pull.frag`, `glass.frag`; for verification `testroom.glsl` (the procedural room), `testroom.frag`, `view.frag` (embedded at build time) |
+| `tools/` | Verification tools and tests (above), `test_material.json` (the material test spec); `ovgrab.cpp` reads an overlay back through `IVROverlayView` |
 | `third_party/stb_image_write.h` | PNG writer (public domain) |

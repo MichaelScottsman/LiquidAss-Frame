@@ -1,0 +1,18 @@
+{"seq": 1, "dial": 0.5, "surfaces": [
+  {"name": "main", "overlayKey": "valve.steam.gamepadui.main", "texW": 1920, "texH": 1080, "radius": 54,
+   "material": "window", "visible": true,
+   "shapes": [{"x": 0, "y": 0, "w": 1920, "h": 1080, "r": 54}],
+   "slabs": [
+     {"id": "back",    "x": 36,   "y": 36,   "w": 88,  "h": 88,  "r": 44, "material": "liquid", "dz": 0.015},
+     {"id": "search",  "x": 150,  "y": 36,   "w": 440, "h": 88,  "r": 44, "material": "liquid", "dz": 0.015},
+     {"id": "play",    "x": 120,  "y": 820,  "w": 300, "h": 96,  "r": 48, "material": "liquid", "dz": 0.015},
+     {"id": "menu",    "x": 1300, "y": 190,  "w": 520, "h": 560, "r": 36, "material": "thick",  "dz": 0.030},
+     {"id": "tabs",    "x": -128, "y": 300,  "w": 96,  "h": 420, "r": 48, "material": "liquid", "dz": 0.025},
+     {"id": "toolbar", "x": 700,  "y": 1012, "w": 520, "h": 96,  "r": 48, "material": "liquid", "dz": 0.025}
+   ]},
+  {"name": "bar", "overlayKey": "valve.steam.gamepadui.bar", "texW": 1800, "texH": 160, "radius": 50,
+   "material": "liquid", "visible": true,
+   "quad": {"O": [-0.459375, 0.5908, -1.25], "U": [0.000510417, 0, 0], "V": [0, -0.000510417, 0]},
+   "shapes": [{"x": 40, "y": 30, "w": 100, "h": 100, "r": 50}, {"x": 180, "y": 30, "w": 1200, "h": 100, "r": 50}],
+   "slabs": []}
+]}
