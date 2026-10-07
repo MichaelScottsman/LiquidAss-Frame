@@ -11,6 +11,9 @@
      [data-lgs-pop]    an element that pops out in depth over its own
                        glassd slab ("self", or "before"/"after" when the
                        capsule is that pseudo-element),
+     [data-lgs-plate-ack] a [data-lgs-plate] element glassd draws as a plate
+                       (Phase 2), and
+     [data-lgs-noslab]  the popped parts whose slab is "none" (glass in-page),
    only while the daemon acknowledges that the compositor shows that cover
    or slab (__LGS_LAYERS.ack), and removes the mark as soon as it does not.
    So an element whose glass is not (or not yet) on screen keeps its CSS
@@ -39,11 +42,14 @@
   /* 1. Covers: the surface's own glass                                  */
   /* ------------------------------------------------------------------ */
 
-  /* main window: window glass and its rim (20-shell.css) */
+  /* main window: window glass and its rim (20-shell.css). The ::after is
+     the window's top sheen (white .08 -> 0) and dark inner edge, painted
+     with literal colours (C1a): glassd's window glass has its own */
   &.lgs-native %{BasicUiRoot}[data-lgs-cover] {
     background: transparent;
   }
   &.lgs-native %{BasicUiRoot}[data-lgs-cover]::after {
+    background: none;
     box-shadow: none;
   }
 
@@ -78,6 +84,12 @@
      pseudo-element that paints them */
   &.lgs-native %{BackContainer}[data-lgs-pop~="before"]::before,
   &.lgs-native #header%{Profile>Header}[data-lgs-pop~="after"]::after {
+    /* Phase 2 (C1a): the Back capsule is a raised control (P4's raised
+       fill: white .10 + a .06 sheen, and an inset top highlight). Popped,
+       glassd's slab is its glass: the scrim stays, the light and the
+       highlight (a second edge over the slab's crescent) go */
+    --lgs-raised-bg: linear-gradient(var(--lgs-scrim), var(--lgs-scrim));
+    --lgs-raised-shadow: 0 0 0 0 transparent;
     --lgs-capsule-face: linear-gradient(var(--lgs-scrim), var(--lgs-scrim));
     --lgs-capsule-hover: linear-gradient(var(--lgs-hover-fill), var(--lgs-hover-fill)),
         linear-gradient(var(--lgs-scrim), var(--lgs-scrim));
@@ -99,6 +111,16 @@
     --lgs-glass-bg: transparent;
     --lgs-glass-rim: 0 0 0 0 transparent;
     --lgs-lib-glass-face: linear-gradient(var(--lgs-scrim), var(--lgs-scrim));
+  }
+  /* Phase 2 (C1a, 20-shell.css §3): the ornament capsule paints its liquid
+     tint with literal colours (a white .12 -> .03 sheen over a dark tint
+     that deepens below the glass edge). Popped, the slab supplies tint and
+     sheen: the scrim stays, so the labels keep Apple's dimming layer. Its
+     inner shade goes through --lgs-mat-liquid-shade (section 4), its drop
+     shadow and blur stay. The quiet legend (not glass) keeps its own band:
+     C1a's quiet rule is more specific. */
+  &.lgs-native %{BasicUiRoot} #Footer%{BasicFooter}[data-lgs-pop~="after"]:not([data-lgs-noslab~="after"])::after {
+    background: linear-gradient(var(--lgs-scrim), var(--lgs-scrim));
   }
 
   /* ------------------------------------------------------------------ */
@@ -126,5 +148,98 @@
     --lgs-panel-sheen: linear-gradient(transparent, transparent);
     --lgs-thick-bg: transparent;
     --lgs-glass-rim: 0 0 0 0 transparent;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* 4. Phase 2 materials (contracts/reporter.md 7-8, tokens.md 1.7)      */
+  /* ------------------------------------------------------------------ */
+  /* Phase 2 code paints glass through the --lgs-mat-* tokens and draws
+     its E3 edge through the --lgs-edge hook (03-material.css). Where the
+     daemon acknowledged glassd's glass, those tokens are zeroed on the
+     element that is glass, so whichever element or pseudo-element of it
+     paints the material gets transparent, and the CSS edge goes (glassd
+     draws GM v2's crescent). In-page refraction (--lgs-mat-*-blur) stays.
+     Areas key anything more specific on the same attributes. */
+
+  /* main window cover (window, window-full, hero): the window material */
+  &.lgs-native %{BasicUiRoot}[data-lgs-cover] {
+    --lgs-mat-window-bg: transparent;
+    --lgs-mat-window-shade: 0 0 0 0 transparent;
+    --lgs-edge: none;
+  }
+
+  /* every other cover is the glass card of its quad: bar segments, popup
+     cards, Quick Access, tab and frame menus, the floating footer, toasts,
+     the volume HUD, tooltips. Nothing inside a card is glass (VP P-45),
+     so zeroing the card's material tokens reaches only the card. */
+  &.lgs-native :not(%{BasicUiRoot})[data-lgs-cover] {
+    --lgs-mat-panel-bg: transparent;
+    --lgs-mat-panel-shade: 0 0 0 0 transparent;
+    --lgs-mat-liquid-bg: transparent;
+    --lgs-mat-liquid-room-bg: transparent;
+    --lgs-mat-liquid-shade: 0 0 0 0 transparent;
+    --lgs-mat-thick-bg: transparent;
+    --lgs-mat-thick-shade: 0 0 0 0 transparent;
+    --lgs-panel-bg: transparent;
+    --lgs-panel-sheen: linear-gradient(transparent, transparent);
+    --lgs-panel-rim: 0 0 0 0 transparent;
+    --lgs-edge: none;
+  }
+
+  /* plates (data-lgs-plate): glassd draws the plate itself, opaque, at the
+     cover's depth, and the base mosaic shows Steam's content in front of
+     it. The plate element drops its fill, shading and blur; its content,
+     labels and focus (areas mark focus glows !important, as Steam's focus
+     animations already require) stay. --lgs-plate-bg is the variable areas
+     paint a plate through. */
+  &.lgs-native [data-lgs-plate][data-lgs-plate-ack] {
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+    --lgs-plate-bg: transparent;
+    --lgs-mat-plate-bg: transparent;
+    /* a plate painted with a material token (C1c's flat thick modals):
+       the plate is opaque glassd glass, so no in-page frost either (a blur
+       in Steam's texture would cover the plate through the base mosaic) */
+    --lgs-mat-window-bg: transparent;
+    --lgs-mat-panel-bg: transparent;
+    --lgs-mat-liquid-bg: transparent;
+    --lgs-mat-liquid-room-bg: transparent;
+    --lgs-mat-thick-bg: transparent;
+    --lgs-mat-window-shade: 0 0 0 0 transparent;
+    --lgs-mat-panel-shade: 0 0 0 0 transparent;
+    --lgs-mat-liquid-shade: 0 0 0 0 transparent;
+    --lgs-mat-thick-shade: 0 0 0 0 transparent;
+    --lgs-mat-liquid-blur: none;
+    --lgs-mat-thick-blur: none;
+    --lgs-edge: none;
+  }
+
+  /* pops: glassd's slab under the crop supplies tint, frost and edge; the
+     part keeps its backdrop-filter (refraction of the page behind it). A
+     part whose slab is "none" (data-lgs-noslab: glassd draws only the hole,
+     the glass stays in-page, GP's cluster over art) keeps its CSS glass. */
+  &.lgs-native [data-lgs-pop~="self"]:not([data-lgs-noslab~="self"]),
+  &.lgs-native [data-lgs-pop~="before"]:not([data-lgs-noslab~="before"])::before,
+  &.lgs-native [data-lgs-pop~="after"]:not([data-lgs-noslab~="after"])::after {
+    --lgs-mat-liquid-bg: transparent;
+    --lgs-mat-liquid-room-bg: transparent;
+    --lgs-mat-liquid-shade: 0 0 0 0 transparent;
+    --lgs-mat-panel-bg: transparent;
+    --lgs-mat-panel-shade: 0 0 0 0 transparent;
+    --lgs-mat-thick-bg: transparent;
+    --lgs-mat-thick-shade: 0 0 0 0 transparent;
+  }
+  &.lgs-native [data-lgs-pop~="self"]:not([data-lgs-noslab~="self"]) {
+    --lgs-edge: none;
+  }
+  /* a popped ::before / ::after capsule: P4's E3 arc of that capsule is
+     drawn on its host's ::before by the host's --lgs-edge (the bottom
+     ornament: #Footer --lgs-edge: liquid, capsule on ::after). The slab
+     draws the crescent, so the host's hook goes too. --lgs-edge is not
+     inherited: only the host's own ::before changes. */
+  &.lgs-native [data-lgs-pop~="before"]:not([data-lgs-pop~="self"], [data-lgs-noslab~="before"]),
+  &.lgs-native [data-lgs-pop~="after"]:not([data-lgs-pop~="self"], [data-lgs-noslab~="after"]) {
+    --lgs-edge: none;
   }
 }

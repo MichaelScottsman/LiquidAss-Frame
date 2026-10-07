@@ -13,32 +13,46 @@
    plates over a cover stay opaque
  - holes: a hole with a red fill reddens the cover inside its crop rect only;
    a "none" slab's cell stays empty; a green-tinted slab is green
+ R1 (review fixes):
+ - cover: a window cover with no slabs (1920 x 984, r 81) and the window
+   surface have no opaque near-black texel (M1: black dashes inside the
+   corners, from an implicit-LOD read of the quarter-resolution copy)
+ - masks (G4): over the procedural room with the room behind the UI unknown
+   (--test-backdrop room-hole), a surface mask rect beside the window and a
+   world mask quad each make more of the room map unknown, and nothing known
+ - coverDz (G4/G7): a slab over a plate sees the cover plane where coverDz
+   puts it: its cell changes with coverDz, more for a deeper offset
+Fixtures live in /tmp/lgs/p9-fx/shapes and are removed on any exit.
 """
 import json
 import os
+import shutil
 import struct
 import subprocess
 import sys
 import zlib
 
+sys.dont_write_bytecode = True  # never leave __pycache__ beside the shared install
 G = os.environ.get("GLASSD") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "glassd")
-D = "/tmp/lgs-fx"
+D = "/tmp/lgs/p9-fx/shapes"  # rule 7: test state only under /tmp/lgs
 
 
 def png(path):
     data = open(path, "rb").read()
-    pos, idat, w, h = 8, b"", 0, 0
+    pos, idat, w, h, ct = 8, b"", 0, 0, 6
     while pos < len(data):
         n = struct.unpack(">I", data[pos:pos + 4])[0]
         t = data[pos + 4:pos + 8]
         c = data[pos + 8:pos + 8 + n]
         if t == b"IHDR":
             w, h = struct.unpack(">II", c[:8])
+            ct = c[9]  # 6 RGBA, 2 RGB (the -view.png dumps)
         if t == b"IDAT":
             idat += c
         pos += 12 + n
     raw = zlib.decompress(idat)
-    bpp, stride = 4, w * 4
+    bpp = {6: 4, 2: 3, 4: 2, 0: 1}[ct]
+    stride = w * bpp
     rows, prev = [], bytearray(stride)
     for y in range(h):
         f = raw[y * (stride + 1)]
@@ -85,7 +99,9 @@ def main():
                   "slabs": [{"id": "red", "x": 100, "y": 100, "w": 200, "h": 80, "r": 40, "dz": 0.03, "material": "none",
                              "hole": {"fill": "rgb(255 0 0 / 0.8)", "shadow": 0.35}},
                             {"id": "green", "x": 400, "y": 100, "w": 200, "h": 80, "r": 40, "dz": 0.03, "material": "liquid",
-                             "tint": "#30d158"}]}
+                             "tint": "#30d158"},
+                            {"id": "dimcell", "x": 100, "y": 300, "w": 160, "h": 100, "r": 0, "dz": -0.05, "material": "dim",
+                             "fill": [0, 0, 0, 0.3]}]}
     spec = {"seq": 7, "dial": 0.5, "surfaces": [
         {"name": "union", "overlayKey": "", "texW": 1200, "texH": 120, "radius": 60, "material": "panel", "visible": True,
          "shapes": [{"x": 0, "y": 0, "w": 640, "h": 120, "r": 60}, {"x": 560, "y": 0, "w": 640, "h": 120, "r": 60}], "slabs": []},
@@ -98,6 +114,9 @@ def main():
         {"name": "plates", "overlayKey": "", "texW": 960, "texH": 540, "radius": 40, "material": "window", "visible": True,
          "shapes": [], "plates": plates, "slabs": []},
         holes_spec,
+        # R1 M1: a window cover with no slabs (the default profile's common case)
+        {"name": "cover", "overlayKey": "", "texW": 1920, "texH": 984, "radius": 81, "material": "window", "visible": True,
+         "shapes": [{"x": 0, "y": 0, "w": 1920, "h": 984, "r": 81}], "slabs": []},
     ]}
     json.dump(spec, open(D + "/spec.json", "w"))
     r = subprocess.run([G, "--spec", D + "/spec.json", "--out", D + "/out.json", "--key-prefix", "glassd-fx.", "--no-feed",
@@ -196,9 +215,129 @@ def main():
     ov = px(800, 380)
     print("  plate over the cover: %s" % ov)
     ok &= ov[3] == 255
+    # v3 G7: a "dim" slab is a flat dark cell (alpha .30 inside, feathered edge) and casts nothing on the cover
+    dc = ho["slabs"]["dimcell"]
+    dx0, dy0, dx1, dy1 = int(dc[0] * w), int(dc[1] * h), int(dc[2] * w), int(dc[3] * h)
+    mid = rows[(dy0 + dy1) // 2][((dx0 + dx1) // 2) * 4:((dx0 + dx1) // 2) * 4 + 4]
+    edge = rows[(dy0 + dy1) // 2][dx0 * 4:dx0 * 4 + 4]
+    print("  dim slab cell centre %s, edge texel %s" % (list(mid), list(edge)))
+    ok &= mid[0] == mid[1] == mid[2] == 0 and 70 <= mid[3] <= 84 and edge[3] < mid[3] // 2
+    under, away = px(180, 350), px(600, 350)
+    print("  cover under the dim slab %s, same row away from it %s" % (under, away))
+    ok &= all(abs(a - b) <= 3 for a, b in zip(under, away))
+    # v3 G7: roomDim .30 darkens what every piece of glass sees
+    w0, h0, rows0 = png(D + "/d/window.png")
+    spec2 = {"seq": 8, "dial": 0.5, "roomDim": 0.3, "surfaces": [s for s in spec["surfaces"] if s["name"] == "window"]}
+    json.dump(spec2, open(D + "/spec2.json", "w"))
+    r2 = subprocess.run([G, "--spec", D + "/spec2.json", "--out", D + "/out2.json", "--key-prefix", "glassd-fx.", "--no-feed",
+                         "--dash", "off", "--once", "--warmup", "0", "--dump", D + "/d2"], capture_output=True, text=True, timeout=60)
+    w1, h1, rows1 = png(D + "/d2/window.png")
+    o2 = json.load(open(D + "/out2.json"))
+
+    def lum_mean(rr):
+        px_ = [rr[y][x * 4:x * 4 + 3] for y in range(40, 230, 6) for x in range(40, 440, 6)]
+        return sum(0.299 * q[0] + 0.587 * q[1] + 0.114 * q[2] for q in px_) / len(px_)
+    l0, l1 = lum_mean(rows0), lum_mean(rows1)
+    print("  roomDim: caps %s; window glass mean luma %.1f -> %.1f with roomDim .30 (exit %d)" % (
+        "roomDim" in o2.get("caps", []) and "dimSlab" in o2.get("caps", []), l0, l1, r2.returncode))
+    ok &= "roomDim" in o2.get("caps", []) and "dimSlab" in o2.get("caps", []) and l1 < l0 - 2
     print("GL-1 v3:", "PASS" if ok else "FAIL")
-    subprocess.run(["rm", "-rf", D])
+    ok1 = r1_checks()
+    print("GL-1 R1 (cover-only, masks, coverDz):", "PASS" if ok1 else "FAIL")
+    print("GL-1:", "PASS" if ok and ok1 else "FAIL")
+
+
+def black_opaque(path):
+    """Opaque near-black texels (R+G+B < 30, A > 200): glass is never black."""
+    w, h, rows = png(path)
+    return sum(1 for y in range(h) for x in range(w)
+               if rows[y][x * 4 + 3] > 200 and rows[y][x * 4] + rows[y][x * 4 + 1] + rows[y][x * 4 + 2] < 30)
+
+
+def run(spec, name, *extra):
+    """glassd --once on SPEC; returns (stdout, out json, dump dir)."""
+    d = D + "/" + name
+    os.makedirs(d, exist_ok=True)
+    json.dump(spec, open(d + "/spec.json", "w"))
+    r = subprocess.run([G, "--spec", d + "/spec.json", "--out", d + "/out.json", "--key-prefix", "glassd-fx.", "--dash", "off",
+                        "--once", "--warmup", "0", "--dump", d] + list(extra), capture_output=True, text=True, timeout=90)
+    out = json.load(open(d + "/out.json")) if os.path.exists(d + "/out.json") else {}
+    return r.stdout + r.stderr, out, d
+
+
+def r1_checks():
+    ok = True
+    # M1: no black texels in a cover without slabs (the first run's "cover" and "window"), also over the test room
+    nb = black_opaque(D + "/d/cover.png")
+    nw = black_opaque(D + "/d/window.png")
+    cover = {"seq": 1, "dial": 0.5, "surfaces": [
+        {"name": "main", "overlayKey": "valve.steam.gamepadui.main", "texW": 1920, "texH": 984, "radius": 81,
+         "material": "window", "visible": True, "shapes": [{"x": 0, "y": 0, "w": 1920, "h": 984, "r": 81}], "slabs": []}]}
+    _, _, d = run(cover, "m1room", "--test-backdrop", "room")
+    nr = black_opaque(d + "/main.png")
+    print("  cover without slabs: opaque near-black texels %d (grey room), %d (test room); window surface %d" % (nb, nr, nw))
+    ok &= nb == 0 and nr == 0 and nw == 0
+
+    # G4 masks: room-hole leaves the room behind the UI unknown; each extra mask must hide more of it
+    def known(name, sm, wm):
+        sp = json.loads(json.dumps(cover))
+        if sm:
+            sp["surfaces"][0]["masks"] = sm
+        if wm:
+            sp["masks"] = wm
+        txt, _, d = run(sp, name, "--test-backdrop", "room-hole", "--dump-room", D + "/" + name + "/room.png")
+        w, h, rows = png(D + "/" + name + "/room-known.png")
+        return w, h, rows
+    smask = [{"x": -700, "y": 200, "w": 300, "h": 400, "dz": 0}]                    # an ornament left of the window
+    wmask = [{"O": [1.2, 1.9, -1.6], "U": [0.4, 0, 0], "V": [0, -0.4, 0]}]           # a SteamVR panel right of it
+    w0, h0, k0 = known("mask0", None, None)
+    _, _, k1 = known("mask1", smask, None)
+    _, _, k2 = known("mask2", None, wmask)
+    def diff(ka, kb):
+        lost = gained = seen = 0
+        for y in range(h0):
+            ra, rb = ka[y], kb[y]
+            for x in range(w0):
+                a, b = ra[x] > 127, rb[x] > 127
+                seen += a
+                lost += a and not b
+                gained += b and not a
+        return seen, lost, gained
+    seen, lost1, gain1 = diff(k0, k1)
+    _, lost2, gain2 = diff(k0, k2)
+    n = w0 * h0
+    print("  masks (room-hole): known %.1f%% of the map; + surface mask: %d texels hidden, %d revealed; "
+          "+ world mask: %d hidden, %d revealed" % (100.0 * seen / n, lost1, gain1, lost2, gain2))
+    ok &= lost1 > 20 and lost2 > 20 and gain1 == 0 and gain2 == 0
+
+    # coverDz: a slab over a dark plate's edge sees the cover plane (and its plates) where coverDz puts it,
+    # so from an off-axis head the edge shifts inside the slab (dial 0 and clear glass: the least frost)
+    def slab_cell(name, cdz):
+        sp = {"seq": 1, "dial": 0.0, "unitM": 0.369, "surfaces": [
+            {"name": "main", "overlayKey": "valve.steam.gamepadui.main", "texW": 1920, "texH": 1080, "radius": 81,
+             "material": "window", "visible": True, "coverDz": cdz, "shapes": [{"x": 0, "y": 0, "w": 1920, "h": 1080, "r": 81}],
+             "plates": [{"id": "tile", "x": 700, "y": 300, "w": 300, "h": 400, "r": 0, "material": "dim", "fill": [0, 0, 0, 0.9]}],
+             "slabs": [{"id": "pop", "x": 860, "y": 450, "w": 300, "h": 160, "r": 60, "material": "clear", "dz": 0.03}]}]}
+        _, out, d = run(sp, name, "--test-backdrop", "room", "--test-head", "0.35,0.1,0")
+        w, h, rows = png(d + "/main.png")
+        u0, v0, u1, v1 = out["surfaces"]["main"]["slabs"]["pop"]
+        return [rows[y][x * 4 + c] for y in range(int(v0 * h) + 4, int(v1 * h) - 4) for x in range(int(u0 * w) + 4, int(u1 * w) - 4)
+                for c in range(3)]
+    c0, c1, c2 = slab_cell("cdz0", 0.001), slab_cell("cdz1", -0.027), slab_cell("cdz2", -0.2)
+    d1 = sum(abs(a - b) for a, b in zip(c0, c1)) / len(c0)
+    d2 = sum(abs(a - b) for a, b in zip(c0, c2)) / len(c0)
+    print("  coverDz: slab cell mean |change| %.2f at coverDz -0.027 (K-G6), %.2f at -0.2 (vs 0.001)" % (d1, d2))
+    ok &= d1 > 0.3 and d2 > 2 * d1
+    return ok
 
 
 if __name__ == "__main__":
-    main()
+    shutil.rmtree(D, ignore_errors=True)
+    try:
+        main()
+    finally:
+        shutil.rmtree(D, ignore_errors=True)
+        try:
+            os.rmdir(os.path.dirname(D))  # /tmp/lgs/p9-fx, when no other P9 test runs
+        except OSError:
+            pass

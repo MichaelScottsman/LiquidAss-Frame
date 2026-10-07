@@ -1,0 +1,52 @@
+/* Glass Shell phase 2: route and tab transitions (package C1c, T1).
+   Sources: PLAN §1.5 (S3: Steam's entrances overridden inside its React
+   timeouts), WN §7 rows "Route change" and "Tab content", MO §4.12, §6.4;
+   inventory shell §8, library §1.4. Tokens: contracts/motion.md (P5).
+   Wrapped as html.lgs-on { ... } by the bundler.
+
+   Only timing properties change (transition-*). Steam's own state classes
+   keep their opacity and transform values; we never set transform or
+   opacity on these nodes (inventory shell §8):
+   - the content fades; the transform change Steam asks for (route scale
+     .95 <-> 1, tab slide +-40 % / +-10 %) is made instant and timed to happen
+     while the content is invisible, so nothing scales or slides (WN §7:
+     no scaling of the 38° window, no full-width slides);
+   - route: old content out in 150 ms linear (Steam's exit timeout 200),
+     new content in on `page` (662) after 40 ms (Steam's enter 800);
+   - tabs: Steam's tab timeout is shorter, so new content comes in on
+     `hover-in` (294) after 40 ms, old content out in 150 ms linear.
+   C1c's T2 adds the +-16 px direction (MO §4.12) at M3. */
+
+/* ------------------------------------------------------------------ */
+/* 1. Route changes (%{TopLevelTransitionSwitch})                       */
+/* ------------------------------------------------------------------ */
+
+%{TopLevelTransitionSwitch} > %{TopLevelTransition}%{TopLevelTransitionSwitch>EnterActive} {
+  transition-property: opacity, transform;
+  transition-duration: var(--lgs-d-page), 0s;
+  transition-timing-function: var(--lgs-ease-page), linear;
+  transition-delay: var(--lgs-delay-page), 0s;
+}
+%{TopLevelTransitionSwitch} > %{TopLevelTransition}%{TopLevelTransitionSwitch>ExitActive} {
+  transition-property: opacity, transform;
+  transition-duration: var(--lgs-d-page-out), 0s;
+  transition-timing-function: linear, linear;
+  transition-delay: 0s, var(--lgs-d-page-out);
+}
+
+/* ------------------------------------------------------------------ */
+/* 2. Tab content (library, search, home tabs: GamepadTabbedPage)       */
+/* ------------------------------------------------------------------ */
+
+:is(%{GamepadTabbedPage>Left}, %{GamepadTabbedPage>Right}) > %{GamepadTabbedPage>ContentTransition}%{GamepadTabbedPage>EnterActive} {
+  transition-property: transform, opacity;
+  transition-duration: 0s, var(--lgs-d-hover-in);
+  transition-timing-function: linear, var(--lgs-ease-b0);
+  transition-delay: 0s, var(--lgs-delay-page);
+}
+:is(%{GamepadTabbedPage>Left}, %{GamepadTabbedPage>Right}) > %{GamepadTabbedPage>ContentTransition}%{GamepadTabbedPage>ExitActive} {
+  transition-property: transform, opacity;
+  transition-duration: 0s, var(--lgs-d-page-out);
+  transition-timing-function: linear, linear;
+  transition-delay: var(--lgs-d-page-out), 0s;
+}

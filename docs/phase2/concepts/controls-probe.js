@@ -49,7 +49,9 @@
         const other = name === 'on' ? off : on, below = other && other.getBoundingClientRect().top > r.top;
         const ext = (below ? hit(cx, r.top - 19) : hit(cx, r.bottom + 19)) && hit(r.left - 8, cy) && hit(r.right + 8, cy);
         const beyond = below ? !hit(cx, r.top - 25) : !hit(cx, r.bottom + 25);
-        const knobOk = name === 'on' ? Math.abs(k.right - r.right) < 2 : Math.abs(k.left - r.left) < 2;
+        // theme mode: the knob is drawn ~3 px inside the track (CTL §6.1), so allow 4 px
+        const tol = MODE === 'theme' ? 4 : 2;
+        const knobOk = name === 'on' ? Math.abs(k.right - r.right) < tol : Math.abs(k.left - r.left) < tol;
         pass('switch_' + name, r.width >= 64 && r.height >= 38 && own && ext && knobOk, { rect: R(t), knob: R(t.children[1]), own, ext, beyondNotHit: beyond, knobOk });
       }
       for (const [e, a] of marked.splice(0)) e.removeAttribute(a);

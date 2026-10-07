@@ -21,6 +21,9 @@
 @property --lgs-edge { syntax: "*"; inherits: false; }
 @property --lgs-ill { syntax: "*"; inherits: false; }
 @property --lgs-scroll-band { syntax: "*"; inherits: false; }
+/* stacking of the edge layer (03-material.css): non-inherited so a window's
+   value never reaches the controls inside it */
+@property --lgs-edge-z { syntax: "*"; inherits: false; }
 
 html.lgs-on {
   /* Transparency dial, 0 = clearest .. 1 = most opaque ("lgs dial 0.7").
@@ -36,7 +39,8 @@ html.lgs-on {
   --lgs-text-disabled: var(--lgs-text-4);
   --lgs-text-on-selected: #0d0e12;
   --lgs-text-on-selected-2: rgb(13 14 18 / .60);
-  --lgs-text-on-tint: #fff;
+  --lgs-text-on-tint: #fff;            /* label on the blue tinted capsule only */
+  --lgs-text-on-color: #0d0e12;        /* label on green, orange, yellow and red fills (PLAN §1.12, CC §7; REQ C4a) */
   --lgs-text-danger: rgb(255 130 125);
   --lgs-text-room-shadow: 0 1px 3px rgb(0 0 0 / .55), 0 0 12px rgb(0 0 0 / .35);
 
@@ -98,6 +102,7 @@ html.lgs-on {
   --lgs-tint-play: rgb(48 209 88 / .88);
   --lgs-tint-primary: rgb(0 145 255 / .86);
   --lgs-tint-danger: rgb(255 66 69 / .84);
+  --lgs-fill-danger: rgb(255 66 69 / .92);   /* red whole fill under a --lgs-text-on-color label (destructive focus, confirm) */
   --lgs-toggle-on: var(--lgs-green);
   --lgs-check-on: var(--lgs-blue);
 
@@ -118,7 +123,7 @@ html.lgs-on {
   /* ================================================================ states (PLAN §1.4) */
   --lgs-hover-add: .08;
   --lgs-hover-spot: .12;
-  --lgs-focus-add: .28;          /* G-FOCUS tuning range .28-.32; final value in wp/P4.md */
+  --lgs-focus-add: .32;          /* final, set from G-FOCUS (range .28-.32): .28 failed P-14/P-15 on the tab bar over glass at L ~95 (REQ C1a); wp/P4.md P4-D8 */
   --lgs-focus-spot: .16;
   --lgs-focus-arc: .55;
   --lgs-focus-first: .60;
@@ -127,7 +132,14 @@ html.lgs-on {
   --lgs-press-spot: .22;
   --lgs-press-grow: 6;
   --lgs-press-max: 1.06;
-  --lgs-white-glow: 0 0 18px 2px rgb(255 255 255 / .30);
+  /* focus on a white or coloured fill: a blurred outer glow, never a ring (VP P-16).
+     PLAN §1.4's 18/2/.30 measured +4..+12 L in the 8-16 px band (needs +20; REQ C1c,
+     C3a): 22/8/.55 gives +23 L (bright room) / +27 L (dim). Parts exposed so other
+     surfaces can scale blur and spread by their m. */
+  --lgs-white-glow-blur: 22px;
+  --lgs-white-glow-spread: 8px;
+  --lgs-white-glow-a: .55;
+  --lgs-white-glow: 0 0 var(--lgs-white-glow-blur) var(--lgs-white-glow-spread) rgb(255 255 255 / var(--lgs-white-glow-a));
   --lgs-dis-content: .40;
   --lgs-dis-focus-add: .10;
   --lgs-card-lift: 1.05;
@@ -145,6 +157,7 @@ html.lgs-on {
   --lgs-darkedge-liquid: inset 0 0 6px -0.9px rgb(0 0 0 / .12), inset 0 -2px 4px -1px rgb(0 0 0 / .12);
   --lgs-darkedge-thick: inset 0 0 12px -1.8px rgb(0 0 0 / .20), inset 0 -2px 4px -1px rgb(0 0 0 / .12);
   --lgs-darkedge-clear: inset 0 0 5px -0.75px rgb(0 0 0 / .10), inset 0 -2px 4px -1px rgb(0 0 0 / .10);
+  --lgs-shadow-5mm: 0 2px 6px rgb(0 0 0 / .30);     /* tooltips at owner + 5 mm, CSS only (REQ P3) */
   --lgs-shadow-10mm: 0 4px 12px rgb(0 0 0 / .30);
   --lgs-shadow-15mm: 0 6px 18px rgb(0 0 0 / .30);
   --lgs-shadow-25mm: 0 10px 30px rgb(0 0 0 / .28);
@@ -257,9 +270,10 @@ html.lgs-on {
   --lgs-pill-shadow: 0 1px 3px rgba(0, 0, 0, 0.22);
   --lgs-field-gap: 6px;
   --lgs-r-panel: 24px;
-  /* Phase 1 motion aliases (Phase 2 motion: --lgs-ease-*, --lgs-d-*, P5) */
-  --lgs-spring: cubic-bezier(0.2, 0.9, 0.25, 1.15);
-  --lgs-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* Phase 1 motion aliases, now pointing at P5's curves (DESIGN2 §11.3: they
+     replace Phase 1's); the fallbacks are the Phase 1 values */
+  --lgs-spring: var(--lgs-ease-b15, cubic-bezier(0.2, 0.9, 0.25, 1.15));
+  --lgs-ease: var(--lgs-ease-b0, cubic-bezier(0.2, 0.8, 0.2, 1));
   --lgs-t-fast: 140ms;
   --lgs-t: 220ms;
   --lgs-t-slow: 320ms;
@@ -305,14 +319,17 @@ html.lgs-on:lang(vi) { --lgs-font: "Motiva Sans", Arial, sans-serif; }
   }
 }
 
-/* Reduce Motion: no swell and no lift; fades stay (MO C8). The Phase 1
-   duration aliases keep their Phase 1 behaviour. */
+/* Reduce Motion: no swell and no lift; fades stay (MO C8, VP P-56: fades
+   <= 200 ms, not instant). The Phase 1 duration aliases follow P5's Reduce
+   Motion durations (150 / 150 / 180 ms; REQ P5->P4). */
 @media (prefers-reduced-motion: reduce) {
   html.lgs-on {
     --lgs-press-grow: 0;
     --lgs-press-max: 1;
     --lgs-card-lift: 1;
     --lgs-disc-lift: 1;
-    --lgs-t-fast: 1ms; --lgs-t: 1ms; --lgs-t-slow: 1ms;
+    --lgs-t-fast: var(--lgs-d-interactive, 150ms);
+    --lgs-t: var(--lgs-d-hover-in, 150ms);
+    --lgs-t-slow: var(--lgs-d-fade, 180ms);
   }
 }

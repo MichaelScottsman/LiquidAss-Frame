@@ -21,8 +21,6 @@
   /* the open value menu (<= 8 options): thick glass grown out of its capsule, right-aligned to it (slab right = capsule right + 8),
      below it because it fits above y 628 (PLAN §1.12, SET §4.5 order: below, above, over) */
   .menu { width: 380px; }
-  .menu .lgk-row { padding: 0 20px 0 22px; }
-  .menu .lgk-row .trail { margin-left: auto; display: grid; place-items: center; --is: 26px; }
 </style>
 </head>
 <body>
@@ -68,9 +66,9 @@
     <div class="lgk-glass lgk-menu c-menu menu" id="menu" data-mat="thick" data-lens style="--dz:10" data-dz="10" data-id="menu"
          data-tier="T1 in-page thick glass; T5 +10 mm non-interactive crop + thick slab">
       <div class="hdr">Output</div>
-      <div class="lgk-row is-hover" id="hrow" style="--hx:62%; --hy:52%"><span class="lab">Headset Audio</span></div>
-      <div class="lgk-row"><span class="lab">Steam Frame Speakers</span><span class="trail"><i data-i="check" class="bold"></i></span></div>
-      <div class="lgk-row"><span class="lab">HDMI Audio</span></div>
+      <div class="lgk-row is-hover" id="hrow" style="--hx:62%; --hy:52%"><span class="lead"></span><span class="lab">Headset Audio</span></div>
+      <div class="lgk-row" data-id="row-current"><span class="lead"><i data-i="check"></i></span><span class="lab">Steam Frame Speakers</span></div>
+      <div class="lgk-row"><span class="lead"></span><span class="lab">HDMI Audio</span></div>
       <span class="c-cancel">Cancel</span>
     </div>
   </div>
@@ -81,8 +79,8 @@
   </svg>
   <div class="lgk-laser-dot" id="dot"></div>
 
-  <div class="c-note" style="left:1622px; top:150px; width:270px"><b>Up to 8 options</b>: the slab grows out of its capsule, right-aligned to it, below it when it fits above y 628 (else above, else over it). The source turns white while open; the current value has a trailing check. Rows 72, a 40 px header, Steam's Cancel as a 56 px quiet capsule.</div>
-  <div class="c-note" style="left:1622px; top:452px; width:270px"><b>Longer lists</b>: on settings routes, more than 8 options become the list page (settings concept); elsewhere 9–14 use two columns and 15 or more one scrolling column of two-line rows (<span class="k">p2_controls_timezone</span>).</div>
+  <div class="c-note" style="left:1622px; top:150px; width:270px"><b>Up to 8 options</b>: the slab grows out of its capsule, right-aligned to it, below it when it fits above y 628 (else above, else over it). The source turns white while open; the current value has a check in the leading slot, no fill. Rows 72, a 40 px header, Steam's Cancel as a 56 px quiet capsule. Laser hover: + .08 and the light at the pointer. Native: +10 mm, non-interactive.</div>
+  <div class="c-note" style="left:1622px; top:478px; width:270px"><b>Longer lists</b>: on settings routes, more than 8 options become the list page (settings concept); elsewhere 9–14 use two columns and 15 or more one scrolling column of two-line rows (<span class="k">p2_controls_timezone</span>).</div>
 </div>
 <script src="controls-gallery.js"></script>
 <script src="kit.js"></script>

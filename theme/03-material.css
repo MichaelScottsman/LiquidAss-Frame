@@ -25,6 +25,11 @@
     border-radius: inherit;
     pointer-events: none;
     box-sizing: border-box;
+    /* under the host's children by default (controls: the label never
+       covers a 1.5 px rim); containers whose content reaches their edge set
+       --lgs-edge-z on the host (the window's default is above its header) */
+    --lgs-edge-z: inherit;
+    z-index: var(--lgs-edge-z, auto);
     --lgs-focus: inherit;
     --_lgs-rim: var(--lgs-rim-control);
     --_lgs-k: calc(var(--_lgs-rim) * (1 + .5 * var(--lgs-focus)));
@@ -49,7 +54,9 @@
   }
 }
 @container style(--lgs-edge: window) {
-  *::before { --_lgs-rim: var(--lgs-rim-window); --_lgs-rim-w: var(--lgs-rim-w-window); }
+  /* the window's content (header, full-bleed art, modals) reaches its edge:
+     the rim sits above it like a real rim, as Phase 1's did (z 20000) */
+  *::before { --_lgs-rim: var(--lgs-rim-window); --_lgs-rim-w: var(--lgs-rim-w-window); z-index: var(--lgs-edge-z, 20000); }
 }
 @container style(--lgs-edge: panel) {
   *::before { --_lgs-rim: var(--lgs-rim-panel); }

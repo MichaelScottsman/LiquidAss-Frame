@@ -64,12 +64,14 @@ One key light for every surface, fixed in the world: from above, about 20° left
 |---|---|
 | E4 darkened edge | A soft band inside the edge (width `darkW`; ramps up over 30 % of it, down over the rest), 35 % strength on the lit side and 100 % opposite |
 | E5 occlusion | Darkening just inside the lower edge, fading over 1.6 × `darkW` |
-| Slab shadows on a cover | Each settled slab casts a soft shadow on the cover behind it: offset down by 2 mm + 0.4 × dz, softness 3 mm + 0.4 × dz, alpha `slabShadow`. Only for slabs whose element has held still for 150 ms (the daemon's pop rule; while an element moves the daemon keeps it flat and so the shadow waits), never under the slab itself (so a slab seeing its own cover is not darkened) |
+| Slab shadows on a cover | Each settled slab casts a soft shadow on the cover behind it: offset down by 0.3 × dz (VP P-48: 0.4 CSS px per mm of depth; R1, was 2 mm + 0.4 × dz), softness 3 mm + 0.4 × dz, alpha `slabShadow`. Only for slabs whose element has held still for 150 ms (the daemon's pop rule; while an element moves the daemon keeps it flat and so the shadow waits), never under the slab itself (so a slab seeing its own cover is not darkened) |
 | Contact shadow | Outside a cover's shapes, where its texture has room (popups, the bar): a soft shadow 3 mm below, 6 mm soft, alpha `shadow` (0 for windows). Slabs have no margin in their atlas cells, so their separation comes from the shadow they cast on the cover |
 
 ### 1.6 Glass over glass
 
 Behind a popped element there is only the cover (the base mosaic leaves the popped rects out). So a slab samples **the cover**, not the room: where the bent ray meets the cover plane (+1 mm), it reads the cover's quarter-resolution pass (§4, mipmapped, transparent border), composited over the room where the cover does not reach. A capsule on the window therefore shows window glass with its own bezel, highlight and shadow, not a clear hole into the room; a toolbar straddling the window's bottom edge shows that edge, softly, through itself.
+
+R1 (review): the copy is read with nine taps (the centre and a ring of eight at 0.6 × 2^lod, 1.5 mips finer) wherever a plate or a hole's fill tone lies behind the glass, because one bilinear tap at a coarse mip turns a plate that spans 1-2 texels there into a square inside the slab; over plain cover glass one tap looks the same. **Plates over a cover** use the same mechanism (a copy of the cover alone, their optics 2 mm in front of it), so a flat menu, alert or tile kept on the window reads as raised window glass, not as a closed rim of bent room (`shots/p2_glassd_platecover_ab.png`).
 
 ### 1.7 Size changes the material
 
@@ -244,13 +246,14 @@ Profiles across edges (texture rows, `main.png`, room backdrop): the key highlig
 - **Feed run** (dashboard open, masks on, as in the first live run): the room was dark (lights off) and only 3.5 % of the map known. The glass came out navy (the room's hue) at about L 55, slabs lighter, a soft top highlight, no outline. Dumps looked at, then deleted on the Frame and locally.
 - **Live, `lgs on --native`** (nobody else was in native mode): glassd healthy on the real feed, window with 6 slabs (focused card, side column, Back and search capsules, tab arrows), bar and footer covers. One `hvgrab` capture, looked at and deleted on both sides, then `lgs on --css`. Seen:
   - the window glass shows a soft crescent along the top and around the upper-left corner, fading down the left side; no white stroke anywhere; the side column and the header capsules read as glass slabs;
-  - **a faint dashed line** along the bottom of the very wide header slab (`hdr-search`, 1743 × 48 Steam px). Its cause is not certain: the slab's lower lip was then about 2 texels wide, and a line that thin breaks up when the compositor resamples a curved panel (DESIGN2 §2.3); a base-mosaic seam is the other candidate. The lip is now 4–6 texels wide at a third of the strength (§1.4). **Not re-checked live.**
+  - **a faint dashed line** along the bottom of the very wide header slab (`hdr-search`, 1743 × 48 Steam px). Its cause is not certain: the slab's lower lip was then about 2 texels wide, and a line that thin breaks up when the compositor resamples a curved panel (DESIGN2 §2.3); a base-mosaic seam is the other candidate. The lip is now 4–6 texels wide at a third of the strength (§1.4). **Re-checked live 2026-10-07 05:16** (P9 GL-5, v3 binary, the same `hdr-search` slab, 1741 × 48): the lower edge reads as one continuous soft lip, no dashes, edge ratio 0.068; at hvgrab's half resolution, so a full-resolution look is still owed (`wp/P9.md`).
 - **Regression tests** on the v2 build: `tools/test_shapes.py` (union without holes, no cover for `shapes: []` and shapeless panels, window covered, oversize slabs dropped) and `tools/test_atlas.py` (300 and 900 random changes: 0 moved, 0 overlaps, nothing outside the texture, no size changes; spec → out median 2.1 ms; fds and RSS flat) pass.
 
 ### 6.3 Not verified
 
 - **With a wearer:** comfort of the lens band and of the highlight's head-coupled motion, the depth shadows' strength in stereo, whether the band at the window's edge reads as glass or as a frame at 90 Hz in a lit room. The live run was at night with the headset resting.
-- The dashed line (above) after the change.
+- The dashed line (above) at full resolution (seen continuous at half resolution).
+- v3 (plates, holes, tints, room dim) in the headset: verified over the procedural room only (`contracts/glassd.md`, `wp/P9.md`); the live look waits on the reporter (P6) and the areas that ask for them.
 - The lit-room look on the device: only the procedural room and a dark real room were seen.
 - Materialize driven by the daemon: the interface and timing are verified in glassd alone.
 

@@ -1,0 +1,6 @@
+[{"name": "P-14 sidebar focus vs rest (Internet)", "min": 40,
+  "a": {"state": "(async()=>{await L.root(); L.gpTake('main', '%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}@text=Internet'); return L.focused('main')})()", "sel": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}@text=Internet"},
+  "b": {"state": "(async()=>{L.gpTake('main', '%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}@text=Bluetooth'); return L.focused('main')})()", "sel": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}@text=Internet"}},
+ {"name": "P-16 glow band (Internet, 8-16 px)", "min": 20,
+  "a": {"state": "(async()=>{await L.root(); L.gpTake('main', '%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}@text=Internet'); return L.focused('main')})()", "sel": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}@text=Internet", "band": [8, 16]},
+  "b": {"state": "(async()=>{L.gpTake('main', '%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}@text=Bluetooth'); return L.focused('main')})()", "sel": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}@text=Internet", "band": [8, 16]}}]

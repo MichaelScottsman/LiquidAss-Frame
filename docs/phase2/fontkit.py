@@ -20,6 +20,7 @@ The design rules for using it are in docs/phase2/DESIGN2.md §5.
 import argparse
 import base64
 import io
+import json
 import os
 import sys
 
@@ -122,6 +123,92 @@ def check(path):
     return not missing and "wght" in axes and "opsz" in axes
 
 
+# ---------------------------------------------------------------- token parity (FD-3)
+# P4 owns the theme tokens and the mockup kit, so the kit's token check lives here too:
+#   python docs/phase2/fontkit.py --parity [--json]
+# Every kit token --lg-X whose theme twin --lgs-X exists (theme/00-tokens.nowrap.css, P5's
+# theme/02-motion.nowrap.css) must hold the same value. Values are compared after
+# normalising whitespace, number spelling (.10 = 0.1) and var(--lg-…) = var(--lgs-…).
+KIT = os.path.join(HERE, "mockups", "kit.css")
+THEME_TOKEN_FILES = [os.path.join(ROOT, "theme", "00-tokens.nowrap.css"),
+                     os.path.join(ROOT, "theme", "02-motion.nowrap.css")]
+
+
+def _strip_comments(text):
+    import re
+    return re.sub(r"/\*.*?\*/", "", text, flags=re.S)
+
+
+def _first_block(text, opener):
+    """Declarations of the first top-level block whose selector is `opener`."""
+    import re
+    text = _strip_comments(text)
+    m = re.search(r"(^|\n)\s*" + re.escape(opener) + r"\s*\{", text)
+    if not m:
+        return {}
+    i, depth, start = m.end(), 1, m.end()
+    while i < len(text) and depth:
+        depth += {"{": 1, "}": -1}.get(text[i], 0)
+        i += 1
+    body = text[start:i - 1]
+    decls = {}
+    for part in re.split(r";(?![^(]*\))", body):
+        if ":" not in part:
+            continue
+        k, v = part.split(":", 1)
+        k = k.strip()
+        if k.startswith("--"):
+            decls[k] = v.strip()
+    return decls
+
+
+def _norm(v):
+    import re
+    v = re.sub(r"\s+", " ", v.strip()).lower()
+    v = v.replace("var(--lg-", "var(--lgs-")
+    v = re.sub(r"\(\s+", "(", v)
+    v = re.sub(r"\s+\)", ")", v)
+    v = re.sub(r"\s*,\s*", ", ", v)
+
+    def num(m):
+        f = float(m.group(0))
+        return ("%g" % f)
+    return re.sub(r"(?<![\w#.-])-?(?:\d+\.?\d*|\.\d+)(?![\d.])", num, v)
+
+
+def parity(as_json=False):
+    with open(KIT, encoding="utf-8") as f:
+        kit = _first_block(f.read(), ":root")
+    theme = {}
+    for p in THEME_TOKEN_FILES:
+        if os.path.exists(p):
+            with open(p, encoding="utf-8") as f:
+                theme.update(_first_block(f.read(), "html.lgs-on"))
+    shared, diff, kit_only = [], [], []
+    for k, v in sorted(kit.items()):
+        tk = "--lgs-" + k[len("--lg-"):]
+        if tk not in theme:
+            kit_only.append(k)
+            continue
+        if _norm(v) == _norm(theme[tk]):
+            shared.append(k)
+        else:
+            diff.append({"kit": k, "kitValue": v, "theme": tk, "themeValue": theme[tk]})
+    res = {"kit": os.path.relpath(KIT, ROOT), "kitTokens": len(kit), "themeTokens": len(theme),
+           "shared": len(shared), "equal": len(shared), "different": diff, "kitOnly": kit_only,
+           "pass": not diff}
+    if as_json:
+        print(json.dumps(res, indent=1))
+    else:
+        print(f"kit {len(kit)} tokens, theme {len(theme)}; shared {len(shared) + len(diff)}: "
+              f"{len(shared)} equal, {len(diff)} different")
+        for d in diff:
+            print(f"  DIFF {d['kit']}: kit {d['kitValue']!r} vs theme {d['themeValue']!r}")
+        print(f"  kit-only (no theme twin): {', '.join(kit_only) or 'none'}")
+        print("PASS" if not diff else "FAIL")
+    return 0 if not diff else 1
+
+
 def main(argv):
     try:
         sys.stdout.reconfigure(encoding="utf-8")
@@ -130,7 +217,11 @@ def main(argv):
     ap = argparse.ArgumentParser()
     ap.add_argument("--css", help="write the @font-face nowrap stylesheet here")
     ap.add_argument("--check", action="store_true")
+    ap.add_argument("--parity", action="store_true", help="kit tokens against theme tokens (FD-3)")
+    ap.add_argument("--json", action="store_true")
     a = ap.parse_args(argv)
+    if a.parity:
+        return parity(a.json)
     if a.check:
         return 0 if check(OUT) else 1
     data = subset()

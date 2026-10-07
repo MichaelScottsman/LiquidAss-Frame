@@ -41,8 +41,8 @@ Plates have **no scene-graph nodes of their own**: glassd draws them inside the 
 | `version` | `"dev"` | Re-evaluating with the same version keeps the running instance; another version replaces it (its nodes are retired first) | live |
 | `watchdogMs` | 12000 | Without `update()` / `ping()` / `overrides()` for this long, every node is removed **and every override restored** (the spec and rules are kept; the next `ping()` rebuilds and re-applies them). 0 disables (tests only) | live |
 | `maxPushHz` | 15 | Pushes per second for structural changes (spec changes, overrides). Steady state never exceeds it | live |
-| `animHz` | 60 | Pushes per second while a depth, dim or recede value is moving (§3). Never above 60 | built |
-| `global` | `"__LGS_SG"` | The window property to install as. Tests install a second, independent instance (`"__LGS_SG_TEST"`) with its own root, so they never replace the daemon's | built |
+| `animHz` | 60 | Pushes per second while a depth, dim or recede value is moving (§3). Never above 60 | live (SG-1) |
+| `global` | `"__LGS_SG"` | The window property to install as. Tests install a second, independent instance (`"__LGS_SG_TEST"`) with its own root, so they never replace the daemon's | live |
 | `debugTint` | — | `{cover\|base\|pop\|slab: [r, g, b]}` wraps that kind's panels in a SteamVR `tint` node (identify copies in `hvgrab` frames) | live |
 | `sharedReparent` | true | One `reparent-to-panel` per parent (NATIVE fact 1). False only for the old bisection tests | live |
 | `force` | false | Replace an instance of the same version | live |
@@ -53,18 +53,20 @@ Plates have **no scene-graph nodes of their own**: glassd draws them inside the 
 
 | Call | Returns | Meaning | Status |
 |---|---|---|---|
-| `update(spec)` | summary + beat | Build or diff the nodes for `spec` (§3). Counts as a heartbeat | live (+ v2 fields built) |
+| `update(spec)` | summary + beat | Build or diff the nodes for `spec` (§3). Counts as a heartbeat | live (v2 fields: SG-1, SG-4, SG-PROF, SG-ORDER) |
 | `ping()` | beat | Daemon heartbeat (every 1 s). After a watchdog expiry the first `ping()` rebuilds the last spec and re-applies the last overrides (`rebuilt: true`) | live |
-| `overrides(set)` | `{applied, missing, errors}` | Replace the active transform overrides with `set` (§4). `overrides({rules: []})` restores everything. Counts as a heartbeat | built |
-| `windowState(w)` | `{dim, recede, error}` | Same as `spec.window` (§5), for callers without a spec (CSS-only mode) | built |
+| `overrides(set)` | `{applied, missing, errors}` | Replace the active transform overrides with `set` (§4). `overrides({rules: []})` restores everything. Counts as a heartbeat | live (SG-3, SG-TARGETS) |
+| `windowState(w)` | `{dim, recede, error}` | Same as `spec.window` (§5), for callers without a spec (CSS-only mode) | live (SG-WIN) |
 | `clear()` | true | Remove every node, restore every override, forget spec and rules, push once | live |
 | `destroy()` | true | `clear()` and uninstall (`delete window[global]`) | live |
-| `status()` | object | Scheduler, attach state, parents, counts, pushes per second, `anim`, `overrides`, `window`, `sgids` (leak check: `created`, `retired`, `live`, `dom`), errors | live (+ fields built) |
-| `dump()` | array | Every injected panel: kind, parent, anchor, `z`, `zTarget`, key, uv, mpp, size, `interactive`, `dimmed`, sgids, pushedAt | live (+ fields built) |
-| `geom()` | `{S, r, H0, unitM, unitsPerMm}` | Live geometry read from `DashboardStore` and `FrameStore` (SP §1.2 snippet) | built |
-| `timeline(clear?)` | `[{t, z: {key: z}}]` | Every push made while a value was animating, with the pushed values (last 600). For SG-1 and P10's motion checks | built |
-| `caps` | array | Features of this build: `"depthAnim"`, `"profile"`, `"dim"`, `"window"`, `"overrides"`, `"timeline"`, `"geom"`, `"sink"` | built |
+| `status()` | object | Scheduler, attach state, parents, counts, pushes per second, `anim`, `overrides`, `window`, `sgids` (leak check: `created`, `retired`, `live`, `dom`), `steamPage` (`{mountable, active, t1}`), errors | live |
+| `dump()` | array | Every injected panel: kind, parent, anchor, `z`, `zTarget`, key, uv, mpp, size, `interactive`, `dimmed`, `wrap`, `ghost`, `moving`, sgids, pushedAt | live |
+| `geom()` | `{S, r, H0, unitM, unitsPerMm, src}` | Live geometry read from `DashboardStore` and `FrameStore` (SP §1.2 snippet, with r from **Steam's** page, §4.2). `src`: `live`, `spec` (the spec's `unitM`) or `default` | live |
+| `timeline(clear?)` | `[{t, z: {key: z}}]` | Every push made while a value was animating, with the pushed values (last 600). Keys: `<steamKey>#<pop id>`, `dim:<steamKey>`, `ov:<rule id>`, `win:dim`, `win:recede`; the last entry of a run has `final: true`. For SG-1 and P10's motion checks | live |
+| `caps` | array | Features of this build: `"depthAnim"`, `"profile"`, `"dim"`, `"window"`, `"overrides"`, `"timeline"`, `"geom"`, `"sink"`, `"mosaic"`, `"cut"` | live |
 | `version` | string | `opts.version` | live |
+| `spec()` | object \| null | The last spec passed to `update()` (P10's `sgcheck`) | live |
+| `test.yaw(deg, ttlMs)` | `{yaw, applied, missing}` | **Lab only** (P10's `hv --offaxis`): turns t1 (Steam's window and everything reparented to it) about its vertical axis by `deg` (clamped to ±60), composed with React's rotation. `yaw(0)` restores; restored by itself after `ttlMs` (default 20000, 1000..120000) and by the watchdog | live (SG-YAW) |
 
 **beat** = `{items, expired, rebuilt, attached, push, pending, pushIn, specSeq, now, anim, surf}`. `surf[steamKey] = {cover, base, pop, slab, coverAt, pops: {id: at}}`, where `at` is the `Date.now()` of the first push that carried that cover, or that pop's crop **and** slab (0 = not pushed yet). Unchanged from Phase 1, so P8's acks keep working; a rising pop counts as pushed from its first push (it is on screen from then on, at the base plane). `anim` = number of values still moving.
 
@@ -89,13 +91,15 @@ Phase 1 fields are unchanged (NATIVE.md "Daemon → systemui"): `seq`, `M`, `fla
 | Field | Type | Default | Meaning | Status |
 |---|---|---|---|---|
 | `slabsOut` | `[{id, x, y, w, h, dz, slab, until}]` | [] | Slabs glassd is fading out (P8 daemon §7). A pop that is **sinking** (§3.4) keeps using its slab cell from here (or its last one) until it arrives, at most 600 ms (glassd keeps a retired cell drawn that long, GM §5.4). A listed slab without a sinking pop is not drawn (no crop to sit under) | built |
-| `dim` | 0..1 \| null | null | **Dim wrapper** (card item 3): this surface's **cover and base** panels are wrapped in a SteamVR `tint` node of colour `[dim, dim, dim]`. Pops and slabs are never wrapped, so a popped sheet stays bright while the window behind it dims (SP §5). Changes animate on `window.motion` (default `sheet-in` going darker, `sheet-out` going back). `null` / absent removes the wrappers (one structural push after the value is back at 1) | built |
+| `dim` | 0..1 \| null | null | **Dim wrapper** (card item 3): this surface's **cover and base** panels are wrapped in a SteamVR `tint` node of colour `[dim, dim, dim]`. Pops and slabs are never wrapped, so a popped sheet stays bright while the window behind it dims (SP §5). Changes animate on `sheet-in` going darker and `sheet-out` going back (one push under `reduceMotion`). `null` / absent animates back to 1, then removes the wrappers (new cover and base nodes swapped in one push) | live (SG-4) |
+| `mosaic` | `[{x, y, w, h}]` \| absent | absent | Windowless routes (HA §10.2, P6 `data-lgs-mosaic`): base pieces only inside these bands (texture px), minus the popped holes; bands are made disjoint in order. Absent = the whole texture | live (P8 passes it) |
+| `cut` | `[id]` | [] | Pops in this list that leave the spec go at once instead of sinking (a menu closed by a route change) | built |
 
 ### 3.3 New `popped[]` fields
 
 | Field | Type | Default | Meaning | Status |
 |---|---|---|---|---|
-| `interactive` | bool | false | Wearer profile only: the crop gets `interactive: true`, `steam-input-appid: 769`, `can-take-keyboard-focus: true`, exactly as Steam's `PooledPopup` panels (SP §2.6). Ignored in the default profile. Covers, base pieces and slabs are never interactive | built |
+| `interactive` | bool | false | Wearer profile only: the crop gets `interactive: true`, `steam-input-appid: 769`, `can-take-keyboard-focus: true`, exactly as Steam's `PooledPopup` panels (SP §2.6). Ignored in the default profile. Covers, base pieces and slabs are never interactive | live (SG-PROF) |
 | `from` | units \| `"cut"` | 0 | Where a **new** pop starts: it rises from `from` (0 = the base plane) to `dz` on `depthMotion`. `"cut"` appears at `dz` at once (chrome-sourced menus in the wearer profile, WN §3.7) | built |
 | `motion` | token | spec `depthMotion` | Per-pop spring | built |
 | `sink` | bool | true | When the pop leaves the spec (or its slot `id` moves to another element), it sinks back to the base plane on `fade`, keeping its hole in the mosaic, and its nodes are removed when it arrives. `false` removes it at once | built |
@@ -161,7 +165,8 @@ Written translation = `React × mul + add + addMm × unitsPerMm`.
 
 | Name | Element (found again on every push; React may re-create it) | Use |
 |---|---|---|
-| `window` | **t1**: the `vsg-transform` parent of the `mountedscenegraph` whose `mountable_id` matches `frame:\d+:page:3:mountable` (Steam's page of the dashboard frame) | Recede (§5) |
+| `window` | **t1**: the `vsg-transform` parent of the `mountedscenegraph` of **Steam's page** of the dashboard frame: the `FrameStore` page whose `m_sSummonOverlayKey` is `valve.steam.gamepadui.main` (its `mountableID`, `frame:<frame>:page:<n>:mountable`). Page numbers are handed out at run time (Steam was page 3, later page 4), so never match a number. Only mounted while Steam's page is the frame's active page: with SteamVR Settings or the binding UI showing, `window` is `missing` | Recede (§5), `test.yaw` |
+| `window-scale` | t1's parent (`scaleForActivePage`, the identity) | Window dim (§5) |
 | `frame-left` | The `vsg-transform` with `parent-id` ending `main_CenterLeft` that holds the frame-menu popup panel | Tab bar +15 mm (WN §3.3.6) |
 | `frame-controls` | The child `vsg-transform` of `#frame:<id>:bottom-controls-transform` | Window-bar row (WN §3.5.2) |
 | `grab-handle` | `#DashboardGrabHandleTransform` | Window bar moved up to the row |
@@ -208,6 +213,6 @@ Written translation = `React × mul + add + addMm × unitsPerMm`.
 
 | From | What | Status |
 |---|---|---|
-| P5 | `device/shared/motion.js` with the closed-form spring and the token table (P5 card) | waiting; built-in fallback meanwhile |
-| P8 | Prepend `motion.js`; send `profile`, `reduceMotion`, `depthMotion`, `surfaces[].dim`, `window`, `popped[].interactive` / `from` / `sink`; merge `theme/sg/*.json`, filter rules by flags and call `overrides()`; install `lgs_sg.js` in **CSS-only mode too** while any sg rule is active or a window state is requested (heartbeat as in native mode) | REQ P7->P8 in `docs/phase2/wp/P7.md` |
-| P6 | Layer fields `interactive` (RP-4), `from`, `sink`, and a report-level `window {dim, recede}` request from Steam's side (CC-A, sheet recede) | REQ P7->P6 |
+| P5 | `device/shared/motion.js` with the closed-form spring and the token table (P5 card) | done: used when prepended (`status().motion` = `"motion.js"`; SG-1 PASS with it); the built-in copy stays as the fallback |
+| P8 | Prepend `motion.js`; send `profile`, `reduceMotion`, `depthMotion`, `surfaces[].dim`, `window`, `popped[].interactive` / `from` / `sink`; merge `theme/sg/*.json`, filter rules by flags and call `overrides()`; install `lgs_sg.js` in **CSS-only mode too** while any sg rule is active or a window state is requested (heartbeat as in native mode) | done (P8 04:28, daemon contract §9). Open: REQ P7->P8 to find Steam's page by its summon key in the daemon's geometry (§4.2) |
+| P6 | Layer fields `interactive` (RP-4), `from`, `sink`, and a report-level `window {dim, recede}` request from Steam's side (CC-A, sheet recede) | in P6's contract (`reporter.md` §5: `layers[].interactive`, `from`, `sink`, top-level `window` from `data-lgs-window-dim` / `-recede`) |

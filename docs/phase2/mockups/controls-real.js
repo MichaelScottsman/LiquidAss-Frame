@@ -54,7 +54,8 @@
   ];
   function tzmenu(el) {
     const cur = 6;               // Steam opens the menu with focus on the current value, scrolled into view
-    const rows = TZ.map(([t, s], i) => `<div class="vr${i === cur ? ' is-focus' : ''}"><span class="two"><span class="t">${t}</span><span class="s">${s}</span></span>${i === cur ? '<i data-i="check" class="chk"></i>' : ''}</div>`).join('');
+    // the current value's check sits in the leading 28 px slot every row reserves (C1c's menu rule; PLAN §1.12)
+    const rows = TZ.map(([t, s], i) => `<div class="vr${i === cur ? ' is-focus' : ''}"${i === cur ? ' data-id="row-current"' : ''}><span class="lead">${i === cur ? '<i data-i="check"></i>' : ''}</span><span class="two"><span class="t">${t}</span><span class="s">${s}</span></span></div>`).join('');
     // index of the first visible row = 20 of 64 (Steam's list from UTC -12): rail position and length from the real count
     const visible = 3.75, total = 64, top = 20;
     el.replaceWith(h(`<div class="lgk-glass c-vmenu cr-tzmenu" id="tzmenu" data-id="menu" data-mat="thick" data-lens style="--dz:10" data-dz="10" data-tier="T1 in-page thick glass; T5 +10 mm non-interactive crop + thick slab (0 -> +10 on depth)">

@@ -29,7 +29,9 @@ uniform int uNSlab;
 uniform vec4 uSlabRect[16];  // element x, y, w, h (Steam px) where the slab and crop are shown (moved crops included)
 uniform vec4 uSlabCell[16];  // cell x, y, w, h (glassd px)
 uniform float uSlabDz[16];   // metres
-uniform int uContent;        // 0 none; 1 hero stand-in (mosaic art + crops)
+uniform int uContent;        // 0 none; 1 hero stand-in (mosaic art + crops); 2 the same without the
+                             // holes (the art a sliver hides: GL-2's reference for its dL)
+uniform float uRoomDim;      // v3 G7: the room dim (the scene graph's dim panel behind the UI)
 uniform vec4 uPopHole[16];   // the hole each pop leaves in the mosaic: x0, y0, x1, y1 (Steam px)
 uniform vec4 uPopInfo[16];   // offset x, y of the moved crop (Steam px), corner radius, 1 = draws no slab
 uniform vec4 uPopCol[16];    // the element's colour (sRGB)
@@ -83,6 +85,7 @@ void main() {
     float t = -b + sqrt(max(b * b - cc, 0.0));
     c = textureLod(uRoom, equirectFromDir(normalize(uEye + dir * t - uCenter)), 0.0).rgb;
   }
+  c *= 1.0 - uRoomDim;
   // cover and plates
   vec2 q = planeHit(dir, uCoverDz);
   if (q.x >= 0.0 && q.y >= 0.0 && q.x < uSteamSize.x && q.y < uSteamSize.y) {
@@ -90,12 +93,12 @@ void main() {
     c = c * (1.0 - s.a) + s.rgb;
   }
   // hero stand-in: the base mosaic (opaque art with the popped rects left out)
-  if (uContent == 1) {
+  if (uContent >= 1) {
     vec2 m = planeHit(dir, uCoverDz + 0.0004);
     if (m.x >= 0.0 && m.y >= 0.0 && m.x < uSteamSize.x && m.y < uSteamSize.y) {
       bool hole = false;
       for (int i = 0; i < 16; i++) {
-        if (i >= uNSlab) break;
+        if (i >= uNSlab || uContent == 2) break;
         vec4 h = uPopHole[i];
         if (m.x >= h.x && m.y >= h.y && m.x < h.z && m.y < h.w) { hole = true; break; }
       }
@@ -110,7 +113,7 @@ void main() {
       vec4 s = texLin(uSlabCell[i].xy + r / uSlabRect[i].zw * uSlabCell[i].zw);
       c = c * (1.0 - s.a) + s.rgb;
     }
-    if (uContent == 1) {
+    if (uContent >= 1) {
       vec2 e = planeHit(dir, uSlabDz[i]) - uSlabRect[i].xy;
       vec2 wh = uSlabRect[i].zw;
       if (e.x >= 0.0 && e.y >= 0.0 && e.x < wh.x && e.y < wh.y) {

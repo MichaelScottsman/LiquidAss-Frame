@@ -340,12 +340,13 @@
     if (L == null) return;
     // The CSS chain is blur -> saturate -> contrast(c) -> brightness(k). contrast pulls the room
     // toward mid grey (dark rooms lift, bright rooms drop); k then lands the mean on the
-    // material's target luma, clamped like glassd's tint range (x0.42 .. x1.6).
+    // material's target luma, clamped like glassd's tint range (x0.30 .. x1.6; the floor was
+    // x0.42, which left liquid glass above L 110 over bright curtains, REQ C1a).
     const cs = getComputedStyle(el);
     const target = parseFloat(cs.getPropertyValue('--lgk-target-luma')) || 0.30;
     const c = parseFloat(cs.getPropertyValue('--lgk-contrast')) || 1;
     const Lc = c * (L - 0.5) + 0.5;
-    const k = Math.max(0.42, Math.min(1.6, target / Math.max(0.05, Lc)));
+    const k = Math.max(0.30, Math.min(1.6, target / Math.max(0.05, Lc)));
     el.style.setProperty('--lgk-adapt', k.toFixed(3));
     el.style.setProperty('--lgk-luma', L.toFixed(3));
     el.dataset.luma = Math.round(L * 255);

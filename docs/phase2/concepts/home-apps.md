@@ -9,13 +9,14 @@ This concept redesigns everything a user launches from:
 
 Games, Steam shortcuts and desktop programs become one visionOS-style app-selection experience.
 
-**Revision 3 (Phase 2 build, milestone M0).** This revision brings the text into line with `docs/phase2/PLAN.md` §1, which decides every conflict between concepts. §0.4 lists each §1 decision that touches this concept and where it landed. Where this text and PLAN §1 still disagree, PLAN §1 wins. The main changes from revision 2:
+**Revision 3 (Phase 2 build, milestone M0).** This revision brings the text into line with `docs/phase2/PLAN.md` §1, which decides every conflict between concepts. §0.5 lists each §1 decision that touches this concept and where it landed. Where this text and PLAN §1 still disagree, PLAN §1 wins. The main changes from revision 2:
 
 - **Attention, not focus, drives the reveals.** Laser hover never moves Steam's focus (IM D-7, proven), so the card ramp and the name plates run on P3's attention state machine: gamepad focus, or laser dwell (§3.4).
 - **Plates.** Every glass element on Home and in folders is a P9 G1 plate tagged for P6's reporter; only the attended item pops, +15 mm, **non-interactive** in the default profile (§10).
 - **One control vocabulary.** The top row sits on the 108 px toolbar row's centre line; the section control is a contiguous segmented control; the card's More circle has the shell helper's look (§3.1, §3.4).
-- **Search is window-nav's sheet.** This concept's three contributions go through C1b's provider API; the Apps cell becomes an Apps section in the results sheet (§6).
+- **Search is window-nav's sheet.** This concept's contributions go through C1b's provider API (`docs/phase2/wp/C1b.md`, "Interface announced"): programs can be the Top Hit, and a **Software cell** starts the Store row of the results (§6).
 - **Depths and dimming** follow PLAN §1.7 and §1.8: the "+" popup +25 mm, menus and the Filters sheet +10 mm, Steam's overlay at black .35 for the dim (§4, §8, §9, §10).
+- **The library sections (§7–§9, and their rows in §10–§16) are C2c's text**, merged from C2c's M0 request (`docs/phase2/wp/C2c.md`, REQ-1): a fixed five-slot ornament, the More helper on posters, menus by count, and a Filters sheet with toggle capsules.
 
 Revision 2 answered the critic's review point by point (§17). Revision 2's main changes, still valid: real glass on the windowless Home without ghosts; window-nav owns search; What's New is its own route; the Liquid Glass switch lives only in the "+" popup; the card ramp with an 80 px action pitch and hysteresis; a "+" popup that shows all 23 programs; a library ornament specified per input mode; mockups built from the Frame's real data.
 
@@ -67,17 +68,19 @@ All mockups are true size with `mockups/kit.css`. They use window-nav's shared c
 | `home-apps-home.html` | C2a | `p2_home-apps_home.png` | Home › Recent, page 1 of 2, laser mode, with the real 12 most recent games plus All Games. The laser has dwelt on Rise of the Tomb Raider, which has opened into its card; the laser is on Play (pointer proxy, native mode) |
 | `home-apps-home-t1.html` | C2a | `p2_home-apps_home-t1.png` | The same Home on the CSS-only path (native mode off): CSS plates (black .58 + white .16 → .04 + edge cues), no frost, no pop, no pointer proxy |
 | `home-apps-apps.html` | C2a | `p2_home-apps_apps.png` | Home › Apps: the real launch list A–Z (23 programs, Liquid Glass not among them). The laser has dwelt 0.4 s on Frametop Display Settings: its name plate |
-| `home-apps-collections.html` | C2a | `p2_home-apps_collections.png` | Home › Collections: the real collections; the 8 empty ones are grouped in one dimmed folder, attended, with its two-line name plate |
+| `home-apps-collections.html` | C2a | `p2_home-apps_collections.png` | Home › Collections in a dimmed room (legibility check): the real collections; the 8 empty ones are grouped in one dimmed folder, attended by the laser, with its two-line name plate |
 | `home-apps-folder.html` | C2a | `p2_home-apps_folder.png` | The real "VR" collection (27 games) as a folder route, page 1 of 3, **gamepad mode**: focus on Grimlord for 0.8 s has opened its card (Install, not installed) with the X and ≡ glyph badges; five not-installed games show the cloud badge |
 | `home-apps-depth.html` | C2a | `p2_home-apps_depth.png` | Depth and glass on Home without ghosts: plates, the occluder plate under the one pop, mosaic bands, the click-safe rule and the static check |
-| `home-apps-search.html` | C2a | `p2_home-apps_search.png` | window-nav's results sheet for "half" over the Library snapshot, gamepad mode, with this concept's contributions: the Apps section (Half SBS Toggle) and X = Play in the ornament |
+| `home-apps-search.html` | C2a | `p2_home-apps_search.png` | C1b's results sheet for "half" over the Library snapshot (layout and data as `p2_window-nav_results.png`), gamepad mode, with gamepad focus on this concept's **Software cell** (Half SBS Toggle, the one real program match). A program has no X or ≡ action, so the ornament holds only A and B and is the quiet legend in the margin (PLAN §1.10) |
 | `home-apps-plus.html` | C2b | `p2_home-apps_plus.png` | The bar's "+" popup (T3): 4 columns, all 23 programs visible, the full-name plate on focus, the Liquid Glass toggle row |
 | `home-apps-plus-t1.html` | C2b | `p2_home-apps_plus-t1.png` | The same popup with T1/T2 only: Steam's list in Steam's real scan order, with Liquid Glass as a normal cell carrying a green "on" pip |
-| `home-apps-library.html` | C2c | `p2_home-apps_library.png` | Library, laser mode: More circle inside the hovered poster, the tile menu grown from it, and the laser-mode ornament |
-| `home-apps-library-pad.html` | C2c | `p2_home-apps_library-pad.png` | Library, gamepad mode: focused poster and the legend ornament, in the same fixed slots |
-| `home-apps-filter.html` | C2c | `p2_home-apps_filter.png` | Library Filters as window-nav's 960 px sheet, with Steam's real options |
+| `home-apps-library.html` | C2c | `p2_home-apps_library.png` | Library, laser mode. Steam's tile menu grows from the white More circle of its source poster: compact layout, +10 mm. The source is flat with its glow. The laser-mode ornament: Steam's Sort and Filter in slots 1–2, the shell's Options member disabled while the menu is open, Select and Back as labels only. The letter scrubber |
+| `home-apps-library-pad.html` | C2c | `p2_home-apps_library-pad.png` | Library, gamepad mode. The focused poster is lifted (+15 mm) with the More circle and Steam's compatibility badge. Steam's legends sit in the same five slots with glyph badges. The scrubber is a passive position cue |
+| `home-apps-filter.html` | C2c | `p2_home-apps_filter.png` | Library Filters in C1c's sheet frame: Steam's real options as a compatibility pop-up, toggle capsules and collapsed sections. The ornament recedes, with Select and Back lit |
 
-`home-apps.css` (C2a) also carries the "+" popup and library rules that C2b's and C2c's mockups load. Revision 3 changed two of them: the poster lift shadow is now sized for its +15 mm pop (`0 6px 18px`, VP P-48), and the CSS-only plate recipe is keyed on `data-tier="t1"`.
+`home-apps.css` (C2a) also carries the "+" popup rules that C2b's mockups load, and the `.ha-poster` base rule that C2c's mockups load (with `home-apps.js`'s `[data-app]` art fill). C2c's library styles now live inline in its own three mockups (class prefix `lc-`), so revision 3 removed the old `hl-*` block and `.ha-poster.is-lift` from `home-apps.css` (C2c REQ-2). The CSS-only plate recipe is keyed on `data-tier="t1"`.
+
+**Mockup ids for `glass.py cmp`.** The Home mockups carry `data-id`s on the top row (`back`, `seg`, `seg-recent`, `seg-collections`, `seg-apps`, `whatsnew`, `search`), the cells (`cell-1` … `cell-13`, with `disc-<n>` and `label-<n>`), the page dots (`dots`), the peeks (`peek-r1`, `peek-r3`) and the card or name plate (`card`, `card-play`, `card-more`, `plate`). `docs/phase2/wp/C2a-cmp.json` (M2) maps them to live selectors (PLAN-2a-1).
 
 ### 0.3 Real data, not invented data
 
@@ -119,17 +122,17 @@ Every PLAN §1 decision that touches this concept, and where the text now carrie
 | PLAN | Decision | What changed here | Where |
 |---|---|---|---|
 | §1.1 | Owners of shared elements: WN owns the window, toolbar, ornament, More circle, search and presentations; HA contributes the windowless routes, the library's five slots and search providers | Package table; the card's More reuses the shell helper's look and dispatch; the Home field is WN's circle | §0.1, §3.1, §3.4, §6, §7 |
-| §1.2 | Route glass modes: `/library/home` and `/library/lgs/folder/*` are `windowless` (every glass element a plate; CSS plates black .58 + white .16 → .04 + edge cues); What's New is `window-full` 1280 × 720; library routes `window` 656 | Home and folders tell C1a's route map their mode through `glassMode`, so a failed override falls back to `window-full` (§3.7). CSS plate recipe in §10.5 | §3, §3.6, §3.7, §10.5 |
+| §1.2 | Route glass modes: `/library/home` and `/library/lgs/folder/*` are `windowless` (every glass element a plate; CSS plates black .58 + white .16 → .04 + edge cues); What's New is `window-full` 1280 × 720; library routes `window` 656 | Home answers C1a's `__LGS_RT.shell.glassMode('home', fn)` hook, so a failed override falls back to `window-full` (§3.7; REQ C2a->C1a #1). CSS plate recipe in §10.5 | §3, §3.6, §3.7, §10.5 |
 | §1.3 | One control vocabulary | Back (24, 24) / box (14, 14); search circle (1196, 24) / box (1186, 14); section control as a contiguous 64 px segmented control with 60 px segments; card actions with 80 px hits; More 60 / 80 black .38 + 10 px blur; Home disc 120 on 224 / 188; glyph badges 30 | §3.1, §3.4 |
 | §1.4 | Two input signals (`html.lgs-input-*`, `data-lgs-vr-mode`), one accessor; hover never moves focus; laser looks on `:hover`, lift after 80 ms dwell; one attention state machine; focus add .28; only content cards and Home discs lift; glyph badges in gamepad mode only | The ramp and name plates run on `rt.attend`; `lgsInputMode()` replaced by `__LGS_RT.input`; "laser hover moves focus" withdrawn everywhere; badges keyed on `data-lgs-vr-mode="gamepad"` | §1.2, §3.4, §3.5, §7.1, AT-8, AT-20 |
 | §1.5 | One motion system (P5 tokens); Steam's entrance animations overridden within its timeouts (S3); nothing at rest; Reduce Motion fades only | Home entry ≤ 800 ms with the stagger; every duration a token; ramp and section changes are C2a's T3 motion | §11 |
 | §1.6 | Five materials, four mechanisms; plates ≤ 32 per surface; E3 lobe; no outline; glass L 55–110, 70–90 under text | Plates instead of cover shapes; text-bearing plates (card, name plate) tinted to L 70–90 | §3.4, §10 |
-| §1.7 | Two depth profiles; admission rules; {0, +10, +15, +25} mm; Home focused cell, card, name plate +15 non-interactive over the plate's occluder; "+" popup +25; menus and sheets +10 | Depth table replaced; the card's actions use 80 px hit elements so the click-safe rule admits +15 | §4, §8, §9, §10.4 |
+| §1.7 | Two depth profiles; admission rules; {0, +10, +15, +25} mm; Home focused cell, card, name plate +15 non-interactive over the plate's occluder; "+" popup +25; menus and sheets +10 | Depth table replaced; the card's actions use 80 px hit elements so the click-safe rule admits +15. While a menu is open, only the menu pops (rule 6): the source card or poster goes to 0 with a CSS glow. The §1.7 table row "the source card keeps +15" contradicts rule 6; C2c asked the coordinator (C2c REQ-7), and this text follows rule 6, which P6's reporter enforces | §4, §8, §9, §10.4 |
 | §1.8 | Alert and sheet dimming is Steam's overlay at black .35; no `t1` tint for in-window modals | The Filters sheet's `t1` dim is withdrawn | §9, §10.4 |
-| §1.9 | Header 108 or the fallback classes; the field's three variants; search is WN §4; HA contributes through `__LGS_RT.search.addProvider` | Home keys only on `lgs-hdr-108` / `lgs-hdr-40`; §6 rewritten for the provider API | §3.1.1, §6 |
-| §1.10 | Legends never hidden; capsule or quiet legend; A and B always present; library five slots 880 px in both modes; compact members, never dropped | §7.1 aligned; xc's "please reconcile" closed | §3.6, §7, `xc-home-search.md` §3 |
+| §1.9 | Header 108 or the fallback classes; the field's three variants; search is WN §4; HA contributes through `__LGS_RT.search.addProvider` | Home keys only on `lgs-hdr-108` / `lgs-hdr-40`. §6 follows C1b's announced provider API: `{id: 'c2a.programs', slots: ['tophit', 'software'], rank, open}`, match tiers 0–3, a program is the Top Hit only with a strictly better tier, and the **Software cell** (300 × 84) starts the Store row (C1b REQ #5) | §3.1.1, §6 |
+| §1.10 | Legends never hidden; capsule or quiet legend; A and B always present; library five slots 880 px in both modes; compact members, never dropped | §7.1 is C2c's slot text. Home and folders keep Steam's own footer visibility (Steam's Home hides its footer by its own props, not by CSS); if a footer shows, it is C1a's quiet legend or capsule and the honeycomb gives it room (§3, §3.2). XC's "please reconcile" closed | §3, §3.2, §3.6, §7, `xc-home-search.md` §3 |
 | §1.11 | One More helper (C1a, `more.register`), one node per document, host's `onMenuButton`; never on Home's launcher discs | §7.2 rewritten (C2c registers posters); the card's More is the card's own control with the helper's look | §3.4, §7.2 |
-| §1.12 | Menus by item count; Cancel a 56 px quiet capsule; anchoring gated; destructive rule by count | Sort is the two-column grid; the tile menu is compact with Developer › | §8 |
+| §1.12 | Menus by item count; Cancel a 56 px quiet capsule; anchoring gated; destructive rule by count | Sort (10) is the two-column grid; the tile menu (6 actions with developer mode) is compact; anchored menus stay 12 px clear of the ornament. Over Home, the menu's crop needs its own `thick` plate (no window cover: rule 1; REQ C2a->C1c #3) | §8 |
 | §1.13 | P3 tooltips (0.8 s / 0.2 s); Steam's sounds through its bus, none on hover; haptics off | Tooltips on Home's icon-only controls; sound map for sections and pages | §3.4, §3.5 |
 | §1.14 | HA-1 to HA-14 adopted with corrections (attention, +15 non-interactive pop, G1 plates with HA §10.5 as the floor, "+" at +25); HA-3, HA-4, HA-5, HA-10 adopted, D2 §3.5 amended by P4 | HA-3's sign-off note closed; decisions table updated | §2 |
 | §1.15 | Strings from Steam's localization; English only when the UI language starts with `en` | New §3.8 lists every string T2/T3 draws | §3.8 |
@@ -184,12 +187,12 @@ Every PLAN §1 decision that touches this concept, and where the text now carrie
    - All 23 programs show at once in four columns.
    - The full name appears on focus.
    - The switch is a Control-Center-style row at the bottom.
-6. **Browsing stays a window.** All Games (or the Library tab) opens window-nav's glass window:
+6. **Browsing stays a window.** All Games (or the Library tab) opens window-nav's glass window. It holds:
    - posters;
-   - a More circle inside the hovered or focused poster, the laser's direct path to a game's menu;
+   - a More circle on the poster you look at or focus, the laser's direct path to a game's menu;
    - a letter scrubber;
-   - one bottom ornament that shows the current sort in both input modes.
-7. **Search is the system's search** (window-nav's sheet). This concept adds desktop programs to it: an Apps section, and programs ranked into the Top Hit. On library items, X plays.
+   - one bottom ornament of five fixed slots that shows the current sort in both input modes.
+7. **Search is the system's search** (window-nav's sheet). This concept adds desktop programs to it: a Software cell at the start of the Store row, and programs ranked into the Top Hit. On library items, X plays.
 8. **The storefront is one button away, untouched.** What's New opens Steam's own Home feed (shelf, What's New, Friends, Recommended) in a glass window. Every card works as before.
 
 ### 1.3 Is the current UI optimal in VR? Per context
@@ -200,9 +203,9 @@ Every PLAN §1 decision that touches this concept, and where the text now carrie
 | "+" Launch Program | **Not optimal** | Icons are 0.6° and rows 1.5°. 40 % of the list is hidden, the order is unstable, and the theme switch sits in a random row (LA B.1, B.3) | A 4-column popup with all programs visible and the switch as a row (§4); the full grid in Home › Apps (§3) |
 | Library catalogue (grid) | **Content is fine, chrome is not** | Posters at 5.3° are good. Tabs are 1.04°, the sub-filter 1.35°, legends 1.07°. There are two control sets for Sort/Filter that switch with the input mode, and no position cue in 30 screens of scroll (LA B.1–B.4) | Posters stay in a window (LA D.1); chrome rebuilt as a segmented control, one per-mode ornament with fixed slots, and a scrubber (§7) |
 | Sort menu, tile menu | **Not optimal** | Centred console sheets far from their source, 1.47° rows, no current value shown (LA B.4.4) | Glass menus grown from their source, laid out by item count, current sort checked (§8) |
-| Library Filters | **Worst screen** | 47 rows of 0.86°, 0.49° checkboxes, 3.8 window heights of scroll (LA B.1) | A sheet with segments, chips and collapsed sections, about 1.2 sheet heights (§9) |
+| Library Filters | **Worst screen** | 47 rows of 0.86°, 0.49° checkboxes, 3.8 window heights of scroll (LA B.1) | A sheet with a compatibility pop-up, toggle capsules and collapsed sections: about 1,280 px of content (3.3 sheet heights) against Steam's 2,742 px (§9) |
 | Collections tab | **Not optimal** | 8 of 9 tiles say "( 0 )" and push the useful one off the first row (LA B.3) | Folders, with the empty ones grouped (§3.2) |
-| Search results | **Not optimal** | Category tabs 1.04°; no titles or install state; programs are not searchable (LA A.7, B.2) | window-nav's search sheet plus programs from this concept (§6) |
+| Search results | **Not optimal** | Category tabs 1.04°; no titles or install state; programs are not searchable (LA A.7, B.2) | window-nav's search sheet plus programs from this concept: the Top Hit and the Software cell (§6) |
 | Non-Steam tab | **Partly broken-looking** | About half of 54 shortcuts show a title card or an empty tile (LA B.4.6) | Monogram circles on Home; Steam's title card restyled in the grid (§3.3, §7) |
 
 ---
@@ -216,9 +219,9 @@ Every PLAN §1 decision that touches this concept, and where the text now carrie
 | HA-3 | **On Home, LB/RB switch sections, and D-pad Left/Right past a row end turns the page.** LT/RT also turn pages when delivered. **No bumper glyph badges by default**: Steam itself draws arrows instead of LB/RB glyphs on VR tab rows (INV-L §1.4) | LB/RB = pages (D2 §3.5 before A2); reading the controller's button set to decide on badges | **Adopted** (PLAN §1.14, S12; D2 §3.5 amended by P4, A2). On every Steam tabbed page LB/RB means "tabs", and sections are tabs. L.pad cannot prove that the Frame's controllers deliver bumpers in VR, so every section and page also has a D-pad path (AT-3j). VP I-15's LB/RB badges at the control's ends are built behind the flag `home.bumperBadges` (off, HA-19) |
 | HA-4 | **A opens the game page; X is Play** (Steam's primary action). The card's Play capsule does the same as X. Programs, folders and windows activate on A | A = Play | Adopted (S12). Keeps Steam's muscle memory and every launch dialog on the game page (H2); one-step Play stays available (LA C.2) |
 | HA-5 | **Labels are one line**, ending in an ellipsis. The full name shows on attention (card or name plate) | Two-line labels (D2 §3.5 before A2) | Adopted (S12). Two lines cannot fit under row 3 with the page dots inside 720 px; visionOS Home labels are one line (refs 1, 10) |
-| HA-6 | **The card ramp:** after 0.8 s of attention, the disc morphs into a 320 × 240 card holding Play and More, 180 px apart. It is driven by P3's attention state machine (gamepad focus or laser dwell) and has hysteresis (§3.4) | A Play capsule under the label (D2 §3.5); rev 1's 312 × 206 card with circles at a 68 px pitch; rev 2's "focus is the single driver" | The label band cannot hold a 60 px button. The card is visionOS's "pop open to reveal more" (VR §19). An 80 px pitch is D2 rule 1. Laser hover never moves Steam's focus (IM D-7), so focus alone cannot drive it (PLAN §1.4) |
+| HA-6 | **The card ramp:** after 0.8 s of attention, the disc morphs into a 320 × 240 card holding Play and More, about 184 px apart (centre to centre). It is driven by P3's attention state machine (gamepad focus or laser dwell) and has hysteresis (§3.4) | A Play capsule under the label (D2 §3.5); rev 1's 312 × 206 card with circles at a 68 px pitch; rev 2's "focus is the single driver" | The label band cannot hold a 60 px button. The card is visionOS's "pop open to reveal more" (VR §19). An 80 px pitch is D2 rule 1. Laser hover never moves Steam's focus (IM D-7), so focus alone cannot drive it (PLAN §1.4) |
 | HA-7 | **The catalogue stays posters in a window** (window-nav's window) | All 350 games as circles | 27 pages with no random access, and circle crops drop logos (LA D.1). Circles are for launching |
-| HA-8 | **Search belongs to window-nav** (its sheet, PLAN §1.9). This concept contributes programs (ranking plus an Apps section) and X = Play on library items through C1b's provider API. The Home field is window-nav's **circle variant** | Rev 1's split view at `/search/tab/<id>` | Only one override can render the route (critic). One field spec everywhere |
+| HA-8 | **Search belongs to window-nav** (its sheet, PLAN §1.9). This concept contributes programs (the Top Hit and the Software cell) through C1b's provider API, and X = Play on library items, which C1b's sheet declares on its own items. The Home field is window-nav's **circle variant** | Rev 1's split view at `/search/tab/<id>` | Only one override can render the route (critic). One field spec everywhere |
 | HA-9 | **The "+" popup stays Steam's popup in Steam's host** (300 px), restyled. A T3 patch adds A–Z order, 4 columns and the toggle row | Opening Home from "+" | The theme switch must never depend on our route (LA C.1, D.7.1). LQ5 (opening a T3 route from the bar) is unproven |
 | HA-10 | **The Liquid Glass switch appears only in the "+" popup.** In T3 it is a toggle row at the bottom that never takes default focus; in T1 it is Steam's own row with a green "on" pip. It is **not** in Home › Apps or in search | Rev 1: first cell of Apps, drawn as a white "on" disc | Adopted (PLAN §1.14). A habitual A on the first cell would turn the theme off. White is this design's selection colour (critic). P2's `useNonSteamApps` leaves it out unless asked |
 | HA-11 | **Steam's menu "Cancel" stays**, as WN's 56 px quiet capsule centred under the rows | Removing it | It is Steam's node (the audit would report it HIDDEN); 56 px is at least Steam's 48 px, so not SHRUNK (PLAN §1.12) |
@@ -228,8 +231,8 @@ Every PLAN §1 decision that touches this concept, and where the text now carrie
 | HA-15 | **The card's actions are 80 px hit elements** with the 60 px glass drawn inside (Play: capsule hit 80 tall; More: 80 × 80) | 60 px hit boxes | PLAN §1.7 rule 2 measures the smallest focusable inside the crop: s = 80 admits the card's +15 mm pop (s ≥ 78); a 60 px box would cap it at +10 mm, a fifth depth class on Home |
 | HA-16 | **The card's More circle is the card's own control** in its action row, with the shell helper's look (60 / 80, black .38 + 10 px blur, white while its menu is open) and the helper's dispatch (the cell's own `onMenuButton`, the same handler as ≡) | Registering the card with C1a's `more.register` (top-right placement on the art) | PLAN §1.11 keeps the helper off Home's launcher discs; one action row (Play, More) reads as visionOS's expanded card; the dispatch is identical, so there is still one menu path |
 | HA-17 | **A gamepad focus move closes the open card at once**; the 0.3 s grace bridges laser jitter only | 0.3 s grace for both inputs (rev 2) | A D-pad move is deliberate; VP P-18 wants one lit element shortly after a move. P3's `leaveMs` keeps the grace for the laser, and the new cell's `enter` closes the old card in gamepad mode |
-| HA-18 | **The Apps contribution is a section of the results sheet**, after Top Results and before In the Store: up to 3 program capsules (64 visible, 80 hit), the third reading "N More" when there are more matches | Rev 2's Apps cell beside a 704 × 76 Store row, which window-nav's sheet no longer has | WN §4.6's sheet lists categories as sections; visionOS Spotlight lists apps right after the top hit; local programs launch at once, the Store does not (§6) |
-| HA-19 | **Decisions taken without the user** (PLAN §1.17's rule: the safe default behind a flag): LB/RB glyph badges on the section control (VP I-15) off (`home.bumperBadges`); Home's runtime gated by `wp.c2a` (PLAN §2.1) | — | Steam's own VR convention is arrows, not bumper glyphs; badges would teach a button whose delivery in VR is unproven (AT-3f). Recorded in `docs/phase2/wp/C2a.md` |
+| HA-18 | **The programs' place in the results is C1b's Software cell**: Steam's header "Software" (`#AppType_2`) over one 300 × 84 cell at the start of the Store row, holding the best program (56 px disc with its icon at 48, name 24 Semibold) and "and N more" when more programs match. The store keeps two cards beside it | Rev 2's Apps cell splitting a 704 × 76 Store row; session 1 of revision 3's Apps section of three capsules after Top Results | C1b owns the sheet (PLAN §1.1) and announced this geometry (C1b REQ #5). One cell keeps the Store row's height, so the sheet's layout does not change with the query; programs launch at once, the Store does not, so the program comes first in that row (§6) |
+| HA-19 | **Decisions taken without the user** (PLAN §1.17's rule: the safe default behind a flag): LB/RB glyph badges on the section control (VP I-15) off (`home.bumperBadges`); Home's runtime gated by `wp.c2a` (PLAN §2.1); folder routes keep Steam's Home footer props, and if Steam shows a footer anyway the folder drops to two rows (§3.2); a source card drops to 0 mm while its menu is open (PLAN §1.7 rule 6) | — | Steam's own VR convention is arrows, not bumper glyphs; badges would teach a button whose delivery in VR is unproven (AT-3f). A footer may never be hidden (PLAN §1.10), so the page makes room instead. Rule 6 is what P6's reporter enforces. Recorded in `docs/phase2/wp/C2a.md` |
 
 ---
 
@@ -242,9 +245,9 @@ Every PLAN §1 decision that touches this concept, and where the text now carrie
 - Steam's Home children render at `/library/lgs/steamhome` (What's New, §3.6).
 - Folders render at `/library/lgs/folder/:id` (§3.2).
 
-**Glass mode** (PLAN §1.2). C1a's route map sets `data-lgs-glass` on `%{BasicUiRoot}`. Home and folders are `windowless` **only while the override is installed**: `41-home.js` answers C1a's `__LGS_RT.shell.glassMode('home' | 'folder', fn)` hook with `windowless`, and nothing (so C1a uses `window-full`, Steam's own Home in a window) when it failed to install (§3.7). What's New is `window-full`.
+**Glass mode** (PLAN §1.2). C1a's route map (WN §3.1.1) sets `data-lgs-glass` and `data-lgs-route` (`home`, `folder`, `steamhome`) on `%{BasicUiRoot}`. Home is `windowless` **only while the override is installed**: `41-home.js` registers `__LGS_RT.shell.glassMode('home', () => live ? 'windowless' : null)` (the hook WN §3.1.1 already offers C5a and C3b), and C1a uses `window-full`, Steam's own Home in a window, when the answer is `null` or the hook is missing (§3.7; REQ C2a->C1a #1). Folder routes exist only while the override runs, so they are `windowless` unconditionally. What's New is `window-full`. Without the runtime there is no attribute and the CSS default is `window` (WN §3.1.1), with Steam's Home in it.
 
-**Footer.** Steam hides its footer on Home today (LA B.3). The override renders inside `ui.Page` (P2) with the footer props Steam's Home page passes, so the footer keeps Steam's visibility on this route; AT-1 compares `#Footer`'s visibility with stock Home. If Steam shows it anyway, it is C1a's quiet legend (PLAN §1.10) at y 652–712, and the page dots move into its leading end.
+**Footer.** Steam hides its footer on Home today (LA B.3), with its own code, not with CSS: Steam's footer store counts hide requests (`FooterStore.HideFooter()` returns `{unhide}`; Steam's `useHideFooter` hook, module 5757 on build 11094443) and renders no `#Footer` node while the count is above 0. Our Home and folder pages make the same call while mounted (`useSteamFooter` in `41-home.js`) and pass the page props Steam's Home passes (`padForHeader: false`, `padForFooter: false`, `headerVisibility: 'default'`, `minimumOpacity: 0`), so the footer keeps Steam's visibility on these routes; AT-1 compares `#Footer` with stock Home (both: no node). What's New renders Steam's own Home component, which makes the call itself. Folder routes render the same way (§3.2). Steam's legend nodes are never hidden by our CSS (PLAN §1.10). If Steam shows a footer anyway, it is C1a's ornament: the quiet legend when it holds only A and B (y 652–712, the page dots move into its leading end), or the 84 px capsule at y 628–712 when it holds X or ≡; the page then uses two honeycomb rows (§3.2, "Footer fallback").
 
 **Runtime flag.** Everything T2/T3/T5 in this section is behind `wp.c2a` (PLAN §2.1), off until V2 accepts the package.
 
@@ -284,7 +287,7 @@ Lighter chrome than rev 1:
 
 The section control and What's New are our page's nodes drawn into the toolbar band. Steam's `#header` is `pointer-events: none` except its children (INV-S §3.2), so the laser reaches them through it, and C1a's CQ1 fallback (`html.lgs-hdr-40`) keeps the toolbar row's controls at the same place (WN §3.2 rule 1). Home therefore keys nothing on the header height.
 
-**Fallback layout**, used only if AT-2's click test in the band (y 30) fails, or if WN AT-4 rejects the search circle: the top row holds Back, the search capsule (520, centred) and What's New; the section control moves to y 96–160, centred; the honeycomb rows move to y 232, 412, 592 (row pitch 180); the card's top clamps at y ≥ 172. The class `lgs-home-low` on our page root switches it; it is a T3 decision made once per `lgs on` from AT-2's probe.
+**Fallback layout**, used only if AT-2's click test in the band (y 30) fails, or if WN AT-4 rejects the search circle: the top row holds Back, the search capsule (520, centred) and What's New; the section control moves to y 102–166, centred (its 80 px hits start at y 94, where the search capsule's hit box ends); a folder's title moves to the same band; the honeycomb rows move to y 236, 416, 596 (row pitch 180; the cells' boxes start 2 px below the segments' hits); the card's top clamps at y ≥ 178. The class `lgs-home-low` on our page root switches it; `41-home.js` sets it while C1a's shell shows the search capsule (`data-lgs-search` other than `circle`), which is the default until C1a's flag `searchCircle` is on (WN AT-4 not yet passed, C1a log). In this layout a row-1 card covers the row-2 discs it overlaps by up to 62 px (AT-8(e)'s 16 px holds in the standard layout); their labels fade as usual (decision D-C2a-9).
 
 ### 3.2 Sections and their content
 
@@ -307,6 +310,8 @@ The section control and What's New are our page's nodes drawn into the toolbar b
 
 - **Leaving:** B, or Back, is history back to Home. Focus returns to the folder's cell.
 - **The Empty Collections folder** opens the same way. Its cells are the empty collections, each dimmed with an "Empty" plate, and each opens Steam's collection page.
+- **Footer:** the folder page passes Steam's Home footer props to `ui.Page`, so no footer shows, as on Home. The card's glyph badges carry X and ≡ in gamepad mode (§3.4).
+- **Footer fallback** (Steam renders a footer on the route anyway; AT-1 on a folder detects it): the ornament is never hidden, so the page makes room. With the capsule (y 628–712) the folder shows **two rows (4-5, 9 per page)** with centres at y 196 and 384, and the page dots move to y 560; with the quiet legend only the dots move into its leading end. The class `lgs-home-footer` on our page root switches it.
 - **Fallback** (adding the route fails): the folder cell opens Steam's collection page directly.
 
 ### 3.3 Icons
@@ -345,7 +350,7 @@ The section control and What's New are our page's nodes drawn into the toolbar b
 |---|---|---|
 | Attention arrives | **Gamepad:** at once, disc ×1.10, white glow 26 px, depth shadow `--lgs-shadow-15mm`, label white; the first frame shows ≥ 60 % of the final contrast. **Laser:** brightness at once (the light spot at the pointer, under the art's sheen); ×1.10 and the depth only after 80 ms of dwell (`.lgs-dwell`, VP P-06). Native mode: the disc pops **+15 mm** over its own plate (§10) | `hover-in` 294 ms; out `fade` 441 ms; depth on `depth` 441 ms (P7's depth channel) |
 | 0.4 s (programs, folders, windows) | A **name plate** replaces the label: liquid capsule 60 [45] tall (72 with a second line), width = text + 44, top at the disc centre + 74, clamped 16 px inside the overlay. Name 20 px Semibold; optional second line 18 px ("27 games", "8 collections with no games") | `materialize-in` 250 ms (`lgs-mat-glass-in`); out `materialize-out` 350 ms |
-| 0.8 s (games) | The disc **morphs into the card**: 320 × 240 [240 × 180], radius 36, centred on the disc horizontally, top at the disc centre − 100, clamped 12 px below the section control's track (y ≥ 98) and 16 px inside the overlay (bottom ≤ 704). **Art** 296 × 140 at (12, 12), radius 24 (concentric), with the logo centred at 31 % of the art's height. **Play** capsule 60 [45] visible at (24, 80), green whole fill, play glyph plus "Play" 22 px Semibold (Install / Update blue), inside an 80 px tall hit element. **More** circle 60 [45] visible at (236, 80), black .38 + 10 px blur (the shell helper's look, PLAN §1.3), inside an 80 × 80 hit element (HA-15, HA-16). Centres are 180 px apart; the hits do not overlap. **Title** Headline 24 px Bold at (24, 162), one line. **Status** 18 px at (24, 194): compatibility icon and word, then playtime | `morph-open` 607 ms (b 0.20) from the disc's rect and radius to the card's (`lgs-morph` clip, 320 × 240 is inside the 600 × 600 limit); content 15–50 %; the two controls `materialize-in` 250 ms at 50 % |
+| 0.8 s (games) | The disc **morphs into the card**: 320 × 240 [240 × 180], radius 36, centred on the disc horizontally, top at the disc centre − 100, clamped 12 px below the section control's track (y ≥ 98) and 16 px inside the overlay (bottom ≤ 704). **Art** 296 × 140 at (12, 12), radius 24 (concentric), with the logo centred at 31 % of the art's height. **Play** capsule 60 [45] visible at (24, 80), width from its content (115 with the English label) and at most 190 (the label ellipsizes), green whole fill, play glyph plus "Play" 22 px Semibold (Install / Update blue), inside an 80 px tall hit element 10 px wider on each side. **More** circle 60 [45] visible at (236, 80), black .38 + 10 px blur (the shell helper's look, PLAN §1.3), inside an 80 × 80 hit element (HA-15, HA-16). Centres are 184 px apart with the English label (147 with the widest, 190 px capsule); the hits never overlap. **Title** Headline 24 px Bold at (24, 162), one line. **Status** 18 px at (24, 194): compatibility icon and word, then playtime | `morph-open` 607 ms (b 0.20) from the disc's rect and radius to the card's (`lgs-morph` clip, 320 × 240 is inside the 600 × 600 limit); content 15–50 %; the two controls `materialize-in` 250 ms at 50 % |
 | Attention leaves | **Laser:** the card closes 0.3 s later unless attention returns (P3 `leaveMs`). **Gamepad:** a focus move to another cell closes it at once (HA-17) | `morph-close` 441 ms; content out by 40 % |
 | Press | Glass discs and capsules swell by `min(1.06, 1 + 6/maxSide)` (×1.05 on a 120 px disc); content brightens only; glow from the hit point | `interactive` 210 ms; release glow 90 ms linear, swell back on `snappy` 488 ms |
 
@@ -356,15 +361,15 @@ The section control and What's New are our page's nodes drawn into the toolbar b
 - The card closes 0.3 s after the laser leaves it. While the pointer is over the card, attention stays, because the card is the attended element and part of the cell's DOM.
 - Two attention moves within 0.3 s never open a card.
 
-**Text-bearing plates** (the card, the name plate) are tinted so the glass under their text sits at L 70–90 (D2 §6.3): `data-lgs-plate-tint` in native mode, the plate recipe's darker variant in CSS. Measured in the mockups at L 85 over the bright studio room.
+**Text-bearing plates** (the card, the name plate) are tinted so the glass under their text sits at L 70–90 (D2 §6.3): in native mode `data-lgs-plate-tint` with a CSS colour (start value `rgb(0 0 0 / .30)`, tuned at M4 with `hv` against L 70–90; reporter §2.2), in CSS the plate recipe's darker variant. Measured in the mockups at L 85 over the bright studio room.
 
 **Gamepad glyph badges** (X on Play, ≡ on More; 30 px, D2 §9.4) show only in gamepad mode, keyed on `html[data-lgs-vr-mode="gamepad"]` (PLAN §1.4, VP P-26), drawn from Steam's own glyph components where they exist (VP P-27). The laser view stays clean (`p2_home-apps_folder.png` shows them, `p2_home-apps_home.png` does not).
 
-**Tooltips** (P3, PLAN §1.13): the search circle and the card's More circle carry `data-lgs-tip` (More: `"above"`, so it never covers the title); 0.8 s in, 0.2 s out. Back's titled capsule is C1a's (E-BACK). Discs, segments and What's New show text and get no tooltip (VP P-12).
+**Tooltips** (P3, PLAN §1.13): the card's More circle carries `data-lgs-tip="above"` (so it never covers the title) with Steam's "Options" string; 0.8 s in, 0.2 s out. The search circle's tooltip (Steam's search placeholder) and Back's titled capsule (E-BACK) are C1a's, as on every route. Discs, segments and What's New show text and get no tooltip (VP P-12).
 
 **Covering:**
 
-- Neighbouring labels under the card or a plate fade to .22.
+- A neighbouring label whose text the card or a name plate overlaps fades to .22; a label whose 200 px box is touched but whose text is clear stays as it is.
 - A card covers at most 14 px of a neighbouring row's discs, and the labels it covers fade.
 
 **Reduce Motion:** no scale and no lift animation; the end depth is pushed once; the card cross-dissolves in 180 ms (`--lgs-d-reduce`, D2 §11.4 C8).
@@ -381,7 +386,7 @@ The section control and What's New are our page's nodes drawn into the toolbar b
 | LT / RT (if delivered) | Previous / next page |
 | A | **Game:** its page (`actions.navigate('/library/app/<id>')`). **Program:** `actions.launchNonSteam(strCmdline)`. **Window:** `actions.desktopWindow(window_id)`. **Folder:** `/library/lgs/folder/<id>` (`nav.go`). **All Games:** `actions.navigate('/library/tab/AllGames')`. **Segment:** that section. **What's New:** `/library/lgs/steamhome` (`nav.go`) |
 | X | Games: `actions.primary(appid)`, Steam's primary action (Play / Install / Update / Resume), the same call as the tile menu's first item |
-| ≡ (Menu) | Games: Steam's tile menu (`showContextMenu` with Steam's own menu component, or Steam's `vgp_onmenu` path). Programs: none (Steam has none) |
+| ≡ (Menu) | Games: Steam's tile menu (`showContextMenu` with Steam's own menu component, or Steam's `vgp_onmenu` path). While it is open, only the menu pops (PLAN §1.7 rule 6): the card drops to 0 and keeps a CSS glow. Programs: none (Steam has none) |
 | B | At the Home root: not handled, so Steam's root `onCancelButton` opens the tab bar, as today (SN N3). In a folder or What's New: history back |
 | Route entry | Focus lands on cell 1 of the current section, or on the cell remembered for that section; never on Back or the top row (VP P-22) |
 | Focus memory | Returning to Home restores the last focused cell per section (Steam's group focus memory, SR §4) |
@@ -428,10 +433,12 @@ Every laser target above also has the gamepad path (D2 §10.4, VP P-89).
 If the route override cannot install, `/library/home` is Steam's Home with the T1 restyle, inside window-nav's window glass:
 
 - `install()` throws when a required finder misses (P2 §0 rule 2); the loader marks `41-home` failed (P1);
-- C1a's `glassMode('home')` hook gets no answer, so the route is `window-full` (§3, REQ to C1a);
+- C1a's `glassMode('home')` hook gets no answer, so the route is `window-full` (§3, REQ C2a->C1a #1);
 - a failing override at render time degrades to `steamChildren` (P2's error boundary).
 
 Nothing in §3 is then visible, and nothing is lost: every Home function is Steam's again (AT-22).
+
+**The T1 restyle of Steam's Home** (`theme/41-home.css` part A, M2; also what What's New shows, §3.6): the feed tabs are a segmented control (64 recessed track, 60 visible segments in 80 px hit boxes, ≥ 140 wide, Steam's title-case labels at 22 Semibold); the arrows are 60 circles in 80 boxes; the shelf capsules lift ×1.05 (the 552 px featured one by 12 px) with a depth shadow and a blurred glow instead of Steam's pulsing outline; the focused game's name and status read 22 Semibold and 18 Medium in title case; feed headers are Headline. In the toolbar fallback (no `lgs-hdr-108`) the shelf is padded by C1a's `--lgs-hdr-pad` and the feed's wrapper is 96 px shorter, so the parked tab row sits below the toolbar row (decisions D-C2a-6 to D-C2a-8 in `docs/phase2/wp/C2a.md`).
 
 ### 3.8 Strings (PLAN §1.15)
 
@@ -447,7 +454,8 @@ Text that T2/T3 draws comes from Steam's or SteamVR's localization through `rt.r
 | "N games" | Folder name plate | Steam's game-count string | Omitted |
 | Play, Install, Update, Resume, Running, Downloading, compatibility words, playtime | Card | Steam's primary-action, status and compatibility strings | — (Steam's) |
 | Not installed | Card status | Steam's "Not installed" | Omitted |
-| App, "N More" | Search Apps section | none expected | Omitted; "+N" |
+| Software | A program's status line as the search Top Hit (the `subtitle` this concept's provider returns) | `#AppType_2` (C1b found it; the same string heads C1b's Software cell) | — (Steam's) |
+| "and N more" | C1b's Software cell | none (C1b's string list) | "+N" (drawn by C1b) |
 | Liquid Glass, "Glass Shell is on" | "+" toggle row (C2b) | The `.desktop` entry's own name; none for the second | Second line omitted |
 
 ---
@@ -517,31 +525,35 @@ The order matters because theme removal drops our routes (AT-16). **Tests log th
 
 ## 6. Search: window-nav's sheet, this concept's provider
 
-window-nav owns search: `Routes.Search.Root()` presented as a sheet over a snapshot of the page you were on, with Steam's routes underneath (WN §4, PLAN §1.9; built by C1b in `device/rt/21-search.js`). This concept contributes through C1b's provider API, from `device/rt/41-search-apps.js`:
+window-nav owns search: `Routes.Search.Root()` presented as a sheet over a snapshot of the page you were on, with Steam's routes underneath (WN §4, PLAN §1.9; built by C1b in `device/rt/21-search.js`). Its layout, the Top Hit rule and the provider API are C1b's, announced in `docs/phase2/wp/C1b.md` ("Interface announced") and in its proposed WN §4.6. This concept registers one provider from `device/rt/41-search-apps.js` (module `search-apps`, deps `['react', 'search']`, flag `wp.c2a`):
 
 ```js
-__LGS_RT.search.addProvider({ id: 'home-apps', rank, render, primary });
+const handle = rt.search.addProvider({
+  id: 'c2a.programs',
+  slots: ['tophit', 'software'],
+  rank(query, ctx) { /* sync, ≤ 2 ms */ return [{ key, name, tier, icon, subtitle, data }]; },
+  open(candidate, ev) { /* A or a click */ },
+  // no primary(): a program has no X action (Steam's "+" popup has none either)
+});
 ```
 
 | # | Contribution | Spec | Through |
 |---|---|---|---|
-| S-A | **Programs in the ranking** | The program list (`data.useNonSteamApps`, Liquid Glass excluded) is matched on its name with window-nav's rule: exact title prefix > word prefix > substring. `rank(query)` returns `[{key: strCmdline, name, match: 'exact' \| 'prefix' \| 'word' \| 'substring'}]`. A program becomes the **Top Hit** only when its match class beats the best library match (a tie goes to the game). As Top Hit: its icon at 120 on a disc over a neutral glass gradient, status "App", and the **Open** capsule launches it (`actions.launchNonSteam`) | `rank` |
-| S-B | **The Apps section** | When programs match, a section after Top Results and before In the Store (HA-18): Title 3 header "Apps", then one row of up to 3 capsules, 64 visible (hit 80), ≤ 310 wide: a 48 px disc with the icon at 36, the name 22 px Semibold, "App" 20 px secondary. A launches. With more than 3 matches the third capsule reads "N More" and opens Home › Apps with the next match focused. No matches: no section | `render(query, ctx)` |
-| S-C | **X = primary action on library items** | On the Top Hit and on "Your library" posters, X calls `actions.primary(appid)` (Play / Install / Update), shown in the bottom ornament as "Play" with its X badge in gamepad mode (Steam renders the legend from our `actionDescriptionMap`). A still opens the game page (window-nav's rule) | `primary(item)` |
+| S-A | **Programs in the ranking; a program can be the Top Hit** | The program list is P2's `data.useNonSteamApps()` (Liquid Glass left out; C1b drops it again whatever a provider returns, HA-10). `rank` matches each program's name with C1b's tiers, case- and accent-insensitive: **0** exact title, **1** title prefix, **2** word prefix, **3** substring. It returns the matches best first as `{key: cmdline, name, tier, icon: iconUrl, subtitle: loc('#AppType_2'), data: {cmdline}}`. The list is read once per sheet presentation and kept in memory for that query only. **Top Hit rule (C1b's):** among Steam's library matches of the best tier, the most recently played; a program becomes the Top Hit only with a **strictly better** tier than Steam's best (`ctx.steamBest`). "half" → Half-Life: Alyx (every "Half-Life" title is tier 1, as is Half SBS Toggle; the tie goes to the game). "vlc" → the program VLC media player (Steam has no library match). As Top Hit, C1b's card shows the program's icon at 120 on a disc over a neutral glass gradient (no hero art exists), the name, the status "Software", and Open; it has no More circle, because Steam has no menu for a program | `rank`, slot `tophit` |
+| S-B | **The Software cell** | When programs match, C1b's sheet draws Steam's header "Software" (`#AppType_2`) over **one 300 × 84 cell at the start of the Store row**: the best program that is not already the Top Hit, as a 56 px disc with its icon at 48 and the name in 24 Semibold, plus "and N more" (English only; "+N" in other languages) when N more programs match. The store keeps two cards beside it, then See All. The cell is **one target** (A or a click calls `open`): with one match, `actions.launchNonSteam(cmdline, ev)`, the same call as Steam's "+" row; with more matches, Home's Apps section with that program focused, where every program is one step away: `rt.home.reveal({section: 'apps', key})` sets the section and the remembered cell, then `nav.go('/library/home')` (never logged). No program left to show: no cell, and the Store row keeps its three cards. The cell is a fill inside the sheet's glass, never glass itself (VP P-45), and never pops (WN §4.9) | slot `software`, `open` |
+| S-C | **X = primary action on library items** | On the Top Hit and on Steam's library posters in the sheet, X is Steam's primary action (Play / Install / Update) through `actions.primary(appid)`, shown in the ornament as Steam's "Play" (`#GameAction_Play`) with its X badge in gamepad mode. A still opens the game page. C1b's sheet declares it on its own items (WN §4.9), so this concept's provider adds no `primary`. On the Software cell X does nothing and the ornament shows only A and B (the quiet legend, `p2_home-apps_search.png`) | C1b's sheet |
 
 **Field.**
 
 - One spec everywhere: window-nav's 520 / 640 × 64 capsule, with **no microphone** (Steam has no dictation, WN D-8).
 - On Home and folders, the field is window-nav's 60 px **circle variant** (§3.1, PLAN §1.9).
 
-**Mockup.** `p2_home-apps_search.png` shows the query "half" on the real library, in window-nav's results sheet over the Library snapshot:
+**Mockups.**
 
-- Top Hit: Half-Life: Alyx (a game wins the tie with the programs);
-- Top Results: 4 of 9 library matches;
-- the Apps section: Half SBS Toggle, the one real program match, with its real icon;
-- the ornament in gamepad mode: Play (X), Options naming the target, Open (A), Close (B).
+- `p2_window-nav_results.png` (C1b) is the results sheet for "half" with gamepad focus on the Top Hit: the scope bar with Steam's counts, Half-Life: Alyx as the Top Hit, Steam's next four library matches, the Software cell (Half SBS Toggle, its real icon) and Steam's first two store results.
+- `p2_home-apps_search.png` (C2a) is the same sheet and data with gamepad focus on the **Software cell**: the cell takes the gamepad focus look (+ white .28, a .16 spot in the upper third, its arc); nothing lifts or pops (it is not a content card); the Top Hit is at rest without its More circle; and the ornament is the quiet legend (Open A, Back B), because a program has no X or ≡ action.
 
-It also proposes to C1b that the Top Hit's name keeps the card's full width on its own line, with the status and Open sharing the bottom line, so long names are not cut by the capsule.
+**Failure.** A provider that throws is disabled by C1b for the session; programs then do not appear in search, and Home › Apps and the "+" popup still launch them.
 
 **Cross-concept record:** `concepts/xc-home-search.md` holds the agreement with window-nav.
 
@@ -549,90 +561,129 @@ It also proposes to C1b that the Top Hit's name keeps the card's full width on i
 
 ## 7. Library catalogue (built by C2c)
 
-**Routes.** `/library/tab/<id>` and `/library/collection/<id>` (Steam's), glass mode `window` (PLAN §1.2): glass 1280 × 656, radius 54, toolbar row 108, bottom ornament 628–712 (WN §3.1–3.4).
+**Owner:** C2c (PLAN §2.4).
+
+**Routes.** `/library/tab/<id>` and `/library/collection/<id>` (Steam's) are glass mode `window` (PLAN §1.2), in window-nav's window:
+
+- glass 1280 × 656, radius 54;
+- toolbar row 108 (`html.lgs-hdr-108`; under `lgs-hdr-40` WN §3.2's fallback rules move every row below);
+- bottom ornament 628–712 (WN §3.1–§3.4).
+
+CSS-only look: WN §8.4's tint. Area rules key only on C1a's classes and variables (`lgs-hdr-*`, `--lgs-guard-top` / `--lgs-guard-bottom`, `data-lgs-glass`).
 
 | Element | px [pt] | Material / fill | Tier |
 |---|---|---|---|
-| Toolbar row | window-nav's: Back circle (borderless on section roots), Large Title "Library" at x 100, search 520 × 64 centred | WN | T1 + T2 |
-| Tabs | Steam's tab row as a segmented control: 64 [48] track at y 116, segments ≥ 140, contiguous (E-SEG), labels 22 px Semibold title case, counts at white .70 (dark .55 on the white segment). Steam's horizontal scroller with 28 px edge fades; Steam's ‹ › arrows become 60 px plain circles at x 24 and 1196 | Recessed track | T1 (the row keeps its horizontal handlers, D2 §12) |
-| VR sub-filter | Steam's `%{VRSubTabFilterContainer}` **in its stock position**: centred under the tab row (y 192), a 60 px segmented capsule "All · VR · Non-VR" (Ready To Play: All · Standalone · Remote PC) | Recessed track on glass | T1. Not moved: its nav-tree position sits between the tabs and the grid |
-| Grid | **Baseline: Steam's own geometry**, 172 × 258 posters, 6 per row, gaps 24 × 42, radius 20. **Optional T3:** 200 × 300, 5 columns (LQ2) | Content | T1 (styles only, D2 §12); T3 gated on LQ2 |
-| Attended poster | Scale 1.05, depth shadow `0 6px 18px` (`--lgs-shadow-15mm`, VP P-48), glow 30 px, diagonal sheen. Gamepad: on `.gpfocus` at once. Laser: brightness on `:hover` at once, the lift on `.lgs-dwell:hover` (80 ms, PLAN §1.4). Steam's compatibility badge restyled as a 36 px circle at the bottom right (inset 10). **No caption**: Steam shows none, and Steam's 42 px row gap cannot hold one | Content; native +15 mm non-interactive crop over the window cover (PLAN §1.7) | T1 + T4 |
-| **More circle** | C1a's shell helper (PLAN §1.11): **60 [45]** circle **inside** the poster's top right (inset 10), **80 px hit**, black .38 with a 10 px blur, white while its menu is open. Shown on the attended poster (hover dwell or focus, parity D2 §10.4). C2c registers posters with `__LGS_RT.more.register('%{LibraryItemBox}', {placement: 'card'})` | Clear fill | T2 (C1a's node) |
-| Letter scrubber | 44 × 380 [33 × 285] capsule at right 14, y 196. Letters 18 px Semibold, dots between, the current letter in a 32 px white circle. Hit: the capsule widened to 80 px by transparent padding | Black .16 | T3. Click or drag maps y to a letter and sets the grid scroller's `scrollTop` to that letter's first row (a wheel-equivalent). Shown only for Alphabetical |
-| Bottom ornament | window-nav's capsule (84 tall, y 628–712, depth 0, inset slab; PLAN §1.10). On library routes it holds **five fixed slots**: 300 · 130 · 156 · 134 · 120 px, gap 4, padding 12, **880 px wide in both input modes** (≤ 960) | `liquid` (inset slab) | T1 layout + T2 (below) |
-| "N apps hidden" notice | Steam's `%{AppGridFilterHeader}` as a 56 px capsule above the grid ("12 games hidden by filters" plus "Clear" when it is the button variant) | Thin fill | T1 |
-| Section headers (non-alphabetical sorts) | Title 3 28 px Semibold, title case, no rule lines | — | T1 |
+| Toolbar row | window-nav's. Back circle: borderless on the library tabs (section roots), white .10 on `/library/collection/<id>`. Large Title "Library" at x 100 on section roots. Search 520 × 64 on section roots, 640 × 64 on collection pages (PLAN §1.9) | WN | C1a |
+| Tabs | Steam's tab row as a segmented control (CTL §8.3, E-SEG). Track 64 [48] at y 116, padding 2. Segments contiguous (hit boxes abut), 60 tall, ≥ 140 wide; the visible fill is inset 2 px. Labels 22 px Semibold in Steam's text without its uppercase and tracking; counts Medium white .70 (dark .55 on the white segment). States: selected white .94 with a dark label; gamepad focus + white .28, a spot of .16 and the arc (on the selected segment: the outer glow, P-16); laser hover + .08 and the light spot. Steam's horizontal scroller keeps its 28 px edge fades. Steam's ‹ › arrows: 60 px plain circles at x 24 and 1196, y 118, 80 hit | Recessed track on glass | T1 (the row keeps its horizontal handlers, D2 §12) |
+| VR sub-filter | Steam's `%{VRSubTabFilterContainer}` **in its stock position**, centred under the tabs at y 192: the same segmented control, 3 × 140 = 424 wide. Labels "All · VR · Non-VR"; Ready To Play: "All · Standalone · Remote PC" | Recessed track on glass | T1. Not moved: its nav position sits between the tabs and the grid |
+| Grid | **Steam's geometry**: 172 × 258 posters, 6 per row, row pitch 300 (gap 42), radius 20, first row at y 270. Steam spreads the columns across its scroller (pitch 204 today). While the scrubber is mounted (T3 class on the grid), T1 adds `padding-inline-end: 72px` to `%{GridWithControls}`. Steam's grid then keeps 6 columns at a 189.7 px pitch (x 44–1164), and x 1196–1256 is free for the scrubber. **Optional T3:** 200 × 300, 5 columns (LQ2) | Content | T1 (styles only, D2 §12; the padding only with the scrubber) |
+| Scroll guard | Steam's grid scroller gets a `scroll-padding-top` that keeps a focused poster below the pinned tab and sub-filter rows (y ≥ 270 with CQ1), and a `scroll-padding-bottom` that keeps it above `--lgs-guard-bottom` (612) (VP P-23) | — | T1 |
+| The attention target (gamepad focus; laser after 80 ms of dwell, `.lgs-dwell:hover`) | **Lift:** `scale: 1.05` (the independent property; Steam's `transform` is untouched); shadow `0 6px 18px` black .50 (P-48 for +15 mm); white glow 30 px .16; the diagonal sheen (P4's `--lgs-ill: card`). **Timing:** under the laser, brightness changes at once; scale, shadow and depth start after the dwell (P-06). **Removed:** Steam's 2 px outline, its focus pulse (1.2 s × 20) and its shine sweep (P-42, P-52). **Badge:** Steam's compatibility badge, which Steam shows on hover and focus only, becomes a 36 px circle at the bottom right, inset 10. **No caption:** Steam shows none, and its 42 px row gap cannot hold one | Content; native: a +15 mm non-interactive crop over the window cover | T1 + T4 |
+| The source of an open menu | Flat (0 mm) while its menu is open (PLAN §1.7 rule 6). It is marked by a CSS glow `0 0 26px 2px` white .18 and by its white More circle | Content | T1 + T4 |
+| **More circle** | The shell's one-per-document helper (PLAN §1.11, WN §3.4.4). C2c registers posters: `__LGS_RT.more.register('%{LibraryItemBox}', {placement: 'card'})`. Size: **60 [45]** visible, **80** hit, inside the poster's top right (inset 10). Look: black .38 with a 10 px blur, white .94 while its menu is open. It follows the attention target, so it shows on gamepad focus and after the laser's dwell (parity, P-89), and it rides the poster's crop (no pop of its own) | Clear over the art | T2 (C1a's helper) |
+| Letter scrubber | A 60 × 340 [45 × 255] recessed capsule (black .14) at x 1196, y 270–610. Letters 20 px Semibold white .70, condensed with 6 px dots; they are the first characters of the titles in the current sort (digits as "#"), so no string is added. The current letter sits in a 40 px white circle; hit 80 wide. **Laser:** a click or drag maps y to a letter and sets the grid scroller's `scrollTop` to that letter's first row (a wheel-equivalent; Steam's virtualizer renders the rows). **Gamepad:** passive (no focusable), the current letter follows the focused poster, and Steam's fast-scroll stays the pad path. Shown only for Alphabetical. A letter change plays Steam's own scroll sound through `rt.sound` (P-74) | Fill on glass | T3 behind `libScrubber` (default on with `wp.c2c`). It unmounts, and the padding goes, if Steam's grid does not keep 6 columns with gaps ≥ 16 |
+| Bottom ornament | §7.1 | `liquid` (inset slab), depth 0 | T1 + T2 |
+| "N apps hidden" notice | Steam's `%{AppGridFilterHeader}` with Steam's own text, as a 60 px quiet capsule (white .08, Callout 22 Medium white .70) above the grid. The button variant (`…AsButton`, clears the filter) is a 60 px text button (24 Semibold) with an 80 hit. Steam's two 1 px rules go (P-43) | Fill | T1 |
+| Section headers (non-alphabetical sorts) | Steam's `%{AppGridSectionHeader}`: Title 3 28 px Semibold, Steam's text without its uppercase and tracking. Its 1 px rule goes; its sticky background becomes the toolbar's scroll-edge band | — | T1 |
 | Missing art | Steam's title card restyled: a gradient tile with the title 22 px Bold | Content | T1 |
-| Collections tab | Steam's collection tiles restyled as rounded folder tiles (radius 30), title case labels, count secondary; empty tiles dimmed | Content / fills | T1 (shape, case); Steam's order |
+| Collections tab | Steam's collection tiles, radius 30. Label 20 px Semibold without uppercase or tracking; the count Medium white .70. Empty collections are tagged by T2 from Steam's collection data (`data-lgs-empty`) and dimmed to .62 by T1. Steam's 3D display case and order are kept | Content / fills | T1 + T2 |
 
 ### 7.1 The ornament in each input mode
 
-Steam renders different controls per mode (INV-L §6.1; LA §0.4):
+Steam renders different controls per mode (INV-L §1.3, §6.1):
 
-- **Laser mode** (`vrGamepadInput.IsInGamepadNav == false`): the `%{SortAndFilterContainer}` pill shows (Sort with the current sort, Filter), and the footer legend shows only Select and Back.
-- **Gamepad mode:** the legend shows X Filter, Y Sort By, ≡ Options (only while a tile is focused), A Select, B Back.
+- **Laser mode** (`data-lgs-vr-mode="laser"`): the `%{SortAndFilterContainer}` pill (Sort with the current sort, Filter), plus the legend's Select and Back.
+- **Gamepad mode:** the legend shows X Filter, Y Sort By, ≡ Options (only while a poster is focused), A Select and B Back.
+
+**Five fixed slots** (PLAN §1.10, inside WN's contract):
+
+- widths 300 · 130 · 156 · 134 · 120 px, gap 4, padding 12, so **880 px in both modes**, centred at x 200–1080;
+- members 60 tall at y 640–700;
+- each slot's hit box takes its 2 px share of the gaps, so neighbours abut (P-07);
+- the capsule's backing is the fixed slot rect, not the measured union of members, so its width never changes when Steam switches modes or drops a legend (C1a's API, C2c REQ-5);
+- A and B are quiet trailing members in both modes;
+- glyph badges show only in gamepad mode (P-26).
 
 | Slot | Laser mode (`p2_home-apps_library.png`) | Gamepad mode (`p2_home-apps_library-pad.png`) |
 |---|---|---|
-| 1 Sort (300) | Steam's `%{SortAndFilterButton}` (sort): sort glyph + the current sort ("Alphabetical"), moved by T1 into slot 1 (laser-only node, so moving it cannot change D-pad order; PLAN §1.10) | Steam's legend "Sort By" (Y badge), plus a T2 span " · Alphabetical" from `AppGridDisplaySettings` |
-| 2 Filter (130) | Steam's Filter button: filter glyph + "Filter" (Steam's "Filter: [icons]" when active) | Steam's legend "Filter" (X badge; T2 count badge when filters are active) |
-| 3 Options (156) | **T2 "Options" button.** It dispatches Steam's `vgp_onmenu` on C1a's frozen target (`__LGS_RT.shell.target()`, WN §3.4.3), named on the button. Disabled (.38, no hover) when there is none | Steam's legend "Options" (≡ badge) while a tile is focused. When none is focused, T2 shows the same disabled "Options" so the slot never empties |
-| 4 Select (134) | Steam's legend "Select" (quiet, PLAN §1.10) | Steam's legend "Select" (A badge, quiet) |
-| 5 Back (120) | Steam's legend "Back" (quiet) | Steam's legend "Back" (B badge, quiet) |
+| 1 Sort (300) | Steam's `%{SortAndFilterButton}` (sort), moved by T1 into slot 1 (WN §3.4.2): sort glyph and the current sort ("Alphabetical") | Steam's legend "Sort By", then C2c's T2 state span " · Alphabetical", then the Y badge. The span uses Steam's sort name from `AppGridDisplaySettings` and ellipsizes inside the slot; the longest name is "% of Achievements" |
+| 2 Filter (130) | Steam's Filter button: filter glyph and Steam's "Filter" ("Filter: [icons]" when active) | Steam's legend "Filter" and the X badge. When advanced filters are active, C2c's T2 adds a count badge (a number) |
+| 3 Options (156) | The shell's T2 Options member (C1a, WN §3.4.2): ⋯ glyph and "Options" (Steam's legend string). It acts on the frozen target (WN §3.4.3) with the More circle's dispatch, and is disabled (.38) without a target. There is no name suffix in this fixed slot: the More circle stays on the frozen target while the pointer is in the ornament, so the target is shown on its own poster | Steam's legend "Options" and the ≡ badge while a poster is focused. When none is (focus on the tab row), the shell's Options member shows disabled in its place, so the slot never empties |
+| 4 Select (134) | Steam's legend "Select", quiet, label only | Steam's legend "Select" and the A badge, quiet |
+| 5 Back (120) | Steam's legend "Back", quiet, label only | Steam's legend "Back" and the B badge, quiet |
 
-- **Mode keys** (PLAN §1.4): which of Steam's mode-only nodes exist follows `html[data-lgs-vr-mode]`; every state look follows `html.lgs-input-pad` / `-laser`. Both come from P3's one accessor, `__LGS_RT.input`; tests stub it with `--mode laser|pad` (P10), which changes only our classes, never Steam's getters (AT-14d). Revision 2's `lgsInputMode()` is withdrawn.
-- **Glyph badges** only in gamepad mode (VP P-26). **A and B** stay in both modes, as quiet members; no legend node is ever hidden (PLAN §1.10).
+- **While a modal is open** (Sort or tile menu, the Filters sheet, an alert):
+  - In **laser mode**, Steam's pill stays a member, so the ornament stays the 880 capsule. During alerts and sheets it recedes with the window: a black .35 layer, as on the tab bar (WN §3.3.4). Steam's A and B legends, which now act on the modal, stay lit above it (`p2_home-apps_filter.png`). The Options member is disabled during any modal.
+  - In **gamepad mode**, Steam's footer holds only A and B, so the ornament is the quiet legend (PLAN §1.10), its items keeping their slot 4–5 places.
+- **Source of an open menu:** slot 1 (Sort) or slot 3 (Options) turns white .94 while its menu shows (WN §3.4.2).
+- **Input mode:** read only through P3's accessor (`__LGS_RT.input`, `data-lgs-vr-mode`). Tests stub it with `rt.input.stub` (P10's `--mode`), never through Steam's getter (AT-14d).
 
-### 7.2 The More circle, precisely
+### 7.2 The More circle on posters
 
-The library uses C1a's shell helper (PLAN §1.11, `device/rt/20-more.js`); revision 2's per-poster spans are withdrawn.
+The circle is the shell's helper (PLAN §1.11, WN §3.4.4). C2c only registers posters and owns the poster's lift and depth.
 
-- **Node:** **one** decorative node per document, moved to the current attended poster (P3's `rt.attention.current()`: the `.gpfocus` poster in gamepad mode, the dwelt-on poster in laser mode), with `role=button` and `aria-label` = Steam's "Options" string. It is not focusable, so the gamepad keeps ≡. Virtualized rows that recycle need no re-attachment.
-- **Isolation:** a capture-phase listener stops `pointerdown`, `mousedown`, `mouseup` and `click`, so the poster never opens and the route does not change.
-- **Dispatch:** the poster's own `onMenuButton` from its `Focusable` fiber props (SM-D15); fallback Steam's `vgp_onmenu` (button 14) on `%{LibraryItemBox}` (INV-L §0.3) [PROVEN dispatch]. Never a new menu.
-- **Fallback:** the ornament's Options slot on the frozen target.
+- **Node.** One decorative node per document. It is moved to the current attention target (gamepad focus, or the laser's dwell) and sits inside its `%{LibraryItemBox}` at the top right, inset 10. It is not focusable, so the gamepad keeps ≡.
+- **Click.** A capture-phase listener stops `pointerdown`, `mousedown`, `mouseup` and `click`, so the poster never opens. The helper then calls the poster's own `onMenuButton` from its `Focusable` fiber props, falling back to Steam's `vgp_onmenu` (button 14) on the `%{LibraryItemBox}` (INV-L §0.3) [dispatch PROVEN].
+- **Recycling.** Nothing is attached per poster, so the virtualized grid's recycling cannot duplicate the circle. If the target's node is recycled for another app, the helper hides until the next attention event (AT-14b).
+- **Fallback:** the ornament's slot 3.
 
 ---
 
-## 8. Menus: Sort and the tile menu (look by C1c, sources by C2c)
+## 8. Menus: Sort and the tile menu (frames by C1c, content by C2c)
 
-Both are Steam's context menus (`BasicUIContextMenu`, INV-L §6.2, §7), drawn with window-nav's menu rules (WN §5.1, PLAN §1.12). Anchoring to the source is T2 and gated on WN AT-11, GP AT-MENU and SET CQ10 (a click outside still dismisses, the D-pad is unchanged). Until those pass the menus stay centred and still morph from their source.
+**Owner:** C2c for the library's content; the frames are C1c's (WN §5.1, PLAN §1.12).
+
+Both are Steam's context menus (`BasicUIContextMenu`, INV-L §6.2, §7). **Anchoring** (T2 `translate`) is gated on WN AT-11, GP AT-MENU and SET CQ10: a click outside must still dismiss, and the D-pad must be unchanged. Until those pass, the menus stay centred and still morph from their source.
 
 | | Sort | Tile menu |
 |---|---|---|
-| Source | Ornament slot 1 (laser) or Y (gamepad) | More circle (laser), ≡ (gamepad), ornament slot 3, the Home card's More |
-| Layout by count (WN §5.1.1) | 10 options → **two columns** (`lgs-menu-grid`), column-major in Steam's order, 72 px rows, ≤ 592 px wide, 40 px header; groups as 6–8 px of space | 6 actions on this device (Developer › with developer mode on) → **compact**: 60 px visible on a contiguous 64 px pitch, 400 wide, inline label; 5 without developer mode → one column of 72 px rows; header = the game's name |
-| Slab | `thick` glass, radius 32, padding 8 | Same |
-| Content | 10 sorts: Alphabetical, Friends Playing, % of Achievements, Hours Played, Last Played, Release Date, Date Added, Size on Disk, Metacritic, Steam Review. **The current sort is checked** (a trailing white check glyph, no fill; T2 reads `AppGridDisplaySettings`) | Primary first with its semantic whole fill (Play green, Install / Update blue); Add to Favorites, Add to ›; Manage ›, Developer ›, Properties…; submenus open beside the menu, each with its own count layout |
-| Destructive rows | — | Under Manage ›: ≤ 2 destructive rows → red label at rest; always a red whole fill on focus; never reordered; Steam's default focus untouched (PLAN §1.12) |
-| Cancel | Steam's item kept as the 56 px quiet capsule centred under the rows (HA-11) | Same |
-| Placement (T2, gated) | Grows upward from slot 1, its bottom 14 px above the ornament | Beside its source in GP §3.4's order (above, right, left, then Steam's centred placement); clamped inside the modal box |
-| Scrim | None (PLAN §1.8) | None |
-| Depth | **+10 mm**, non-interactive, appearing with the materialize (0 → +10 on `depth`); +30 in the wearer profile (PLAN §1.7) | Same. The source card keeps its +15 mm if it was the attended card, else 0 with a CSS glow. Opened over Home, the menu's crop lies inside its own `thick` plate (C1c), since Home has no window cover |
-| Motion | `morph-open` 607 ms from the source's rect; `morph-close` 441 ms (glassd); the source turns white while open | Same |
+| Items | 10 actionable sorts, plus Cancel | Install or Play (primary), Add to Favorites, Add to ›, Manage ›, Developer › (developer mode only), Properties..., plus Cancel. That is 6 actions on this device, 5 without developer mode |
+| Layout (PLAN §1.12) | ≥ 8: **two columns**, column-major in Steam's order, rows 72 px 6 apart, a 40 px header row, 592 wide, about 508 tall | 6–7: **compact**, 60 px visible on a contiguous 64 px pitch, the game's name as an inline label (19 px Semibold), 400 wide, about 506 tall (`p2_home-apps_library.png`). ≤ 5: one column of 72 px rows with a 40 px header |
+| Content | Steam's 10 sorts in Steam's groups; **the current sort carries a white check** (Steam's `.menuChecked`) | The primary row takes its semantic whole fill (Play green; Install and Update blue; Stop red). Submenus open beside the menu (8 px gap) and choose their own layout. Destructive rows follow the count rule (red label for ≤ 2, red glyph for more; red fill on focus); Steam's order and default focus are unchanged |
+| Cancel | Steam's row as a 56 px quiet capsule, centred under the rows (HA-11) | Same |
+| Source and placement (T2) | Slot 1 (laser: Steam's Sort button; gamepad: the Y legend), white while open. The slab grows upward from the ornament with its bottom ≥ 12 px above it (y ≤ 616), clamped to the modal box | The More circle (white while open), the focused poster (≡), or slot 3. GP §3.4's order for sources in a page row: above; else right, 16 px from the poster; else left; else centred. Vertically centred on the poster and clamped to y 108–616 |
+| Depth (PLAN §1.7) | +10 mm, non-interactive, appearing with the materialize (0 → +10 on `depth`); wearer profile +30 | Same. The source poster goes to 0 while its menu is open (rule 6) |
+| Motion | `morph-open` 607 ms from the source's rect (clip-path, ≤ 600 × 600); `morph-close` 441 ms (glassd); no scrim | Same |
+
+**The tile menu on Home and in folders** (C2a's sources): the card's More circle and ≡ on a game cell open the same Steam menu with the same handler. It takes the same layout and depth. Home is windowless, so there is no window cover for the menu's crop to lie in (PLAN §1.7 rule 1): C1c's menu slab is reported as a `thick` plate on windowless routes (`data-lgs-plate="thick"` on the menu box), so the +10 mm crop is covered (REQ C2a->C1c #3). Its placement follows GP §3.4's order from the card, clamped to y 98–704 (the top row stays clear; Home has no ornament). While it is open the card drops to 0 with its glow (rule 6).
 
 ---
 
 ## 9. Library Filters (sheet; frame by C1c, content by C2c)
 
-The frame is window-nav's sheet (WN §5.4, PLAN §1.12):
+**Owner:** C2c for the content; the sheet frame is C1c's (WN §5.4, PLAN §1.12).
 
-- 960 × 600 [720 × 450], radius 44, `thick`, depth **+10 mm** non-interactive (+30 → +50 in the wearer profile, PLAN §1.7);
-- close × circle at (24, 24), Title 2 "Library Filters" centred, "Reset" capsule at the 24 px inset;
-- dim: Steam's `.ModalOverlayBackground` at black .35, in both modes (PLAN §1.8; no `t1` tint);
-- ornament "Reset (Y) · Select (A) · Done (B)", A and B quiet.
+**Frame:**
 
-The content is this concept's. It shows Steam's real options (INV-L §6.3).
+- ≤ 960 wide inside the 108–628 modal box (960 × 488 at (160, 128) in the mockup), radius 44, `thick`;
+- a 60 px close circle at (24, 24), and Title 2 "Library Filters" (Steam's string) centred;
+- the scrim is Steam's overlay restyled to black .35 (PLAN §1.8);
+- depth +10 mm, non-interactive (+30 → +50 in the wearer profile);
+- the ornament shows Steam's footer for the dialog, Select and Back (§7.1, "While a modal is open"). Steam has no Reset legend.
+
+**Content** (T3: C2c's re-render of Steam's filter dialog, bound to Steam's own filter setters; every string is Steam's):
 
 | Element | px [pt] | Notes |
 |---|---|---|
-| Compatibility | A segmented control 64 [48] with Steam's four strings: "Verified Only · Verified and Playable · Verified, Playable, and Untested · All Games". Segments contiguous, padding 12; all four fit the 912 px track at 22 px | T3. T1: Steam's four radio rows at 72 px |
-| Sections | Label 22 px Bold secondary. Options as **chips**: capsules 60 [45] tall, padding 24, 22 px Semibold, gap 12. Selected = white .94 with a dark label and a check glyph. At most one row per section; the rest sit behind an "N More" chip that expands the section in place. Players: Single player, Multiplayer, Cooperative, Local Multiplayer. Play state: Ready to play, Installed, Played, Unplayed, + 1 More (Private) | T3. T1 fallback: Steam's checkbox rows at 64 px with 40 px boxes (hit area by padding; nodes unchanged) |
-| Collapsed sections | A recessed platter (black .14, radius 30) of 72 px rows showing the current value and a chevron: Hardware support (Gamepad Support dropdown + 4 options), Features, Language (Any language), Genre, Store tags, Friends, Gameplay, Visual, Camera Comfort, Audio, Input | Text searches (store tags, friends) are 64 px fields inside the expanded rows. Dropdowns are value menus (PLAN §1.12): ≤ 8 options a slab anchored to the capsule; 9–14 the two-column grid; ≥ 15 (Language) one scrolling column of two-line rows |
-| Footer | "Showing all 350 games" (Callout, secondary; the count comes from Steam's filtered collection) and a "Save as Dynamic Collection" capsule 60 px | Done = × or B (ornament) |
-| Scroll | About 1.2 sheet heights (against 3.8 window heights today); 56 px scroll-edge fade | |
-| Depth / motion | +10 mm on `sheet-in` 735 ms; scrim on `fade`; dismiss on `sheet-out` 514 ms | D2 §11.5, WN §5.4 |
+| Reset | A 60 px text capsule at the sheet's trailing 24 px inset (WN §5.4 trailing action) | Steam's Reset handler |
+| Compatibility | A grouped row (80, platter black .14, radius 30). "Steam Frame Compatibility" (Body 24 Medium) on the left; on the right a pop-up button (CTL §8.1: a 60 px capsule, value 22 Medium, Steam's caret) showing Steam's four compatibility icons for the chosen level and its name ("All Games") | Its value menu holds Steam's 4 options with their icons, the current one checked (CTL §8.2): ≤ 5 options, so one column of 72 px rows, anchored below or above the button. **Not a segmented control:** CTL §8.3 rules them out for labels over 16 characters ("Verified, Playable, and Untested" has 31) |
+| Players, Play state | A section label 22 px Semibold white .70 (CTL §10). Below it, the options as **toggle capsules**: text buttons (PLAN §1.3), 60 visible, padding 24, 24 px Semibold, 12 px apart, with 80 px hit boxes that abut across the gaps (P-08). On = white .94, a dark label and a leading check. One row each: Players (4 options) and Play state (5, "Private" included, so there is no "N More" chip) | Steam's options |
+| Collapsed sections | A platter of 80 px rows with 2 px separators (CTL §10): Hardware support, Features, Language, Genre, Store tags, Friends, Gameplay, Visual, Camera Comfort, Audio, Input. Each row shows its current value at the trailing edge, then a chevron. The value is Steam's names of the chosen options, or the dropdown's value ("Any language"), or nothing when none is chosen. A or a click expands the section in place: | Steam's sections and order |
+| | • its options as toggle capsules, wrapping if needed; | |
+| | • its dropdown as a pop-up row: Gamepad Support has 5 options (one column), Language about 29 (CTL C-D19's scrolling column); | |
+| | • Store tags and Friends as 64 px text fields (CTL §9; the keyboard opens on activation only). | |
+| Save as Dynamic Collection | Steam's "Save as ⚡ Dynamic Collection" as a 60 px capsule at the end of the content | Steam's handler |
+| Scroll | About 1,280 px of content in a 384 px viewport (3.3 sheet heights), against Steam's 2,742 px dialog (5.3 heights of its 520 px box). The 56 px scroll-edge fade sits at the sheet's bottom edge | — |
+
+**T1 fallback** (the type swap fails): Steam's dialog in C1c's sheet frame, restyled.
+
+- The 4 compatibility radio rows become single-choice rows of 80 px in a platter, with a trailing blue check and Steam's icons.
+- Each FilterBucket becomes a platter with its section header.
+- Checkbox rows become 80 px rows with a trailing 40 px check circle (CTL §6.2, E-CHECK).
+- Dropdowns become pop-up rows, and fields are 64 px.
+- Reset and Save become 60 px capsules at the end, in Steam's order.
+
+The scroll is longer; nothing is lost.
 
 ---
 
@@ -656,9 +707,9 @@ Rev 1 broke this on Home:
 
 **1. Every glass element is a plate** (PLAN §1.6, P9 G1, `contracts/glassd.md` §1.3; reported by P6, `contracts/reporter.md` §2.2).
 
-- Home and folders are `windowless`: the main surface reports no cover shape (`shapes: []`) and `plates` = every element tagged `data-lgs-plate="liquid"`: the 13 discs, the top-row controls (Back, the section control's track, What's New, the search circle; Back and search are C1a's nodes, tagged by C1a on windowless routes), and the open card or name plate. Each carries a stable `data-lgs-plate-id` (`home-disc-<key>`, `home-top-<name>`, `home-card`, `home-plate`) so materialize and acks follow the element.
+- Home and folders are `windowless`: the main surface reports no cover shape (`shapes: []`) and `plates` = every element tagged `data-lgs-plate="liquid"`: the 13 discs, the top-row controls (Back, the section control's track, What's New, the search circle; Back and search are Steam's nodes styled by C1a, which tags them as plates on every windowless route, REQ C2a->C1a #2), and the open card or name plate. Each carries a stable `data-lgs-plate-id` (`home-disc-<key>`, `home-top-<name>`, `home-card`, `home-plate`) so materialize and acks follow the element.
 - glassd draws real `liquid` glass inside each plate at the cover's depth (+1 mm). Steam's panel is hidden there.
-- Per page: 4 top-row + 13 discs + the card or name plate = **18 plates** of the 32 allowed. Peeks stay CSS only (no plate).
+- Per page: 4 top-row + 13 discs + the card or name plate = **at most 18 plates** of the 32 allowed (the open card replaces its disc's plate). Peeks stay CSS only (no plate).
 - Text-bearing plates (card, name plate) carry `data-lgs-plate-tint` so their glass sits at L 70–90 under text.
 - Once glassd draws a plate, P6 acks it (`data-lgs-plate-ack`) and `theme/05-native.css` drops that element's CSS plate fill; content stays.
 
@@ -673,7 +724,7 @@ Rev 1 broke this on Home:
 - In the default profile the crop is **non-interactive**: the laser passes through it to Steam's panel at the same x/y (S2 off).
 - The item's own plate stays under the crop and turns into the **occluder** variant (brightness .55, no rim; P6 sets `occluder` automatically when a pop overlaps a plate). While popped the plate takes the lifted rect + 4 px (`data-lgs-plate-inset: -4`): 140 px for a disc at ×1.10, 328 × 248 for the card.
 - Off axis you therefore see the lifted disc and, beside it, its plate's glass reading as its shadow, never a second copy.
-- **Admission** (PLAN §1.7): covered (the crop + 2 px lies inside its plate); click-safe (rule 2: the disc crop contains no focusable, so no cap; the card contains Play's and More's 80 px hit elements, s = 80 ≥ 78 for +15 mm; HA-15); containers only (disc 132, card 320 × 240, name plate ≥ 60 × 60 capsule); still (no pop while `lgs-home-moving`); ≤ 4 depths at rest ({0, +15, +25}).
+- **Admission** (PLAN §1.7): covered (the crop + 2 px lies inside its plate); click-safe (rule 2: the smallest focusable a disc's crop touches is its own 200 × 180 cell, s = 180, and P6's reporter, which counts only focusables inside the crop, finds none and applies no cap; the card contains Play's and More's 80 px hit elements, s = 80 ≥ 78 for +15 mm; HA-15); containers only (disc 132, card 320 × 240, name plate ≥ 60 × 60 capsule); still (no pop while `lgs-home-moving`, and while a menu is open only the menu pops, rule 6); ≤ 4 depths at rest ({0, +15, +25}, or {0, +10, +25} with a menu open).
 - **The card ramp in native mode:** when the ramp starts, the crop and the occluder plate take the card's final rect; the plate's `phase` ramps on `morph-open` while the CSS clip-path morph plays inside the crop, so the depth never changes during the ramp. When P9 offers a plate shape morph (GM §5), it replaces the phase ramp. AT-10c's filmstrip checks that no frame shows a doubled card.
 
 **4. Labels and page dots never pop** (D2 rule 10: text has no depth of its own).
@@ -697,11 +748,12 @@ On plates this shift reveals plate glass, not content. Home uses +15 mm (D2 D10,
 | Labels, dots, peeks | 0 | 0 | 0 | Text shadow | Steam's panel only |
 | Tab bar | +25 | +25 | 0.068 | — | window-nav (the popup's own transform, no crop) |
 | "+" popup | **+25** in front of the bar | +25 | 0.068 | 0 10 30 /.28 | Popup request `z` through P6's wrapper [PLAUSIBLE] |
-| Library window, ornament | 0 | 0 | 0 | — | window-nav (cover; ornament inset slab) |
-| Library attended poster ≥ 150 px | +15, non-interactive | +15, interactive | 0.0407 | `0 6px 18px` /.44 | Crop over the window cover |
-| Menus (Sort, tile menu) | **+10**, non-interactive, 0 → +10 on `depth` | +30 | 0.027 | Thick glass, `0 4px 12px` | Crop + `thick` slab (over Home: inside its own `thick` plate) |
-| Filters sheet | **+10**, non-interactive | +30 → +50 | 0.027 | Scrim .35 (Steam's overlay) | Crop + `thick` slab |
-| Source card while its menu is open | +15 if it was the attended card, else 0 with a CSS glow | +15 | — | — | — |
+| Library window, ornament | 0 | 0 | 0 | — | window-nav (cover; ornament inset slab, WN D-7) |
+| Library attention-target poster (and its More circle) | +15, non-interactive (the reporter's click-safe cap may lower it to +10) | +15, interactive | 0.0407 | `0 6px 18px` /.50 (P-48) | Crop over the window cover |
+| Source poster while its menu is open | 0, with a CSS glow (rule 6) | 0 (rule 6 holds in both profiles) | 0 | CSS glow | — |
+| Menus (Sort, tile menu) | **+10**, non-interactive, 0 → +10 on `depth` | +30 | 0.027 (wearer 0.081) | Thick glass, slab shadow `0 4px 12px` | Crop + `thick` slab (over Home: inside its own `thick` plate, §8) |
+| Filters sheet | **+10**, non-interactive | +30 → +50 | 0.027 (wearer 0.081 → 0.136) | Scrim .35 (Steam's overlay, PLAN §1.8; no `t1` tint) | Crop + `thick` slab |
+| Home card while its menu is open | 0, with its CSS glow (rule 6: only the modal pops) | 0 | 0 | Disc glow 26 px | Its plate stays (no occluder) |
 
 **Rules for every crop:**
 
@@ -733,9 +785,12 @@ On plates this shift reveals plate glass, not content. Home uses +15 mm (D2 D10,
 | Press | `interactive` 210 ms swell ≤ ×1.06 (glass only); release glow 90 ms; `snappy` swell back | |
 | Open a folder / What's New | Route `page` 662 ms; the folder disc's plate materializes out and the new page's plates materialize in | No zoom over 1.5 % |
 | "+" popup | `materialize-in` 250 ms / `materialize-out` 350 ms | C2b |
-| Menus | `morph-open` 607 / `morph-close` 441; depth 0 → +10 on `depth` | C1c |
-| Filter sheet | `sheet-in` 735 / `sheet-out` 514; scrim on `fade` | C1c frame |
-| Library tab switch | Steam's slide shortened to ±16 px + fade on `page` (`theme/23-transitions.css`) | C1c |
+| Menus | `morph-open` 607 / `morph-close` 441 (C1c); depth 0 → +10 on `depth` | — |
+| Filters sheet | `sheet-in` 735 / `sheet-out` 514; scrim on `fade` (C1c) | — |
+| Library tab switch | C1c's `23-transitions.css`: ±16 px + fade on `page`, replacing Steam's ±40 % slide | Timing only |
+| Poster lift | In `hover-in` 294 ms, out `fade` 441 ms; laser after 80 ms of dwell; depth on `depth` (P7) | Rows and tabs never scale (C2c) |
+| More circle | P5's `lgs-mat-*`: materialize 250 ms, dematerialize 350 ms | C1a's helper |
+| Scrubber | Current letter on `snappy`; appears with the materialize | C2c |
 | At rest | Nothing animates: `getAnimations()` has nothing running and no `lgs-*` animation one second after any interaction | C7, PLAN §1.5 |
 | Reduce Motion | Fades of 150–200 ms only (`--lgs-d-reduce`); depth pushed once at the end; morphs become cross-dissolves | C8 |
 
@@ -770,46 +825,46 @@ On plates this shift reveals plate glass, not content. Home uses +15 mm (D2 D10,
 
 | # | Function | New place | Laser | Gamepad | Owner | Test |
 |---|---|---|---|---|---|---|
-| L1 | Switch tab (All Games, Great On Frame, Ready To Play, Collections, Non-Steam, Soundtracks, conditional tabs) | Steam's tab row as a segmented control; the same sets as Home › Collections folders | Click a segment or a ‹ › circle | LB / RB; or Up to the row + Left/Right | C2c | AT-6, G-PAD |
-| L2 | VR sub-filter All / VR / Non-VR (Ready To Play: All / Standalone / Remote PC) | Steam's control in its stock position, restyled [T1] | Click a segment | Up from the grid + Left/Right + A (stock) | C2c | AT-6 |
-| L3 | Browse the grid | Steam's virtualized grid, restyled | Wheel/drag scroll; dwell lifts | D-pad; the page scrolls | C2c | G-PAD, AT-14(b) |
-| L4 | Fast scroll by letter | Steam's fast-scroll overlay (unchanged) + letter scrubber [T3] | Click/drag the scrubber (**new**) | Steam's fast-scroll, unchanged | C2c | AT-14(c) |
+| L1 | Switch tab (All Games, Great On Frame, Ready To Play, Collections, Non-Steam, Soundtracks, conditional tabs) | Steam's tab row as a segmented control; the same sets as the Home › Collections folders | Click a segment or a ‹ › circle | LB / RB; or Up to the row + Left/Right | C2c | AT-6, G-PAD |
+| L2 | VR sub-filter All / VR / Non-VR (Ready To Play: All / Standalone / Remote PC) | Steam's control in its stock position, as a 64 px segmented control [T1] | Click a segment | Up from the grid + Left/Right + A (stock) | C2c | AT-6, G-PAD |
+| L3 | Browse the grid | Steam's virtualized grid, restyled; the attention target lifts | Wheel/drag scroll; an 80 ms dwell lifts | D-pad; Steam scrolls focus into view (guard 124–612) | C2c | G-PAD, AT-14(b) |
+| L4 | Fast scroll by letter | Steam's fast-scroll overlay (unchanged) + the letter scrubber [T3] | Click/drag the scrubber (**new**) | Steam's fast-scroll; the scrubber shows the position (passive) | C2c | AT-14(c) |
 | L5 | Open a game | Poster activation | Click | A | C2c | AT-6 |
-| L6 | Sort (10 options, persisted) | Ornament slot 1, current sort shown in both modes → glass menu (two columns) with the current sort checked | Click slot 1 (Steam's Sort button) | Y | C2c | AT-6 (Sort snippet), AT-14(d) |
-| L7 | Filter | Ornament slot 2 → Filters sheet | Click slot 2 (Steam's Filter button) | X | C2c | AT-15 |
-| L8 | Tile menu | C1a's More circle in the attended poster [T2]; ornament slot 3 Options on the frozen target | Click More (**new direct path**) or slot 3 | ≡ | C2c (registers), C1a (helper) | AT-14(a) |
-| L9 | "N apps hidden due to filter" (button variant clears) | Capsule notice above the grid | Click | Focus + A | C2c | AT-6 |
+| L6 | Sort (10 options, persisted) | Ornament slot 1, the current sort shown in both modes → Steam's Sort menu as the two-column grid, the current sort checked | Click slot 1 (Steam's laser-mode Sort button) | Y | C2c | AT-6 (Sort snippet), AT-14(d), AT-14(f) |
+| L7 | Filter | Ornament slot 2 → the Library Filters sheet (§9) | Click slot 2 (Steam's laser-mode Filter button) | X | C2c | AT-15 |
+| L8 | Tile menu | The More circle on the attention target [T2, C1a's helper]; ornament slot 3 Options [T2, C1a] | Click the More circle (**new direct path**) or slot 3 (frozen target) | ≡ | C2c (registers), C1a (helper) | AT-14(a), AT-14(d) |
+| L9 | "N apps hidden due to filter" (the button variant clears) | Steam's notice as a 60 px capsule above the grid | Click | Focus + A | C2c | AT-6 |
 | L10 | Back | Toolbar Back circle (WN) | Click | B | C1a | WN AT (E-BACK) |
 
 ### 12.3 Game tile and its menu (LA A.3)
 
 | # | Function | New place | Laser | Gamepad | Owner | Test |
 |---|---|---|---|---|---|---|
-| T1 | Primary action Play / Install / Launch / Download / Update | First menu row with its semantic whole fill; Home card's Play capsule; search X (S-C) | Click | ≡ → A; **X on a Home cell or a search item** | C2a (card, X), C2c (menu source), C1c (menu look) | AT-4 (identity against Steam's tile-menu Play), AT-13 |
+| T1 | Primary action Play / Install / Launch / Download / Update | First menu row with its semantic whole fill (compact or one-column layout by count); the Home card's Play capsule; search X (S-C) | Click | ≡ → A; **X on a Home cell or a search item** | C2a (card, X), C2c (menu source), C1c (menu look), C1b (search X) | AT-4 (identity against Steam's tile-menu Play), AT-13 |
 | T2 | Add to / Remove from Favorites | Menu row | Click | Menu + A | C1c | AT-6 (capsule menu snippet) |
 | T3 | Add to › (collections, New collection…) | Submenu beside the menu | Click | Right / A | C1c | AT-6 |
 | T4 | Manage › | Submenu | Click | Right / A | C1c | AT-6 |
 | T5 | Developer › | Submenu (developer mode) | Click | Right / A | C1c | AT-6 |
 | T6 | Properties… | Menu row | Click | A | C1c | AT-6 |
-| T7 | Cancel | Quiet 56 px capsule; click outside | Click | B | C1c | AT-6, G-PAD |
+| T7 | Cancel | A 56 px quiet capsule under the rows; click outside (Steam's dismiss) | Click | B | C1c | AT-6, G-PAD |
 | T8 | Status on the tile (compatibility, download progress, update, friends playing, coming soon, locked, copies, missing-art title) | Library: Steam's badges restyled; Home: icon states + card (§3.3) | Look | Look | C2c (library), C2a (Home) | AT-1, AT-6 |
 
 ### 12.4 Library Filters (LA A.4)
 
 | # | Function | New place | Laser | Gamepad | Owner | Test |
 |---|---|---|---|---|---|---|
-| F1 | Frame compatibility level (4, persisted) | Segmented control at the top of the sheet [T3] / Steam's rows at 72 px [T1] | Click | Left/Right + A [T3]; Up/Down + A [T1] | C2c | AT-15 |
-| F2 | 47 checkboxes in 11 sections + Gamepad Support and Language dropdowns | Chips (one row per section + "N More") and collapsed rows [T3] / Steam's rows at 64 px with 40 px boxes [T1] | Click | D-pad + A | C2c | AT-15 |
+| F1 | Frame compatibility level (4, persisted) | A pop-up row at the top of the sheet → its 4-option value menu [T3]; single-choice rows of 80 px [T1] | Click the pop-up, then an option [T3]; click a row [T1] | A, then D-pad + A [T3]; Up/Down + A [T1] | C2c | AT-15 |
+| F2 | 47 checkboxes in 11 sections + the Gamepad Support and Language dropdowns | Players and Play state as toggle capsules; the other sections as collapsed rows that expand in place into capsules and pop-up rows [T3]; Steam's rows at 80 px with check circles and pop-up rows [T1] | Click | D-pad + A | C2c | AT-15 |
 | F3 | Store tags / Friends text search | 64 px fields inside their expanded rows | Click → keyboard | Focus + A → keyboard | C2c | AT-15 |
-| F4 | Reset | Header capsule; ornament "Reset" (Y) | Click | Y, or D-pad + A | C2c | AT-15 |
-| F5 | Save as Dynamic Collection | Footer capsule | Click | D-pad + A | C2c | AT-15 |
-| F6 | Close | × circle; B | Click | B ("Done") | C1c (frame) | AT-15, G-PAD |
+| F4 | Reset | The sheet's trailing capsule [T3]; Steam's button at the end [T1] | Click | D-pad Up to the header + A [T3]; D-pad + A [T1] | C2c | AT-15 |
+| F5 | Save as Dynamic Collection | A 60 px capsule at the end of the content | Click | D-pad + A | C2c | AT-15 |
+| F6 | Close | The sheet's close circle (C1c) | Click | B | C1c (frame) | AT-15, G-PAD |
 
 ### 12.5 Collections, Non-Steam, Soundtracks (LA A.5, A.6)
 
 | # | Function | New place | Laser | Gamepad | Owner | Test |
 |---|---|---|---|---|---|---|
-| C1 | Browse collections | Home › Collections folders (empties grouped); Library Collections tab (restyled tiles) | Click | D-pad + A | C2a (Home), C2c (tab) | AT-1, AT-6 |
+| C1 | Browse collections | Home › Collections folders (empties grouped); the Library Collections tab (rounded tiles, empties dimmed through a T2 tag) | Click | D-pad + A | C2a (Home), C2c (tab) | AT-1, AT-6 |
 | C2 | Open a collection | Home: `/library/lgs/folder/<id>` + "Show in Library"; Library: Steam's `/library/collection/<id>` | Click | A | C2a (Home), C2c (tab) | AT-4, AT-6 |
 | C3 | Back to all collections | Folder: Back/B (history); Library: toolbar Back | Click Back | B | C2a (folder), C1a (Back) | AT-3 |
 | C4 | Create / edit collections | Tile menu Add to › New collection…; Filters › Save as Dynamic Collection | Click | Menu / sheet | C1c, C2c | AT-6, AT-15 |
@@ -825,7 +880,7 @@ On plates this shift reveals plate glass, not content. Home uses +15 mm (D2 D10,
 | SN-H3 | Type / edit the query | Steam's VR keyboard (+ echo row, WN §4.7) | Click keys | D-pad + A on keys | C4b, C1b | WN AT-10 |
 | SN-H4 | Clear the query | Clear × in the field (WN) | Click | Backspace on the keyboard | C1a | WN AT-9 |
 | S1 | Switch result category (All, Library, Friends, Store, Tools, Hidden) | window-nav's segmented control in the sheet | Click | LB / RB; Up to the row | C1b | WN AT-9c |
-| S2 | Open a result | window-nav's sheet and Steam's grids; **programs: Top Hit and the Apps section [T3, S-A/S-B]** | Click | D-pad + A; X = Play on library items (S-C) | C1b, C2a (provider) | WN AT-9, AT-13 |
+| S2 | Open a result | window-nav's sheet and Steam's grids; **programs: the Top Hit and the Software cell [T3, S-A/S-B]** | Click | D-pad + A; X = Play on library items (S-C) | C1b, C2a (provider) | WN AT-9, AT-13 |
 | S3 | "View more in the Store" | Steam's Store grid, via window-nav's Store section | Click | Focus + A | C1b | WN AT-9 |
 | S4 | No results | Steam's "No Results Found", restyled (WN) | Look | Look | C1b | WN AT-9 |
 
@@ -834,7 +889,7 @@ On plates this shift reveals plate glass, not content. Home uses +15 mm (D2 D10,
 | # | Function | New place | Laser | Gamepad | Owner | Test |
 |---|---|---|---|---|---|---|
 | P1 | Open the list | Steam's + button (white while open) | Click + | View → bar, Left/Right to +, A | C3a (button), C2b (popup) | AT-12 |
-| P2 | Launch a program (24 rows, 23 programs + the switch) | 4-column grid in the popup, all visible [T1/T3]; Home › Apps [T3]; search Apps section [T3] | Click a cell | D-pad + A | C2b, C2a (Apps, search) | AT-12, AT-4, AT-13 |
+| P2 | Launch a program (24 rows, 23 programs + the switch) | 4-column grid in the popup, all visible [T1/T3]; Home › Apps [T3]; search Top Hit and Software cell [T3] | Click a cell | D-pad + A | C2b, C2a (Apps, search) | AT-12, AT-4, AT-13 |
 | P3 | Toggle Liquid Glass | **Popup only:** toggle row [T3] or Steam's own row with a green pip [T1] | Click | D-pad + A (never default focus in T3) | C2b | AT-5, PLAN-2b-3 |
 | P4 | Add a desktop window to VR | Popup "Windows" group first; Home › Windows section | Click | D-pad + A | C2b, C2a (Windows) | AT-12, AT-4 |
 | P5 | Close the list | Click outside; auto-close after 2 s; opening another popup | Click elsewhere | B | C2b (Steam's, unchanged) | AT-12 |
@@ -855,7 +910,7 @@ On plates this shift reveals plate glass, not content. Home uses +15 mm (D2 D10,
 | SN-H1 | Go back (history) on Home, folders and What's New | Steam's Back as the 60 px circle at (24, 24) (E-BACK) | Click Back | B (folders, What's New); at the Home root B opens the tab bar (SN-N3) | C1a | WN AT (E-BACK), AT-3 |
 | SN-N2 | Open the tab bar from a page's left edge | Unchanged on every route. On Home it works from page 1 (Left at a row's start); later pages page back first | Click a tab bar item | D-pad Left at page 1's left edge | C1a, C2a | AT-3(g) |
 | SN-N3 | Open the tab bar with B at the root | Unchanged (the Home root does not handle B) | — | B | C1a, C2a | AT-3(h) |
-| SN-F1 | Footer legend actions (X Filter, Y Sort By, ≡ Options, A Select, B Back) | window-nav's bottom ornament; library slots per input mode (§7.1); legends never hidden | Click the member (laser-mode nodes, or T2 Options) | The physical button | C1a (ornament), C2c (slots) | AT-14(d), PLAN-1a-1 |
+| SN-F1 | Footer legend actions (X Filter, Y Sort By, ≡ Options, A Select, B Back) | window-nav's bottom ornament; library routes: the five fixed slots per input mode (§7.1); legends never hidden | Click the slot: Steam's laser-mode Sort and Filter, the shell's Options member, Steam's Select and Back legends | The physical button | C1a (ornament), C2c (slots) | AT-14(d), PLAN-1a-1, PLAN-2c-1 |
 
 **Count:** 60 functions (53 from LA §A + 7 from SN §A: H1–H4, N2, N3, F1); 60 mapped, 0 dropped, each with a laser path, a gamepad path, an owner and a test. A.10 states are covered in §3.3 (Home) and §7 (Library).
 
@@ -866,6 +921,8 @@ On plates this shift reveals plate glass, not content. Home uses +15 mm (D2 D10,
 | Element | Tier | Evidence | Status | Fallback |
 |---|---|---|---|---|
 | Home route override | T3 (P2 `routes.override`) | SR §3.5: our page rendered at `/library/home` with controller focus; `clearOverrides()` restored Steam's Home (774 nodes). SR §5: 90 fps, 43 nodes | PROVEN | Steam's Home, T1 restyle, `window-full` (§3.7) |
+| Footer hidden on Home and folders the way Steam's Home hides it (never by CSS) | T3 (Steam's `FooterStore.HideFooter()`, the call of Steam's `useHideFooter` hook) | LA B.3; live 2026-10-07: stock Home and our Home, folders and What's New render no `#Footer` (C2a log M3-F1) | PROVEN | Steam's footer shows as C1a's ornament; the page drops to two honeycomb rows (`lgs-home-footer`, §3.2) |
+| Glass mode from the override (`glassMode('home')`) | T2 (C1a's hook, REQ C2a->C1a #1) | WN §3.1.1 offers the same hook to C5a and C3b | Interface requested | Without it, WN's map makes Home `windowless` even when the override failed (Steam's Home over the room with no glass): C2a's `41-home.css` then keys its T1 restyle of Steam's Home on `[data-lgs-route="home"]:not(:has(.lgs-home))` and draws a window-full tint itself |
 | Folder and What's New routes (`/library/lgs/…`) | T3 (P2 `routes.add`) | SR §3.4: patching a route fiber's type [PROVEN]; `steamChildren` handed to the override (SR §3.5) | Routes PROVEN; rendering `steamChildren` in our route PLAUSIBLE | Folder → Steam's collection page. What's New → our error boundary offers "Show Steam Home", which clears the override for the session |
 | Windowless Home with **plates** | T1 + T5 (P6 `data-lgs-plate`, P9 G1) | SP §6.4 E6 (transparent Steam window over the room); G1 plates built in glassd and fakeglassd (`contracts/glassd.md` §1.3, "built") | Visually PROVEN; plates built offline, not yet live with the Phase 2 reporter | CSS plates (§10.5) |
 | Mosaic restricted to declared bands | T5 (P6 `data-lgs-mosaic`, P7) | Reporter §2.3; the daemon decomposes the mosaic (NATIVE.md "guillotine cuts") | PLAUSIBLE | Full mosaic: labels drawn at 0 and +2 mm (≈ 1.8 px at 35°), a minor softening, no doubling of popped content |
@@ -882,13 +939,13 @@ On plates this shift reveals plate glass, not content. Home uses +15 mm (D2 D10,
 | "+" popup A–Z, plates, toggle row, preferred focus | T3 (C2b, P2 `patch.byProps`) | The popup's memo fiber `{allowLaunchProgram}` located; same type-swap as the route switch (SR §3.2, §8) | PLAUSIBLE (not patched) | T1 grid in scan order (`p2_home-apps_plus-t1.png`) |
 | All Apps → Home › Apps from the bar | T3 | LQ5 | UNPROVEN | Circle hidden; Home › Apps via the tab bar |
 | Popup +25 mm | T4 (Steam side, P6 wrapper) | SP §3.3 wrapper of `SendPendingInstanceParamsToSteamVR`; parameter path exercised in E2 | PLAUSIBLE | Steam's +3.7 mm |
-| Search contributions (S-A, S-B, S-C) | T3 provider in C1b's `LgsSearch` | WN §4.9 (override of `Routes.Search.Root()`, SR §3.5 mechanism); C1b's provider API | Depends on WN AT-9 and the provider API | Programs not in search; Home › Apps and "+" remain |
-| Library ornament slots | T1 + T2 (C2c) | WN §3.4 (ornament from `#Footer`); laser-mode pill is laser-only, so moving it is safe for focus (INV-L §6.1) | PLAUSIBLE | Steam's pill and legend restyled in place (two capsules) |
-| More circle in posters | T2 (C1a helper) | `vgp_onmenu` (button 14) dispatch on `%{LibraryItemBox}` opens the capsule menu (INV-L §0.3); the host's `onMenuButton` (SM-D15) | Dispatch PROVEN; capture-phase isolation PLAUSIBLE | Ornament slot 3 |
-| Letter scrubber | T3 (C2c) | Writes `scrollTop` on Steam's grid scroller (a wheel-equivalent) | PLAUSIBLE | Steam's gamepad fast-scroll only |
+| Search contributions (S-A, S-B; S-C is C1b's) | T3 provider registered with C1b's `LgsSearch` (`rt.search.addProvider`) | C1b's announced interface (`docs/phase2/wp/C1b.md`); WN §4.10 (override of `Routes.Search.Root()`, SR §3.5 mechanism) | Depends on WN AT-9 and C1b M3 | Programs not in search; Home › Apps and "+" remain |
+| Library ornament slots | T1 + T2 (C2c) | WN §3.4 (ornament from `#Footer`); the laser pill is laser-only, so moving it cannot change D-pad order (INV-L §6.1); fixed backing through C1a's API (C2c REQ-5) | PLAUSIBLE | Steam's pill and legend restyled in place, in the capsule material (WN's no-T2 fallback) |
+| More circle on posters | T2 (C1a's helper) | The host's `onMenuButton` (SM-D15); the `vgp_onmenu` dispatch opens the capsule menu (INV-L §0.3) | Dispatch PROVEN; capture-phase isolation PLAUSIBLE | Ornament slot 3 |
+| Letter scrubber | T3 + a T1 padding (C2c) | `scrollTop` on Steam's grid scroller (a wheel-equivalent); the 6-column check after the padding | PLAUSIBLE | Steam's fast-scroll; wheel and drag |
 | Larger posters (200 × 300) | T3 (C2c) | LA LQ2 (props of Steam's CSSGrid) | UNPROVEN | Steam's 172 × 258 (the baseline shown) |
 | Anchored menus | T2 (C1c) | WN AT-11, GP AT-MENU, SET CQ10 | UNPROVEN | Centred menus that still morph from the source |
-| Filter sheet with chips | T3 (C2c) | Type swap of Steam's filter dialog component (SR §3.4 technique) | PLAUSIBLE | T1: Steam's dialog, 64 px rows, 40 px boxes, thick glass, sheet depth |
+| Filters content | T3 (C2c) | Type swap of Steam's filter dialog component (SR §3.4 technique) | PLAUSIBLE | T1 restyle of Steam's dialog (§9) |
 
 ---
 
@@ -901,27 +958,31 @@ On plates this shift reveals plate glass, not content. Home uses +15 mm (D2 D10,
 - Before any gamepad sequence: `L.root()` (`FocusApplicationRoot()`, SR §4). After any synthetic hover: `L.unhover()` (pointer to 1400, 900).
 - Native steps run only inside `python glass.py native-session` (PLAN §7). `hv` frames are looked at and deleted (LAB never-list).
 - Evidence: `docs/phase2/wp/C2a.md`, with the command, the result, the shot or JSON names (`shots/p2_c2a_<what>.png`, filmstrips `shots/p2_motion_c2a_<interaction>_<f>.png`), the date and the Steam build.
+- **Library filter state (C2c's tests):** filters and sorts are persisted (`AppGridDisplaySettings`, `collectionsAppFilterVR`, the compatibility level). Tests **never** select a sort, a filter option, Reset or Save. Activation goes through P2's action logger or a spy on Steam's setter, which logs `{fn, arg}` and does not run (never-list).
+- **Home never launches in a test.** X, Play, A on a program or window, and the Software cell are clicked only with synthetic events or with `actions.test(true)`, so `actions.log` shows `mode: logged`.
 - The global gates of PLAN §4.1 run on `/library/home` (Recent, Collections, Apps), `/library/lgs/folder/<id>` and `/library/lgs/steamhome`, in both input modes, CSS-only and native: `python glass.py gates main --route R --mode laser|pad --flags wp.c2a`, `pad-bfs`, `focus`, `motion`, `sgcheck`, `hv`. The tests below add what the gates do not cover.
 
 | ID | Package | What | How | Pass |
 |---|---|---|---|---|
-| AT-1 | C2a | Home renders | `python glass.py shot main p2_c2a_home_recent --route /library/home --flags wp.c2a` (and `_collections`, `_apps` with the segment clicked in the pre) | 13 cells, 2 dots, top row with 3 segments + What's New + search circle; side by side with `p2_home-apps_home.png` (same 12 games, same order); `#Footer` visibility equals stock Home's; `data-lgs-glass="windowless"` |
+| AT-1 | C2a | Home renders | `python glass.py shot main p2_c2a_home_recent --route /library/home --flags wp.c2a` (and `_collections`, `_apps` with the segment clicked in the pre; `p2_c2a_folder` on `/library/lgs/folder/<VR id>`) | 13 cells, 2 dots, top row with 3 segments + What's New + search circle; side by side with `p2_home-apps_home.png` (same 12 games, same order); `#Footer` visibility equals stock Home's, on Home and on the folder route (if a footer shows, `lgs-home-footer` is set and the honeycomb has two rows, §3.2); no legend node has `display: none`; `data-lgs-glass="windowless"`, `data-lgs-route="home"` / `"folder"` |
 | AT-2 | C2a | Geometry | `glass.py js` reading rects | Column pitch 224 ± 2, row pitch 188 ± 2, disc 120; Back box (14, 14, 80, 80) and search box (1186, 14, 80, 80) ± 2; section track y 22–86, segments contiguous (gap ≤ 2), each ≥ 60 × 140; the 4 top-row centres ≥ 80 apart; `elementFromPoint` at (640, 30) hits the section control (else the fallback layout, §3.1.1) |
 | AT-3 | C2a | Gamepad traversal | `L.pad` from cell 1: (a) Right ×3; (b) every cell reachable (`glass.py pad-bfs --route /library/home`); (c) for each cell, Down-Up and Up-Down return to it; (d) Right at row 1's end → page 2, row 1; (e) RB → Collections, LB back; (f) LT/RT page (skip if not delivered); (g) Left at page 1's left edge → `.gpfocus` in `frame.menu`; (h) B at root → `frame.menu`; **(i)** RB from Apps wraps or stops without entering What's New; on `/library/lgs/steamhome`, RB changes Steam's feed tab and B returns to `/library/home`; **(j)** **D-pad only**, no LB/RB/LT/RT: reach every section (Up to the row, Left/Right, A) and every page (Right past row ends); (k) route entry focus on cell 1 (VP P-22) | All pass; `L.focused('main')` never empty inside the page |
 | AT-4 | C2a | Launch wiring (action logger) | Click (synthetic, so logged) and A on: a game (expect `navigate('/library/app/<id>')`); a game's X and the card's Play (expect `primary(appid)`, and `actions.handler('primary')` identical to Steam's tile-menu Play handler for that app); the card's More and ≡ (expect the same handler, Steam's tile menu); a program (expect `launchNonSteam` with the same `strCmdline` as Steam's popup row of that name); a window (`desktopWindow`); a folder (route becomes `/library/lgs/folder/<id>`, nothing logged); All Games (`navigate('/library/tab/AllGames')`); What's New (route `/library/lgs/steamhome`) | All logged calls equal Steam's; `mode` is `logged` for every launch |
-| AT-5 | C2b, C2a | Switch safety | (a) T1 only and T3 on: `glass.py js` finds the row whose text is exactly "Liquid Glass" in `barpopup` after the OPEN pre (INV-B §0.3) [C2b]; (b) Home › Apps lists no cell named "Liquid Glass" [C2a]; (c) the search sheet for "liquid" shows no program for it, neither as Top Hit nor in the Apps section [C2a, with C1b]; (d) T3 popup: the first `.gpfocus` after opening by gamepad is the first program cell, not the toggle row [C2b]; (e) the toggle row while main is on `/library/lgs/folder/…` logs `Navigate('/library/home', replace)` **before** the launch [C2b] | All pass |
-| AT-6 | C2a, C2c | No functional loss | C2a: `glass.py gates main --route /library/lgs/steamhome --only aud` against stock `/library/home`'s Steam nodes (the override moves them there), and `gates` on `/library/home` for our nodes plus Steam's Back and search (E-BACK); C2c: `audit main --route /library/tab/AllGames`, `/library/tab/Collections`, `--pre <Sort snippet>`, `<capsule menu snippet>`, `<Filter snippet>` (INV-L §0.3) | 0 GONE / HIDDEN / SHRUNK / UNCLICKABLE / CONTRAST outside PLAN §1.16's exemptions (search: WN AT-4) |
-| AT-7 | C2a (C2b popup) | Sizes and type | `glass.py gates main --route /library/home --only size,type` + a rect scan of the card | Every focusable meets G-SIZE or its exemption (E-SEG on segments, E-BACK); card Play/More hit elements 80 tall, centres 180 apart, non-overlapping; More 60 visible with an 80 hit; no text < 18 px (popup 15); no uppercase, italics or positive tracking in chrome |
+| AT-5 | C2b, C2a | Switch safety | (a) T1 only and T3 on: `glass.py js` finds the row whose text is exactly "Liquid Glass" in `barpopup` after the OPEN pre (INV-B §0.3) [C2b]; (b) Home › Apps lists no cell named "Liquid Glass" [C2a]; (c) the search sheet for "liquid" shows no program for it, neither as Top Hit nor in the Software cell, and `rank('liquid')` of our provider returns nothing for it [C2a, with C1b]; (d) T3 popup: the first `.gpfocus` after opening by gamepad is the first program cell, not the toggle row [C2b]; (e) the toggle row while main is on `/library/lgs/folder/…` logs `Navigate('/library/home', replace)` **before** the launch [C2b] | All pass |
+| AT-6 (Home part, C2a) | C2a | No functional loss | `glass.py gates main --route /library/lgs/steamhome --only aud` against stock `/library/home`'s Steam nodes (the override moves them there; needs P10's stock-route option, REQ C2a->P10 #4), and `gates` on `/library/home` and a folder for our nodes plus Steam's Back and search (E-BACK) | 0 GONE / HIDDEN / SHRUNK / UNCLICKABLE / CONTRAST outside PLAN §1.16's exemptions (search circle: WN AT-4) |
+| AT-6 (library part, C2c) | C2c | No functional loss | `glass.py audit main --route /library/tab/AllGames` with `--mode laser` and `--mode pad`; the same on `/library/tab/Collections`, `/library/tab/DesktopApps` and `/library/collection/<VR id>`; and on AllGames with `--pre` the Sort snippet, the capsule-menu snippet (`vgp_onmenu`) and the Filter snippet (INV-L §0.3), each in both modes, with `wp.c2c` off and on | 0 GONE / HIDDEN / SHRUNK / UNCLICKABLE / CONTRAST, apart from §1.16's E-SEG and E-MENU. No legend node has `display: none`. The laser-mode glyph collapse is not counted (WN §3.4.2) |
+| AT-7 (Home part, C2a) | C2a | Sizes and type | `glass.py gates main --route /library/home --only size,type` (and a folder) + a rect scan of the card | Every focusable meets G-SIZE or its exemption (E-SEG on segments, E-BACK); card Play/More hit elements 80 tall, non-overlapping, centres ≥ 145 apart (184 with the English label); More 60 visible with an 80 hit; no text < 18 px; no uppercase, italics or positive tracking in chrome |
+| AT-7 (library part, C2c) | C2c | Sizes, type, outlines | `glass.py gates main --route /library/tab/AllGames` in both modes, bare and with each of the three `--pre` snippets | **G-SIZE:** every focusable ≥ 80 × 80 or its exemption (segments: E-SEG, ≥ 60 × 140 and contiguous; menu rows: E-MENU). The More circle is 60 visible with an 80 hit, fully inside its poster (WN AT-26). The scrubber is 60 visible with an 80 hit. Ornament members are 60 tall with abutting hit boxes. Toggle capsules are 60 visible with an 80 hit. Filter rows are 80. **G-TYPE:** no text under 18 px, no weight under 500, no uppercase, tracking > .01 em or italics in chrome (tab labels, the sub-filter, section headers, collection labels, legends). **G-OUTLINE:** no outline or 1 px ring on posters, tabs, the ornament, menus or the sheet |
 | AT-8 | C2a | Attention ramp (both inputs, one mechanism) | (a) `--mode pad`: focus a game by `L.pad`; shots at 0.5 s and 1.5 s: no card, then card; `--mode laser`: `L.hover('main', <disc>, 1500)`, the same two shots; (b) jitter: two moves within 0.3 s (pad), and a laser sweep at 45 ms per disc: no `.lgs-dwell`, no lift, no card; (c) leave: laser card gone ≤ 0.3 s + 441 ms after `L.unhover()`; pad card starts closing at the next `L.pad` and is gone ≤ 441 ms later; (d) static: `41-home.css` has no `:hover` selector that shows the card or plate; the card's state is set only from `rt.attend` (`lgs-attend-*` classes or `onStep`/`onLeave`) and `rt.attention.feed`; (e) rects: the card overlaps no other disc by more than 16 px; (f) after the card opens, a synthetic click on Play logs `primary` and the route does not change; (g) laser: no `scale` above 1 on a disc before `.lgs-dwell` is set (VP P-06) | All pass |
 | AT-9 | C2a | Motion | `glass.py motion main --route /library/home --pre <ramp> --name c2a_ramp`; the same for a section change, a page change and an attention move | Every duration and easing a P5 token; 0 animations at rest 1 s after; route entry ≤ 800 ms; filmstrips `shots/p2_motion_c2a_ramp_<f>.png` at f = 0, .15, .35, .5, .75, 1 show glass before content, no text scaling, no closed outline |
-| AT-10 | C2a | Depth (native) | In `native-session`: `__LGS_SG.dump()` and the reporter's `debug()` with a cell attended (pad and laser), with the card open, and with a name plate | The attended item at 15 mm ± 0.5 (converted with the live S, r: 0.0471 u at r = 0.863), `interactive: false` in the default profile; only the attended item's crops on Home (the disc, or the card, or the disc and its name plate); with `--flags interactivePops`: the same crops `interactive: true` |
+| AT-10 | C2a | Depth (native) | In `native-session`: `__LGS_SG.dump()` and the reporter's `debug()` with a cell attended (pad and laser), with the card open, with a name plate, and with the card's menu open | The attended item at 15 mm ± 0.5 (converted with the live S, r: 0.0471 u at r = 0.863), `interactive: false` in the default profile; only the attended item's crops on Home (the disc, or the card, or the disc and its name plate); with the menu open, only the menu's crop (+10, inside its `thick` plate) and the card at 0 (rule 6); with `--flags interactivePops`: the same crops `interactive: true` |
 | **AT-10b** | C2a | **No ghosts (static)** | `glass.py sgcheck --route /library/home` (attended cell, open card) and on a folder | R1 covered (each pop + 2 px inside its plate), R2, R5, R7, R8, R9 hold; mosaic pieces only inside the declared bands, covering no Steam texel with alpha > 0.05 outside a plate; ≤ 32 plates |
 | AT-10c | C2a | No ghosts (look) | `glass.py hv home_attended --offaxis 30 --look` with a cell attended, and once during the card ramp (look, then delete) | One copy of the icon; its plate visible beside it as glass; labels single; no doubled card in the ramp frame |
 | AT-11 | C2a | Performance | `glass.py perf main --route /library/home --pre <page through 10 pages>`; GPU time from `glassd-out.json`; `img.naturalWidth` of visible icons | fps within 5 % of stock, no frames > 34 ms; heroes decoded only for the visible page and the open card; program icons at 64 CSS px from ≥ 64 px sources; glassd ≤ 2.5 ms (GL-3's Home scene) |
 | AT-12 | C2b | "+" popup | OPEN pre, then `L.pad` inside `barpopup`: every cell reachable; Down-Up returns; B closes; rect scan | Computed `display` of the list is `grid` with 4 columns; with 23 programs and no extra groups, every cell's rect lies inside the scroller's client rect (no scroll); every label ≤ 70 px wide and ≤ 2 lines; the name plate stays inside x 0–300 |
-| AT-13 | C2a, C1b | Search contributions | WN AT-9 steps with "half": the Apps section lists "Half SBS Toggle"; A on it logs `launchNonSteam` with Steam's `strCmdline`; X on the Top Hit logs `primary`; with "vlc" the Top Hit is the program "VLC media player" and Open logs its launch; with "liquid" nothing of ours appears | All pass |
-| AT-14 | C2c | Library | (a) `L.click` on C1a's More circle: the route is unchanged and the menu labels equal those of the `vgp_onmenu` menu for that poster; (b) scroll the grid 2,000 px and back: exactly one More node in the document, on the attended poster or hidden; (c) a scrubber click on "M" scrolls so the first visible poster's title starts with "M"; (d) **both input modes** (`--mode laser`, then `--mode pad`): shot + audit each | (a)–(c) pass; (d) the ornament's width is 880 ± 1 in both modes, all 5 slots are present, A and B visible in both, glyph badges only in pad mode, and every slot's click is handled (logged) |
-| AT-15 | C2c | Filters | (a) Filter snippet, then `L.pad` through every control; (b) `audit` with the sheet open; (c) sheet crop depth (native) | All pass; (c) +10 mm, `interactive: false` |
+| AT-13 | C2a, C1b | Search contributions | WN AT-9 steps with `--flags wp.c1b,wp.c2a`: 'half', 'vlc', 'liquid'; `rt.search.providers()` | 'half': the Software cell lists "Half SBS Toggle"; A on it logs `launchNonSteam` with Steam's `strCmdline` for that row; X on the Top Hit logs `primary(546560)` (C1b's sheet). 'vlc': the Top Hit is the program "VLC media player" (tier 1 against no Steam match), Open logs its launch, and no Software cell repeats it. 'liquid': no Top Hit or Software cell for Liquid Glass. `providers()` lists `c2a.programs` with `failed: false` and every `rank` call ≤ 2 ms |
+| AT-14 | C2c | Library | (a) **More circle:** under `--mode laser`, `L.click` on the More circle over a poster. (b) **Recycling:** scroll the grid 2,000 px and back (`scrollTop`, a wheel-equivalent). (c) **Scrubber:** under `--mode laser`, click "M"; under `--mode pad`, 5 × `L.pad` Down. (d) **Both modes:** `--mode laser`, then `--mode pad`, on `/library/tab/AllGames`: shot and audit each; click every slot through the action logger and spies (Sort and Filter open Steam's menu or dialog, which is then closed with B; Options logs its dispatch; A and B log Steam's legend dispatch). (e) **Depth** (M4, in `glass.py native-session`): `glass.py sgcheck` with a poster focused (pad) and dwelt (laser), then with the tile menu open, then with the Filters sheet open. (f) **Sort label:** open the Sort menu (look only) | (a) The route is unchanged; the menu's labels equal those ≡ opens on the same poster; the log shows the host's `onMenuButton` (or the `vgp_onmenu` fallback); the menu is closed with B, never by an item. (b) At most one More node in the document; it is hidden or inside the current target's `%{LibraryItemBox}` (same appid), never on another poster. (c) Laser: the first fully visible poster's title starts with the first letter ≥ "M" that exists. Pad: the scrubber has no focusable, and its current letter equals the focused poster title's first letter. (d) The ornament is 880 ± 1 px wide in both modes (PLAN-2c-1); all 5 slots are present; every slot's click is handled. (e) One pop at +15 mm (0.041 ± 0.005 u at r = 1; +10 if the click-safe cap applies) with `interactive: false`. With the menu open: the menu at 0.027 u and the source poster not popped (rule 6). With the sheet open: the sheet at 0.027 u and nothing else. ≤ 4 distinct dz on the route. Each lift's shadow within P-48. (f) The checked row equals slot 1's label in both modes |
+| AT-15 | C2c | Filters | (a) The Filter snippet in both modes, then `L.pad` through every control of the sheet, T3 and T1. (b) `glass.py audit main --pre <Filter snippet>` in both modes, T3 and T1. (c) The sheet's crop (M4). (d) Spies: activate each toggle capsule, pop-up option, Reset and Save through the action logger. (e) Rect scan of the sheet | (a) Every control is reachable; Down-Up returns; B closes the sheet and focus returns to its source (slot 2, P-21). (b) 0 GONE / HIDDEN / SHRUNK / UNCLICKABLE / CONTRAST; in T3 every Steam filter control has a twin bound to the same setter: the compatibility level, the 47 options, 2 dropdowns, 2 text fields, Reset, Save. (c) The sheet at +10 mm (0.027 u), `interactive: false`, and no other pop. (d) Every call equals Steam's own row's setter and arguments (identity check), logged, not run. (e) The sheet is ≤ 960 wide inside 108–628; the close circle is at (24, 24) of the card; toggle capsules are 60 visible with 80 hits; rows are 80; text ≥ 18 px; the T3 content is ≤ 1,400 px tall |
 | AT-16 | C2a | Removal | `lgs off` path: `remove()`; navigate `/library/home`; `glass.py status` | Steam's Home (774 nodes ± 5 %); no `[class*=lgs]` nodes and no `data-lgs-*` attributes; history entries under `/library/lgs/` fall back to Steam's library; no scene-graph nodes (G-REMOVE) |
 | AT-17 | C2a (others for their surfaces) | Headset view | One `hv` frame each of Home, the "+" popup, the catalogue with a menu, and the Filter sheet (look, then delete) | Labels legible over the room; glass L 55–110, 70–90 under the card's text; no closed outline on any glass edge |
 | AT-18 | C2a | Accessibility | `gates` with `--media reduce` and `--media contrast` on `/library/home` with the card ramp in the pre | Fades only (≤ 200 ms); near-opaque plates with the 2 px edge; contrast audit clean |
@@ -931,6 +992,8 @@ On plates this shift reveals plate glass, not content. Home uses +15 mm (D2 D10,
 | AT-22 | C2a | Fail closed | Break a required finder through P2's test hook (RX-5 method) in a locked step, then `lgs on` | `41-home` reported failed in `lgs status`; `/library/home` is Steam's Home in `window-full` glass; no `/library/lgs/*` route; every Home function works (spot check H2, H5) |
 | AT-23 | C2a | Strings | With our language accessor stubbed to `de` in a locked step (never Steam's setting) | No English string of §3.8's "without a token" rows is drawn; the glyph variants show |
 | PLAN-2a-1 | C2a | Looks like the design | Native off: `python glass.py cmp docs/phase2/mockups/home-apps-home-t1.html shots/p2_c2a_home_t1.png --id C2a --name home_t1` (mapping in `docs/phase2/wp/C2a-cmp.json`; mockup `data-id`s on the top row, cells, dots and card). Native on: `hv` look | Named rects within ± 8 px, or the difference explained in the log; the agent views both and records a verdict. Native: one copy of each icon, plate glass beside the lifted disc |
+
+C2c's card tests also stay: PLAN-2c-1 (ornament 880 ± 1 in both modes), PLAN-2c-2 (`glass.py cmp` against `home-apps-library.html`, `-library-pad.html` and `-filter.html`, with `docs/phase2/wp/C2c-cmp.json`), and G-PAD on AllGames, including Up to the sub-filter and the tab row and back.
 
 ---
 
@@ -949,10 +1012,14 @@ On plates this shift reveals plate glass, not content. Home uses +15 mm (D2 D10,
 | 9 | Laser on transparent texels (SP §6.4) | Harmless either way; a wearer question (PLAN §5.3 item 3) |
 | 10 | Session MRU of programs is in memory only and resets with Steam | Intended (no persistence) |
 | 11 | window-nav must carry the windowless routes and the search contributions | Resolved by PLAN §1.2 and §1.9; WN §3.1.1 lists the routes; the provider API is C1b's (`xc-home-search.md`) |
-| 12 | window-nav's laser-mode ornament dropped the A/B legends | Resolved by PLAN §1.10 (A and B always present) |
+| 12 | window-nav's laser-mode ornament dropped the A/B legends that Steam renders in laser mode | Resolved by PLAN §1.10: A and B are never hidden; the library keeps them in slots 4–5 in both modes |
 | 13 | The override could change the footer's visibility on Home | `ui.Page` with Steam's footer props; AT-1 checks; the quiet legend is the fallback (§3) |
-| 14 | G-AUD compares a route with its stock self; on `/library/home` the override moves Steam's Home nodes to `/library/lgs/steamhome` by design | AT-6 audits them on `/library/lgs/steamhome` against stock Home; requested from P10 (stock-route option) and recorded for the coordinator |
+| 14 | G-AUD compares a route with its stock self; on `/library/home` the override moves Steam's Home nodes to `/library/lgs/steamhome` by design | AT-6 audits them on `/library/lgs/steamhome` against stock Home; needs a stock-route option in P10's `gates`/`audit` (REQ C2a->P10 #4) |
 | 15 | The card ramp's plate cannot morph in glassd yet | Phase ramp under the crop (§10.2); AT-10c's ramp frame |
+| 16 | Steam may render a footer on our folder routes (Steam's route wrapper for added routes) | Pass Steam's Home footer props; if it shows anyway, the two-row layout (`lgs-home-footer`, §3.2). Never hide it (PLAN §1.10) |
+| 17 | WN's route map makes `/library/home` `windowless` even when the override failed | REQ C2a->C1a #1 (the `glassMode('home')` hook); until answered, `41-home.css` draws a `window-full` tint behind Steam's own Home when our page is absent (§13) |
+| 18 | PLAN §1.7's row "the source card keeps +15" contradicts admission rule 6 | This text follows rule 6 (P6 enforces it); C2c REQ-7 asks the coordinator to amend the row |
+| 19 | On windowless routes a menu's +10 crop has no cover to lie in (rule 1) | C1c reports the menu box as a `thick` plate there (REQ C2a->C1c #3); without it the menu stays flat (rule 1 drops the pop), which is safe |
 
 ---
 
@@ -960,10 +1027,10 @@ On plates this shift reveals plate glass, not content. Home uses +15 mm (D2 D10,
 
 | With | Agreement | Where recorded |
 |---|---|---|
-| window-nav (C1a) | `/library/home` and `/library/lgs/folder/*` are **windowless** (plates, one pop on attention); `/library/lgs/steamhome` is `window-full`; Home answers `glassMode` so a failed override falls back to a window | PLAN §1.2, WN §3.1.1, `xc-home-search.md` §1 |
+| window-nav (C1a) | `/library/home` and `/library/lgs/folder/*` are **windowless** (plates, one pop on attention); `/library/lgs/steamhome` is `window-full`; Home answers `glassMode('home')` so a failed override falls back to `window-full` (REQ C2a->C1a #1); C1a tags Back and the search circle as plates on windowless routes (REQ C2a->C1a #2) | PLAN §1.2, WN §3.1.1, `xc-home-search.md` §1 |
 | window-nav (C1a) | The Home field is WN's circle variant; no microphone anywhere; Back and the search circle are plates on windowless routes | PLAN §1.9, §3.1 |
-| window-nav (C1b) | Search is window-nav's sheet; this concept adds programs in the ranking, the Apps section and X = Play through the provider API | PLAN §1.9, §6, `xc-home-search.md` §2 |
-| window-nav (C1a, C1c) | Library routes: the bottom ornament's five fixed slots per input mode (§7.1); the More helper on posters; menus by count; the Filters content inside WN's sheet frame (§9) | PLAN §1.10–§1.12, §7–§9 |
+| window-nav (C1b) | Search is window-nav's sheet; this concept adds programs (Top Hit tiers, the Software cell) through C1b's provider API (`c2a.programs`); X = Play on library items is declared by C1b's sheet | PLAN §1.9, §6, `docs/phase2/wp/C1b.md` ("Interface announced"), `xc-home-search.md` §2 |
+| window-nav (C1a, C1c) | Library routes: the five fixed slots per input mode (§7.1) inside WN's ornament contract; the More circle is WN's helper registered on posters (§7.2); the Filters content inside WN's sheet frame (§9); menus over Home reported as `thick` plates (§8) | §7.1, §7.2, §8, §9; WN §3.4.6 |
 | control-center | The Liquid Glass switch stays only in the "+" popup (CC row "+": "Liquid Glass stays a row there") | HA-10 |
 
 ---
@@ -973,7 +1040,7 @@ On plates this shift reveals plate glass, not content. Home uses +15 mm (D2 D10,
 | # | Critic's issue | Response | Where |
 |---|---|---|---|
 | 1 | **Blocker:** a windowless Home with uncovered pops ghosts, and without pops the glass falls back to tint | **Accepted. Mechanism chosen: covered plates.** Every plate is opaque glassd glass (Steam's panel hidden under it). The mosaic is restricted to the plates' bands. Only the attended item pops (+15 mm), over its own plate in an occluder variant. **Not chosen, option (a)** (opacity 0 on `t1` + full mosaic): it depends on the main panel staying a laser target at opacity 0, which only a wearer can confirm, and a full mosaic with holes approaches the 24-layer limit. **Not chosen, plain option (b)** (slabs inflated by dz · tan 35°): it needs 9–23 px of empty glass around every popped element, and it still leaves unpopped discs without glass. **Correction to the critic's numbers:** "≈ 7 px at +10 mm, ≈ 18 px at +25 mm" are millimetres; in CSS px they are **9 and 23** (0.77 mm per px). AT-10b (static) and AT-10c (off-axis look) added | §2 HA-1, §10, §14, `p2_home-apps_depth.png` |
-| 2 | Conflict with window-nav over search, Home's glass and field geometry | **Accepted.** window-nav owns search. Contributions: programs in the ranking, the Apps section, X = Play. The field is WN's spec, with WN's circle variant on Home | §6, §16, `xc-home-search.md`, `p2_home-apps_search.png` |
+| 2 | Conflict with window-nav over search, Home's glass and field geometry | **Accepted.** window-nav owns search. Contributions: programs in the ranking, the Apps cell (revision 3: C1b's Software cell), X = Play. The field is WN's spec, with WN's circle variant on Home | §6, §16, `xc-home-search.md`, `p2_home-apps_search.png` |
 | 3 | A dead microphone in the search field | **Accepted.** Removed everywhere; the clear × is the only control in the field (WN D-8) | §3.1, §6 |
 | 4 | The Liquid Glass switch as default-focused cell 1 of Apps, drawn white like a selection; also in search | **Accepted.** Removed from Apps and search. In the "+" popup: T3 toggle row, never default focus; T1 normal cell with a green pip. AT-5 extended (b–e) | HA-10, §4, §5, AT-5 |
 | 5 | Card circles at a 68 px pitch; Play not one click; jitter; hover-keyed and untestable | **Accepted.** A Play capsule and a More circle, 180 px apart, with non-overlapping 80 px hits. Hysteresis (0.8 s inside the disc circle; close 0.3 s after the laser leaves; two moves within 0.3 s open nothing). Revision 3: driven by P3's attention machine (gamepad focus or laser dwell), since laser hover does not move focus. AT-8 (a–g) | §3.4, §1.2, AT-8 |

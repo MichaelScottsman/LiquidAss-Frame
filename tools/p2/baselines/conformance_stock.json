@@ -1,0 +1,795 @@
+{
+ "routes": [
+  "/library/home",
+  "/library/tab/AllGames",
+  "/library/downloads",
+  "/settings/system",
+  "/media/grid"
+ ],
+ "runs": {
+  "/library/home": {
+   "build": "11094443",
+   "date": "2026-10-07T06:04:04",
+   "step": {
+    "flags": {},
+    "mode": "pad",
+    "media": [],
+    "stock": true
+   }
+  },
+  "/library/tab/AllGames": {
+   "build": "11094443",
+   "date": "2026-10-07T06:04:57",
+   "step": {
+    "flags": {},
+    "mode": "pad",
+    "media": [],
+    "stock": true
+   }
+  },
+  "/library/downloads": {
+   "build": "11094443",
+   "date": "2026-10-07T06:06:28",
+   "step": {
+    "flags": {},
+    "mode": "pad",
+    "media": [],
+    "stock": true
+   }
+  },
+  "/settings/system": {
+   "build": "11094443",
+   "date": "2026-10-07T06:10:19",
+   "step": {
+    "flags": {},
+    "mode": "pad",
+    "media": [],
+    "stock": true
+   }
+  },
+  "/media/grid": {
+   "build": "11094443",
+   "date": "2026-10-07T06:10:31",
+   "step": {
+    "flags": {},
+    "mode": "pad",
+    "media": [],
+    "stock": true
+   }
+  }
+ },
+ "items": [
+  {
+   "id": "P-01",
+   "sev": "must",
+   "state": "PASS",
+   "detail": "5 route(s)",
+   "req": "Hover and focus looks are keyed on the input mode (a root class set from `IsInGamepadNav`), not on `.gpfocus` alone. Eve",
+   "verify": "CSS: list the selectors that contain `.gpfocus`; each is scoped by the mode class or paired with one"
+  },
+  {
+   "id": "P-02",
+   "sev": "must",
+   "state": "PASS",
+   "detail": "5 route(s)",
+   "req": "In laser mode a highlight shows only while the laser is on the element: laser-mode `.gpfocus` paint requires `:hover`",
+   "verify": "CSS: laser-mode focus rules include `:hover`"
+  },
+  {
+   "id": "P-03",
+   "sev": "must",
+   "state": "MANUAL",
+   "detail": "verify: MOCK (`is-hover` vs rest, SHOT luma); CSS: transition is `hover-in` (D2 \u00a711.2)",
+   "req": "The laser hover look is subtle: + 10 to + 25 L over rest on controls and rows. It reaches 90 % within 130 ms",
+   "verify": "MOCK (`is-hover` vs rest, SHOT luma); CSS: transition is `hover-in` (D2 \u00a711.2)"
+  },
+  {
+   "id": "P-04",
+   "sev": "must",
+   "state": "MANUAL",
+   "detail": "verify: DOM: rect at rest vs rect with `.gpfocus` (INV-A \u00a70 helper) for every focusable on the route",
+   "req": "No hover or focus effect moves a hit box away from its rest geometry: no `translate` on hover or focus; scale \u2265 1; the r",
+   "verify": "DOM: rect at rest vs rect with `.gpfocus` (INV-A \u00a70 helper) for every focusable on the route"
+  },
+  {
+   "id": "P-05",
+   "sev": "must",
+   "state": "MANUAL",
+   "detail": "verify: CSS + DOM: computed `scale`/`transform` = none in the hover and focus states for those classes",
+   "req": "Rows, list cells, toolbar buttons, tabs and menu rows never scale or lift on hover or focus",
+   "verify": "CSS + DOM: computed `scale`/`transform` = none in the hover and focus states for those classes"
+  },
+  {
+   "id": "P-06",
+   "sev": "should",
+   "state": "MANUAL",
+   "detail": "verify: CSS: `transition-delay` \u2265 80 ms on `scale`/`translate`/depth for laser-mode hover; SG timeline for depth",
+   "req": "Under the laser, motion-bearing effects (lift, scale, depth) start after \u2265 80 ms; brightness starts at once",
+   "verify": "CSS: `transition-delay` \u2265 80 ms on `scale`/`translate`/depth for laser-mode hover; SG timeline for depth"
+  },
+  {
+   "id": "P-07",
+   "sev": "should",
+   "state": "MANUAL",
+   "detail": "verify: DOM: sorted hit rects per bar",
+   "req": "In every bar (tab bar, toolbar ornament, segmented control, frame controls) adjacent hit boxes abut: gap \u2264 2 px along th",
+   "verify": "DOM: sorted hit rects per bar"
+  },
+  {
+   "id": "P-08",
+   "sev": "must",
+   "state": "FAIL",
+   "detail": "/library/home: 7 of 14 controls: %{SearchAndTitleContainer} %{ShowingSearch} %{ForceExpanded} hit 67% own, 0% other over 1172x80; %{SearchBox} %{SearchAndTitleContainer>Visible} Focusable hit 67% own, 0% other over 1128x80; %{Arrows} Panel Focusable hit 49% own, 4% other (%{SeasonalSale} %{SeasonalSale>Loaded} Panel) over 80x80 | /library/tab/AllGames: 13 of 26 controls: %{SearchAndTitleContainer} %{ShowingSearch} %{ForceExpanded} hit 67% own, 10% other (%{GamepadTabbedPage>Tab} %{GamepadTabbedPage>Selected} %{HasAddon} \"ALL GAMES 350\") over 1172x80; %{SearchBox} %{SearchAndTitleContainer>Visible} Focusable hit 67% own, 10% other (%{GamepadTabbedPage>Tab} %{GamepadTabbedPage>Selected} %{HasAddon} \"ALL GAMES 350\") over 1128x80; %{Arrows} Panel Focusable hit 54% own, 0% other over 80x80 | /library/downloads: 5 of 7 controls: %{SearchAndTitleContainer} %{ShowingSearch} %{ForceExpanded} hit 67% own, 0% other over 1172x80; %{SearchBox} %{SearchAndTitleContainer>Visible} Focusable hit 67% own, 0% other over 1128x80; %{RemoteClientManagementRow} Panel Focusable \"MANAGING DOWNLOADS FOR THIS DE\" hit 40% own, 10% other (%{DownloadsPage>Section} %{EmptyQueue} Panel \"Up Next (0) AUTO-UPDATES ENABL\") over 264x80 | /settings/system: 27 of 31 controls: %{SearchAndTitleContainer} %{ShowingSearch} %{ForceExpanded} hit 67% own, 4% other (%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem} %{PagedSettingsDialog_PageList_ShowTitle>Active} Panel \"System\") over 1172x80; %{SearchBox} %{SearchAndTitleContainer>Visible} Focusable hit 67% own, 3% other (%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem} %{PagedSettingsDialog_PageList_ShowTitle>Active} Panel \"System\") over 1128x80; %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem} %{PagedSettingsDialog_PageList_ShowTitle>Active} Panel \"System\" hit 50% own, 39% other (%{SearchAndTitleContainer} %{ShowingSearch} %{ForceExpanded}) over 256x80 | /media/grid: 2 of 11 controls: %{SearchAndTitleContainer} %{ShowingSearch} %{ForceExpanded} hit 67% own, 6% other (%{ListItemAndGlowContainer>ListItem} Panel Focusable) over 1172x80; %{SearchBox} %{SearchAndTitleContainer>Visible} Focusable hit 67% own, 6% other (%{ListItemAndGlowContainer>ListItem} Panel Focusable) over 1128x80",
+   "req": "Hit box \u2265 80 \u00d7 80 px (\u2265 72 where the quad is fixed), or centre spacing \u2265 80 px with \u2265 21 px clear gap",
+   "verify": "AUD SHRUNK = 0; DOM rect sweep"
+  },
+  {
+   "id": "P-09",
+   "sev": "should",
+   "state": "MANUAL",
+   "detail": "verify: DOM: `--hx/--hy` unchanged across 5 `L.pad` moves in gamepad mode",
+   "req": "The light spot follows the hit point only in laser mode. In gamepad mode it is static and centred in the upper third (no",
+   "verify": "DOM: `--hx/--hy` unchanged across 5 `L.pad` moves in gamepad mode"
+  },
+  {
+   "id": "P-10",
+   "sev": "should",
+   "state": "MANUAL",
+   "detail": "verify: CSS: the spot pseudo-element sits beneath the text in stacking order; MOCK zoom",
+   "req": "The light spot is painted below the label or glyph layer (the label keeps its colour)",
+   "verify": "CSS: the spot pseudo-element sits beneath the text in stacking order; MOCK zoom"
+  },
+  {
+   "id": "P-11",
+   "sev": "must",
+   "state": "PASS",
+   "detail": "/library/home: native layer off (run conformance as a native-session step) | /library/tab/AllGames: native layer off (run conformance as a native-session step) | /library/downloads: native layer off (run conformance as a native-session step) | /settings/system: native layer off (run conformance as a native-session step)",
+   "req": "We draw no cursor and never set `hide-laser-intersection` or `hide-laser-when-clicking` on interactive crops",
+   "verify": "SG: flags on our nodes"
+  },
+  {
+   "id": "P-12",
+   "sev": "should",
+   "state": "MANUAL",
+   "detail": "verify: DOM: tooltip owners have empty `innerText`; CSS delays",
+   "req": "Tooltips appear only on icon-only controls, after 0.8 s (laser) or 0.8 s of focus, and leave after 0.2 s. No control wit",
+   "verify": "DOM: tooltip owners have empty `innerText`; CSS delays"
+  },
+  {
+   "id": "P-13",
+   "sev": "must",
+   "state": "PASS",
+   "detail": "5 route(s)",
+   "req": "In gamepad mode exactly one element shows the focus look on every route at rest",
+   "verify": "PAD + SHOT: one element \u2265 50 % of focus contrast"
+  },
+  {
+   "id": "P-14",
+   "sev": "must",
+   "state": "MANUAL",
+   "detail": "verify: SHOT (rest vs `.gpfocus` pair); MOCK on `data-room` lounge and `data-dim`",
+   "req": "Focus contrast on controls and rows: focused mean L \u2265 +40 L over the same element at rest, on window glass over the brig",
+   "verify": "SHOT (rest vs `.gpfocus` pair); MOCK on `data-room` lounge and `data-dim`"
+  },
+  {
+   "id": "P-15",
+   "sev": "must",
+   "state": "MANUAL",
+   "detail": "verify: SHOT: three states side by side (MOCK states or PAD on a sidebar)",
+   "req": "Focus beats selection: focused-unselected \u2265 +15 L over selected-unfocused of the same component (sidebar row, tab, segme",
+   "verify": "SHOT: three states side by side (MOCK states or PAD on a sidebar)"
+  },
+  {
+   "id": "P-16",
+   "sev": "should",
+   "state": "MANUAL",
+   "detail": "verify: SHOT band sample",
+   "req": "Focus on a white (toggled or selected) control shows as an outer glow: the mean of the 8\u201316 px band outside the element ",
+   "verify": "SHOT band sample"
+  },
+  {
+   "id": "P-17",
+   "sev": "must",
+   "state": "PASS",
+   "detail": "5 route(s)",
+   "req": "No focus ring or outline except on text and search fields; those get a 3 px soft ring",
+   "verify": "DOM: `outline-style`, ring-like `box-shadow` on `.gpfocus` elements other than inputs"
+  },
+  {
+   "id": "P-18",
+   "sev": "must",
+   "state": "MANUAL",
+   "detail": "verify: FILM at 0, 33, 100, 200 ms after `L.pad`",
+   "req": "The first rendered frame of focus is \u2265 60 % of final contrast. 100 ms after a move during auto-repeat, at most one eleme",
+   "verify": "FILM at 0, 33, 100, 200 ms after `L.pad`"
+  },
+  {
+   "id": "P-19",
+   "sev": "must",
+   "state": "MANUAL",
+   "detail": "verify: DOM computed `scale`; SG `dz` on focus",
+   "req": "Content cards (posters, capsules, Home icons) show focus as a lift: scale 1.04\u20131.10 + shadow + depth +15 to +25 mm. Rows",
+   "verify": "DOM computed `scale`; SG `dz` on focus"
+  },
+  {
+   "id": "P-20",
+   "sev": "must",
+   "state": "BLOCKED",
+   "detail": "run with --pad (pad-bfs)",
+   "req": "Traversal reaches every target. Down then Up, and Right then Left, return to the start (except at edges)",
+   "verify": "PAD sweep per route (D2 \u00a712)"
+  },
+  {
+   "id": "P-21",
+   "sev": "must",
+   "state": "MANUAL",
+   "detail": "verify: PAD: record the source, open, B, compare `L.focused`",
+   "req": "After a menu, sheet or alert closes with B, focus is on its source",
+   "verify": "PAD: record the source, open, B, compare `L.focused`"
+  },
+  {
+   "id": "P-22",
+   "sev": "must",
+   "state": "BLOCKED",
+   "detail": "run with --pad (pad-bfs)",
+   "req": "On route entry, focus lands on the primary item, never on Back or the tab bar",
+   "verify": "PAD: `L.nav(route)` \u2192 `L.focused`"
+  },
+  {
+   "id": "P-23",
+   "sev": "must",
+   "state": "BLOCKED",
+   "detail": "run with --pad (pad-bfs)",
+   "req": "The focused element is never under an ornament. After every move its rect satisfies top \u2265 124 (the 108 px toolbar row + ",
+   "verify": "PAD sweep + DOM rects"
+  },
+  {
+   "id": "P-24",
+   "sev": "must",
+   "state": "MANUAL",
+   "detail": "verify: PAD: open a menu on a page, B: the menu closes and the route is unchanged",
+   "req": "B closes the topmost transient layer first (menu, then sheet or alert, then page)",
+   "verify": "PAD: open a menu on a page, B: the menu closes and the route is unchanged"
+  },
+  {
+   "id": "P-25",
+   "sev": "must",
+   "state": "MANUAL",
+   "detail": "verify: REV: no listeners replace Steam handlers; legend dispatch unchanged",
+   "req": "Steam's button meanings are unchanged (A, B, X, Y, LB/RB, \u2261, Steam/Guide): no remapped handlers",
+   "verify": "REV: no listeners replace Steam handlers; legend dispatch unchanged"
+  },
+  {
+   "id": "P-26",
+   "sev": "should",
+   "state": "MANUAL",
+   "detail": "verify: DOM in both modes (toggle the mode class in a mockup; live when the mode flips)",
+   "req": "Controller glyph badges are visible only in gamepad mode. In laser mode the same buttons show labels only",
+   "verify": "DOM in both modes (toggle the mode class in a mockup; live when the mode flips)"
+  },
+  {
+   "id": "P-27",
+   "sev": "should",
+   "state": "MANUAL",
+   "detail": "verify: DOM: badge nodes are Steam's glyph elements or derive from them",
+   "req": "Glyph badges use Steam's glyph components for the connected controller, not hard-coded letters",
+   "verify": "DOM: badge nodes are Steam's glyph elements or derive from them"
+  },
+  {
+   "id": "P-28",
+   "sev": "must",
+   "state": "MANUAL",
+   "detail": "verify: PAD",
+   "req": "The tab-bar ornament takes focus from the window's left edge (Left) and expands at once on entry. Right or B returns to ",
+   "verify": "PAD"
+  },
+  {
+   "id": "P-29",
+   "sev": "must",
+   "state": "MANUAL",
+   "detail": "verify: DOM rect; MOCK",
+   "req": "The primary action (Play, Install, Resume, Confirm) is centred within \\|x \u2212 640\\| \u2264 400 and 144 \u2264 y \u2264 600",
+   "verify": "DOM rect; MOCK"
+  },
+  {
+   "id": "P-30",
+   "sev": "should",
+   "state": "MANUAL",
+   "detail": "verify: DOM",
+   "req": "The main content block's centroid is within \\|x \u2212 640\\| \u2264 160 (split views: the detail pane's centroid within \u00b1160 of th",
+   "verify": "DOM"
+  },
+  {
+   "id": "P-31",
+   "sev": "should",
+   "state": "FAIL",
+   "detail": "/library/tab/AllGames: %{Group>Button} RadioButton \"ALL\" top 96; %{Group>Button} RadioButton \"VR\" top 96; %{Group>Button} RadioButton \"NON-VR\" top 96",
+   "req": "No paragraph text (\u2265 2 lines, \u2264 24 px) starts above y = 108",
+   "verify": "DOM text sweep"
+  },
+  {
+   "id": "P-32",
+   "sev": "must",
+   "state": "MANUAL",
+   "detail": "verify: DOM: count row-class rects fully inside the scroller viewport per column",
+   "req": "\u2264 7 visible rows per column",
+   "verify": "DOM: count row-class rects fully inside the scroller viewport per column"
+  },
+  {
+   "id": "P-33",
+   "sev": "should",
+   "state": "FAIL",
+   "detail": "/library/home: 47 visible interactive targets | /library/tab/AllGames: 53 visible interactive targets | /settings/system: 44 visible interactive targets",
+   "req": "\u2264 30 visible interactive targets in the main window at rest (excluding the keyboard and web content)",
+   "verify": "DOM: count visible focusables"
+  },
+  {
+   "id": "P-34",
+   "sev": "must",
+   "state": "BLOCKED",
+   "detail": "/library/home: native layer off (run conformance as a native-session step)",
+   "req": "Nothing of ours is head-locked: no node under a head-relative transform (`pin-to-view-transform`, `elasticheadtransform`",
+   "verify": "SG"
+  },
+  {
+   "id": "P-35",
+   "sev": "must",
+   "state": "MANUAL",
+   "detail": "verify: DOM after open",
+   "req": "Menus and popovers open adjacent to their source: rect gap \u2264 40 px, or overlapping. Sheets and alerts are centred on the",
+   "verify": "DOM after open"
+  },
+  {
+   "id": "P-36",
+   "sev": "should",
+   "state": "MANUAL",
+   "detail": "verify: DOM",
+   "req": "Content is horizontally balanced: left and right content insets differ by \u2264 24 px (excluding sidebars and ornaments)",
+   "verify": "DOM"
+  },
+  {
+   "id": "P-37",
+   "sev": "should",
+   "state": "MANUAL",
+   "detail": "verify: DOM/popup inventory",
+   "req": "The tab-bar ornament holds \u2264 6 items, and no second ornament sits on the same (leading) edge",
+   "verify": "DOM/popup inventory"
+  },
+  {
+   "id": "P-38",
+   "sev": "must",
+   "state": "FAIL",
+   "detail": "/library/home: 5 of 7 text runs: %{BackContainer>BackButton} \"Back\" size 16 < 18, weight 400 < 500; div \"NO PLAYTIME YET\" size 12 < 18, uppercase, tracking 0.042 em; %{GamepadTabbedPage>TabTitle} \"WHAT'S NEW\" size 12 < 18, uppercase, tracking 0.042 em | /library/tab/AllGames: 21 of 21 text runs: %{BackContainer>BackButton} \"Back\" size 16 < 18, weight 400 < 500; %{GamepadTabbedPage>TabTitle} \"ALL GAMES\" size 12 < 18, uppercase, tracking 0.042 em; %{TabCount} \"350\" size 12 < 18, uppercase, tracking 0.042 em | /library/downloads: 20 of 20 text runs: %{BackContainer>BackButton} \"Back\" size 16 < 18, weight 400 < 500; %{RemoteClientManagementBackground} \"MANAGING DOWNLOADS FOR THIS DE\" size 12 < 18, weight 400 < 500; %{ManagingRemoteClientName} \"THIS DEVICE\" size 12 < 18, weight 400 < 500 | /settings/system: 37 of 38 text runs: %{BackContainer>BackButton} \"Back\" size 16 < 18, weight 400 < 500; %{PagedSettingsDialog_PageList_ShowTitle>PageListItem_Title} \"System\" size 16 < 18, weight 400 < 500; %{PagedSettingsDialog_PageList_ShowTitle>PageListItem_Title} \"Internet\" size 16 < 18, weight 400 < 500 | /media/grid: 6 of 6 text runs: %{BackContainer>BackButton} \"Back\" size 16 < 18, weight 400 < 500; %{ActionButtonLabel} \"SELECT GAME\" size 12 < 18, uppercase, tracking 0.042 em; %{ActionButtonLabel} \"FILTER\" size 12 < 18, uppercase, tracking 0.042 em",
+   "req": "No text under 18 px; body \u2265 22 px; no weight under 500",
+   "verify": "DOM computed `font-size`, `font-weight`"
+  },
+  {
+   "id": "P-39",
+   "sev": "must",
+   "state": "N/A",
+   "detail": "not applicable on these routes",
+   "req": "Contrast \u2265 4.5:1 for body text and \u2265 3:1 for titles of 28 px Bold or larger; AUD CONTRAST = 0 over the grey, bright and ",
+   "verify": "AUD"
+  },
+  {
+   "id": "P-40",
+   "sev": "must",
+   "state": "FAIL",
+   "detail": "/library/downloads: 1: %{ManagingRemoteClientName} \"THIS DEVICE\" rgb(26, 159, 255) 12px/400",
+   "req": "No coloured text (HSL saturation > 0.35) under 24 px or under weight 600 on glass. Exception: a red destructive label \u2265 ",
+   "verify": "DOM"
+  },
+  {
+   "id": "P-41",
+   "sev": "must",
+   "state": "MANUAL",
+   "detail": "verify: DOM",
+   "req": "Text with no glass behind it (Home labels) is weight \u2265 500 with the on-room shadow",
+   "verify": "DOM"
+  },
+  {
+   "id": "P-42",
+   "sev": "must",
+   "state": "PASS",
+   "detail": "5 route(s)",
+   "req": "No `border`, `outline` or uniform 1 px ring on any glass container (Increase Contrast exempt)",
+   "verify": "DOM"
+  },
+  {
+   "id": "P-43",
+   "sev": "must",
+   "state": "FAIL",
+   "detail": "/library/tab/AllGames: 1 on 0 glass elements: %{BasicFooter} \"FILTER SORT BY OPTIONS SELECT \" border-top 0.666667px | /library/downloads: 1 on 0 glass elements: %{BasicFooter} \"CHANGE DEVICE SELECT BACK\" border-top 0.666667px | /settings/system: 1 on 0 glass elements: %{BasicFooter} \"SELECT BACK\" border-top 0.666667px | /media/grid: 1 on 0 glass elements: %{BasicFooter} \"SELECT GAME FILTER OPTIONS SEL\" border-top 0.666667px",
+   "req": "No line thinner than 2 CSS px anywhere (borders, separators, `hr`, 1 px filled elements)",
+   "verify": "DOM"
+  },
+  {
+   "id": "P-44",
+   "sev": "should",
+   "state": "MANUAL",
+   "detail": "verify: SHOT luma across the boundary (\u00b124 px)",
+   "req": "Adjacent panes differ by \u2265 8 L in material across their boundary, with no line",
+   "verify": "SHOT luma across the boundary (\u00b124 px)"
+  },
+  {
+   "id": "P-45",
+   "sev": "must",
+   "state": "PASS",
+   "detail": "5 route(s)",
+   "req": "No glass inside glass: no element with `backdrop-filter` nested in another",
+   "verify": "DOM"
+  },
+  {
+   "id": "P-46",
+   "sev": "must",
+   "state": "PASS",
+   "detail": "/library/home: native layer off (run conformance as a native-session step) | /library/tab/AllGames: native layer off (run conformance as a native-session step) | /library/downloads: native layer off (run conformance as a native-session step) | /settings/system: native layer off (run conformance as a native-session step)",
+   "req": "\u2264 4 distinct `dz` values (including 0) among visible layers at rest; +1 while a modal is open",
+   "verify": "SG"
+  },
+  {
+   "id": "P-47",
+   "sev": "must",
+   "state": "PASS",
+   "detail": "/library/home: native layer off (run conformance as a native-session step) | /library/tab/AllGames: native layer off (run conformance as a native-session step) | /library/downloads: native layer off (run conformance as a native-session step) | /settings/system: native layer off (run conformance as a native-session step)",
+   "req": "Only containers pop: no crop whose content is only text or a glyph, and none smaller than 60 \u00d7 60 px",
+   "verify": "SG + DOM mapping of crop rects"
+  },
+  {
+   "id": "P-48",
+   "sev": "must",
+   "state": "PASS",
+   "detail": "/library/home: native layer off (run conformance as a native-session step) | /library/tab/AllGames: native layer off (run conformance as a native-session step) | /library/downloads: native layer off (run conformance as a native-session step) | /settings/system: native layer off (run conformance as a native-session step)",
+   "req": "Every popped layer casts a shadow sized by depth: y-offset 0.4 px/mm and blur 1.2 px/mm, each within \u00b150 %",
+   "verify": "DOM `box-shadow` vs SG `dz`"
+  },
+  {
+   "id": "P-49",
+   "sev": "must",
+   "state": "BLOCKED",
+   "detail": "/library/home: native layer off (run conformance as a native-session step)",
+   "req": "Animated depth deltas are \u2264 20 mm; total popped depth is \u2264 80 mm",
+   "verify": "SG timeline"
+  },
+  {
+   "id": "P-50",
+   "sev": "should",
+   "state": "BLOCKED",
+   "detail": "/library/home: native layer off (run conformance as a native-session step)",
+   "req": "Gamepad focus moves change depth only on content cards and Home icons",
+   "verify": "SG during a PAD sweep"
+  },
+  {
+   "id": "P-51",
+   "sev": "must",
+   "state": "PASS",
+   "detail": "/library/home: native layer off (run conformance as a native-session step) | /library/tab/AllGames: native layer off (run conformance as a native-session step) | /library/downloads: native layer off (run conformance as a native-session step) | /settings/system: native layer off (run conformance as a native-session step)",
+   "req": "Modals keep the eye at one depth: sheets and alerts sit at their spec depth; the parent never moves toward the viewer",
+   "verify": "SG"
+  },
+  {
+   "id": "P-52",
+   "sev": "must",
+   "state": "FAIL",
+   "detail": "/library/home: 1 animations at rest: _2tSbN-Ik0JtgSVuvWRLekE on %{LibraryItemBox} %{Landscape} %{InRecentGames} (running) (after the route settles; interactions: glass.py motion) | /library/tab/AllGames: 1 animations at rest: _2tSbN-Ik0JtgSVuvWRLekE on %{LibraryItemBox} %{PortraitImage>Portrait} %{PortraitImage>InCollection} (running) (after the route settles; interactions: glass.py motion)",
+   "req": "`document.getAnimations().length === 0` 1 s after any interaction; no infinite or alternate iterations",
+   "verify": "DOM"
+  },
+  {
+   "id": "P-53",
+   "sev": "must",
+   "state": "MANUAL",
+   "detail": "verify: CSS keyframe audit + FILM",
+   "req": "No lateral translate > 24 px on any surface wider than 600 px; no window scale change > 1.5 %",
+   "verify": "CSS keyframe audit + FILM"
+  },
+  {
+   "id": "P-54",
+   "sev": "must",
+   "state": "MANUAL",
+   "detail": "verify: CSS keyframes",
+   "req": "Nothing enters from the periphery: toasts, menus and sheets start \u2264 16 px from their rest position",
+   "verify": "CSS keyframes"
+  },
+  {
+   "id": "P-55",
+   "sev": "must",
+   "state": "MANUAL",
+   "detail": "verify: CSS + FILM",
+   "req": "Nothing oscillates (no repeating motion in 0.1\u20130.5 Hz; bounce \u2264 0.25)",
+   "verify": "CSS + FILM"
+  },
+  {
+   "id": "P-56",
+   "sev": "must",
+   "state": "MANUAL",
+   "detail": "verify: DOM with emulated `prefers-reduced-motion` (inside a lab lock)",
+   "req": "Reduce Motion: only opacity transitions of \u2264 200 ms; no scale, translate or depth animation",
+   "verify": "DOM with emulated `prefers-reduced-motion` (inside a lab lock)"
+  },
+  {
+   "id": "P-57",
+   "sev": "should",
+   "state": "MANUAL",
+   "detail": "verify: FILM",
+   "req": "A surface whose mean luma rises by > 80 L does so over \u2265 300 ms",
+   "verify": "FILM"
+  },
+  {
+   "id": "P-58",
+   "sev": "must",
+   "state": "PASS",
+   "detail": "5 route(s)",
+   "req": "Every duration and easing is a D2 \u00a711.2 token",
+   "verify": "DOM `getAnimations()` timing vs the token table"
+  },
+  {
+   "id": "P-59",
+   "sev": "must",
+   "state": "MANUAL",
+   "detail": "verify: DOM + PAD + MOCK",
+   "req": "Home: circular icons on the D2 \u00a73.5 lattice (or its documented square fallback); hover or focus is a ramp (highlight now",
+   "verify": "DOM + PAD + MOCK"
+  },
+  {
+   "id": "P-60",
+   "sev": "must",
+   "state": "MANUAL",
+   "detail": "verify: DOM positions across \u2265 3 routes of each type",
+   "req": "Consistency: Back and Close at the top left on every route; the primary action in the same slot on every route of a type",
+   "verify": "DOM positions across \u2265 3 routes of each type"
+  },
+  {
+   "id": "P-61",
+   "sev": "should",
+   "state": "MANUAL",
+   "detail": "verify: DOM + MOCK",
+   "req": "Collections: an opened collection shows \u2264 7 items per page in a 1 + 6 honeycomb, or uses the Home lattice; empty collect",
+   "verify": "DOM + MOCK"
+  },
+  {
+   "id": "P-62",
+   "sev": "must",
+   "state": "MANUAL",
+   "detail": "verify: DOM on `/search` states; MOCK",
+   "req": "Search: a capsule \u2265 64 px with a leading magnifier and an upright placeholder; a clear button appears with text; a zero ",
+   "verify": "DOM on `/search` states; MOCK"
+  },
+  {
+   "id": "P-63",
+   "sev": "must",
+   "state": "MANUAL",
+   "detail": "verify: DOM; PAD on the search field (navigation only)",
+   "req": "Keyboard: never opens on arrival, only on activation; typed text is echoed on the keyboard slab; key hit boxes abut (gap",
+   "verify": "DOM; PAD on the search field (navigation only)"
+  },
+  {
+   "id": "P-64",
+   "sev": "must",
+   "state": "MANUAL",
+   "detail": "verify: DOM after open; MOCK",
+   "req": "Menus: grow from the source; the source turns white while open; rows \u2265 72 px with \u2265 6 px between; leading symbols; the c",
+   "verify": "DOM after open; MOCK"
+  },
+  {
+   "id": "P-65",
+   "sev": "must",
+   "state": "MANUAL",
+   "detail": "verify: REV + DOM (B via PAD)",
+   "req": "Dismissal: a laser click outside or B closes menus and popovers; an outside click does not close sheets or alerts",
+   "verify": "REV + DOM (B via PAD)"
+  },
+  {
+   "id": "P-66",
+   "sev": "must",
+   "state": "MANUAL",
+   "detail": "verify: DOM",
+   "req": "Sheets: one at a time (push inside); a Close or Back circle at the top left; parent scrim alpha 0.30\u20130.40",
+   "verify": "DOM"
+  },
+  {
+   "id": "P-67",
+   "sev": "must",
+   "state": "MANUAL",
+   "detail": "verify: DOM + PAD (`L.focused` on open)",
+   "req": "Alerts: used only for destructive or irreversible actions and failures; \u2264 3 buttons; left-aligned title and body; destru",
+   "verify": "DOM + PAD (`L.focused` on open)"
+  },
+  {
+   "id": "P-68",
+   "sev": "should",
+   "state": "MANUAL",
+   "detail": "verify: DOM + MOCK",
+   "req": "Toasts: compact on arrival (icon + one line, \u2264 80 popup px tall); expand on 0.8 s of laser hover when they have more; ma",
+   "verify": "DOM + MOCK"
+  },
+  {
+   "id": "P-69",
+   "sev": "must",
+   "state": "MANUAL",
+   "detail": "verify: DOM + MOCK",
+   "req": "Control Center: tiles appear together (no staged slide); toggles are circles with a whole-fill on state; sliders are \u2265 6",
+   "verify": "DOM + MOCK"
+  },
+  {
+   "id": "P-70",
+   "sev": "should",
+   "state": "MANUAL",
+   "detail": "verify: DOM on `vr:systemui`; MOCK",
+   "req": "Window controls: rarely used frame controls rest quiet (\u2264 50 % opacity glyph or dot) and become full circles on hover or",
+   "verify": "DOM on `vr:systemui`; MOCK"
+  },
+  {
+   "id": "P-71",
+   "sev": "must",
+   "state": "MANUAL",
+   "detail": "verify: FILM (do not actually launch: inspect the code path and the keyframes)",
+   "req": "Launch: launching a game keeps Steam's launch transition and sound; our layers dematerialize in place in \u2264 350 ms (no sl",
+   "verify": "FILM (do not actually launch: inspect the code path and the keyframes)"
+  },
+  {
+   "id": "P-72",
+   "sev": "must",
+   "state": "PASS",
+   "detail": "5 route(s)",
+   "req": "Scrolling: no visible scrollbars at rest; any indicator is a \u2264 8 px capsule on the trailing edge, shown only while scrol",
+   "verify": "DOM (`offsetWidth \u2212 clientWidth`, indicator opacity at rest)"
+  },
+  {
+   "id": "P-73",
+   "sev": "should",
+   "state": "MANUAL",
+   "detail": "verify: SHOT luma gradient across the band",
+   "req": "Scroll edge: content under the toolbar row and the bottom ornament fades through the scroll-edge effect; no opaque band ",
+   "verify": "SHOT luma gradient across the band"
+  },
+  {
+   "id": "P-74",
+   "sev": "must",
+   "state": "MANUAL",
+   "detail": "verify: DOM: a read-only wrapper counts `PlayNavSound` calls during a scripted PAD sequence (if exposed); else REV",
+   "req": "Restyled and new controls fire the same Steam UI sounds as Steam's own for the same event (activation, toggle, slider, m",
+   "verify": "DOM: a read-only wrapper counts `PlayNavSound` calls during a scripted PAD sequence (if exposed); else REV"
+  },
+  {
+   "id": "P-75",
+   "sev": "must",
+   "state": "MANUAL",
+   "detail": "verify: REV against \u00a74.4",
+   "req": "No information is carried by sound or haptics alone: every sound or haptic event has a visible state change",
+   "verify": "REV against \u00a74.4"
+  },
+  {
+   "id": "P-76",
+   "sev": "should",
+   "state": "MANUAL",
+   "detail": "verify: REV + capability probe (\u00a71.6)",
+   "req": "Haptics follow the \u00a74.4 map only if a CEF path to the controllers exists; no polling or native hacks otherwise",
+   "verify": "REV + capability probe (\u00a71.6)"
+  },
+  {
+   "id": "P-77",
+   "sev": "must",
+   "state": "MANUAL",
+   "detail": "verify: DOM: log wrapper over the haptic call",
+   "req": "Haptic rate limit: \u2264 1 pulse per 80 ms; no pulse > 50 ms except launch; none during continuous scrolling or a fast laser",
+   "verify": "DOM: log wrapper over the haptic call"
+  },
+  {
+   "id": "P-78",
+   "sev": "must",
+   "state": "MANUAL",
+   "detail": "verify: REV + DOM (settings read)",
+   "req": "Feedback respects settings: Steam's UI sounds, Steam's keyboard Haptics, and a Glass Shell haptics-off switch",
+   "verify": "REV + DOM (settings read)"
+  },
+  {
+   "id": "P-79",
+   "sev": "should",
+   "state": "MANUAL",
+   "detail": "verify: PAD at a list end; DOM wrapper log",
+   "req": "At an edge where focus can't move, Steam's bumper sound plays and (if haptics exist) one 25 ms thud; no visual shake",
+   "verify": "PAD at a list end; DOM wrapper log"
+  },
+  {
+   "id": "P-80",
+   "sev": "must",
+   "state": "FAIL",
+   "detail": "/library/home: 7 of 14 controls: %{SearchAndTitleContainer} %{ShowingSearch} %{ForceExpanded} visible short side 40 < 60; %{SearchBox} %{SearchAndTitleContainer>Visible} Focusable visible short side 40 < 64; %{Arrows} Panel Focusable visible short side 32 < 60 | /library/tab/AllGames: 13 of 26 controls: %{SearchAndTitleContainer} %{ShowingSearch} %{ForceExpanded} visible short side 40 < 60; %{SearchBox} %{SearchAndTitleContainer>Visible} Focusable visible short side 40 < 64; %{Arrows} Panel Focusable visible short side 32 < 60 | /library/downloads: 5 of 7 controls: %{SearchAndTitleContainer} %{ShowingSearch} %{ForceExpanded} visible short side 40 < 60; %{SearchBox} %{SearchAndTitleContainer>Visible} Focusable visible short side 40 < 64; %{RemoteClientManagementRow} Panel Focusable \"MANAGING DOWNLOADS FOR THIS DE\" visible short side 29 < 60 | /settings/system: 24 of 31 controls: %{SearchAndTitleContainer} %{ShowingSearch} %{ForceExpanded} visible short side 40 < 60; %{SearchBox} %{SearchAndTitleContainer>Visible} Focusable visible short side 40 < 64; %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem} %{PagedSettingsDialog_PageList_ShowTitle>Active} Panel \"System\" visible short side 42 < 60 | /media/grid: 2 of 11 controls: %{SearchAndTitleContainer} %{ShowingSearch} %{ForceExpanded} visible short side 40 < 60; %{SearchBox} %{SearchAndTitleContainer>Visible} Focusable visible short side 40 < 64",
+   "req": "No control smaller than 60 px visible on its short side (mini circles of 38\u201344 px only alone, with an 80 px clear region",
+   "verify": "DOM"
+  },
+  {
+   "id": "P-81",
+   "sev": "must",
+   "state": "FAIL",
+   "detail": "/library/tab/AllGames: %{BasicFooter} \"FILTER SORT BY OPTIONS S\" 1280x42 at y 678 | /library/downloads: %{BasicFooter} \"CHANGE DEVICE SELECT BAC\" 1280x42 at y 678 | /settings/system: %{BasicFooter} \"SELECT BACK\" 1280x42 at y 678 | /media/grid: %{BasicFooter} \"SELECT GAME FILTER OPTIO\" 1280x42 at y 678",
+   "req": "No full-width bands: no element \u2265 90 % of the glass width and \u2264 120 px tall with a visible fill within 80 px of the top ",
+   "verify": "DOM"
+  },
+  {
+   "id": "P-82",
+   "sev": "must",
+   "state": "FAIL",
+   "detail": "/library/home: %{Profile>Header} GamepadMode \"Back\" | /library/tab/AllGames: %{Profile>Header} GamepadMode \"Back\" | /library/downloads: %{Profile>Header} GamepadMode \"Back\" | /settings/system: %{Profile>Header} GamepadMode \"Back\" | /media/grid: %{Profile>Header} GamepadMode \"Back\"",
+   "req": "No text Back, Close, Cancel or Done buttons in chrome; these are symbol circles (sheet Cancel and Done capsules in a she",
+   "verify": "DOM text match in the top 120 px"
+  },
+  {
+   "id": "P-83",
+   "sev": "must",
+   "state": "FAIL",
+   "detail": "/library/downloads: 1 of 7 controls: %{RemoveAllButton} DialogButton _DialogLayout \"Clear All\" text control radius 2 < 0.45 x height 40 | /settings/system: 7 of 31 controls: %{*GamepadDialogContent>Field} %{*GamepadDialogContent>VerticalAlignCenter} %{*GamepadDialogContent>WithBottomSeparatorStandard} \"Select preferred language Engl\" text control radius 2 < 0.45 x height 64; %{DropDownControlButton} DialogButton _DialogLayout \"English\" text control radius 2 < 0.45 x height 40; %{*GamepadDialogContent>Field} %{*GamepadDialogContent>VerticalAlignCenter} %{*GamepadDialogContent>WithBottomSeparatorStandard} \"Software Updates Up to date: l\" text control radius 2 < 0.45 x height 64",
+   "req": "Icon-only controls are circles (radius \u2265 0.48 \u00d7 the short side). Text controls are capsules (radius \u2265 0.45 \u00d7 height), ex",
+   "verify": "DOM"
+  },
+  {
+   "id": "P-84",
+   "sev": "must",
+   "state": "FAIL",
+   "detail": "/library/home: 4: div \"NO PLAYTIME YET\" size 12 < 18, uppercase, tracking 0.042 em; %{GamepadTabbedPage>TabTitle} \"WHAT'S NEW\" size 12 < 18, uppercase, tracking 0.042 em; %{GamepadTabbedPage>TabTitle} \"FRIENDS\" size 12 < 18, uppercase, tracking 0.042 em | /library/tab/AllGames: 17: %{GamepadTabbedPage>TabTitle} \"ALL GAMES\" size 12 < 18, uppercase, tracking 0.042 em; %{TabCount} \"350\" size 12 < 18, uppercase, tracking 0.042 em; %{GamepadTabbedPage>TabTitle} \"GREAT ON FRAME\" size 12 < 18, uppercase, tracking 0.042 em | /library/downloads: 14: %{DownloadsPage>Title} \"Up Next\" weight 400 < 500, tracking 0.050 em; %{DownloadsPage>Count} \"(0)\" size 16 < 18, uppercase, tracking 0.063 em; %{AutoUpdateHours} %{NoHours} %{IsViewingLocalClient} \"AUTO-UPDATES ENABLED\" size 12 < 18, uppercase | /settings/system: 2: %{ActionButtonLabel} \"SELECT\" size 12 < 18, uppercase, tracking 0.042 em; %{ActionButtonLabel} \"BACK\" size 12 < 18, uppercase, tracking 0.042 em | /media/grid: 5: %{ActionButtonLabel} \"SELECT GAME\" size 12 < 18, uppercase, tracking 0.042 em; %{ActionButtonLabel} \"FILTER\" size 12 < 18, uppercase, tracking 0.042 em; %{ActionButtonLabel} \"OPTIONS\" size 12 < 18, uppercase, tracking 0.042 em",
+   "req": "No uppercase, letter-spaced (> 0.01 em) or italic chrome text",
+   "verify": "DOM"
+  },
+  {
+   "id": "P-85",
+   "sev": "must",
+   "state": "PASS",
+   "detail": "5 route(s)",
+   "req": "No more than one modal or sheet layer visible (an alert over a sheet is allowed)",
+   "verify": "DOM"
+  },
+  {
+   "id": "P-86",
+   "sev": "must",
+   "state": "N/A",
+   "detail": "not applicable on these routes",
+   "req": "Modal scrim alpha \u2264 0.45",
+   "verify": "DOM"
+  },
+  {
+   "id": "P-87",
+   "sev": "must",
+   "state": "PASS",
+   "detail": "5 route(s)",
+   "req": "No opaque window or panel fill: alpha \u2264 0.84 in T1 (the dial maximum), the glassd material in T5; Increase Contrast exem",
+   "verify": "DOM"
+  },
+  {
+   "id": "P-88",
+   "sev": "should",
+   "state": "MANUAL",
+   "detail": "verify: DOM",
+   "req": "Badges only for counts that need action (updates, invites, unread); \u2264 3 badges visible per window",
+   "verify": "DOM"
+  },
+  {
+   "id": "P-89",
+   "sev": "must",
+   "state": "PASS",
+   "detail": "5 route(s)",
+   "req": "Parity: every hover reveal (tooltip, back title, tab labels, card actions, \u22ef circle) has a gamepad-focus twin, and every",
+   "verify": "CSS: each `:hover` reveal rule has a gamepad-mode `.gpfocus` twin; concept function tables have no legend-only row; PAD reaches each"
+  }
+ ],
+ "counts": {
+  "PASS": 16,
+  "MANUAL": 53,
+  "FAIL": 12,
+  "BLOCKED": 6,
+  "N/A": 2
+ },
+ "mustFail": [
+  "P-08",
+  "P-38",
+  "P-40",
+  "P-43",
+  "P-52",
+  "P-80",
+  "P-81",
+  "P-82",
+  "P-83",
+  "P-84"
+ ],
+ "pass": false
+}

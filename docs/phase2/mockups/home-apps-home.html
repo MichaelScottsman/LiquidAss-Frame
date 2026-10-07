@@ -18,85 +18,85 @@
   <div class="lgk-overlay" style="left:320px; top:66px">
 
     <!-- top row: Steam's Back (circle), our section control, our What's New button, Steam's search (circle variant) -->
-    <div class="lgk-glass ha-back" data-mat="liquid" data-lens data-dz="0" data-tier="T1 %{BackContainer} · cover plate"><i data-i="chevron-left"></i></div>
-    <div class="lgk-glass ha-seg" data-mat="liquid" data-lens style="left:640px; translate:-50% 0" data-dz="0" data-tier="T3 section control · cover plate">
-      <span class="is-selected">Recent</span><span>Collections</span><span>Apps</span>
+    <div data-id="back" class="lgk-glass ha-back" data-mat="liquid" data-lens data-dz="0" data-tier="T1 %{BackContainer} · cover plate"><i data-i="chevron-left"></i></div>
+    <div data-id="seg" class="lgk-glass ha-seg" data-mat="liquid" data-lens style="left:640px; translate:-50% 0" data-dz="0" data-tier="T3 section control · cover plate">
+      <span data-id="seg-recent" class="is-selected">Recent</span><span data-id="seg-collections">Collections</span><span data-id="seg-apps">Apps</span>
     </div>
-    <div class="lgk-glass ha-wn" data-mat="liquid" data-lens style="right:104px" data-dz="0" data-tier="T3 → /library/lgs/steamhome"><i data-i="sparkle"></i>What's New</div>
-    <div class="lgk-glass ha-find" data-mat="liquid" data-lens data-dz="0" data-tier="T1 %{SearchAndTitleContainer} (window-nav circle variant)"><i data-i="search"></i></div>
+    <div data-id="whatsnew" class="lgk-glass ha-wn" data-mat="liquid" data-lens style="right:104px" data-dz="0" data-tier="T3 → /library/lgs/steamhome"><i data-i="sparkle"></i>What's New</div>
+    <div data-id="search" class="lgk-glass ha-find" data-mat="liquid" data-lens data-dz="0" data-tier="T1 %{SearchAndTitleContainer} (window-nav circle variant)"><i data-i="search"></i></div>
 
     <!-- the honeycomb: 13 per page as 4-5-4; disc 120, column pitch 224, row pitch 188; rows at y 196, 384, 572 -->
     <!-- row 1 -->
-    <div class="ha-cell" style="--x:304px; --y:196px">
-      <div class="lgk-glass ha-disc" data-mat="liquid" data-lens><div class="ha-art" data-app="3699252713" data-name="DolphinXR — Steam Frame"></div></div>
-      <div class="ha-label">DolphinXR — Steam Frame</div>
+    <div data-id="cell-1" class="ha-cell" style="--x:304px; --y:196px">
+      <div data-id="disc-1" class="lgk-glass ha-disc" data-mat="liquid" data-lens><div class="ha-art" data-app="3699252713" data-name="DolphinXR — Steam Frame"></div></div>
+      <div data-id="label-1" class="ha-label">DolphinXR — Steam Frame</div>
     </div>
-    <div class="ha-cell is-under" style="--x:528px; --y:196px">
-      <div class="lgk-glass ha-disc" data-mat="liquid" data-lens><div class="ha-art" data-app="2377520643" data-name="Halo: Combat Evolved VR (Native)"></div></div>
-      <div class="ha-label">Halo: Combat Evolved VR (Native)</div>
+    <div data-id="cell-2" class="ha-cell is-under" style="--x:528px; --y:196px">
+      <div data-id="disc-2" class="lgk-glass ha-disc" data-mat="liquid" data-lens><div class="ha-art" data-app="2377520643" data-name="Halo: Combat Evolved VR (Native)"></div></div>
+      <div data-id="label-2" class="ha-label">Halo: Combat Evolved VR (Native)</div>
     </div>
     <!-- cell 3 (Rise of the Tomb Raider) is focused and has morphed into the card below -->
-    <div class="ha-cell is-under" style="--x:976px; --y:196px">
-      <div class="lgk-glass ha-disc" data-mat="liquid" data-lens><div class="ha-art" data-app="2379780" data-name="Balatro"></div></div>
-      <div class="ha-label">Balatro</div>
+    <div data-id="cell-4" class="ha-cell is-under" style="--x:976px; --y:196px">
+      <div data-id="disc-4" class="lgk-glass ha-disc" data-mat="liquid" data-lens><div class="ha-art" data-app="2379780" data-name="Balatro"></div></div>
+      <div data-id="label-4" class="ha-label">Balatro</div>
     </div>
     <!-- row 2 -->
-    <div class="ha-cell" style="--x:192px; --y:384px">
-      <div class="lgk-glass ha-disc" data-mat="liquid" data-lens><div class="ha-art" data-app="413150" data-name="Stardew Valley"></div></div>
-      <div class="ha-label">Stardew Valley</div>
+    <div data-id="cell-5" class="ha-cell" style="--x:192px; --y:384px">
+      <div data-id="disc-5" class="lgk-glass ha-disc" data-mat="liquid" data-lens><div class="ha-art" data-app="413150" data-name="Stardew Valley"></div></div>
+      <div data-id="label-5" class="ha-label">Stardew Valley</div>
     </div>
-    <div class="ha-cell" style="--x:416px; --y:384px">
-      <div class="lgk-glass ha-disc" data-mat="liquid" data-lens><div class="ha-art" data-app="250820" data-name="SteamVR"></div></div>
-      <div class="ha-label">SteamVR</div>
+    <div data-id="cell-6" class="ha-cell" style="--x:416px; --y:384px">
+      <div data-id="disc-6" class="lgk-glass ha-disc" data-mat="liquid" data-lens><div class="ha-art" data-app="250820" data-name="SteamVR"></div></div>
+      <div data-id="label-6" class="ha-label">SteamVR</div>
     </div>
-    <div class="ha-cell" style="--x:640px; --y:384px">
-      <div class="lgk-glass ha-disc" data-mat="liquid" data-lens><div class="ha-art" data-app="3677269560" data-name="Robo Recall: Unplugged"></div></div>
-      <div class="ha-label">Robo Recall: Unplugged</div>
+    <div data-id="cell-7" class="ha-cell" style="--x:640px; --y:384px">
+      <div data-id="disc-7" class="lgk-glass ha-disc" data-mat="liquid" data-lens><div class="ha-art" data-app="3677269560" data-name="Robo Recall: Unplugged"></div></div>
+      <div data-id="label-7" class="ha-label">Robo Recall: Unplugged</div>
     </div>
-    <div class="ha-cell" style="--x:864px; --y:384px">
-      <div class="lgk-glass ha-disc" data-mat="liquid" data-lens><div class="ha-art" data-app="3872831802" data-name="Arizona Sunshine 2"></div></div>
-      <div class="ha-label">Arizona Sunshine 2</div>
+    <div data-id="cell-8" class="ha-cell" style="--x:864px; --y:384px">
+      <div data-id="disc-8" class="lgk-glass ha-disc" data-mat="liquid" data-lens><div class="ha-art" data-app="3872831802" data-name="Arizona Sunshine 2"></div></div>
+      <div data-id="label-8" class="ha-label">Arizona Sunshine 2</div>
     </div>
-    <div class="ha-cell" style="--x:1088px; --y:384px">
-      <div class="lgk-glass ha-disc" data-mat="liquid" data-lens><div class="ha-art" data-app="4121704426" data-name="Assassin's Creed Nexus VR"></div></div>
-      <div class="ha-label">Assassin's Creed Nexus VR</div>
+    <div data-id="cell-9" class="ha-cell" style="--x:1088px; --y:384px">
+      <div data-id="disc-9" class="lgk-glass ha-disc" data-mat="liquid" data-lens><div class="ha-art" data-app="4121704426" data-name="Assassin's Creed Nexus VR"></div></div>
+      <div data-id="label-9" class="ha-label">Assassin's Creed Nexus VR</div>
     </div>
     <!-- row 3 -->
-    <div class="ha-cell" style="--x:304px; --y:572px">
-      <div class="lgk-glass ha-disc" data-mat="liquid" data-lens><div class="ha-art" data-app="3706444165" data-name="Into the Radius 2"></div></div>
-      <div class="ha-label">Into the Radius 2</div>
+    <div data-id="cell-10" class="ha-cell" style="--x:304px; --y:572px">
+      <div data-id="disc-10" class="lgk-glass ha-disc" data-mat="liquid" data-lens><div class="ha-art" data-app="3706444165" data-name="Into the Radius 2"></div></div>
+      <div data-id="label-10" class="ha-label">Into the Radius 2</div>
     </div>
-    <div class="ha-cell" style="--x:528px; --y:572px">
-      <div class="lgk-glass ha-disc" data-mat="liquid" data-lens><div class="ha-art" data-app="3554078061" data-name="Batman: Arkham Shadow"></div></div>
-      <div class="ha-label">Batman: Arkham Shadow</div>
+    <div data-id="cell-11" class="ha-cell" style="--x:528px; --y:572px">
+      <div data-id="disc-11" class="lgk-glass ha-disc" data-mat="liquid" data-lens><div class="ha-art" data-app="3554078061" data-name="Batman: Arkham Shadow"></div></div>
+      <div data-id="label-11" class="ha-label">Batman: Arkham Shadow</div>
     </div>
-    <div class="ha-cell" style="--x:752px; --y:572px">
-      <div class="lgk-glass ha-disc" data-mat="liquid" data-lens><div class="ha-art" data-app="2182270593" data-name="Rez Infinite"></div></div>
-      <div class="ha-label">Rez Infinite</div>
+    <div data-id="cell-12" class="ha-cell" style="--x:752px; --y:572px">
+      <div data-id="disc-12" class="lgk-glass ha-disc" data-mat="liquid" data-lens><div class="ha-art" data-app="2182270593" data-name="Rez Infinite"></div></div>
+      <div data-id="label-12" class="ha-label">Rez Infinite</div>
     </div>
-    <div class="ha-cell" style="--x:976px; --y:572px">
-      <div class="lgk-glass ha-disc" data-mat="liquid" data-lens>
+    <div data-id="cell-13" class="ha-cell" style="--x:976px; --y:572px">
+      <div data-id="disc-13" class="lgk-glass ha-disc" data-mat="liquid" data-lens>
         <div class="ha-folder">
           <i class="ha-mini" data-app="735580"></i><i class="ha-mini" data-app="793460"></i><i class="ha-mini" data-app="410110"></i>
           <i class="ha-mini" data-app="242820"></i><i class="ha-mini" data-app="1147940"></i><i class="ha-mini" data-app="954280"></i>
           <i class="ha-mini" data-app="503560"></i><i class="ha-mini" data-app="15560"></i><i class="ha-mini" data-app="473690"></i>
         </div>
       </div>
-      <div class="ha-label">All Games</div>
+      <div data-id="label-13" class="ha-label">All Games</div>
     </div>
 
     <!-- next page (Recent, page 2) peeking at the right edge: the laser's "next page" target -->
-    <div class="ha-peek" style="left:1212px; top:196px"><div class="ha-art" data-app="3132658413" data-name="UNDERDOGS"></div></div>
+    <div data-id="peek-r1" class="ha-peek" style="left:1212px; top:196px"><div class="ha-art" data-app="3132658413" data-name="UNDERDOGS"></div></div>
 
     <!-- page indicator: Recent has 2 pages -->
-    <div class="ha-dots" style="left:640px; top:690px"><i class="on"></i><i></i></div>
+    <div data-id="dots" class="ha-dots" style="left:640px; top:690px"><i class="on"></i><i></i></div>
 
     <!-- the attended game after 0.8 s of laser dwell: the disc has morphed into the card (a plate; in native mode
          a +15 mm non-interactive crop over its occluder plate). Top clamped 12 px under the top row (86 + 12). -->
-    <div class="lgk-glass ha-card" data-mat="liquid" data-lens style="left:592px; top:98px; --dz:15" data-dz="15" data-tier="T3 card · plate + T4 crop +15 mm (non-interactive)">
+    <div data-id="card" class="lgk-glass ha-card" data-mat="liquid" data-lens style="left:592px; top:98px; --dz:15" data-dz="15" data-tier="T3 card · plate + T4 crop +15 mm (non-interactive)">
       <span class="ha-hero" data-app="391220" data-name="Rise of the Tomb Raider" data-pos="50% 30%"></span>
-      <span class="lgk-btn capsule play is-hover" style="--hx:40%; --hy:45%"><i data-i="play"></i>Play</span>
-      <span class="lgk-btn circle more"><i data-i="more"></i></span>
+      <span data-id="card-play" class="lgk-btn capsule play is-hover" style="--hx:90%; --hy:77%"><i data-i="play"></i>Play</span>
+      <span data-id="card-more" class="lgk-btn circle more"><i data-i="more"></i></span>
       <div class="ttl">Rise of the Tomb Raider</div>
       <div class="sub"><span class="cp">i</span>Playable · 6.4 hours played</div>
     </div>
@@ -105,7 +105,7 @@
   <!-- window-nav's window-bar row (laser on the dashboard), the dashboard bar, the laser and its pointer proxy (native mode) -->
   <div data-wn="winbar" data-cx="960" data-y="806" data-dim=".85"></div>
   <div data-wn="bar" data-cx="960" data-y="904"></div>
-  <div data-wn="laser" data-to="992,278"></div>
+  <div data-wn="laser" data-to="1040,290"></div>
 </div>
 <script src="../../refs/library/library.js"></script>
 <script src="home-apps.js"></script>

@@ -5,7 +5,9 @@
   // SteamVR's own pages (vrwebhelper) are single documents with no popup
   // manager; every helper then works on this page.
   const SINGLE = typeof window.g_PopupManager === 'undefined';
-  const index = (window.__LGS_INDEX && window.__LGS_INDEX.selector) ? window.__LGS_INDEX : (window.__LGS_INDEX = lgsBuildIndex());
+  // The class index is read at call time (REQ C1a->P10): the core may rebuild window.__LGS_INDEX after a bad
+  // index, and the helpers must follow it rather than keep the object they saw at install.
+  const IX = () => ((window.__LGS_INDEX && window.__LGS_INDEX.selector) ? window.__LGS_INDEX : (window.__LGS_INDEX = lgsBuildIndex()));
 
   const ALIAS = {
     main: /^VR_uid/,
@@ -37,20 +39,23 @@
   // Resolve %{Token} in a selector to hashed classes.
   function sel(s) {
     return s.replace(/%\{([^}]+)\}/g, (_, t) => {
-      const r = index.selector(t);
+      const r = IX().selector(t);
       if (!r.sel) throw new Error('token ' + t + ' ' + r.err);
       return r.sel;
     });
   }
 
-  function q(alias, s) { return surface(alias).document.querySelector(sel(s)); }
-  function qa(alias, s) { return [...surface(alias).document.querySelectorAll(sel(s))]; }
+  // Phase 2 (P10): a selector may end in `@text=Label` (exact innerText, else the first that contains it).
+  function splitText(s) { const i = s.indexOf('@text='); return i < 0 ? [s, null] : [s.slice(0, i), s.slice(i + 6)]; }
+  function byText(els, t) { return t === null ? els : (els.filter((e) => (e.innerText || '').trim() === t).length ? els.filter((e) => (e.innerText || '').trim() === t) : els.filter((e) => (e.innerText || '').includes(t))); }
+  function q(alias, s) { const [c, t] = splitText(s); if (t === null) return surface(alias).document.querySelector(sel(c)); return byText([...surface(alias).document.querySelectorAll(sel(c))], t)[0] || null; }
+  function qa(alias, s) { const [c, t] = splitText(s); return byText([...surface(alias).document.querySelectorAll(sel(c))], t); }
 
   function readable(el) {
     const out = [];
     for (const c of el.classList) {
       if (c === 'lgs-on') continue;
-      const t = index.byHash.has(c) ? index.tokenFor(c) : null;
+      const ix = IX(), t = ix.byHash.has(c) ? ix.tokenFor(c) : null;
       out.push(t ? '%{' + t + '}' : c);
     }
     return out;
@@ -241,10 +246,11 @@
   function classes(rx, limit) {
     const re = new RegExp(rx, 'i');
     const out = [];
-    for (const [k, mis] of index.byKey) {
+    const ix = IX();
+    for (const [k, mis] of ix.byKey) {
       if (!re.test(k)) continue;
-      const hashes = [...new Set(mis.map((mi) => index.mods[mi][k]))];
-      for (const h of hashes) out.push('%{' + index.tokenFor(h) + '}  ' + h);
+      const hashes = [...new Set(mis.map((mi) => ix.mods[mi][k]))];
+      for (const h of hashes) out.push('%{' + ix.tokenFor(h) + '}  ' + h);
       if (hashes.length > 1) out.push('%{*' + k + '}  (all ' + hashes.length + ' variants)');
       if (out.length > (limit || 200)) break;
     }
@@ -336,6 +342,8 @@
         x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height),
         vis: visibleIn(w, el), pe: cs.pointerEvents,
       };
+      // Phase 2 (P10): scroll containers (gates' AUD does not report a sheet capped in size as SHRUNK)
+      if (/(auto|scroll)/.test(cs.overflowY + cs.overflowX) && (el.scrollHeight > el.clientHeight + 2 || el.scrollWidth > el.clientWidth + 2)) rec.sc = true;
       // Phase 2 (P10): PLAN 1.16 exemption of this element, for `gates` (audit ignores it)
       const g = window.__LGS_LAB && window.__LGS_LAB.gates;
       if (g) { try { const ex = g.exemptId(alias, el); if (ex) rec.ex = ex; } catch (_) { /* none */ } }
@@ -433,5 +441,6 @@
     };
   }
 
-  window.__LGS_LAB = { v: 12, single: SINGLE, mark, restore, openThings, perf, surface, sel, q, qa, click, clickText, sleep, pad, focused, nav, back, route, outline, styles, classes, surfaces, readable, index, snap, diff };
+  window.__LGS_LAB = { v: 12, single: SINGLE, mark, restore, openThings, perf, surface, sel, q, qa, click, clickText, sleep, pad, focused, nav, back, route, outline, styles, classes, surfaces, readable, snap, diff };
+  Object.defineProperty(window.__LGS_LAB, 'index', { get: IX, enumerable: true });
 })();

@@ -1,0 +1,7 @@
+{
+ "_doc": "P10's own cmp map: a tool check (TL-1), not a G-MOCK verdict. Format: contracts/lab.md section 3.",
+ "mockups": {
+  "window-nav-anatomy": {"surface": "main", "route": "/library/home",
+   "map": {"search": "%{SearchBox}", "back": "%{SearchAndTitleContainer} button@nth=0"}}
+ }
+}

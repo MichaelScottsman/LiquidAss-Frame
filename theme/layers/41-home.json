@@ -1,0 +1,73 @@
+{
+  "version": 2,
+  "about": "C2a Home, folders, What's New (HA §10.2, §10.4; PLAN §1.7 default profile). Every rule is behind wp.c2a (inert until V2 accepts the package). Plates and mosaic bands are DOM attributes set by 41-home.js (data-lgs-plate, data-lgs-plate-id, data-lgs-plate-tint, data-lgs-plate-inset, data-lgs-mosaic), not rules. Only the attended item pops, +15 mm, non-interactive; the card's Play and More hits are 80 px, so rule 2 admits +15. No pop while a section or page change animates (exclude .lgs-home-moving). The legacy 'tabs', 'tab-arrow' and 'card' rules still match Steam's Home: they are superseded at M4: the fragment flag now gates supersedes too (P6, reporter.md §3.1), but 'card' and 'tabs' also serve the library routes, so the ids are chosen with C2c's 40-library.json. M4 written, not yet run in a native session (round R1).",
+  "flag": "wp.c2a",
+  "surfaces": {
+    "main": {
+      "layers": [
+        {
+          "id": "home-disc",
+          "sel": ".lgs-home .lgs-home-cell > .lgs-home-disc",
+          "focus": ".lgs-home-cell.gpfocus > .lgs-home-disc",
+          "mm": 15,
+          "when": "attended",
+          "slab": "liquid",
+          "exclude": ".lgs-home-moving .lgs-home-disc, .lgs-home-cell.is-hidden-label > .lgs-home-disc",
+          "flag": "wp.c2a",
+          "wearer": {
+            "mm": 15,
+            "interactive": true
+          }
+        },
+        {
+          "id": "home-card",
+          "sel": ".lgs-home .lgs-home-card[data-state=\"open\"]:not(.is-menu-source)",
+          "mm": 15,
+          "slab": "liquid",
+          "exclude": ".lgs-home-moving .lgs-home-card",
+          "flag": "wp.c2a",
+          "wearer": {
+            "mm": 15,
+            "interactive": true
+          }
+        },
+        {
+          "id": "home-plate",
+          "sel": ".lgs-home .lgs-home-plate:not([data-state=\"closing\"])",
+          "mm": 15,
+          "slab": "liquid",
+          "exclude": ".lgs-home-moving .lgs-home-plate",
+          "flag": "wp.c2a",
+          "wearer": {
+            "mm": 15,
+            "interactive": true
+          }
+        },
+        {
+          "id": "steamhome-capsule",
+          "sel": ":is(%{RecentSection}, %{RecentSection} ~ %{TabbedContent}) %{LibraryItemBox}",
+          "mm": 15,
+          "when": "attended",
+          "slab": "liquid",
+          "flag": "wp.c2a",
+          "wearer": {
+            "mm": 15,
+            "interactive": true
+          }
+        },
+        {
+          "id": "steamhome-card",
+          "sel": "%{RecentSection} ~ %{TabbedContent} :is(%{SeasonalSale}, %{Seen>MarketingMessage})",
+          "mm": 15,
+          "when": "attended",
+          "slab": "liquid",
+          "flag": "wp.c2a",
+          "wearer": {
+            "mm": 15,
+            "interactive": true
+          }
+        }
+      ]
+    }
+  }
+}

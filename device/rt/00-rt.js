@@ -20,7 +20,8 @@
   const LOG_MAX = 300;
   const INSTALL_TIMEOUT_MS = 5000;
   const REMOVE_TIMEOUT_MS = 3000;
-  const TICK_MS = 250;               // liveness + window reconcile poll
+  const TICK_MS = 250;               // liveness poll while no observer watches main (fallback)
+  const TICK_IDLE_MS = 2000;         // window reconcile + check while the observer watches main
   const LIVENESS_MS = 2000;          // html.lgs-on gone from main this long -> remove everything
   const TEST_TTL_MS = 300000;        // test hooks expire on their own (a crashed lab step)
   const OWN_GLOBALS = new Set(['__LGS_RT', '__LGS', '__LGS_INDEX', '__LGS_LAB', '__LGS_RT_CONFIG']);
@@ -227,6 +228,7 @@
     e._vis = () => fireVis(e);
     try { e.doc.addEventListener('visibilitychange', e._vis); } catch (_) { /* closing */ }
     entries.set(w, e);
+    if (e.kind === 'main' && started && !stopping) { mainCache = e; watchMain(e); retick(); }
     fireAdd(e);
     return e;
   }
@@ -235,6 +237,7 @@
     if (!e) return;
     entries.delete(w);
     try { e.doc.removeEventListener('visibilitychange', e._vis); } catch (_) { /* gone */ }
+    if (e === mainCache || (moHtml && e.html === moHtml)) { mainCache = null; unwatchMain(); retick(); }
     fireRemove(e);
   }
   // A created popup has no document yet: wait for its body (≤ 5 s).
@@ -290,11 +293,15 @@
     readyWaits.clear();
   }
 
-  // Module-independent window API (scoped variants are built per module).
-  function windowsApi(track) {
+  // Module-independent window API (scoped variants are built per module; a dead
+  // module scope gets no-ops, see makeScope).
+  function windowsApi(track, isDead, late) {
+    const dead = isDead || (() => false);
+    const no = (what) => (late ? late(what) : NOOP);
     const api = {
       list() { return [...entries.values()]; },
       each(fn) {
+        if (dead()) return;
         for (const e of [...entries.values()]) {
           try { fn(e); } catch (err) { log('error', 'rt', 'windows.each callback threw', errText(err)); }
         }
@@ -302,13 +309,14 @@
       main() { for (const e of entries.values()) if (e.kind === 'main') return e; return null; },
       byKind(kind) { return [...entries.values()].filter((e) => e.kind === kind); },
       find(win) { return entries.get(win) || null; },
-      onAdd(fn) { winSubs.add.add(fn); return track(() => winSubs.add.delete(fn)); },
-      onRemove(fn) { winSubs.remove.add(fn); return track(() => winSubs.remove.delete(fn)); },
-      onShow(fn) { winSubs.show.add(fn); return track(() => winSubs.show.delete(fn)); },
-      onHide(fn) { winSubs.hide.add(fn); return track(() => winSubs.hide.delete(fn)); },
+      onAdd(fn) { if (dead()) return no('rt.windows.onAdd'); winSubs.add.add(fn); return track(() => winSubs.add.delete(fn)); },
+      onRemove(fn) { if (dead()) return no('rt.windows.onRemove'); winSubs.remove.add(fn); return track(() => winSubs.remove.delete(fn)); },
+      onShow(fn) { if (dead()) return no('rt.windows.onShow'); winSubs.show.add(fn); return track(() => winSubs.show.delete(fn)); },
+      onHide(fn) { if (dead()) return no('rt.windows.onHide'); winSubs.hide.add(fn); return track(() => winSubs.hide.delete(fn)); },
       // fn(entry) for every current and future window. It may return a cleanup
       // function, called when the window closes or the subscription ends.
       track(fn) {
+        if (dead()) return no('rt.windows.track');
         const cleanups = new Map();
         const run = (e) => {
           if (cleanups.has(e.win)) return;
@@ -340,22 +348,74 @@
 
   // ------------------------------------------------------------------ bridge
   // Daemon -> page messages (P8): __LGS_RT.bridge.set('geom', {...}).
+  // Subscribers are called on every set (contracts/daemon.md §3: also with an
+  // equal value, e.g. a repeated action reply); the 4th argument says whether
+  // the value changed, and set() returns it.
   const bridgeStore = new Map();
+  const pendingActions = new Map();   // action id -> {resolve, timer}
   const bridge = {
     set(key, value) {
       const json = (() => { try { return JSON.stringify(value); } catch (_) { return String(Math.random()); } })();
       const cur = bridgeStore.get(key);
       const t = Date.now();
-      if (cur && cur.json === json) { cur.t = t; return false; }
+      const changed = !cur || cur.json !== json;
       bridgeStore.set(key, { value, json, t });
-      bus.emit('bridge:' + key, value, cur ? cur.value : undefined, key);
-      return true;
+      if (key === 'reply' && value && typeof value === 'object') settleAction(value);
+      bus.emit('bridge:' + key, value, cur ? cur.value : undefined, key, changed);
+      return changed;
     },
     get(key) { const c = bridgeStore.get(key); return c ? c.value : undefined; },
     age(key) { const c = bridgeStore.get(key); return c ? Date.now() - c.t : Infinity; },
     keys() { return [...bridgeStore.keys()]; },
     on(key, fn) { return bus.on('bridge:' + key, fn); },
   };
+
+  // ------------------------------------------------------------------ daemon actions
+  // rt.action(type, args, {src, timeoutMs}) -> Promise<reply> (contracts/daemon.md §5):
+  // calls the daemon's CDP binding window.lgsAction and resolves with the bridge
+  // 'reply' of the same id. Never rejects: {ok: false, error} on no daemon,
+  // timeout or teardown. nav/launch actions are not run while the action logger
+  // is on (the daemon checks rt.test.actions.enabled()).
+  let actionSeq = 0;
+  function daemonFresh() {
+    const d = bridge.get('daemon');
+    return !!(d && typeof d === 'object' && typeof d.at === 'number' && Date.now() - d.at <= (d.ttlMs || 6000));
+  }
+  function settleAction(reply) {
+    const p = pendingActions.get(reply.id);
+    if (!p) return;
+    pendingActions.delete(reply.id);
+    W.clearTimeout(p.timer);
+    try { p.resolve(reply); } catch (_) { /* caller gone */ }
+  }
+  function action(owner, type, args, opts) {
+    const o = opts || {};
+    const tag = String(owner || 'rt').replace(/[^A-Za-z0-9_.:-]/g, '_').slice(0, 32);
+    const id = `${tag}:${(T0 % 46656).toString(36)}.${++actionSeq}`.slice(0, 64);
+    const timeoutMs = o.timeoutMs || (daemonFresh() ? 12000 : 2000);   // plugin timeout 10 s + margin
+    return new Promise((resolve) => {
+      if (stopping || stopped) { resolve({ id, ok: false, error: 'teardown' }); return; }
+      let fn = null;
+      try { fn = W.lgsAction; } catch (_) { /* none */ }
+      if (typeof fn !== 'function') { resolve({ id, ok: false, error: 'no-daemon' }); return; }
+      const timer = W.setTimeout(() => { pendingActions.delete(id); resolve({ id, ok: false, error: 'timeout' }); }, timeoutMs);
+      pendingActions.set(id, { resolve, timer });
+      try {
+        fn(JSON.stringify({ id, type: String(type), args: args || {}, src: o.src || 'main' }));
+      } catch (e) {
+        W.clearTimeout(timer);
+        pendingActions.delete(id);
+        resolve({ id, ok: false, error: 'call-failed', detail: errText(e) });
+      }
+    });
+  }
+  function dropActions(why) {
+    for (const [id, p] of [...pendingActions]) {
+      pendingActions.delete(id);
+      W.clearTimeout(p.timer);
+      try { p.resolve({ id, ok: false, error: why }); } catch (_) { /* caller gone */ }
+    }
+  }
 
   // ------------------------------------------------------------------ registry
   const mods = new Map();      // name -> rec, in definition order
@@ -366,6 +426,7 @@
   let chain = Promise.resolve();
   const failedLoads = [];      // {file, error}: files that failed before define()
   const shared = {};
+  const exposed = new Map();   // public member name -> owning module (rt.expose)
 
   function define(def) {
     const file = loadingFile || (def && def.file) || '(inline)';
@@ -402,21 +463,48 @@
   function withTimeout(v, ms, what) {
     if (!v || typeof v.then !== 'function') return Promise.resolve(v);
     return new Promise((res, rej) => {
-      const t = W.setTimeout(() => rej(new Error(`${what} timed out after ${ms} ms`)), ms);
+      const t = W.setTimeout(() => { const e = new Error(`${what} timed out after ${ms} ms`); e.lgsTimeout = true; rej(e); }, ms);
       v.then((x) => { W.clearTimeout(t); res(x); }, (e) => { W.clearTimeout(t); rej(e); });
     });
   }
 
+  // An install() that timed out keeps running. Its scope is dead (no-ops), but
+  // whatever it did directly (not through rt) is undone by calling remove()
+  // once more when it finally settles, unless the module was installed again.
+  function lateSettle(rec, gen, how) {
+    if (rec.gen !== gen || rec.state === 'installed' || rec.state === 'installing') return;
+    rec.lateSettled = how;
+    log('warn', rec.name, `install() ${how} after its timeout; remove() called again`);
+    if (typeof rec.def.remove !== 'function') return;
+    try {
+      const r = rec.def.remove();
+      if (r && typeof r.then === 'function') r.then(null, (e) => log('error', rec.name, 'remove() after a late install threw', errText(e)));
+    } catch (e) { log('error', rec.name, 'remove() after a late install threw', errText(e)); }
+  }
+
   // Per-module facade: everything subscribed through it is undone on removal,
-  // even if the module's own remove() forgets.
+  // even if the module's own remove() forgets. Once disposed (removal, or a
+  // failed / timed-out install) the scope is dead: a late continuation of the
+  // module (an install still running after its 5 s timeout, an await that
+  // resumes after a flag-off removal) gets no-ops, and anything that slips
+  // through track() is undone at once (review R1 M2).
+  const NOOP = () => {};
   function makeScope(rec) {
     const cleanups = [];
+    let dead = false, lateCalls = 0;
+    const late = (what) => {
+      lateCalls++;
+      if (lateCalls <= 5) log('warn', rec.name, `${what} after the module was removed: ignored`);
+      return NOOP;
+    };
     const track = (fn) => {
       let done = false;
       const off = () => { if (done) return; done = true; try { fn(); } catch (e) { log('error', rec.name, 'cleanup threw', errText(e)); } };
+      if (dead) { late('a subscription'); off(); return NOOP; }
       cleanups.push(off);
       return off;
     };
+    const isDead = () => dead;
     const scope = Object.create(rt);
     scope.name = rec.name;
     scope.module = rec.name;
@@ -424,32 +512,57 @@
     scope.warn = (msg, data) => log('warn', rec.name, msg, data);
     scope.error = (msg, data) => log('error', rec.name, msg, data);
     scope.cleanup = (fn) => track(fn);
-    scope.on = (ev, fn) => track(bus.on(ev, fn));
+    scope.on = (ev, fn) => (dead ? late('rt.on') : track(bus.on(ev, fn)));
     scope.listen = (target, type, fn, opts) => {
+      if (dead) return late('rt.listen');
       target.addEventListener(type, fn, opts);
       return track(() => { try { target.removeEventListener(type, fn, opts); } catch (_) { /* window gone */ } });
     };
     scope.setTimeout = (fn, ms) => {
+      if (dead) return late('rt.setTimeout');
       let off = null;
-      const id = W.setTimeout(() => { if (off) off(); try { fn(); } catch (e) { log('error', rec.name, 'timer threw', errText(e)); } }, ms);
+      const id = W.setTimeout(() => { if (off) off(); if (dead) return; try { fn(); } catch (e) { log('error', rec.name, 'timer threw', errText(e)); } }, ms);
       off = track(() => W.clearTimeout(id));
       return off;
     };
     scope.setInterval = (fn, ms) => {
-      const id = W.setInterval(() => { try { fn(); } catch (e) { log('error', rec.name, 'interval threw', errText(e)); } }, ms);
+      if (dead) return late('rt.setInterval');
+      const id = W.setInterval(() => { if (dead) return; try { fn(); } catch (e) { log('error', rec.name, 'interval threw', errText(e)); } }, ms);
       return track(() => W.clearInterval(id));
     };
-    scope.windows = windowsApi(track);
+    scope.windows = windowsApi(track, isDead, late);
     scope.flags = Object.assign(Object.create(flags), {
-      on: (name, fn) => track(flags.on(name, fn)),
-      onAny: (fn) => track(flags.onAny(fn)),
+      on: (name, fn) => (dead ? late('rt.flags.on') : track(flags.on(name, fn))),
+      onAny: (fn) => (dead ? late('rt.flags.onAny') : track(flags.onAny(fn))),
     });
     scope.bridge = Object.assign(Object.create(bridge), {
-      on: (key, fn) => track(bridge.on(key, fn)),
+      on: (key, fn) => (dead ? late('rt.bridge.on') : track(bridge.on(key, fn))),
     });
+    scope.action = (type, args, opts) => (dead
+      ? (late('rt.action'), Promise.resolve({ id: null, ok: false, error: 'removed' }))
+      : action(rec.name, type, args, opts));
+    // A member on the public runtime object (PLAN §1.4: one accessor, e.g.
+    // __LGS_RT.input), visible to every module's rt and to the lab; deleted
+    // when this module is removed.
+    scope.expose = (name, value) => {
+      if (dead) return late('rt.expose');
+      const k = String(name);
+      const owner = exposed.get(k);
+      if ((Object.prototype.hasOwnProperty.call(rt, k) && !owner) || (owner && owner !== rec.name)) {
+        throw new Error(`rt.expose: ${k} is taken by ${owner || 'the runtime core'}`);
+      }
+      rt[k] = value;
+      exposed.set(k, rec.name);
+      return track(() => {
+        if (exposed.get(k) === rec.name && rt[k] === value) { delete rt[k]; exposed.delete(k); }
+      });
+    };
     scope._dispose = () => {
+      dead = true;
       while (cleanups.length) { const off = cleanups.pop(); off(); }
     };
+    scope._dead = isDead;
+    scope._late = () => lateCalls;
     scope._count = () => cleanups.length;
     return scope;
   }
@@ -494,18 +607,25 @@
   async function installRec(rec) {
     rec.state = 'installing';
     rec.reason = null;
+    const gen = rec.gen = (rec.gen || 0) + 1;
     const scope = makeScope(rec);
     rec.scope = scope;
     const before = lgsGlobals();
     const t0 = now();
+    let pending = null;
     try {
-      rec.api = await withTimeout(rec.def.install(scope), INSTALL_TIMEOUT_MS, 'install()');
+      pending = rec.def.install(scope);
+      rec.api = await withTimeout(pending, INSTALL_TIMEOUT_MS, 'install()');
       rec.state = 'installed';
       rec.installs++;
       rec.installMs = Math.round((now() - t0) * 10) / 10;
       log('info', rec.name, `installed in ${rec.installMs} ms`);
       bus.emit('module', rec.name, 'installed');
+      replayInputStub(rec);
     } catch (e) {
+      if (e && e.lgsTimeout && pending && typeof pending.then === 'function') {
+        pending.then(() => lateSettle(rec, gen, 'resolved'), () => lateSettle(rec, gen, 'rejected'));
+      }
       rec.state = 'failed';
       rec.error = errText(e);
       rec.installMs = Math.round((now() - t0) * 10) / 10;
@@ -569,46 +689,94 @@
 
   // ------------------------------------------------------------------ liveness
   // A MutationObserver on main's <html> class stamps the moment html.lgs-on
-  // goes; the 250 ms tick acts once it has been gone for 2 s (≤ 2.25 s total).
+  // goes and arms a timer for exactly 2 s later. The tick is a fallback: every
+  // 2 s (a window reconcile and a check) while the observer watches main, every
+  // 250 ms while it cannot (no observer, or no main window, e.g. right after a
+  // SharedJSContext reload: then the CSS core itself is watched, __LGS gone or
+  // disabled for 2 s means theme off; review R1 m2, m3). Removal ≈ 2 s + teardown (RT-5).
   let tick = null, missingSince = 0, ticks = 0, mo = null, moHtml = null, tickMs = 0, mainCache = null;
+  let livenessTimer = null;
+  function disarmLiveness() { if (livenessTimer) { W.clearTimeout(livenessTimer); livenessTimer = null; } }
+  function armLiveness() {
+    if (livenessTimer || stopping || !missingSince) return;
+    const due = Math.max(0, missingSince + LIVENESS_MS - Date.now());
+    livenessTimer = W.setTimeout(() => { livenessTimer = null; checkLiveness(); }, due);
+  }
+  function coreOn() {
+    try { const c = W.__LGS; return !!(c && c.state && c.state.enabled); } catch (_) { return true; }
+  }
+  // true when it started the teardown
+  function checkLiveness() {
+    if (!started || stopping) return false;
+    let on = true, what = 'html.lgs-on gone from main';
+    try {
+      if (moHtml) on = moHtml.classList.contains('lgs-on');
+      else { on = coreOn(); what = 'the CSS core gone (no main window)'; }
+    } catch (_) { return false; }
+    if (on) { missingSince = 0; disarmLiveness(); return false; }
+    if (!missingSince) missingSince = Date.now();
+    const gone = Date.now() - missingSince;
+    if (gone < LIVENESS_MS) { armLiveness(); return false; }
+    disarmLiveness();
+    teardown(`liveness: ${what} for ${gone} ms`).then((r) => {
+      try { W.console.info('[lgs-rt] removed by the liveness watch', JSON.stringify(r)); } catch (_) { /* no console */ }
+    });
+    return true;
+  }
+  function unwatchMain() {
+    if (mo) { try { mo.disconnect(); } catch (_) { /* gone */ } mo = null; }
+    moHtml = null;
+    disarmLiveness();
+    missingSince = 0;
+  }
   function watchMain(main) {
     if (moHtml === main.html) return;
-    if (mo) { try { mo.disconnect(); } catch (_) { /* gone */ } mo = null; }
+    unwatchMain();
     moHtml = main.html;
     try {
       const MO = main.win.MutationObserver || W.MutationObserver;
       if (!MO) return;
       mo = new MO(() => {
-        try { if (!moHtml.classList.contains('lgs-on')) { if (!missingSince) missingSince = Date.now(); } else missingSince = 0; } catch (_) { /* closing */ }
+        try {
+          if (!moHtml.classList.contains('lgs-on')) { if (!missingSince) missingSince = Date.now(); armLiveness(); }
+          else { missingSince = 0; disarmLiveness(); }
+        } catch (_) { /* closing */ }
       });
       mo.observe(main.html, { attributes: true, attributeFilter: ['class'] });
     } catch (_) { mo = null; }
   }
+  function scheduleTick() {
+    if (!started || stopping) return;
+    tick = W.setTimeout(onTick, mo ? TICK_IDLE_MS : TICK_MS);
+  }
+  // main came or went: re-plan the next tick at the rate that now applies
+  function retick() {
+    if (!started || stopping || !tick) return;
+    W.clearTimeout(tick);
+    tick = null;
+    scheduleTick();
+  }
   function onTick() {
+    tick = null;
     const t0 = now();
-    try { tickBody(); } finally { tickMs += now() - t0; }
+    try { tickBody(); } finally { tickMs += now() - t0; scheduleTick(); }
   }
   function tickBody() {
     if (!started || stopping) return;
     ticks++;
-    if (ticks % 8 === 0) { try { reconcileWindows(); } catch (_) { /* next tick */ } }
+    if (mo || ticks % 8 === 0) { try { reconcileWindows(); } catch (_) { /* next tick */ } }
     let main = (mainCache && entries.get(mainCache.win) === mainCache) ? mainCache : null;
     if (!main) {
       for (const e of entries.values()) if (e.kind === 'main') { main = e; break; }
       mainCache = main;
     }
-    if (!main) { if (ticks % 2 === 0) { try { reconcileWindows(); } catch (_) { /* later */ } } return; }
-    watchMain(main);
-    let on = false;
-    try { on = main.html.classList.contains('lgs-on'); } catch (_) { return; }
-    if (on) { missingSince = 0; return; }
-    const t = Date.now();
-    if (!missingSince) { missingSince = t; return; }
-    if (t - missingSince >= LIVENESS_MS) {
-      teardown('liveness: html.lgs-on gone from main for 2 s').then((r) => {
-        try { W.console.info('[lgs-rt] removed by the liveness watch', JSON.stringify(r)); } catch (_) { /* no console */ }
-      });
+    if (!main) {
+      if (moHtml) unwatchMain();
+      if (ticks % 2 === 0) { try { reconcileWindows(); } catch (_) { /* later */ } }
+    } else {
+      watchMain(main);
     }
+    checkLiveness();
   }
 
   // ------------------------------------------------------------------ test hooks
@@ -618,12 +786,28 @@
     testTimers.add(id);
     return () => { W.clearTimeout(id); testTimers.delete(id); };
   }
-  let inputStub = null;   // {mode, opts, restore, clearTtl}
+  let inputStub = null;   // {mode, opts, until, restore, applied, clearTtl}
   let actionsOn = null;   // {until, clearTtl}
   const actionLog = [];
+  // A stub set while no module provided rt.input.stub is applied as soon as one
+  // installs (P3's input module, e.g. when a lab step turns wp.p3 on after it).
+  function replayInputStub(rec) {
+    if (!inputStub || inputStub.applied) return;
+    let fn = null;
+    try { fn = rt.input && typeof rt.input.stub === 'function' ? rt.input.stub : null; } catch (_) { /* none */ }
+    if (!fn) return;
+    const left = inputStub.until - Date.now();
+    if (left <= 1000) return;
+    try {
+      const r = fn(inputStub.mode, Object.assign({}, inputStub.opts, { ttlMs: left }));
+      inputStub.restore = typeof r === 'function' ? r : null;
+      inputStub.applied = true;
+      log('info', 'rt', `test input stub '${inputStub.mode}' applied once ${rec ? rec.name : 'input'} installed`);
+    } catch (e) { log('error', 'rt', 'rt.input.stub threw (replay)', errText(e)); }
+  }
   const test = {
-    // Input-mode stub: P3's rt.input.stub when installed, else only remembered
-    // (and replayed to P3 if it installs later in the step).
+    // Input-mode stub: P3's rt.input.stub when installed, else remembered and
+    // applied when a module providing rt.input installs within the stub's TTL.
     input: {
       set(mode, opts) {
         if (inputStub) { try { if (inputStub.restore) inputStub.restore(); } catch (_) { /* gone */ } if (inputStub.clearTtl) inputStub.clearTtl(); }
@@ -639,7 +823,7 @@
         try {
           if (rt.input && typeof rt.input.stub === 'function') { restore = rt.input.stub(mode, Object.assign({ ttlMs: ttl }, o)); applied = true; }
         } catch (e) { log('error', 'rt', 'rt.input.stub threw', errText(e)); }
-        inputStub = { mode, opts: o, until: Date.now() + ttl, restore: typeof restore === 'function' ? restore : null };
+        inputStub = { mode, opts: o, until: Date.now() + ttl, restore: typeof restore === 'function' ? restore : null, applied };
         inputStub.clearTtl = ttlTimer(ttl, () => { log('warn', 'rt', 'test input stub expired'); test.input.set(null); });
         bus.emit('test:input', mode, o);
         return { mode, applied };
@@ -734,7 +918,7 @@
 
   // ------------------------------------------------------------------ status, teardown
   function counts() {
-    // Subscriber counts on Steam's objects, for leak checks (RT-1, IN-9).
+    // Subscriber counts on Steam's objects, for leak checks (RT-1, IN-9; IM §8).
     const out = {};
     const size = (x) => {
       if (!x) return null;
@@ -754,6 +938,8 @@
       const cb = ns.m_callbacks || ns.m_Callbacks;
       out.navigationSource = size(cb && (cb.m_vecCallbacks || cb.m_rgCallbacks || cb));
     } catch (_) { /* not there */ }
+    // SteamVR's navigation-type callbacks (vrGamepadInput.RegisterForNavigationTypeChange, IM §8)
+    try { out.vrNavigationType = size(W.vrGamepadInput.m_NavigationTypeChangeCallbacks); } catch (_) { /* not in VR */ }
     return out;
   }
 
@@ -784,6 +970,8 @@
       bridge: bridge.keys().reduce((a, k) => { a[k] = Math.round(bridge.age(k)); return a; }, {}),
       test: test.state(),
       globals: [...trackedGlobals],
+      exposed: [...exposed].reduce((a, [k, m]) => { a[k] = m; return a; }, {}),
+      actionsPending: pendingActions.size,
       listeners: bus.count(),
       idle: { ticks, tickMsTotal: Math.round(tickMs * 1000) / 1000, t: Date.now() },
     };
@@ -801,8 +989,8 @@
       const t0 = now();
       log('info', 'rt', `teardown: ${reason}`);
       bus.emit('teardown', reason);
-      if (tick) { W.clearInterval(tick); tick = null; }
-      if (mo) { try { mo.disconnect(); } catch (_) { /* gone */ } mo = null; moHtml = null; }
+      if (tick) { W.clearTimeout(tick); tick = null; }
+      unwatchMain();
       try { await chain; } catch (_) { /* logged */ }
       const removed = [], errors = [], reports = {};
       let patchedLeft = 0;
@@ -823,6 +1011,7 @@
       for (const id of testTimers) W.clearTimeout(id);
       testTimers.clear();
       overlays.length = 0;
+      dropActions('teardown');
       unhookPopupManager();
       for (const e of entries.values()) { try { e.doc.removeEventListener('visibilitychange', e._vis); } catch (_) { /* gone */ } }
       entries.clear();
@@ -882,8 +1071,9 @@
     shared,
     data,
     flags,
-    windows: windowsApi((off) => off),
+    windows: windowsApi((off) => off, null, null),
     bridge,
+    action: (type, args, opts) => action('rt', type, args, opts),
     test,
     on: (ev, fn) => bus.on(ev, fn),
     log: Object.assign((msg, data) => log('info', 'rt', msg, data), {
@@ -902,7 +1092,7 @@
         started = true;
         hookPopupManager();
         reconcileWindows();
-        tick = W.setInterval(onTick, TICK_MS);
+        onTick();   // the liveness observer on main from the start; schedules the next tick
         log('info', 'rt', `started: ${mods.size} modules defined, ${entries.size} windows`);
       }
       await schedule('start');
@@ -981,6 +1171,7 @@
     name: 'rt.stub.c', file: 'rt/00-rt.js', flag: 'rt.stubs', deps: ['rt.stub.b'],
     async install(r) {
       await new Promise((res) => r.setTimeout(res, 10));
+      r.expose('rtStubC', { ok: true });
       return { ok: true };
     },
     async remove() { await new Promise((res) => W.setTimeout(res, 5)); return { patchedLeft: 0 }; },
@@ -992,6 +1183,33 @@
       throw new Error('rt.stub.throw: install() throws on purpose (RT-2)');
     },
     remove() { return { patchedLeft: 0 }; },
+  });
+
+  // rt.stubSlow: an install() that outlives its 5 s timeout, then subscribes through
+  // its (dead) scope and marks main directly (RT-2, review R1 M2). Everything must
+  // be gone: the scoped calls are no-ops, the direct mark is undone by the second
+  // remove() when the late install settles.
+  define({
+    name: 'rt.stub.slow', file: 'rt/00-rt.js', flag: 'rt.stubSlow',
+    async install(r) {
+      await new Promise((res) => W.setTimeout(res, INSTALL_TIMEOUT_MS + 600));
+      const m = r.windows.main();
+      if (m) m.html.classList.add('lgs-rt-stub-slow-direct');
+      r.windows.track((e) => { e.html.classList.add('lgs-rt-stub-slow'); return () => e.html.classList.remove('lgs-rt-stub-slow'); });
+      r.setInterval(() => log('info', 'rt.stub.slow', 'late interval tick'), 100);
+      r.setTimeout(() => log('info', 'rt.stub.slow', 'late timer fired'), 50);
+      if (m) r.listen(m.doc, 'pointerdown', () => {}, { passive: true });
+      r.on('flags', () => {});
+      r.expose('rtStubSlow', { late: true });
+      return { late: true };
+    },
+    remove() {
+      for (const p of popupObjects()) {   // Steam's list, not ours: also right after a teardown
+        const w = winOf(p);
+        try { if (w) w.document.documentElement.classList.remove('lgs-rt-stub-slow-direct'); } catch (_) { /* closed */ }
+      }
+      return { patchedLeft: 0 };
+    },
   });
 
   // Test hooks carried over from the runtime this one replaces (same process, lab step).

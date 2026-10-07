@@ -116,6 +116,13 @@
   const MIN_CONTAINER = 60;          // CSS px (rule 5)
   const MIN_CAPSULE_H = 44;          // CSS px (rule 5, capsules)
   const MIN_VISIBLE_TARGET = 8;      // CSS px of a focusable visible in the crop (rule 2)
+  const MAX_FOCUSABLES = 2000;       // focusables measured per window and sample (rule 2)
+  // hole.fill "auto" -> glassd's hole.edges (contracts/glassd.md 1.4)
+  const HOLE_STEP = 27;              // CSS px per edge sample
+  const HOLE_MAX = 8;                // samples per edge
+  const HOLE_TTL_MS = 1500;          // a pop's samples are reused while its crop stays put
+  const HOLE_IMG_PX = 256;           // art is read through a canvas at most this size
+  const HOLE_IMG_CACHE = 12;         // canvases kept per window
   const MAX_PLATES = 32;             // per surface (glassd G1)
   const MAX_DEPTHS = 4;              // distinct dz at rest per surface, 0 included (rule 7)
   const COVER_TOL = 2;               // texture px (rule 1)
@@ -153,6 +160,7 @@
 
   let S = null;               // running state; null while stopped
   let API = null;
+  let LAST_STOP = null;       // why the last instance stopped (status() while stopped)
 
   // ------------------------------------------------------------ rules
 
@@ -213,7 +221,7 @@
   }
 
   const SURFACE_FIELDS = ['key', 'keyPrefix', 'cover', 'material', 'modes', 'modal', 'frameKey', 'laserOnly',
-    'docVisibility', 'maxLayers', 'coverMm', 'coverDz', 'space', 'enabled'];
+    'docVisibility', 'maxLayers', 'coverMm', 'coverDz', 'space', 'enabled', 'flag'];
 
   // Merge fragments in order: the first fragment that names a surface defines
   // it; a later one changes its fields only when it "owns" it. Rules are
@@ -225,15 +233,23 @@
     frags.forEach((fr, fi) => {
       const file = String(fr.file || fr.name || 'fragment' + fi);
       const owns = Array.isArray(fr.owns) ? fr.owns.map(String) : [];
+      // "flag": the fragment's rules and its supersedes apply only while
+      // that runtime flag is on (an area's package flag, PLAN 2.1)
+      const fflag = typeof fr.flag === 'string' && fr.flag ? fr.flag : null;
       const meta = {
         file,
         admission: fr.admission !== false,
         defaults: fr.defaults && typeof fr.defaults === 'object' ? fr.defaults : {},
+        flag: fflag,
       };
-      fragInfo.push({ file, admission: meta.admission, owns, supersedes: Array.isArray(fr.supersedes) ? fr.supersedes.slice(0, 200) : [] });
-      for (const id of Array.isArray(fr.supersedes) ? fr.supersedes : []) {
-        // "main.footer" names one surface's rule; a bare id any surface's
-        sup.push({ file, raw: String(id) });
+      fragInfo.push({ file, admission: meta.admission, owns, flag: fflag, supersedes: Array.isArray(fr.supersedes) ? fr.supersedes.slice(0, 200) : [] });
+      for (const x of Array.isArray(fr.supersedes) ? fr.supersedes : []) {
+        // "main.footer" names one surface's rule; a bare id any surface's;
+        // {"id": ..., "flag": ...} only while that flag is on
+        if (typeof x === 'string' && x) sup.push({ file, raw: x, flag: fflag });
+        else if (x && typeof x === 'object' && x.id) {
+          sup.push({ file, raw: String(x.id), flag: typeof x.flag === 'string' && x.flag ? x.flag : fflag });
+        }
       }
       const sfs = fr.surfaces && typeof fr.surfaces === 'object' ? fr.surfaces : {};
       for (const name of Object.keys(sfs)) {
@@ -255,18 +271,23 @@
             }
           }
         }
-        if (Array.isArray(sc.layers)) for (const rc of sc.layers) ent.rules.push({ rc, frag: meta });
+        if (Array.isArray(sc.layers)) for (const rc of sc.layers) ent.rules.push({ rc, frag: meta, unless: null });
         else if (sc.layers !== undefined) errs.push(file + ': ' + name + '.layers is not a list');
       }
     });
-    // supersedes: drop other fragments' rules by id ("id" or "surface.id")
+    // supersedes: drop other fragments' rules by id ("id" or "surface.id");
+    // a flagged supersede keeps the rule but skips it while the flag is on
     const dropped = [];
     for (const [name, ent] of surfaces) {
-      ent.rules = ent.rules.filter(({ rc, frag }) => {
-        const id = String(rc && rc.id || '');
+      ent.rules = ent.rules.filter((e) => {
+        const id = String(e.rc && e.rc.id || '');
         if (!id) return true;
-        const hit = sup.find((x) => x.file !== frag.file && (x.raw === id || x.raw === name + '.' + id));
-        if (hit) { dropped.push(name + '.' + id + ' (by ' + hit.file + ')'); return false; }
+        const hits = sup.filter((x) => x.file !== e.frag.file && (x.raw === id || x.raw === name + '.' + id));
+        if (!hits.length) return true;
+        const always = hits.find((x) => !x.flag);
+        if (always) { dropped.push(name + '.' + id + ' (by ' + always.file + ')'); return false; }
+        e.unless = [...new Set(hits.map((x) => x.flag))];
+        dropped.push(name + '.' + id + ' (by ' + hits.map((x) => x.file).join(', ') + ' while ' + e.unless.join(' or ') + ')');
         return true;
       });
     }
@@ -300,9 +321,31 @@
     if (typeof h !== 'object') { errs.push(where + '.hole: true or an object'); return null; }
     const o = {};
     for (const k of ['shadow', 'y', 'blur']) if (Number.isFinite(+h[k]) && h[k] !== null && h[k] !== '') o[k] = +h[k];
-    if (h.fill !== undefined) {
+    if (h.fill === 'auto') {
+      // sampled per pop: glassd's hole.edges, or a flat fill (holeAuto())
+      o.auto = true;
+    } else if (h.fill !== undefined) {
       const f = h.fill === 'scrim' ? 'rgba(0, 0, 0, 0.35)' : colorOf(h.fill);
       if (f) o.fill = f; else errs.push(where + '.hole.fill: not a colour');
+    }
+    // literal edges: {top, right, bottom, left}, each a colour or 1-8 colours
+    if (h.edges !== undefined) {
+      const e = {};
+      const src = h.edges && typeof h.edges === 'object' && !Array.isArray(h.edges) ? h.edges : {};
+      for (const side of ['top', 'right', 'bottom', 'left']) {
+        const v = src[side];
+        if (v === undefined) continue;
+        if (Array.isArray(v)) {
+          const l = v.slice(0, HOLE_MAX).map(colorOf);
+          if (l.length && l.every((c) => c && c !== 'auto' && c !== 'scrim')) e[side] = l.length === 1 ? l[0] : l;
+          else errs.push(where + '.hole.edges.' + side + ': 1-' + HOLE_MAX + ' colours');
+        } else {
+          const c = colorOf(v);
+          if (c && c !== 'auto' && c !== 'scrim') e[side] = c; else errs.push(where + '.hole.edges.' + side + ': not a colour');
+        }
+      }
+      if (Object.keys(e).length) o.edges = e;
+      else errs.push(where + '.hole.edges: {top, right, bottom, left} colours');
     }
     return Object.keys(o).length ? o : true;
   }
@@ -331,6 +374,9 @@
         modes: null,
         modal: null,
         coverDz: null,
+        // a runtime flag the whole surface waits for (surfaces not yet
+        // proven in native mode: toasts, volume HUD, tooltips)
+        flag: typeof sc.flag === 'string' && sc.flag ? sc.flag : null,
         rules: [],
       };
       if (!s.key && !s.keyPrefix) { errs.push(name + ': needs "key" or "keyPrefix"'); continue; }
@@ -351,16 +397,35 @@
       }
       if (sc.modal) s.modal = resolveSel(sc.modal, index, errs, name + '.modal');
       if (sc.coverMm !== undefined || sc.coverDz !== undefined) s.coverDz = mmOrUnits(sc.coverMm, sc.coverDz);
-      const ids = new Set();
-      ent.rules.forEach(({ rc, frag }, i) => {
+      // id -> the rules kept with that id. A later rule with an id already
+      // taken is skipped, unless every earlier one is conditional (a flag, a
+      // flagged supersede or a profile): then it is kept as their fallback
+      // and applies only while none of them is live (an area rule that
+      // reuses a legacy id behind its package flag; the legacy rule comes
+      // back while the flag is off).
+      const ids = new Map();
+      const conditional = (rc0, frag0, unless0) => !!((typeof rc0.flag === 'string' && rc0.flag) || frag0.flag
+        || (unless0 && unless0.length) || (frag0.admission && (rc0.profile === 'default' || rc0.profile === 'wearer')));
+      ent.rules.forEach(({ rc, frag, unless }, i) => {
         if (!rc || typeof rc !== 'object') return;
         const id = String(rc.id || 'layer' + i);
         const where = name + '.' + id;
-        if (ids.has(id)) { errs.push(where + ': duplicate id (' + frag.file + '), skipped'); return; }
-        ids.add(id);
+        const prev = ids.get(id);
+        if (prev && !prev.every((p) => p.cond)) { errs.push(where + ': duplicate id (' + frag.file + '), skipped'); return; }
         const sel = resolveSel(rc.sel, index, errs, where);
         if (!sel) return;
-        const adm = frag.admission && rc.admission !== false;
+        // "admission": false is a fragment field (99-legacy.json); on a
+        // rule of an admission-on fragment it would bypass every admission
+        // rule, so it is ignored there
+        if (rc.admission === false && frag.admission) errs.push(where + ': "admission": false is only a fragment field (99-legacy.json); ignored');
+        const adm = frag.admission;
+        // keep the rule; a fallback (same id as conditional earlier rules)
+        // remembers them, so it applies only while none of them is live
+        const keep = (r) => {
+          const me = { rule: r, cond: conditional(rc, frag, unless) };
+          if (prev) { r.fallbackOf = prev.map((p) => p.rule); prev.push(me); } else ids.set(id, [me]);
+          s.rules.push(r);
+        };
         let focus = null;
         if (rc.focus !== 'always') {
           focus = rc.focus ? resolveSel(rc.focus, index, errs, where + '.focus') : DEFAULT_FOCUS;
@@ -378,13 +443,15 @@
           clip: rc.clip !== false,
           admission: adm,
           file: frag.file,
+          unless: unless && unless.length ? unless : null,
+          flag: typeof rc.flag === 'string' && rc.flag ? rc.flag : frag.flag || null,
         };
         if (!adm) {
           // Phase 1 semantics, unchanged (99-legacy.json, layers.json)
           const dz = +rc.dz || 0;
           const lift = +rc.lift || 0;
           if (!(dz > 0) && !(lift > 0)) { errs.push(where + ': needs dz or lift > 0'); return; }
-          s.rules.push(Object.assign(base, {
+          keep(Object.assign(base, {
             dz, lift,
             material: material(rc.material, material(fdef.material, 'liquid')),
           }));
@@ -405,7 +472,6 @@
           material: SLAB_MATERIALS.includes(slab) ? slab : (SLAB_MATERIALS.includes(fdef.material) ? fdef.material : 'liquid'),
           exclude: rc.exclude ? resolveSel(rc.exclude, index, errs, where + '.exclude') : null,
           media: rc.media === 'allow',
-          flag: typeof rc.flag === 'string' && rc.flag ? rc.flag : null,
           from: rc.from === 'cut' ? 'cut' : (rc.fromMm !== undefined ? mmOrUnits(rc.fromMm, null) : (Number.isFinite(+rc.from) && rc.from !== null && rc.from !== '' ? { units: +rc.from } : null)),
           sink: rc.sink === false ? false : null,
           focusables: null,
@@ -432,7 +498,7 @@
         if (d && d.mm !== undefined && d.mm > 0 && !ALLOWED_MM.includes(d.mm)) {
           errs.push(where + ': mm ' + d.mm + ' is not in {' + ALLOWED_MM.join(', ') + '}; it snaps down');
         }
-        s.rules.push(r);
+        keep(r);
       });
       s.hasAdmission = s.rules.some((r) => r.admission);
       out.push(s);
@@ -605,6 +671,7 @@
 
   function surfaceFor(key) {
     for (const s of S.cfg.surfaces) {
+      if (s.flag && !flagOn(s.flag)) continue;
       if (s.key && key === s.key) return { s, name: s.name };
       if (s.keyPrefix && key.startsWith(s.keyPrefix) && key.length > s.keyPrefix.length) {
         return { s, name: s.name + '.' + key.slice(s.keyPrefix.length) };
@@ -677,6 +744,7 @@
       scrolling: new Map(), anims: new Map(), panims: new Map(),
       tailUntil: 0, full: null, cur: null, sig: null, lastIds: null,
       attrPop: S.attrPrefix + '-pop', attrCover: S.attrPrefix + '-cover', attrPlate: S.attrPrefix + '-plate-ack',
+      attrNoslab: S.attrPrefix + '-noslab',
       applied: new Map(), hold: new Map(), keyAcked: false, nativeSince: 0,
       wakes: {}, computes: 0, computeMs: 0, lights: 0, changes: 0, queries: 0, hitTests: 0,
     };
@@ -793,6 +861,8 @@
       try { target.removeEventListener(type, ent.handler, { capture: true }); } catch (_) { /* gone */ }
     }
     ent.listeners = [];
+    ent.imgc = null;
+    ent.holes = null;
     applyAttrs(ent, new Map());
   }
 
@@ -1142,6 +1212,19 @@
     return false;
   }
 
+  // a rule's own flag is on and no flagged supersede is active
+  function ruleLive(r) {
+    return (!r.flag || flagOn(r.flag)) && !(r.unless && r.unless.some(flagOn));
+  }
+
+  // ... and its profile is the live one, and no earlier rule with its id is
+  // (a fallback rule, compile()): the rule takes part in this report
+  function ruleOn(r, profile) {
+    if (!ruleLive(r)) return false;
+    if (r.admission && r.profile && r.profile !== profile) return false;
+    return !(r.fallbackOf && r.fallbackOf.some((p) => ruleOn(p, profile)));
+  }
+
   // wearer only while interactivePops is on (PLAN 1.7, S2)
   function profileNow() {
     if (S.optProfile) return S.optProfile;
@@ -1340,12 +1423,17 @@
       adm.nopop = boxes(ctx, q.nopop);
       adm.media = boxes(ctx, q.media);
       adm.modalOpen = q.modal.some((el) => !measure(ctx, el, {}, false, true).skip)
-        || s.rules.some((r) => r.admission && r.modal && (!r.flag || flagOn(r.flag)) && (q.rules.get(r) || []).some((el) => !measure(ctx, el, r, false, true).skip));
+        || s.rules.some((r) => r.admission && r.modal && ruleOn(r, ctx.profile) && (q.rules.get(r) || []).some((el) => !measure(ctx, el, r, false, true).skip));
     }
 
     for (const rule of s.rules) {
+      if (rule.flag && !flagOn(rule.flag)) { if (why) why.push({ rule: rule.id, skip: 'flag ' + rule.flag + ' off' }); continue; }
+      if (rule.unless && rule.unless.some(flagOn)) { if (why) why.push({ rule: rule.id, skip: 'superseded while ' + rule.unless.join(' or ') + ' is on' }); continue; }
+      if (rule.fallbackOf) {
+        const taken = rule.fallbackOf.find((p) => ruleOn(p, ctx.profile));
+        if (taken) { if (why) why.push({ rule: rule.id, skip: 'id taken by ' + taken.file + ' (live)' }); continue; }
+      }
       if (rule.admission) {
-        if (rule.flag && !flagOn(rule.flag)) { if (why) why.push({ rule: rule.id, skip: 'flag ' + rule.flag + ' off' }); continue; }
         if (rule.profile && rule.profile !== ctx.profile) { if (why) why.push({ rule: rule.id, skip: 'profile ' + rule.profile + ' only' }); continue; }
         if (adm.modalOpen && !rule.modal) {
           if (why && (q.rules.get(rule) || []).length) why.push({ rule: rule.id, skip: 'rule6-modal (a modal is open)' });
@@ -1376,11 +1464,14 @@
     const bands = mosaicOf(ctx, q, mode, plates);
     if (bands) surface.mosaic = bands;
 
-    // rule 7: at most 4 distinct depths at rest (0 counts)
-    const depths = new Set([0]);
-    for (const k of out.kept) if (k.admission) depths.add(k.layer.dz);
+    // rule 7: at most 4 distinct depths at rest (0 counts), over every kept
+    // layer (Phase 2 and legacy rules alike: a route shows both); a depth
+    // that only legacy layers use is marked "(legacy)"
+    const depths = new Map([[0, true]]);
+    for (const k of out.kept) depths.set(k.layer.dz, depths.get(k.layer.dz) || !!k.admission);
     if (depths.size > MAX_DEPTHS) {
-      out.warnings.push(s.name + ': ' + depths.size + ' distinct depths (max ' + MAX_DEPTHS + '): ' + [...depths].sort((a, b) => a - b).join(', '));
+      out.warnings.push(s.name + ': ' + depths.size + ' distinct depths (max ' + MAX_DEPTHS + '): '
+        + [...depths.keys()].sort((a, b) => a - b).map((d) => d + (depths.get(d) ? '' : ' (legacy)')).join(', '));
     }
     out.held = ctx.held;
     return out;
@@ -1561,29 +1652,47 @@
     };
   }
 
-  // The shorter side (CSS px) of the smallest visible focusable that is the
-  // element or inside it and shows in the crop by >= 8 x 8 px; null if none.
+  // The shorter side (CSS px) of the smallest visible focusable that
+  // intersects the crop by >= 8 x 8 px (PLAN 1.7 rule 2): the element or one
+  // inside it, a focusable around it, or any other focusable the crop covers
+  // (a neighbour an outset reaches, an overlapping sibling); null if none.
   function smallestTarget(ctx, el, rule, b) {
     const F = rule.focusables || DEFAULT_FOCUSABLES;
-    let list;
-    try {
-      list = el.matches(F) ? [el] : [];
-      const inner = el.querySelectorAll(F);
-      for (let i = 0; i < inner.length && i < 300; i++) list.push(inner[i]);
-    } catch (_) { return null; }
     let best = null;
-    for (const c of list) {
-      const R = c.getBoundingClientRect();
-      if (!(R.width >= 1 && R.height >= 1)) continue;
+    for (const f of focusRects(ctx, F)) {
+      const R = f.R;
       const ix = Math.min(R.right, b.r) - Math.max(R.left, b.l);
       const iy = Math.min(R.bottom, b.b) - Math.max(R.top, b.t);
       if (ix < MIN_VISIBLE_TARGET || iy < MIN_VISIBLE_TARGET) continue;
-      const st = cs(ctx.ent, c);
+      const sd = Math.min(R.width, R.height);
+      if (best !== null && sd >= best) continue;
+      const st = cs(ctx.ent, f.el);
       if (st.display === 'none' || st.visibility !== 'visible') continue;
-      const s = Math.min(R.width, R.height);
-      if (best === null || s < best) best = s;
+      best = sd;
     }
     return best === null ? null : Math.round(best * 10) / 10;
+  }
+
+  // the window's focusables (cached until the DOM changes) with their boxes
+  // (measured once per sample)
+  function focusRects(ctx, F) {
+    if (!ctx.focRects) ctx.focRects = new Map();
+    let l = ctx.focRects.get(F);
+    if (l) return l;
+    const q = queries(ctx.ent);
+    if (!q.focusables) q.focusables = new Map();
+    let els = q.focusables.get(F);
+    if (!els) {
+      try { els = Array.from(ctx.doc.querySelectorAll(F)).slice(0, MAX_FOCUSABLES); } catch (_) { els = []; }
+      q.focusables.set(F, els);
+    }
+    l = [];
+    for (const e of els) {
+      const R = e.getBoundingClientRect();
+      if (R.width >= 1 && R.height >= 1 && R.right > 0 && R.bottom > 0 && R.left < ctx.vw && R.top < ctx.vh) l.push({ el: e, R });
+    }
+    ctx.focRects.set(F, l);
+    return l;
   }
 
   // the cover shape or plate that contains t (within COVER_TOL)
@@ -1611,6 +1720,247 @@
     const mn = Math.min(...v);
     if (a < 0.5 || mx < 40 || (mx - mn) / mx < 0.25) return null;
     return 'rgb(' + v.map(Math.round).join(' ') + ')';
+  }
+
+  // ------------------------------------------------------------ hole.fill "auto"
+  // glassd's hole.edges (REQ P9->P6): the tones just outside each edge of the
+  // crop, so the sliver a pop reveals off axis continues the art around it.
+  // A 2 CSS px strip outside each edge, about one sample per 27 CSS px
+  // (1..8). Each sample is the stack under that point (elementsFromPoint),
+  // top down, composited until opaque: background colours, linear gradients
+  // (dimming layers) at that point, and <img> art read through a canvas
+  // (same-origin: steamloopback.host). A layer that cannot be read (a
+  // url() background, cross-origin art) leaves that sample unknown. Unknown
+  // samples take a neighbour's tone; an edge with none is left out and the
+  // hole gets a flat fill: the nearest opaque ancestor's background colour.
+
+  function rgbaOf(c) {
+    const m = /rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:\s*[,/]\s*([\d.]+)(%?))?\s*\)/.exec(c || '');
+    if (!m) return null;
+    const a = m[4] === undefined ? 1 : (m[5] ? +m[4] / 100 : +m[4]);
+    return [+m[1], +m[2], +m[3], Math.max(0, Math.min(1, a))];
+  }
+
+  function cssRgba(c) {
+    const v = c.slice(0, 3).map((x) => Math.max(0, Math.min(255, Math.round(x))));
+    const a = Math.round(c[3] * 1000) / 1000;
+    return a >= 0.999 ? 'rgb(' + v.join(', ') + ')' : 'rgba(' + v.join(', ') + ', ' + a + ')';
+  }
+
+  // split "a(b, c), d" at top-level commas
+  function splitTop(s) {
+    const out = [];
+    let depth = 0;
+    let cur = '';
+    for (const ch of s) {
+      if (ch === '(') depth++;
+      else if (ch === ')') depth--;
+      if (ch === ',' && depth === 0) { out.push(cur.trim()); cur = ''; } else cur += ch;
+    }
+    if (cur.trim()) out.push(cur.trim());
+    return out;
+  }
+
+  // the colour of a computed linear-gradient() at (x, y) in box R; null when
+  // it cannot be evaluated
+  function gradientAt(g, R, x, y) {
+    const m = /^(repeating-)?linear-gradient\((.*)\)$/.exec(g.trim());
+    if (!m || m[1]) return null;
+    const parts = splitTop(m[2]);
+    let ang = 180;
+    if (parts.length && !/rgb|#|transparent/.test(parts[0])) {
+      const d = parts.shift().trim();
+      const dirs = { 'to top': 0, 'to right': 90, 'to bottom': 180, 'to left': 270 };
+      if (d in dirs) ang = dirs[d];
+      else if (/^-?[\d.]+deg$/.test(d)) ang = parseFloat(d);
+      else if (/^-?[\d.]+turn$/.test(d)) ang = parseFloat(d) * 360;
+      else return null; // corner directions, rad: not evaluated
+    }
+    const stops = [];
+    for (const p of parts) {
+      const cm = /^(rgba?\([^)]*\)|transparent)\s*(-?[\d.]+(?:%|px))?(?:\s+(-?[\d.]+(?:%|px)))?$/.exec(p.trim());
+      if (!cm) return null;
+      const col = cm[1] === 'transparent' ? [0, 0, 0, 0] : rgbaOf(cm[1]);
+      if (!col) return null;
+      stops.push({ col, pos: cm[2] || null });
+      if (cm[3]) stops.push({ col, pos: cm[3] });
+    }
+    if (!stops.length) return null;
+    const th = ang * Math.PI / 180;
+    const L = Math.abs(R.width * Math.sin(th)) + Math.abs(R.height * Math.cos(th)) || 1;
+    const t = ((x - (R.left + R.width / 2)) * Math.sin(th) - (y - (R.top + R.height / 2)) * Math.cos(th)) / L + 0.5;
+    const pos = stops.map((s) => (s.pos === null ? null : s.pos.endsWith('%') ? parseFloat(s.pos) / 100 : parseFloat(s.pos) / L));
+    if (pos[0] === null) pos[0] = 0;
+    if (pos[pos.length - 1] === null) pos[pos.length - 1] = 1;
+    for (let i = 1; i < pos.length; i++) {
+      if (pos[i] !== null) { if (pos[i] < pos[i - 1]) pos[i] = pos[i - 1]; continue; }
+      let j = i;
+      while (pos[j] === null) j++;
+      for (let k = i; k < j; k++) pos[k] = pos[i - 1] + (pos[j] - pos[i - 1]) * (k - i + 1) / (j - i + 1);
+      i = j - 1;
+    }
+    if (t <= pos[0]) return stops[0].col;
+    for (let i = 1; i < stops.length; i++) {
+      if (t <= pos[i]) {
+        const f = pos[i] > pos[i - 1] ? (t - pos[i - 1]) / (pos[i] - pos[i - 1]) : 1;
+        return stops[i].col.map((v, k) => stops[i - 1].col[k] + (v - stops[i - 1].col[k]) * f);
+      }
+    }
+    return stops[stops.length - 1].col;
+  }
+
+  // an <img> drawn into a small canvas, or null (not loaded, or tainted)
+  function imgCanvas(ent, img) {
+    if (!ent.imgc) ent.imgc = new Map();
+    const src = img.currentSrc || img.src;
+    if (!src) return null;
+    if (ent.imgc.has(src)) return ent.imgc.get(src);
+    if (!img.complete || !(img.naturalWidth > 0)) return null; // later
+    let c = null;
+    try {
+      const k = Math.min(1, HOLE_IMG_PX / Math.max(img.naturalWidth, img.naturalHeight));
+      const cv = ent.doc.createElement('canvas');
+      cv.width = Math.max(1, Math.round(img.naturalWidth * k));
+      cv.height = Math.max(1, Math.round(img.naturalHeight * k));
+      const g = cv.getContext('2d', { willReadFrequently: true });
+      g.drawImage(img, 0, 0, cv.width, cv.height);
+      g.getImageData(0, 0, 1, 1); // throws when the art is cross-origin
+      c = { g, w: cv.width, h: cv.height, k };
+    } catch (_) { c = null; }
+    if (ent.imgc.size >= HOLE_IMG_CACHE) ent.imgc.delete(ent.imgc.keys().next().value);
+    ent.imgc.set(src, c);
+    return c;
+  }
+
+  // the art's pixel under (x, y): [r, g, b, a], null where the image does not
+  // paint (object-fit contain bars), undefined when it cannot be read
+  function imgPixel(ent, img, x, y) {
+    const c = imgCanvas(ent, img);
+    if (!c) return undefined;
+    const R = img.getBoundingClientRect();
+    const nw = img.naturalWidth;
+    const nh = img.naturalHeight;
+    if (R.width < 1 || R.height < 1 || !(nw > 0)) return undefined;
+    let sx = R.width / nw;
+    let sy = R.height / nh;
+    let ox = R.left;
+    let oy = R.top;
+    const st = cs(ent, img);
+    const fit = st.objectFit;
+    if (fit === 'cover' || fit === 'contain' || fit === 'none' || fit === 'scale-down') {
+      let s = fit === 'cover' ? Math.max(sx, sy) : fit === 'none' ? 1 : Math.min(sx, sy);
+      if (fit === 'scale-down') s = Math.min(s, 1);
+      sx = sy = s;
+      const pos = String(st.objectPosition || '50% 50%').split(/\s+/);
+      const off = (v, free) => (v && v.endsWith('%') ? parseFloat(v) / 100 * free : parseFloat(v) || 0);
+      ox = R.left + off(pos[0] || '50%', R.width - nw * s);
+      oy = R.top + off(pos[1] || '50%', R.height - nh * s);
+    }
+    const u = (x - ox) / sx;
+    const v = (y - oy) / sy;
+    if (u < 0 || v < 0 || u >= nw || v >= nh) return null;
+    try {
+      const d = c.g.getImageData(Math.min(c.w - 1, Math.floor(u * c.k)), Math.min(c.h - 1, Math.floor(v * c.k)), 1, 1).data;
+      return [d[0], d[1], d[2], d[3] / 255];
+    } catch (_) { return undefined; }
+  }
+
+  // the composited tone at (x, y) outside the popped element, or null
+  function toneAt(ctx, el, x, y) {
+    if (x < 0 || y < 0 || x >= ctx.vw || y >= ctx.vh) return null;
+    let stack;
+    try { stack = ctx.doc.elementsFromPoint(x, y); } catch (_) { return null; }
+    const acc = [0, 0, 0, 0]; // premultiplied
+    const over = (c, k) => {
+      const a = c[3] * k * (1 - acc[3]);
+      if (!(a > 0)) return;
+      for (let i = 0; i < 3; i++) acc[i] += c[i] * a;
+      acc[3] += a;
+    };
+    for (const e of stack) {
+      if (acc[3] >= 0.995) break;
+      if (e === el || el.contains(e)) continue;
+      const st = cs(ctx.ent, e);
+      if (st.visibility !== 'visible') continue;
+      const k = +st.opacity;
+      if (!(k > 0.01)) continue;
+      if (e.tagName === 'VIDEO' || e.tagName === 'CANVAS') return null;
+      if (e.tagName === 'IMG') {
+        const px = imgPixel(ctx.ent, e, x, y);
+        if (px === undefined) return null;
+        if (px) over(px, k);
+      }
+      const bi = st.backgroundImage;
+      if (bi && bi !== 'none') {
+        const R = e.getBoundingClientRect();
+        for (const layer of splitTop(bi)) {
+          if (acc[3] >= 0.995) break;
+          if (/^url\(/.test(layer)) return null;
+          const g = gradientAt(layer, R, x, y);
+          if (!g) return null;
+          over(g, k);
+        }
+      }
+      const bg = rgbaOf(st.backgroundColor);
+      if (bg) over(bg, k);
+    }
+    if (!(acc[3] > 0.01)) return null;
+    return [acc[0] / acc[3], acc[1] / acc[3], acc[2] / acc[3], acc[3]];
+  }
+
+  // the hole of a "fill": "auto" rule for the crop t (texture px)
+  function holeAuto(ctx, el, rule, t) {
+    const base = {};
+    for (const k of ['shadow', 'y', 'blur', 'edges']) if (rule.hole[k] !== undefined) base[k] = rule.hole[k];
+    const ent = ctx.ent;
+    if (!ent.holes) ent.holes = new WeakMap();
+    const key = rule.id + ':' + t.x + ',' + t.y + ',' + t.w + ',' + t.h;
+    const old = ent.holes.get(el);
+    if (old && old.key === key && ctx.now - old.at < HOLE_TTL_MS) return old.hole;
+    const a = performance.now();
+    const x0 = t.x / ctx.dpr;
+    const y0 = t.y / ctx.dpr;
+    const w = t.w / ctx.dpr;
+    const h = t.h / ctx.dpr;
+    const along = (len) => Math.max(1, Math.min(HOLE_MAX, Math.round(len / HOLE_STEP)));
+    const edge = (n, pt) => {
+      const l = [];
+      for (let i = 0; i < n; i++) l.push(toneAt(ctx, el, ...pt((i + 0.5) / n)));
+      if (!l.some(Boolean)) return null;
+      // unknown samples take the nearest known one along the edge
+      for (let i = 0; i < n; i++) {
+        if (l[i]) continue;
+        for (let d = 1; d < n; d++) {
+          if (l[i - d]) { l[i] = l[i - d]; break; }
+          if (l[i + d]) { l[i] = l[i + d]; break; }
+        }
+      }
+      const s = l.map(cssRgba);
+      return s.length === 1 ? s[0] : s;
+    };
+    const edges = {};
+    const top = edge(along(w), (f) => [x0 + f * w, y0 - 1]);
+    const bottom = edge(along(w), (f) => [x0 + f * w, y0 + h + 1]);
+    const left = edge(along(h), (f) => [x0 - 1, y0 + f * h]);
+    const right = edge(along(h), (f) => [x0 + w + 1, y0 + f * h]);
+    if (top) edges.top = top;
+    if (right) edges.right = right;
+    if (bottom) edges.bottom = bottom;
+    if (left) edges.left = left;
+    const hole = Object.assign({}, base);
+    // a rule's literal edges win over sampled ones
+    if (Object.keys(edges).length) hole.edges = Object.assign({}, edges, base.edges || {});
+    if (Object.keys(edges).length < 4) {
+      // an edge without samples: the nearest opaque ancestor's colour
+      for (let p = el.parentElement; p; p = p.parentElement) {
+        const c = rgbaOf(cs(ent, p).backgroundColor);
+        if (c && c[3] >= 0.99) { hole.fill = cssRgba(c); break; }
+      }
+    }
+    S.prof.holeMs = (S.prof.holeMs || 0) + performance.now() - a;
+    const out = Object.keys(hole).length ? hole : true;
+    ent.holes.set(el, { key, at: ctx.now, hole: out });
+    return out;
   }
 
   // Phase 2 candidate: the admission rules of PLAN 1.7 (contract section 4).
@@ -1662,7 +2012,7 @@
     const id = slot === 0 ? rule.id : rule.id + '.' + slot;
     const layer = { id, x: t.x, y: t.y, w: t.w, h: t.h, r: t.r, dz: r4(dz), material: rule.material, interactive };
     if (cap < want - 1e-6) { layer.capped = true; layer.want = r4(want); }
-    if (rule.hole) layer.hole = rule.hole;
+    if (rule.hole) layer.hole = rule.hole.auto ? holeAuto(ctx, el, rule, t) : rule.hole;
     if (rule.tint) {
       const tint = rule.tint === 'auto' ? autoTint(ent, el) : rule.tint;
       if (tint) layer.tint = tint;
@@ -1762,15 +2112,19 @@
           due = Math.min(due, t);
           return false;
         };
-        const add = (el, part) => {
+        const add = (el, part, noslab) => {
           let p = plan.get(el);
-          if (!p) plan.set(el, p = { cover: false, pop: [], plate: false });
+          if (!p) plan.set(el, p = { cover: false, pop: [], plate: false, noslab: [] });
           if (part === 'cover') p.cover = true;
           else if (part === 'plate') p.plate = true;
-          else if (!p.pop.includes(part)) p.pop.push(part);
+          else if (!p.pop.includes(part)) {
+            p.pop.push(part);
+            if (noslab) p.noslab.push(part);
+          }
         };
         for (const el of cur.covers) if (ok(el, 'cover')) add(el, 'cover');
-        for (const k of cur.kept) if (ok(k.el, k.part)) add(k.el, k.part);
+        // slab "none": glassd draws only the hole, the glass stays in-page
+        for (const k of cur.kept) if (ok(k.el, k.part)) add(k.el, k.part, k.layer.material === 'none');
         for (const pe of cur.plateEls || []) if (ok(pe.el, 'plate')) add(pe.el, 'plate');
       }
       applyAttrs(ent, plan);
@@ -1785,18 +2139,22 @@
     const AP = ent.attrPop;
     const AC = ent.attrCover;
     const APL = ent.attrPlate;
+    const ANS = ent.attrNoslab;
     for (const el of ent.applied.keys()) {
       if (plan.has(el)) continue;
       try {
         el.removeAttribute(AP);
         el.removeAttribute(AC);
         el.removeAttribute(APL);
+        el.removeAttribute(ANS);
       } catch (_) { /* window gone */ }
     }
     for (const [el, at] of plan) {
       try {
         const pop = at.pop.join(' ');
         if (pop) { if (el.getAttribute(AP) !== pop) el.setAttribute(AP, pop); } else if (el.hasAttribute(AP)) el.removeAttribute(AP);
+        const ns = (at.noslab || []).join(' ');
+        if (ns) { if (el.getAttribute(ANS) !== ns) el.setAttribute(ANS, ns); } else if (el.hasAttribute(ANS)) el.removeAttribute(ANS);
         if (at.cover) { if (!el.hasAttribute(AC)) el.setAttribute(AC, ''); } else if (el.hasAttribute(AC)) el.removeAttribute(AC);
         if (at.plate) { if (!el.hasAttribute(APL)) el.setAttribute(APL, ''); } else if (el.hasAttribute(APL)) el.removeAttribute(APL);
       } catch (_) { /* window gone */ }
@@ -2113,7 +2471,9 @@
       optProfile: opts.profile === 'default' || opts.profile === 'wearer' ? opts.profile : null,
       optGeom: opts.geom && +opts.geom.S > 0 ? { S: +opts.geom.S, r: +opts.geom.r > 0 ? +opts.geom.r : 1, src: 'opts' } : null,
       optFlags: opts.flags && typeof opts.flags === 'object' ? Object.assign({}, opts.flags) : null,
-      flagNames: [...new Set([].concat(...cfg.surfaces.map((sf) => sf.rules.filter((r) => r.flag).map((r) => r.flag))))],
+      flagNames: [...new Set([].concat(...cfg.surfaces.map((sf) => sf.rules.filter((r) => r.flag).map((r) => r.flag)
+        .concat(...sf.rules.map((r) => r.unless || []))
+        .concat(sf.flag ? [sf.flag] : []))))],
       profile: 'default', geom: null, flagSig: '',
     };
     refreshInputs();
@@ -2127,9 +2487,15 @@
   function stop(o) {
     o = o || {};
     if (waiting) { clearInterval(waiting.timer); waiting = null; }
+    // A real stop leaves no __LGS* global behind (G-REMOVE): the API, the
+    // module-id cache and any "_LAST" record an older version left. A restart
+    // (keepGlobal: a re-injection) keeps the cache for the next instance.
     const dropGlobal = () => {
       if (o.keepGlobal || W[GLOBAL] !== API) return;
-      try { delete W[GLOBAL]; } catch (_) { W[GLOBAL] = undefined; }
+      const del = (k) => { try { delete W[k]; } catch (_) { W[k] = undefined; } };
+      del(GLOBAL);
+      if (GLOBAL === '__LGS_LAYERS') del('__LGS_LAYERS_NAVMOD');
+      try { for (const k of Object.keys(W)) if (/^__LGS_LAYERS\w*_LAST$/.test(k)) del(k); } catch (_) { /* none */ }
     };
     if (!S) { dropGlobal(); return { running: false }; }
     const st = S;
@@ -2143,7 +2509,7 @@
     st.ents.clear();
     S = null;
     const reason = o.reason || 'stop()';
-    W[GLOBAL + '_LAST'] = { reason, at: Date.now(), emits: st.emits, seq: st.seq };
+    LAST_STOP = { reason, at: Date.now(), emits: st.emits, seq: st.seq };
     dropGlobal();
     return { running: false, emits: st.emits, seq: st.seq, reason };
   }
@@ -2203,7 +2569,7 @@
   function status() {
     if (!S) {
       return waiting ? { running: false, version: VERSION, waiting: 'token index (theme off?)', tries: waiting.tries }
-        : { running: false, version: VERSION, last: W[GLOBAL + '_LAST'] || null };
+        : { running: false, version: VERSION, last: LAST_STOP };
     }
     const now = performance.now();
     const surfaces = [];
@@ -2292,12 +2658,14 @@
       profile: S.profile, geom: S.geom,
       surfaces: S.cfg.surfaces.map((sf) => ({
         name: sf.name, key: sf.key, keyPrefix: sf.keyPrefix, material: sf.material, space: sf.space,
+        flag: sf.flag, on: !sf.flag || flagOn(sf.flag),
         modes: sf.modes ? Object.keys(sf.modes.shapes) : null, modal: !!sf.modal,
         rules: sf.rules.map((r) => ({
           id: r.id, file: r.file, admission: r.admission,
           depth: r.admission ? r.depth : { units: r.dz }, lift: r.admission ? r.lift : { units: r.lift },
           when: r.when || null, interactive: !!r.interactive, profile: r.profile || null, modal: !!r.modal,
-          flag: r.flag || null, hole: r.hole || null, tint: r.tint || null, material: r.material,
+          flag: r.flag || null, unless: r.unless || null, hole: r.hole || null, tint: r.tint || null, material: r.material,
+          fallbackOf: r.fallbackOf ? r.fallbackOf.map((p) => p.file) : null, on: ruleOn(r, S.profile),
         })),
       })),
     };

@@ -3,7 +3,9 @@
 //
 // Hover never moves Steam's focus (IM D-7), so every delayed reveal is fed by this one machine:
 //   gamepad mode: vgp_onfocus / vgp_onblur (or rt.attention.feed from a T3 component)
-//   laser mode:   mouseover / mouseout plus dwell, re-checked against :hover
+//   laser mode:   mouseover / mouseout plus dwell, re-checked against :hover (trusted events:
+//                 the real laser, CDP input) or against the last mouseover target (untrusted
+//                 events: the lab's synthetic L.hover, which cannot set :hover)
 //
 //   .lgs-dwell                 innermost dwellSelector match under the laser after 80 ms (laser only)
 //   rt.attend(target, opts)    enter / dwell / step / leave callbacks, .lgs-attend and .lgs-attend-<ms>
@@ -34,25 +36,19 @@
     if (RW && typeof RW.track === 'function') return (fn) => RW.track((e) => fn(e.win, e.doc, e.kind));
     return (fn) => input.hub.onDoc(fn);
   }
+  // A member on the public runtime object (PLAN §1.4 one accessor) through P1's tracked rt.expose,
+  // which deletes it when the module is removed; plain assignment (undone by off) only without it.
+  function expose(rt, name, value, offs) {
+    const P = PUB();
+    if (rt && rt !== P && typeof rt.expose === 'function') {
+      try { offs.push(rt.expose(name, value)); return; } catch (err) { log('warn', 'rt.expose(' + name + ') refused; assigning', String(err)); }
+    }
+    P[name] = value;
+    offs.push(() => { if (P[name] === value) delete P[name]; });
+  }
   function inputOf(rt) {
     try { if (rt && typeof rt.use === 'function') return rt.use('input'); } catch (_) { /* not via use */ }
     return (rt && rt.input) || (PUB() && PUB().input) || null;
-  }
-  // %{Token} -> selector through Steam's class index (lgs_core builds window.__LGS_INDEX).
-  function resolve(sel) {
-    if (typeof sel !== 'string' || sel.indexOf('%{') < 0) return sel;
-    let bad = false;
-    const out = sel.replace(/%\{([^}]+)\}/g, (_, tok) => {
-      try {
-        const idx = H.__LGS_INDEX;
-        const r = idx && typeof idx.selector === 'function' ? idx.selector(tok) : null;
-        if (r && r.sel) return r.sel;
-      } catch (_) { /* unresolved */ }
-      bad = true;
-      return '.lgs-unresolved';
-    });
-    if (bad) log('error', 'unresolved token in selector', sel);
-    return out;
   }
   function call(fn, ...args) {
     if (typeof fn !== 'function') return;
@@ -70,9 +66,30 @@
       const hub = input.hub;
       const onDoc = onDocOf(R, input);
       const marks = input.marks;
+      const lazySel = input.lazySel;
       const now = () => H.performance.now();
-      const st = { docs: new Map(), regs: new Set(), refs: new WeakMap(), marked: new Set(), offs: [], dwellSel: DEFAULT_DWELL_SEL };
+      // No strong set of touched elements (review R1 F1): class refcounts live in a WeakMap, the sticky
+      // marks registry is weak, and removal sweeps every live window instead.
+      const st = { docs: new Map(), regs: new Set(), refs: new WeakMap(), offs: [], dwellSel: lazySel(DEFAULT_DWELL_SEL) };
       live = st;
+      const OURS = (c) => c === 'lgs-dwell' || c === 'lgs-attend' || c.startsWith('lgs-attend-');
+      // Fail closed (runtime.md §1 rule 2): set before any listener or subscription below.
+      st.remove = () => {
+        for (const reg of st.regs) for (const A of [...reg.active.values()]) leaveNow(reg, A, true);
+        st.regs.clear();
+        for (const off of st.offs.splice(0).reverse()) { try { off(); } catch (_) { /* gone */ } }
+        for (const rec of st.docs.values()) clearDwell(rec);
+        st.docs.clear();
+        try { marks.sweep(OURS); } catch (_) { /* input gone */ }
+        // Belt and braces: no lgs-dwell / lgs-attend* left in any live popup.
+        for (const w of hub.windows()) {
+          try {
+            for (const el of w.document.querySelectorAll('.lgs-dwell, .lgs-attend, [class*="lgs-attend-"]')) {
+              for (const c of [...el.classList]) if (OURS(c)) marks.remove(el, c);
+            }
+          } catch (_) { /* gone */ }
+        }
+      };
 
       // ---------------------------------------------- class refcounts (several registrations may share an element)
       function addCls(el, cls) {
@@ -80,7 +97,7 @@
         if (!m) { m = new Map(); st.refs.set(el, m); }
         const n = (m.get(cls) || 0) + 1;
         m.set(cls, n);
-        if (n === 1) { try { marks.add(el, cls); st.marked.add(el); } catch (_) { /* gone */ } }
+        if (n === 1) { try { marks.add(el, cls); } catch (_) { /* gone */ } }
       }
       function delCls(el, cls) {
         const m = st.refs.get(el);
@@ -89,14 +106,16 @@
         if (n > 0) { m.set(cls, n); return; }
         m.delete(cls);
         try { marks.remove(el, cls); } catch (_) { /* gone */ }
-        if (!m.size) st.marked.delete(el);
+        if (!m.size) st.refs.delete(el);
       }
 
       // ---------------------------------------------- global laser dwell (IM §4)
       function cardFor(t, w) {
+        const sel = st.dwellSel();
+        if (!sel) return null;
         for (let n = t; n && n.nodeType === 1; n = n.parentElement) {
           let ok = false;
-          try { ok = n.matches(st.dwellSel); } catch (_) { ok = false; }
+          try { ok = n.matches(sel); } catch (_) { ok = false; }
           if (ok) {
             const r = n.getBoundingClientRect();
             return (r.width * r.height > 0.5 * w.innerWidth * w.innerHeight) ? null : n;   // a page container
@@ -111,6 +130,32 @@
         if (d.on) { try { marks.remove(d.el, 'lgs-dwell'); } catch (_) { /* gone */ } }
         rec.dwell = null;
       }
+      // The last mouseover target per document, held weakly: it is only a hint, and must not keep a
+      // page Steam unmounted under a still pointer alive (review R1 F1).
+      const WR = typeof H.WeakRef === 'function' ? H.WeakRef : null;
+      function setOver(rec, t) { rec.lastOver = t ? (WR ? new WR(t) : t) : null; }
+      function lastOver(rec) { const r = rec.lastOver; return r ? (WR && r instanceof WR ? r.deref() || null : r) : null; }
+      // Is the pointer still on el? Trusted events (the real laser, CDP input) set :hover; the
+      // lab's synthetic hover cannot, so for it the last mouseover target in that document decides.
+      function stillOver(rec, el) {
+        try {
+          if (!el.isConnected) return false;
+          if (rec.overTrusted !== false) return el.matches(':hover');
+          const lo = lastOver(rec);
+          return !!(lo && lo.isConnected && el.contains(lo));
+        } catch (_) { return false; }
+      }
+      // The card under a still laser, from the document's hover chain (trusted input only; the last
+      // :hover match is the innermost element).
+      function hoveredCard(rec) {
+        try {
+          const hs = rec.doc.querySelectorAll(':hover');
+          const leaf = hs.length ? hs[hs.length - 1] : null;
+          const c = leaf ? cardFor(leaf, rec.win) : null;
+          if (c) setOver(rec, leaf);
+          return c;
+        } catch (_) { return null; }
+      }
       function laserDwell(rec, target) {
         if (input.mode !== 'laser') return;
         const card = target ? cardFor(target, rec.win) : null;
@@ -120,11 +165,16 @@
         const d = { el: card, t0: now(), on: false, tOn: 0, timer: 0 };
         d.timer = H.setTimeout(() => {
           if (rec.dwell !== d || live !== st || input.mode !== 'laser') return;
-          let hov = false;
-          try { hov = card.isConnected && card.matches(':hover'); } catch (_) { hov = false; }
-          if (!hov) { rec.dwell = null; return; }
-          marks.add(card, 'lgs-dwell');
-          st.marked.add(card);
+          if (!stillOver(rec, card)) {
+            // Steam re-rendered the element under a still pointer (library cards swap a child on hover)
+            // and Chromium has not sent the new mouseover yet (measured up to 420 ms late): the laser
+            // stayed put, so the card now under it inherits the dwell.
+            const now2 = rec.overTrusted !== false ? hoveredCard(rec) : null;
+            if (!now2) { rec.dwell = null; return; }
+            d.el = now2;
+          }
+          const card2 = d.el;
+          marks.add(card2, 'lgs-dwell');
           d.on = true;
           d.tOn = now();
         }, DWELL_MS);
@@ -158,12 +208,18 @@
       }
       function scheduleLeave(reg, A) {
         if (A.leaveTimer || reg.active.get(A.el) !== A) return;
+        // No grace: leave in the same task. A 0 ms timer runs only after Steam's own work for the
+        // event (a D-pad focus change keeps the thread busy for about 100 ms), which delays the leave.
+        if (!(reg.o.leaveMs > 0)) { leaveNow(reg, A, false); return; }
         A.leaveTimer = H.setTimeout(() => { A.leaveTimer = 0; leaveNow(reg, A, false); }, reg.o.leaveMs);
       }
       function enter(reg, el, source, rec) {
         const cur = reg.active.get(el);
         if (cur) {
           if (cur.leaveTimer) { H.clearTimeout(cur.leaveTimer); cur.leaveTimer = 0; }
+          // The input that entered last owns the attention, so its own leave paths end it (a feed
+          // attention the laser takes over must end when the laser leaves; found by the R1 leak test).
+          cur.source = source;
           return cur;
         }
         const A = { el, source, since: now(), reached: [], timers: [], leaveTimer: 0, win: rec ? rec.win : null, doc: rec ? rec.doc : el.ownerDocument };
@@ -177,11 +233,7 @@
           if (immediate || th <= 0) { reach(reg, A, th); continue; }
           A.timers.push(H.setTimeout(() => {
             if (reg.active.get(el) !== A || live !== st) return;
-            if (A.source === 'laser' && !A.leaveTimer) {
-              let hov = false;
-              try { hov = el.isConnected && el.matches(':hover'); } catch (_) { hov = false; }
-              if (!hov) { leaveNow(reg, A, false); return; }
-            }
+            if (A.source === 'laser' && !A.leaveTimer && rec && !stillOver(rec, el)) { leaveNow(reg, A, false); return; }
             if (!el.isConnected) { leaveNow(reg, A, false); return; }
             reach(reg, A, th);
           }, th));
@@ -193,8 +245,8 @@
       // A target: Element, selector string, or predicate fn(el) -> bool. Returns the matched ancestor.
       function matcherFor(target) {
         if (typeof target === 'string') {
-          const sel = resolve(target);
-          return (el) => { try { return el && el.closest ? el.closest(sel) : null; } catch (_) { return null; } };
+          const get = lazySel(target);   // %{Token}: re-resolved on use until P1's index has it (R1 F6)
+          return (el) => { const sel = get(); if (!sel) return null; try { return el && el.closest ? el.closest(sel) : null; } catch (_) { return null; } };
         }
         if (typeof target === 'function') {
           return (el) => {
@@ -247,19 +299,30 @@
       }
 
       st.offs.push(onDoc((w, doc, surface) => {
-        const rec = { win: w, doc, surface, lastOver: null, dwell: null, focusEl: null, focusSince: 0 };
+        const rec = { win: w, doc, surface, lastOver: null, overTrusted: null, dwell: null, focusEl: null, focusSince: 0 };
         st.docs.set(doc, rec);
         const over = (e) => {
-          rec.lastOver = e.target;
+          setOver(rec, e.target);
+          rec.overTrusted = e.isTrusted !== false;
           if (input.mode === 'laser') onLaserTarget(rec, e.target);
         };
         const out = (e) => {
           if (e.relatedTarget) {
-            if (rec.dwell && !rec.dwell.el.contains(e.relatedTarget)) clearDwell(rec);
+            const to = e.relatedTarget;
+            if (rec.dwell && !rec.dwell.el.contains(to)) clearDwell(rec);
+            // The laser left an attended element: its leave (and grace) starts now. Steam's own
+            // handlers can hold the matching mouseover on the new element back by about 70 ms.
+            if (input.mode === 'laser' && e.target && e.target.nodeType === 1) {
+              for (const reg of st.regs) {
+                for (const A of [...reg.active.values()]) {
+                  if (A.source === 'laser' && A.doc === doc && A.el.contains(e.target) && !A.el.contains(to)) scheduleLeave(reg, A);
+                }
+              }
+            }
             return;
           }
           // left the window
-          rec.lastOver = null;
+          setOver(rec, null);
           clearDwell(rec);
           for (const reg of st.regs) for (const A of [...reg.active.values()]) if (A.source === 'laser' && A.doc === doc) scheduleLeave(reg, A);
         };
@@ -285,10 +348,8 @@
         for (const rec of st.docs.values()) {
           if (reg && !inSurface(reg, rec)) continue;
           if (input.mode === 'laser') {
-            const t = rec.lastOver;
-            let hov = false;
-            try { hov = !!(t && t.isConnected && t.matches(':hover')); } catch (_) { hov = false; }
-            if (hov) onLaserTarget(rec, t);
+            const t = lastOver(rec);
+            if (t && stillOver(rec, t)) onLaserTarget(rec, t);
           } else {
             let f = null;
             try { f = rec.doc.querySelector('.gpfocus'); } catch (_) { f = null; }
@@ -346,8 +407,8 @@
       }
 
       const attention = {
-        get dwellSelector() { return st.dwellSel; },
-        set dwellSelector(v) { if (typeof v === 'string' && v) st.dwellSel = resolve(v); },
+        get dwellSelector() { return st.dwellSel(); },
+        set dwellSelector(v) { if (typeof v === 'string' && v) st.dwellSel = lazySel(v); },
         get dwellMs() { return DWELL_MS; },
         current(win) {
           const rec = docRec(win);
@@ -383,28 +444,8 @@
         registrations() { return st.regs.size; },
       };
       st.attend = attend;
-      PUB().attend = attend;
-      PUB().attention = attention;
-      st.remove = () => {
-        for (const reg of st.regs) for (const A of [...reg.active.values()]) leaveNow(reg, A, true);
-        st.regs.clear();
-        for (const off of st.offs.splice(0).reverse()) { try { off(); } catch (_) { /* gone */ } }
-        for (const rec of st.docs.values()) clearDwell(rec);
-        st.docs.clear();
-        for (const el of st.marked) {
-          try { for (const c of [...el.classList]) if (c === 'lgs-dwell' || c === 'lgs-attend' || c.startsWith('lgs-attend-')) marks.remove(el, c); } catch (_) { /* gone */ }
-        }
-        st.marked.clear();
-        // Belt and braces: no lgs-dwell / lgs-attend* left in any live popup.
-        for (const w of hub.windows()) {
-          try {
-            for (const el of w.document.querySelectorAll('.lgs-dwell, .lgs-attend')) {
-              el.classList.remove('lgs-dwell', 'lgs-attend');
-              for (const c of [...el.classList]) if (c.startsWith('lgs-attend-')) el.classList.remove(c);
-            }
-          } catch (_) { /* gone */ }
-        }
-      };
+      expose(R, 'attend', attend, st.offs);
+      expose(R, 'attention', attention, st.offs);
       return { attend, attention };
     },
     remove() {

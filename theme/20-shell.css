@@ -1,63 +1,129 @@
-/* Glass Shell, area "shell": the dashboard window itself (surface main).
-   Window glass on the outermost container, transparent page roots so the
-   glass shows on every route, Liquid Glass header capsules (Back, search),
-   the in-window footer legend as a floating capsule, the app-details scrim,
-   and the search route's chrome and result tiles.
-   Wrapped as html.lgs-on { ... } by the injector. Look only: no geometry,
-   no transforms, no visibility changes. Two rendering-only hints are used
-   on purpose and explained where they appear: will-change on the window's
-   inner wrapper (backdrop root) and transform-style on Back (so its glass
-   can blur). Coverage, shots and audits: docs/coverage/shell.md. */
+/* Glass Shell, area "shell" (package C1a, Phase 2): the window and its
+   chrome on every main route, the tab-bar ornament (frame.menu), the
+   bottom ornament contract (#Footer).
+   Concept: docs/phase2/concepts/window-nav.md (WN) §3, §8.4; PLAN §1.2,
+   §1.3, §1.9-§1.11. Evidence: docs/phase2/wp/C1a.md.
+   Wrapped as html.lgs-on { ... } by the bundler ("&" is html.lgs-on).
+
+   T1 only here. Rules keyed on attributes or classes that C1a's runtime
+   (device/rt/20-shell.js, flag wp.c1a) sets are inert until it runs:
+     html.lgs-hdr-108 / html.lgs-hdr-40       CQ1 outcome (none = fallback)
+     %{BasicUiRoot}[data-lgs-glass]           route glass mode (none = window)
+     %{BasicUiRoot}[data-lgs-route]           route key
+     %{BasicUiRoot}[data-lgs-search]          capsule | nested | circle
+     #Footer[data-lgs-orn="capsule"|"quiet"]  ornament material by content
+     #Footer[data-lgs-orn-fixed]              area-registered fixed slots
+     #Footer[data-lgs-band="off"]             flag quietBacking = "off"
+     #Footer [data-lgs-btn="<enum>"]          member tags (OK, CANCEL, ...)
+     [data-lgs-exempt="E-BACK"]               Back shown as a circle (T2
+                                              sets aria-label = stock text)
+   Shared values other areas read (WN §3.2, C1a's interface table):
+     --lgs-hdr-pad     page-root top padding: 68px fallback, 0 with lgs-hdr-108
+     --lgs-guard-top   124px, --lgs-guard-bottom 612px (window y, VP P-23)
+   Tokens: contracts/tokens.md (P4). Private values are --lgs-c1a-*.
+   No outlines anywhere: edges come from P4's E3 hook and the material. */
 
 /* ------------------------------------------------------------------ */
-/* 1. Window glass                                                     */
+/* 0. Interface values                                                  */
 /* ------------------------------------------------------------------ */
 
-/* The outermost window container already clips the whole UI with
-   overflow:hidden + border-radius; raise the radius to the window radius
-   and paint the visionOS window glass here, behind every route. */
-%{BasicUiRoot} {
-  background: var(--lgs-window-sheen), var(--lgs-window-bg);
-  border-radius: var(--lgs-r-window);
+& {
+  --lgs-hdr-pad: 68px;
+  --lgs-guard-top: 124px;
+  --lgs-guard-bottom: 612px;
+  /* the tab bar's pitch (popup px) until the daemon writes the live one
+     (WN §3.3.2): 52 is the floor and fits the panel at every r >= 0.863 */
+  --lgs-c1a-tab-p: var(--lgs-tab-pitch, 52px);
+}
+&.lgs-hdr-108 {
+  --lgs-hdr-pad: 0px;
+}
+/* CQ1 (WN §3.2, AT-2): the runtime tries the 108 px header only behind the
+   flag hdr108 (html.lgs-hdr-try for two frames) and keeps it as
+   lgs-hdr-108 only if Steam's header box follows the variable */
+&:is(.lgs-hdr-try, .lgs-hdr-108) %{BasicUiRoot} {
+  --basicui-header-height: 108px !important;
 }
 
-/* The lit glass edge sits above all content (full-bleed art, modals,
-   header, footer) like a real rim; click-through and decorative only. */
+/* ------------------------------------------------------------------ */
+/* 1. Window glass by route mode (PLAN §1.2, WN §3.1, §8.4)             */
+/* ------------------------------------------------------------------ */
+
+/* The glass height follows the route's mode, never focus. No attribute
+   (runtime off) = window. --lgs-c1a-gh is read by the tint, the edge and
+   the content clip below. */
+%{BasicUiRoot} {
+  --lgs-c1a-gh: var(--lgs-glass-h);
+  /* the smoky tint (WN §8.4) as the root's own background, sized to the
+     glass, so it sits under every page and the audit's contrast model
+     (ancestor backgrounds over the room) sees it; the margin stays clear */
+  --lgs-c1a-tint: rgb(20 22 30 / calc(.60 + var(--lgs-dial) * .24));
+  --lgs-c1a-r: var(--lgs-r-window);
+  /* four tiles: the body, the bottom band between the corners, and the two
+     rounded bottom corners at the glass edge (the root's own radius rounds
+     the 720 box, not the 656 glass) */
+  background:
+    linear-gradient(var(--lgs-c1a-tint), var(--lgs-c1a-tint)) 0 0 / 100% max(0px, calc(var(--lgs-c1a-gh) - var(--lgs-c1a-r))) no-repeat,
+    linear-gradient(var(--lgs-c1a-tint), var(--lgs-c1a-tint)) var(--lgs-c1a-r) max(0px, calc(var(--lgs-c1a-gh) - var(--lgs-c1a-r))) / calc(100% - 2 * var(--lgs-c1a-r)) min(var(--lgs-c1a-r), var(--lgs-c1a-gh)) no-repeat,
+    radial-gradient(circle var(--lgs-c1a-r) at 100% 0, var(--lgs-c1a-tint) calc(var(--lgs-c1a-r) - .75px), rgb(20 22 30 / 0) var(--lgs-c1a-r)) 0 max(0px, calc(var(--lgs-c1a-gh) - var(--lgs-c1a-r))) / var(--lgs-c1a-r) min(var(--lgs-c1a-r), var(--lgs-c1a-gh)) no-repeat,
+    radial-gradient(circle var(--lgs-c1a-r) at 0 0, var(--lgs-c1a-tint) calc(var(--lgs-c1a-r) - .75px), rgb(20 22 30 / 0) var(--lgs-c1a-r)) 100% max(0px, calc(var(--lgs-c1a-gh) - var(--lgs-c1a-r))) / var(--lgs-c1a-r) min(var(--lgs-c1a-r), var(--lgs-c1a-gh)) no-repeat;
+  border-radius: var(--lgs-r-window);
+  /* E3 arcs from P4's edge hook on ::before (z 20000, above content) */
+  --lgs-edge: window;
+}
+%{BasicUiRoot}[data-lgs-glass="window-full"] {
+  --lgs-c1a-gh: var(--lgs-glass-h-full);
+}
+%{BasicUiRoot}[data-lgs-glass="windowless"],
+%{BasicUiRoot}:has(> %{MainNavMenuMainSplit} > %{BasicHome}%{PopupBody>TransparentBackground}) {
+  --lgs-c1a-gh: 0px;
+  --lgs-edge: none;
+}
+
+/* the edge hook's ring ends where the glass ends (656 or 720) */
+%{BasicUiRoot}::before {
+  bottom: calc(100% - var(--lgs-c1a-gh));
+}
+
+/* the window's top sheen (white .08 -> 0 over 30 %) and dark inner edge,
+   over the tint and under every page (z -1 in the root's own stacking
+   context) */
 %{BasicUiRoot}::after {
   content: "";
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--lgs-c1a-gh);
   border-radius: inherit;
-  box-shadow: var(--lgs-window-rim);
+  background: linear-gradient(180deg, rgb(255 255 255 / .08) 0, rgb(255 255 255 / 0) 30%);
+  box-shadow: var(--lgs-mat-window-shade);
   pointer-events: none;
-  z-index: 20000;
+  z-index: -1;
+}
+%{BasicUiRoot}[data-lgs-glass="windowless"]::after,
+%{BasicUiRoot}:has(> %{MainNavMenuMainSplit} > %{BasicHome}%{PopupBody>TransparentBackground})::after {
+  content: none;
 }
 
-/* Backdrop root just inside the glass. backdrop-filter re-composites
-   everything painted before it up to its backdrop root; without this,
-   every blurred control over plain window glass would blur the glass tint
-   itself and double its opacity (measured: alpha .725 -> .93, a dark
-   blot over a bright room). With the root here, Liquid Glass blurs only
-   page content. will-change:opacity is a rendering hint only: no layout,
-   no containing block for fixed elements, and the stacking context it
-   makes wraps every Steam layer, so their relative z-order is unchanged. */
+/* Backdrop root just inside the glass, so blurred controls (ornament,
+   sheets) frost page content, never the window tint twice. A rendering
+   hint only: no layout, no containing block, z-order unchanged. */
 %{MainNavMenuMainSplit} {
   will-change: opacity;
 }
 
-/* Overlay paths Steam renders on a transparent window (/apprunning,
-   /keyboard, in-game overlay, web views): keep them clear. */
-%{BasicUiRoot}:has(> %{MainNavMenuMainSplit} > %{BasicHome}%{PopupBody>TransparentBackground}) {
-  background: none;
-}
-%{BasicUiRoot}:has(> %{MainNavMenuMainSplit} > %{BasicHome}%{PopupBody>TransparentBackground})::after {
-  box-shadow: none;
+/* The window's shape is the page's clip: on `window` and `hero` routes
+   content that scrolls below the glass (y 656-720, the ornament margin)
+   is cut by the glass edge instead of floating over the room. Hit testing
+   there is already the footer's (#Footer spans y 628-720 above it). */
+%{BasicUiRoot}:not([data-lgs-glass="window-full"], [data-lgs-glass="windowless"]) > %{MainNavMenuMainSplit} > %{BasicHome}:not(%{PopupBody>TransparentBackground}) {
+  clip-path: inset(0 0 calc(100% - var(--lgs-c1a-gh)) 0 round 0 0 var(--lgs-r-window) var(--lgs-r-window));
 }
 
-/* Every layer that repaints Steam's opaque #060a0e -> #0e141b gradient
-   (or black) over the window goes clear, so the window glass shows on
-   every route. Page roots owned by other areas are listed in the
-   coverage doc; these are the window-level ones. */
+/* Every layer that repaints Steam's opaque gradient (or black) over the
+   window goes clear, so the glass shows on every route. Page roots that
+   areas own are cleared by those areas (LAB). */
 %{BasicHome}%{OpaqueBackground},
 %{BasicHome}%{TrueBlackBackground},
 %{BasicUiRoot}%{PopupBody>BlackBackground},
@@ -65,293 +131,824 @@
 %{GamepadSearch},
 %{DownloadsPage},
 %{OverflowHidden>GamepadPage}%{DialogBackground},
-%{ContentManagement} {
+%{ContentManagement},
+%{TopLevelTransitionSwitch},
+%{ContentWrapper}%{TopLevelTransition},
+%{AbsoluteDiv} {
   background: none;
 }
-%{BasicUiRoot}%{PopupBody>BlackBackground} {
-  background: var(--lgs-window-sheen), var(--lgs-window-bg);
+
+/* ------------------------------------------------------------------ */
+/* 2. The toolbar row (#header, WN §3.2, PLAN §1.9)                     */
+/* ------------------------------------------------------------------ */
+
+/* Fallback (no lgs-hdr-108): the header stays 40 px in layout and its
+   controls overflow into a 68 px band below; page roots add
+   var(--lgs-hdr-pad) (each area pads its own), the scroll guard keeps
+   focus clear, and C1c pads modals to 108 (22-presentations.css). With
+   lgs-hdr-108 the header is 108 tall and the same positions hold. */
+
+/* Steam's header band (its ::before: 50 % black + 100 px blur) becomes the
+   scroll edge: a 124 px band of black .30 -> 0, blurred, fading out;
+   its opacity stays bound to Steam's --gamepadui-header-background-opacity */
+#header%{Profile>Header}::before {
+  bottom: auto;
+  height: var(--lgs-scroll-band-h);
+  background: var(--lgs-scroll-band-top);
+  backdrop-filter: blur(12px);
+  -webkit-mask-image: linear-gradient(180deg, #000 40%, transparent);
+  mask-image: linear-gradient(180deg, #000 40%, transparent);
+  box-shadow: none;
+}
+/* windowless routes (Home, folders, /invites, CC-M) have no window and no
+   scroller under the row, so there is no scroll edge to draw: the band
+   would only blur the page's own top-row plates (REQ C2a->C1a #10) */
+%{BasicUiRoot}[data-lgs-glass="windowless"] #header%{Profile>Header}::before {
+  background: none;
+  backdrop-filter: none;
+}
+
+/* Back: an 80 x 80 hit box at (14, 14), its 60 px glass control at
+   (24, 24) (VP P-60). T1 keeps Steam's "Back" text beside the chevron
+   (a 60 px capsule); with T2's E-BACK tag (aria-label = the stock text)
+   the label collapses and the control is the 60 px circle. */
+#header %{BackContainer} {
+  position: absolute;
+  left: 14px;
+  top: 14px;
+  height: var(--lgs-hit);
+  min-width: var(--lgs-hit);
+  box-sizing: border-box;
+  padding: 0 10px;
+  justify-content: center;
+  isolation: isolate;
+  color: var(--lgs-text-1);
+  pointer-events: auto;
+}
+#header %{BackContainer}::before {
+  content: "";
+  position: absolute;
+  inset: 10px;
+  z-index: -1;
+  border-radius: var(--lgs-r-capsule);
+  background: var(--lgs-raised-bg);
+  box-shadow: var(--lgs-raised-shadow);
+  pointer-events: none;
+  transition: background var(--lgs-d-hover-in, 294ms) var(--lgs-ease-b0, ease-out);
+}
+/* laser hover: + white .08 (Steam's ::after is its divider, so the light
+   is drawn on the control's own fill) */
+&:not(.lgs-input-pad) #header %{BackContainer}:hover::before {
+  background: linear-gradient(rgb(255 255 255 / var(--lgs-hover-add)), rgb(255 255 255 / var(--lgs-hover-add))), var(--lgs-raised-bg);
+}
+#header %{BackContainer}:active::before {
+  background: linear-gradient(rgb(255 255 255 / calc(var(--lgs-hover-add) + var(--lgs-press-add))), rgb(255 255 255 / calc(var(--lgs-hover-add) + var(--lgs-press-add)))), var(--lgs-raised-bg);
+}
+/* Steam's divider between Back and search: the gap replaces it */
+#header %{BackContainer}:not(:last-child)::after {
+  background: transparent;
+}
+#header %{BackContainer} %{ArrowBack} {
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  flex: none;
+}
+#header %{BackContainer>BackButton} {
+  padding: 0 14px 0 8px;
+  font: var(--lgs-type-callout);
+  letter-spacing: 0;
+  text-transform: none;
+  color: inherit;
+}
+/* T2: the circle (E-BACK) */
+#header %{BackContainer}[data-lgs-exempt="E-BACK"] {
+  width: var(--lgs-hit);
+  padding: 0;
+}
+#header %{BackContainer}[data-lgs-exempt="E-BACK"] %{BackContainer>BackButton} {
+  width: 0;
+  padding: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+/* the Back reveal (T2): after 0.6 s of attention the circle grows into a
+   capsule naming the page Back returns to (WN §3.2); the box follows
+   the text, whose width morphs on `snappy` */
+#header %{BackContainer}[data-lgs-exempt="E-BACK"] {
+  width: auto;
+  min-width: var(--lgs-hit);
+}
+#header %{BackContainer} > .lgs-back-reveal {
+  display: block;
+  max-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  opacity: 0;
+  font: var(--lgs-type-callout);
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--lgs-text-1);
+  transition: max-width var(--lgs-motion-snappy, 488ms ease), opacity var(--lgs-motion-fade, 441ms ease), padding var(--lgs-motion-snappy, 488ms ease);
+}
+#header %{BackContainer}[data-lgs-reveal] > .lgs-back-reveal {
+  max-width: 320px;
+  padding-right: 26px;
+  opacity: 1;
+}
+#header %{BackContainer}[data-lgs-reveal] {
+  justify-content: flex-start;
+  padding-left: 16px;
+}
+/* the Large Title steps back while the reveal names the way back */
+#header > .lgs-title {
+  transition: opacity var(--lgs-motion-fade, 441ms ease);
+}
+#header[data-lgs-reveal] > .lgs-title {
+  opacity: 0;
+}
+/* section roots (T2 route map): borderless, chevron white .70 */
+%{BasicUiRoot}[data-lgs-back="root"] #header %{BackContainer}::before {
+  background: none;
+  box-shadow: none;
+}
+%{BasicUiRoot}[data-lgs-back="root"] #header %{BackContainer} {
+  color: var(--lgs-text-2);
+}
+%{BasicUiRoot} #header %{BackContainer}[data-lgs-reveal]::before {
+  background: var(--lgs-raised-bg);
+  box-shadow: var(--lgs-raised-shadow);
+}
+%{BasicUiRoot} #header %{BackContainer}[data-lgs-reveal] {
+  color: var(--lgs-text-1);
+}
+/* hero routes: clear glass over the art (black .32 + 10 px blur) */
+%{BasicUiRoot}[data-lgs-glass="hero"] #header %{BackContainer}::before {
+  background: rgb(0 0 0 / .32);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--lgs-mat-clear-shade);
+}
+
+/* Search field: one container, three variants (PLAN §1.9). The capsule
+   (default, section roots): 520 x 64 centred at x 640, y 54, in a
+   536 x 80 hit box; recessed (black .30 + inset shadow); no microphone. */
+#header %{SearchAndTitleContainer}%{ShowingSearch} {
+  --lgs-c1a-sw: var(--lgs-search-w);
+  position: absolute;
+  top: 14px;
+  left: calc(640px - var(--lgs-c1a-sw) / 2 - 8px);
+  width: calc(var(--lgs-c1a-sw) + 16px);
+  height: var(--lgs-hit);
+  flex: none;
+  box-sizing: border-box;
+  padding: 0;
+  pointer-events: auto;
+}
+%{BasicUiRoot}[data-lgs-search="nested"] #header %{SearchAndTitleContainer}%{ShowingSearch} {
+  --lgs-c1a-sw: var(--lgs-search-w-nested);
+}
+#header %{SearchAndTitleContainer}%{ShowingSearch} %{SearchFieldBackground},
+#header %{SearchAndTitleContainer}%{ShowingSearch} %{SearchFieldBackground}%{WhiteBackground} {
+  top: 8px;
+  bottom: 8px;
+  left: 8px;
+  right: 8px;
+  height: auto;
+  width: auto;
+  border-radius: var(--lgs-r-capsule);
+  background: var(--lgs-fill-thick);
+  box-shadow: var(--lgs-recessed-shadow);
+  transition: box-shadow var(--lgs-d-hover-in, 294ms) var(--lgs-ease-b0, ease-out);
+}
+/* laser hover: + white .08 on the well */
+#header %{SearchAndTitleContainer}%{ShowingSearch}:hover %{SearchFieldBackground} {
+  background: linear-gradient(rgb(255 255 255 / var(--lgs-hover-add)), rgb(255 255 255 / var(--lgs-hover-add))), var(--lgs-fill-thick);
+}
+/* focus: the system's only ring (VP P-17), in both input modes */
+#header %{SearchAndTitleContainer}%{ShowingSearch}:is(.gpfocuswithin, :focus-within) %{SearchFieldBackground} {
+  box-shadow: var(--lgs-recessed-shadow), var(--lgs-field-focus);
+}
+#header %{SearchAndTitleContainer}%{ShowingSearch} %{SearchIconLeft},
+#header %{SearchAndTitleContainer}%{ShowingSearch} %{SearchIconLeft}%{WhiteBackground} {
+  top: 27px;
+  bottom: auto;
+  left: 28px;
+  width: var(--lgs-symbol);
+  height: var(--lgs-symbol);
+  color: var(--lgs-text-2);
+}
+#header %{SearchAndTitleContainer}%{ShowingSearch} %{SearchIconRight},
+#header %{SearchAndTitleContainer}%{ShowingSearch} %{SearchIconRight}%{WhiteBackground} {
+  top: 29px;
+  bottom: auto;
+  color: var(--lgs-text-2);
+}
+#header %{SearchAndTitleContainer}%{ShowingSearch} %{SearchBox},
+#header %{SearchAndTitleContainer}%{ShowingSearch} %{SearchBox}%{WhiteBackground} {
+  height: 100%;
+  padding: 0 18px 0 62px;
+  font: var(--lgs-type-body);
+  letter-spacing: 0;
+  color: var(--lgs-text-1);
+  caret-color: var(--lgs-text-1);
+  text-shadow: none;
+}
+#header %{SearchAndTitleContainer}%{ShowingSearch} %{SearchBox}::placeholder {
+  color: var(--lgs-text-2);
+  font-style: normal;
+}
+/* the clear button: a 44 px mini circle (E-MINI) */
+#header %{SearchAndTitleContainer} %{SearchBox}::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  width: var(--lgs-btn-sm);
+  height: var(--lgs-btn-sm);
+  border-radius: 50%;
+  background-color: rgb(255 255 255 / .16);
+  box-shadow: none;
+}
+#header %{SearchAndTitleContainer} %{SearchBox}::-webkit-search-cancel-button:hover {
+  background-color: rgb(255 255 255 / calc(.16 + var(--lgs-hover-add)));
+}
+/* the circle variant (Home, hero routes, Settings, /account, ...): a
+   60 px magnifier circle in an 80 x 80 box at (1186, 14) */
+%{BasicUiRoot}[data-lgs-search="circle"] #header %{SearchAndTitleContainer}%{ShowingSearch} {
+  left: auto;
+  right: 14px;
+  width: var(--lgs-hit);
+  padding: 0;
+}
+%{BasicUiRoot}[data-lgs-search="circle"] #header %{SearchAndTitleContainer}%{ShowingSearch} %{SearchFieldBackground} {
+  inset: 10px;
+  background: var(--lgs-raised-bg);
+  box-shadow: var(--lgs-raised-shadow);
+}
+%{BasicUiRoot}[data-lgs-search="circle"] #header %{SearchAndTitleContainer}%{ShowingSearch} %{SearchIconLeft} {
+  left: 27px;
+}
+%{BasicUiRoot}[data-lgs-search="circle"][data-lgs-glass="hero"] #header %{SearchAndTitleContainer}%{ShowingSearch} %{SearchFieldBackground} {
+  background: rgb(0 0 0 / .32);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--lgs-mat-clear-shade);
+}
+
+/* Title mode (calibration, device support, ...): Title 2 centred on the
+   toolbar row, as Steam replaces search with it (H5) */
+#header %{SearchAndTitleContainer}%{ShowingTitle} {
+  position: absolute;
+  top: 14px;
+  left: 120px;
+  right: 120px;
+  width: auto;
+  height: var(--lgs-hit);
+  padding: 0;
+  justify-content: center;
+}
+#header %{SearchAndTitleContainer}%{ShowingTitle} > div {
+  font: var(--lgs-type-title2);
+  letter-spacing: 0;
+  color: var(--lgs-text-1);
+  text-shadow: none;
+}
+
+/* Large Title (T2 node, aria-hidden): x 100, centred on the row */
+#header > .lgs-title {
+  position: absolute;
+  left: 100px;
+  top: 14px;
+  height: var(--lgs-hit);
+  display: flex;
+  align-items: center;
+  font: var(--lgs-type-large);
+  letter-spacing: var(--lgs-track-large);
+  color: var(--lgs-text-1);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* Account alert (#header_profile, only with active support alerts):
+   a 60 px circle top right, 24 px inset */
+#header %{HeaderItem} {
+  position: absolute;
+  right: 14px;
+  top: 14px;
+  width: var(--lgs-hit);
+  height: var(--lgs-hit);
+  border-radius: 50%;
+  justify-content: center;
+  color: var(--lgs-text-1);
+  pointer-events: auto;
+}
+
+/* The header's own box takes no clicks in the fallback band; its
+   controls do (inventory shell §3). Steam's header is already
+   pointer-events none except its children; nothing changes here. */
+
+/* High contrast: a solid band again */
+@media (prefers-contrast: more) {
+  #header%{Profile>Header}::before {
+    background: var(--lgs-mat-thick-bg);
+    backdrop-filter: none;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+}
+
+/* Scroll guard (VP P-23, WN §3.2): focused items stay below the toolbar
+   row. Steam's generic vertical scrollers start at the header's bottom,
+   so their top padding is the guard minus the header. Areas apply the
+   same variables to their own scrollers (and the bottom bound). */
+%{ScrollPanel}%{ScrollY} {
+  scroll-padding-top: calc(var(--lgs-guard-top) - var(--basicui-header-height, 40px));
+  /* and they end at the footer's top (628), so 16 px keeps focus above 612 */
+  scroll-padding-bottom: calc(720px - var(--gamepadui-current-footer-height, 92px) - var(--lgs-guard-bottom));
 }
 
 /* ------------------------------------------------------------------ */
-/* 2. Header: Back + search as Liquid Glass capsules over content      */
+/* 3. The bottom ornament (#Footer, WN §3.4, PLAN §1.10)                */
 /* ------------------------------------------------------------------ */
 
-/* Steam's header bar is its ::before (50% black + 100px blur, opacity
-   driven by --gamepadui-header-background-opacity). The bar dissolves:
-   content scrolls under, and the controls float as their own capsules.
-   Opacity, position and size stay Steam's. */
-#header%{Profile>Header}::before {
+/* Only the main window's footer (the floating footer and the Quick
+   Access footer reuse #Footer; C3a styles the floating one). */
+
+/* The strip dissolves; 8 px under the capsule makes Steam's measured
+   footer 92 px, so pages and modals end at y 628 by Steam's own layout. */
+%{BasicUiRoot} #Footer%{BasicFooter}:not(%{FloatingVRFooter}, %{QuickAccessFooter}) {
+  background: none;
+  backdrop-filter: none;
+  border-image: none;
+  border-top: 0;
+  padding-bottom: 8px;
+  /* the capsule's E3 edge (P4's hook on ::before, placed below) */
+  --lgs-edge: liquid;
+}
+%{BasicUiRoot} #Footer%{BasicFooter}:not(%{FloatingVRFooter}, %{QuickAccessFooter}) %{FooterLegend} {
+  height: var(--lgs-ornament);
+  padding: 0;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+}
+/* Steam's flex spacer would push the legends right; the capsule is
+   centred (it is empty and takes no clicks) */
+%{BasicUiRoot} #Footer%{BasicFooter} %{FooterLegend} > %{PopupBody>Spacer} {
+  flex: 0 0 0px;
+  /* the row's 4 px gap after the empty spacer would push the members
+     2 px right of centre (AT-6 asks for +-1) */
+  margin: 0 -4px 0 0;
+}
+
+/* Members: 60 px capsules inside an 84 px hit row (VP P-07: adjacent hit
+   boxes abut), label first (22 Semibold, mixed case), the glyph badge
+   trailing like a menu's keyboard shortcut. */
+%{BasicUiRoot} #Footer%{BasicFooter} %{ActionButtonLegend} {
+  height: var(--lgs-ornament);
+  box-sizing: border-box;
+  padding: 0 var(--lgs-btn-pad);
+  border-radius: var(--lgs-r-capsule);
+  background: none !important;
+  isolation: isolate;
+  color: var(--lgs-text-1);
+  --lgs-ill: raised;
+  --lgs-ill-inset: 12px 0;
+  --lgs-ill-r: var(--lgs-r-capsule);
+  --lgs-ill-z: -1;
+}
+%{BasicUiRoot} #Footer%{BasicFooter} %{ActionButtonLegend} %{ActionButtonLabel},
+%{BasicUiRoot} #Footer%{BasicFooter} %{ActionButtonLegend} %{CompatFooterDescription} {
+  margin: 0;
+  font-family: var(--lgs-font);
+  font-size: var(--lgs-fs-callout);
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: 0;
+  text-transform: none;
+  color: inherit;
+  text-shadow: none;
+}
+%{BasicUiRoot} #Footer%{BasicFooter} %{ActionButtonLegend} %{ActionButtonLegend>ActionButtonGlyph} {
+  order: 1;
+  margin-left: 10px;
+  width: var(--lgs-glyph);
+  height: var(--lgs-glyph);
+  flex: none;
+  align-items: center;
+  justify-content: center;
+}
+/* Steam's own glyph image as the 30 px badge (VP P-26, P-27): a white
+   .16 disc with the letter at white .70, behind the label in weight.
+   The image is a light disc with a dark letter: inverted and screened,
+   its disc vanishes and its letter turns light over the badge's disc. */
+%{BasicUiRoot} #Footer%{BasicFooter} %{ActionButtonLegend} %{ActionButtonLegend>ActionButtonGlyph} {
+  border-radius: 50%;
+  background: rgb(255 255 255 / .16);
+}
+%{BasicUiRoot} #Footer%{BasicFooter} %{ActionButtonLegend} %{FooterGlyphSize} {
+  width: var(--lgs-glyph);
+  height: var(--lgs-glyph);
+  filter: invert(1);
+  mix-blend-mode: screen;
+  opacity: .70;
+}
+/* laser mode: glyph badges collapse (no width, no paint); the legend, its
+   label and its click target stay (no function hidden) */
+&[data-lgs-vr-mode="laser"] %{BasicUiRoot} #Footer%{BasicFooter} %{ActionButtonLegend} %{ActionButtonLegend>ActionButtonGlyph} {
+  width: 0;
+  margin: 0;
+  overflow: hidden;
+  background: none;
+}
+/* A and B: quiet trailing members (T2 tags the button enum) */
+%{BasicUiRoot} #Footer%{BasicFooter} %{ActionButtonLegend}:is([data-lgs-btn="OK"], [data-lgs-btn="CANCEL"]) {
+  color: var(--lgs-text-2);
+}
+%{BasicUiRoot} #Footer%{BasicFooter} %{ActionButtonLegend}:is([data-lgs-btn="OK"], [data-lgs-btn="CANCEL"]) :is(%{ActionButtonLabel}, %{CompatFooterDescription}) {
+  font-weight: 500;
+}
+/* the Options member (T2, WN §3.4.2 slot 2): Steam's legend look; the
+   target's name trails as a quieter decorative suffix; disabled = .38,
+   no hover or press (P4 keys them off aria-disabled), no dispatch */
+%{BasicUiRoot} #Footer%{BasicFooter} .lgs-opt[data-lgs-t2] {
+  cursor: default;
+}
+%{BasicUiRoot} #Footer%{BasicFooter} .lgs-opt[data-lgs-t2][aria-disabled="true"] {
+  opacity: .38;
+}
+%{BasicUiRoot} #Footer%{BasicFooter} .lgs-opt[data-lgs-t2] .lgs-opt-glyph {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin-right: 10px;
+  fill: currentColor;
+  opacity: .70;
+}
+&:not([data-lgs-vr-mode="laser"]) %{BasicUiRoot} #Footer%{BasicFooter} .lgs-opt[data-lgs-t2] .lgs-opt-glyph {
+  display: none;
+}
+%{BasicUiRoot} #Footer%{BasicFooter} .lgs-opt[data-lgs-t2] .lgs-opt-name {
+  margin-left: .3em;
+  display: inline-block;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+  font-weight: 500;
+  color: var(--lgs-text-2);
+}
+/* 14 px between member groups: before the first quiet member */
+%{BasicUiRoot} #Footer%{BasicFooter} %{ActionButtonLegend}:not([data-lgs-btn="OK"], [data-lgs-btn="CANCEL"]) + %{ActionButtonLegend}:is([data-lgs-btn="OK"], [data-lgs-btn="CANCEL"]) {
+  margin-left: 10px;
+}
+/* compact members (T2 sets it when the members would pass 960 px) */
+%{BasicUiRoot} #Footer%{BasicFooter}[data-lgs-orn-compact] %{ActionButtonLegend} {
+  padding: 0 16px;
+}
+%{BasicUiRoot} #Footer%{BasicFooter}[data-lgs-orn-compact] %{ActionButtonLegend} :is(%{ActionButtonLabel}, %{CompatFooterDescription}) {
+  font-size: var(--lgs-fs-subhead);
+}
+/* while an alert or sheet is open (C1c's html.lgs-modal), the members
+   that act on the page beneath recede under black .35 (still clickable) */
+&.lgs-modal %{BasicUiRoot} #Footer%{BasicFooter} [data-lgs-t2] {
+  filter: brightness(.65);
+}
+
+/* The capsule: anchored to the first and last member, so it hugs them in
+   any language and mode (without T2), or at the rect T2 writes
+   (--lgs-orn-x / --lgs-orn-w: measured union or an area's fixed slots).
+   y 628-712, radius 42, padding 0 12; liquid glass that frosts the page
+   above the glass edge and is tinted over the room below it (WN §8.4). */
+%{BasicUiRoot} #Footer%{BasicFooter} %{FooterLegend} > :nth-child(1 of %{ActionButtonLegend}) {
+  anchor-name: --lgs-orn-first;
+}
+%{BasicUiRoot} #Footer%{BasicFooter} %{FooterLegend} > :nth-last-child(1 of %{ActionButtonLegend}) {
+  anchor-name: --lgs-orn-last;
+}
+%{BasicUiRoot} #Footer%{BasicFooter} %{FooterLegend} > :nth-child(1 of %{ActionButtonLegend}):nth-last-child(1 of %{ActionButtonLegend}) {
+  anchor-name: --lgs-orn-first, --lgs-orn-last;
+}
+%{BasicUiRoot} #Footer%{BasicFooter}:not(%{FloatingVRFooter}, %{QuickAccessFooter})::before,
+%{BasicUiRoot} #Footer%{BasicFooter}:not(%{FloatingVRFooter}, %{QuickAccessFooter})::after {
+  top: anchor(--lgs-orn-first top, 0px);
+  bottom: anchor(--lgs-orn-first bottom, 8px);
+  left: calc(anchor(--lgs-orn-first left, 100%) - 12px);
+  right: calc(anchor(--lgs-orn-last right, 0px) - 12px);
+  border-radius: var(--lgs-r-capsule);
+}
+%{BasicUiRoot} #Footer%{BasicFooter}:not(%{FloatingVRFooter}, %{QuickAccessFooter})::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  /* liquid over the page (y 628-656), tinted over the room below */
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / .12), rgb(255 255 255 / .03) 55%),
+    linear-gradient(180deg, rgb(28 30 40 / .30) 0, rgb(28 30 40 / .30) 22px,
+      rgb(28 30 40 / calc(.58 + var(--lgs-dial) * .24)) 40px);
+  backdrop-filter: var(--lgs-mat-liquid-blur);
+  box-shadow: var(--lgs-mat-liquid-shade), 0 7px 22px rgb(0 0 0 / .28);
+}
+/* T2's measured or fixed rect */
+%{BasicUiRoot} #Footer%{BasicFooter}[data-lgs-orn-fixed]:not(%{FloatingVRFooter})::before,
+%{BasicUiRoot} #Footer%{BasicFooter}[data-lgs-orn-fixed]:not(%{FloatingVRFooter})::after,
+%{BasicUiRoot} #Footer%{BasicFooter}[data-lgs-orn-measured]:not(%{FloatingVRFooter})::before,
+%{BasicUiRoot} #Footer%{BasicFooter}[data-lgs-orn-measured]:not(%{FloatingVRFooter})::after {
+  left: var(--lgs-orn-x);
+  right: auto;
+  width: var(--lgs-orn-w);
+  top: 0;
+  bottom: 8px;
+}
+
+/* Quiet legend (only A and B, T2's data-lgs-orn="quiet"): no capsule
+   material, the members keep 60 px and their place */
+%{BasicUiRoot} #Footer%{BasicFooter}[data-lgs-orn="quiet"] {
+  --lgs-edge: none;
+}
+%{BasicUiRoot} #Footer%{BasicFooter}[data-lgs-orn="quiet"]::after {
   background: none;
   backdrop-filter: none;
   box-shadow: none;
 }
-
-/* Header capsules: Liquid Glass that really blurs the content scrolling
-   under the header. Steam's header is a 3D rendering context
-   (transform-style: preserve-3d, Steam-owned); in it, only layers that
-   take part in the 3D context see the page behind. A flat child (and
-   anything inside one, like a ::before of Back or of the overflow:hidden
-   search container) is flattened into its own surface, where
-   backdrop-filter sees nothing (measured). So:
-   - the search capsule is #header::after (a direct 3D participant),
-     anchored to the search container so it follows Steam's layout in
-     every language and mode;
-   - Back opts into the 3D context (preserve-3d: no transform, no fixed
-     children, no geometry change) so its ::before capsule participates.
-   The face layers a light glass tint over Apple's dimming scrim, so white
-   labels stay readable over bright art while the capsule still reads
-   lighter than the window glass around it. */
-#header%{Profile>Header} {
-  --lgs-capsule-face: var(--lgs-panel-sheen),
-      linear-gradient(var(--lgs-glass-bg), var(--lgs-glass-bg)),
-      linear-gradient(var(--lgs-scrim), var(--lgs-scrim));
-  --lgs-capsule-hover: var(--lgs-panel-sheen),
-      linear-gradient(var(--lgs-hover-fill), var(--lgs-hover-fill)),
-      linear-gradient(var(--lgs-glass-bg), var(--lgs-glass-bg)),
-      linear-gradient(var(--lgs-scrim), var(--lgs-scrim));
-  --lgs-capsule-filled: var(--lgs-panel-sheen),
-      linear-gradient(var(--lgs-fill-2), var(--lgs-fill-2)),
-      linear-gradient(var(--lgs-glass-bg), var(--lgs-glass-bg)),
-      linear-gradient(var(--lgs-scrim), var(--lgs-scrim));
-  --lgs-capsule-focus: var(--lgs-panel-sheen),
-      linear-gradient(var(--lgs-focus-fill), var(--lgs-focus-fill)),
-      linear-gradient(var(--lgs-glass-bg), var(--lgs-glass-bg)),
-      linear-gradient(var(--lgs-scrim), var(--lgs-scrim));
-  --lgs-capsule-pressed: var(--lgs-panel-sheen),
-      linear-gradient(var(--lgs-pressed-fill), var(--lgs-pressed-fill)),
-      linear-gradient(var(--lgs-glass-bg), var(--lgs-glass-bg)),
-      linear-gradient(var(--lgs-scrim), var(--lgs-scrim));
-}
-
-/* Back: a glass capsule (Back is laser-only, not gamepad focusable). */
-%{BackContainer} {
-  transform-style: preserve-3d;
-  color: var(--lgs-text-1);
-  text-shadow: var(--lgs-text-shadow);
-}
-%{BackContainer}::before {
-  content: "";
-  position: absolute;
-  top: 4px;
-  bottom: 4px;
-  left: 8px;
-  right: 6px;
-  z-index: -1;
-  border-radius: var(--lgs-r-capsule);
-  background: var(--lgs-capsule-face);
-  backdrop-filter: var(--lgs-glass-blur);
-  box-shadow: var(--lgs-glass-rim), var(--lgs-glass-shadow);
-  pointer-events: none;
-  transition: background var(--lgs-t-fast) var(--lgs-ease);
-}
-%{BackContainer}:hover {
-  color: var(--lgs-text-1);
-}
-%{BackContainer}:hover::before {
-  background: var(--lgs-capsule-hover);
-}
-%{BackContainer}:active::before {
-  background: var(--lgs-capsule-pressed);
-}
-%{BackContainer>BackButton} {
-  color: inherit;
-}
-/* the hairline divider between Back and search is replaced by the gap
-   between the two capsules (colour only; the pseudo-element stays) */
-%{BackContainer}:not(:last-child)::after {
-  background: transparent;
-}
-
-/* Search: one capsule in every state (idle, filled, hover, focused). */
-#header%{Profile>Header} > %{SearchAndTitleContainer}%{ShowingSearch} {
-  anchor-name: --lgs-search-field;
-}
-#header%{Profile>Header}:has(> %{SearchAndTitleContainer}%{ShowingSearch})::after {
-  content: "";
-  position: absolute;
-  top: 4px;
-  bottom: 4px;
-  left: calc(anchor(--lgs-search-field left, 100%) + 2px);
-  right: calc(anchor(--lgs-search-field right, 0px) + 8px);
-  z-index: -1;
-  border-radius: var(--lgs-r-capsule);
-  background: var(--lgs-capsule-face);
-  backdrop-filter: var(--lgs-glass-blur);
-  box-shadow: var(--lgs-glass-rim), var(--lgs-glass-shadow);
-  pointer-events: none;
-  transition: background var(--lgs-t-fast) var(--lgs-ease), box-shadow var(--lgs-t-fast) var(--lgs-ease);
-}
-#header%{Profile>Header}:has(> %{SearchAndTitleContainer}%{ShowingSearch}:hover)::after {
-  background: var(--lgs-capsule-hover);
-}
-/* filled (text present, or on /search): a slightly brighter face, so the
-   field reads as "active" the way Steam's grey field did */
-#header%{Profile>Header}:has(> %{SearchAndTitleContainer}%{ShowingSearch} > %{SearchFieldBackground}%{WhiteBackground})::after {
-  background: var(--lgs-capsule-filled);
-}
-/* focused (the field takes gamepad focus): illuminated from within */
-#header%{Profile>Header}:has(> %{SearchAndTitleContainer}%{ShowingSearch}.gpfocuswithin)::after {
-  background: var(--lgs-capsule-focus) !important;
-  box-shadow: var(--lgs-focus-ring) !important;
-}
-/* Steam's own field fill (grey #b8bcbf / white) is replaced by the
-   capsule above; its scaleX expand transform stays untouched.
-   (Steam's field rules reach (0,5,0); anchoring on Steam's literal
-   #header id outranks them without !important.) */
-#header %{SearchAndTitleContainer} %{SearchFieldBackground},
-#header %{SearchAndTitleContainer} %{SearchFieldBackground}%{WhiteBackground} {
-  background-color: transparent;
-}
-#header %{SearchAndTitleContainer} %{SearchIconLeft},
-#header %{SearchAndTitleContainer} %{SearchIconLeft}%{WhiteBackground},
-#header %{SearchAndTitleContainer} %{SearchIconRight},
-#header %{SearchAndTitleContainer} %{SearchIconRight}%{WhiteBackground} {
+%{BasicUiRoot} #Footer%{BasicFooter}[data-lgs-orn="quiet"] %{ActionButtonLegend} {
   color: var(--lgs-text-2);
 }
-#header %{SearchAndTitleContainer}.gpfocuswithin %{SearchIconLeft},
-#header %{SearchAndTitleContainer}%{ShowingSearch}:hover %{SearchIconLeft} {
-  color: var(--lgs-text-1);
+%{BasicUiRoot} #Footer%{BasicFooter}[data-lgs-orn="quiet"] %{ActionButtonLegend} :is(%{ActionButtonLabel}, %{CompatFooterDescription}) {
+  font-weight: 500;
 }
-#header %{SearchAndTitleContainer} %{SearchBox},
-#header %{SearchAndTitleContainer} %{SearchBox}%{WhiteBackground} {
-  color: var(--lgs-text-1);
-  caret-color: var(--lgs-text-1);
-  text-shadow: var(--lgs-text-shadow);
+/* ... and on `window` routes, where it sits in the margin over the room,
+   one dim band behind it (flag quietBacking, WN §3.4.1, O3): black .62,
+   60 px, blurred edges, not glass (no blur of the room, no rim, no
+   slab); labels white .82 with the on-room shadow (VP P-39, P-41) */
+%{BasicUiRoot}:not([data-lgs-glass="window-full"]) #Footer%{BasicFooter}[data-lgs-orn="quiet"]:not([data-lgs-band="off"])::after {
+  top: calc(anchor(--lgs-orn-first top, 0px) + 12px);
+  bottom: calc(anchor(--lgs-orn-first bottom, 8px) + 12px);
+  left: calc(anchor(--lgs-orn-first left, 100%) - 10px);
+  right: calc(anchor(--lgs-orn-last right, 0px) - 10px);
+  background: rgb(0 0 0 / .62);
+  filter: blur(7px);
 }
-#header %{SearchAndTitleContainer} %{SearchBox}::placeholder {
-  color: var(--lgs-text-2);
-}
-#header %{SearchAndTitleContainer}%{ShowingSearch}:hover %{SearchBox}::placeholder {
-  color: var(--lgs-text-1);
-}
-#header %{SearchAndTitleContainer} %{SearchBox}::-webkit-search-cancel-button {
-  background-color: var(--lgs-fill-3);
-  border-radius: var(--lgs-r-capsule);
-  box-shadow: var(--lgs-control-rim);
-}
-#header %{SearchAndTitleContainer} %{SearchBox}::-webkit-search-cancel-button:hover {
-  background-color: var(--lgs-hover-fill);
-}
-#header %{SearchAndTitleContainer} %{SearchBox}::-webkit-search-cancel-button:active {
-  background-color: var(--lgs-pressed-fill);
-}
-
-/* Title mode (calibration, device support, captive portal ...):
-   the title stands on the window glass as a primary label. */
-%{SearchAndTitleContainer}%{ShowingTitle},
-%{SearchAndTitleContainer}%{ShowingTitle} > div {
-  color: var(--lgs-text-1);
-  text-shadow: var(--lgs-text-shadow);
-}
-
-/* Account-alert / avatar item (only with active support alerts). */
-%{HeaderItem} {
-  color: var(--lgs-text-1);
-  border-radius: var(--lgs-r-capsule);
-  transition: background-color var(--lgs-t-fast) var(--lgs-ease);
-}
-%{HeaderItem}%{Profile>Clickable}:hover {
-  background-color: var(--lgs-hover-fill);
-}
-%{HeaderItem}.gpfocus,
-%{HeaderItem}.gpfocuswithin {
-  background: var(--lgs-focus-fill) !important;
-  color: var(--lgs-text-1) !important;
-  box-shadow: var(--lgs-focus-ring) !important;
-}
-
-/* High contrast: give the header a solid bar again. */
-@media (prefers-contrast: more) {
-  #header%{Profile>Header}::before {
-    background: var(--lgs-thick-bg);
-  }
-}
-
-/* ------------------------------------------------------------------ */
-/* 3. Footer legend: one Liquid Glass capsule hugging the actions      */
-/* ------------------------------------------------------------------ */
-
-/* The full-width black strip dissolves; the legend items (adjacent,
-   right-aligned) get a single capsule behind them, positioned with
-   anchors on the first and last item so the footer's own box, padding
-   and --gamepadui-current-footer-height stay exactly Steam's. */
-#Footer%{BasicFooter} {
-  background: none;
-  backdrop-filter: none;
-  border-image: none;
-  border-top-color: transparent;
-}
-/* (the legend's first child is a flex spacer, so count legend items) */
-%{FooterLegend} > :nth-child(1 of %{ActionButtonLegend}) {
-  anchor-name: --lgs-legend-first;
-}
-%{FooterLegend} > :nth-last-child(1 of %{ActionButtonLegend}) {
-  anchor-name: --lgs-legend-last;
-}
-%{FooterLegend} > :nth-child(1 of %{ActionButtonLegend}):nth-last-child(1 of %{ActionButtonLegend}) {
-  anchor-name: --lgs-legend-first, --lgs-legend-last;
-}
-#Footer%{BasicFooter}::after {
-  content: "";
-  position: absolute;
-  top: anchor(--lgs-legend-last top, 4px);
-  bottom: anchor(--lgs-legend-last bottom, 3px);
-  left: calc(anchor(--lgs-legend-first left, 100%) - 4px);
-  right: calc(anchor(--lgs-legend-last right, 0px) - 4px);
-  z-index: -1;
-  border-radius: var(--lgs-r-capsule);
-  /* Liquid Glass: blurs the content under the footer (not the window
-     tint, see the backdrop root above); the scrim layer keeps the white
-     labels readable over bright art */
-  background: var(--lgs-panel-sheen),
-      linear-gradient(var(--lgs-glass-bg), var(--lgs-glass-bg)),
-      linear-gradient(var(--lgs-scrim), var(--lgs-scrim));
-  backdrop-filter: var(--lgs-glass-blur);
-  box-shadow: var(--lgs-glass-rim), var(--lgs-glass-shadow);
-  pointer-events: none;
-}
-%{ActionButtonLegend} {
-  border-radius: var(--lgs-r-capsule);
-  transition: background-color var(--lgs-t-fast) var(--lgs-ease);
-}
-%{ActionButtonLegend}:hover {
-  background-color: var(--lgs-hover-fill);
-}
-%{ActionButtonLegend}:active {
-  background-color: var(--lgs-pressed-fill);
-}
-%{ActionButtonLegend} %{ActionButtonLabel} {
-  color: var(--lgs-text-1);
-  text-shadow: var(--lgs-text-shadow);
+%{BasicUiRoot}:not([data-lgs-glass="window-full"]) #Footer%{BasicFooter}[data-lgs-orn="quiet"]:not([data-lgs-band="off"]) %{ActionButtonLegend} {
+  color: rgb(255 255 255 / .82);
+  text-shadow: var(--lgs-text-room-shadow);
 }
 
 @media (prefers-contrast: more) {
-  #Footer%{BasicFooter}::after {
-    background: var(--lgs-thick-bg);
+  %{BasicUiRoot} #Footer%{BasicFooter}:not(%{FloatingVRFooter}, %{QuickAccessFooter})::after {
+    background: var(--lgs-mat-liquid-bg);
     backdrop-filter: none;
   }
 }
 
 /* ------------------------------------------------------------------ */
-/* 4. Page transitions and the app-details scrim                      */
+/* 4. The tab-bar ornament (frame.menu, WN §3.3)                        */
 /* ------------------------------------------------------------------ */
 
-/* Route transition wrappers paint nothing and keep Steam's opacity +
-   transform animations; only make sure nothing opaque is left there. */
-%{TopLevelTransitionSwitch},
-%{ContentWrapper}%{TopLevelTransition},
-%{AbsoluteDiv} {
-  background-color: transparent;
+/* Steam's frame menu, restyled as two glass capsules of circles: the six
+   sections, then the system (Console, Settings, [Help], VR Settings, a
+   10 px gap, Power). Built from Steam's component variables and the
+   rows' backgrounds; never width (Steam animates it). Specific to
+   %{Variant_FrameMenu}, so the bar's tab menus (C3a) are untouched. */
+%{DashboardMenu}%{Variant_FrameMenu} {
+  --lgs-c1a-tab-d: calc(var(--lgs-c1a-tab-p) - 8px);
+  --lgs-c1a-tab-fill: rgb(28 30 40 / calc(.67 + var(--lgs-dial) * .22));
+  --menu-background: transparent;
+  --menu-item-height: calc(var(--lgs-c1a-tab-p) - 6px);
+  --menu-icon-size: calc(var(--lgs-c1a-tab-d) * .52);
+  --menu-font-size: var(--lgs-fs-callout);
+  background: none;
+  box-shadow: none;
+  border-radius: 0;
+  /* rule 1 of WN §3.3.2 (T2): a transparent band under the bar centres
+     its capsules on the glass instead of the panel */
+  padding-bottom: var(--lgs-tab-place, 0px);
+}
+/* collapsed, the capsule is the circle plus 12 px at each side (WN
+   §3.3.1): only the value of Steam's collapsed width (54) changes; its
+   300 ms width transition and the expanded width stay Steam's */
+%{DashboardMenu}%{Variant_FrameMenu}%{DashboardMenu>Collapsed} {
+  width: calc(var(--lgs-c1a-tab-d) + 24px);
+}
+/* each row paints its slice of its capsule (rows are contiguous) */
+%{DashboardMenu}%{Variant_FrameMenu} %{DashboardMenu>ItemOuter},
+%{DashboardMenu}%{Variant_FrameMenu} %{SectionGap} {
+  background: var(--lgs-c1a-tab-fill);
+  border-color: transparent !important;
+  /* Steam rounds its group ends by 6 px; the capsule ends below decide */
+  border-radius: 0 !important;
+}
+%{DashboardMenu}%{Variant_FrameMenu} %{SectionGap} {
+  height: 10px;
+  margin: 0;
+  width: 100%;
+}
+/* capsule ends: the first row of each group, the last row of each group
+   (radius = half the collapsed width, so the circles sit concentric in
+   the ends; the 6 px padding is the row's) */
+%{DashboardMenu}%{Variant_FrameMenu} %{DashboardMenu>ItemOuter}:nth-child(1 of %{DashboardMenu>ItemOuter}),
+%{DashboardMenu}%{Variant_FrameMenu} %{DashboardMenu>ItemOuter}:nth-child(7 of %{DashboardMenu>ItemOuter}) {
+  padding-top: 6px;
+  border-top-left-radius: calc(var(--lgs-c1a-tab-d) / 2 + 12px) !important;
+  border-top-right-radius: calc(var(--lgs-c1a-tab-d) / 2 + 12px) !important;
+  background: linear-gradient(180deg, rgb(255 255 255 / .08), rgb(255 255 255 / 0) 60%), var(--lgs-c1a-tab-fill);
+  box-shadow: var(--lgs-raised-shadow);
+}
+%{DashboardMenu}%{Variant_FrameMenu} %{DashboardMenu>ItemOuter}:nth-child(6 of %{DashboardMenu>ItemOuter}),
+%{DashboardMenu}%{Variant_FrameMenu} %{DashboardMenu>ItemOuter}:nth-last-child(1 of %{DashboardMenu>ItemOuter}) {
+  padding-bottom: 6px;
+  border-bottom-left-radius: calc(var(--lgs-c1a-tab-d) / 2 + 12px) !important;
+  border-bottom-right-radius: calc(var(--lgs-c1a-tab-d) / 2 + 12px) !important;
+}
+/* 10 popup px between the two capsules */
+%{DashboardMenu}%{Variant_FrameMenu} %{DashboardMenu>ItemOuter}:nth-child(7 of %{DashboardMenu>ItemOuter}) {
+  margin-top: 10px;
 }
 
-/* App-details / partner-event overlay dimming layer: Apple's scrim
-   colour; Steam's opacity and backdrop-filter transitions stay. */
-%{PartnerEventOverlayContainer} %{Container>TransitionWrapper} {
-  background-color: var(--lgs-scrim);
+/* rows: the item never paints a fill of its own (Steam: hover 20 %
+   white, focus keyframes); light comes from P4's nav hook on the item */
+%{DashboardMenu}%{Variant_FrameMenu} %{DashboardMenu>Item} {
+  background: transparent !important;
+  --lgs-ill: nav;
+  /* 24 px at the sides: Steam zooms the focused item 1.1x (its own
+     transform), and the zoomed pill must end 12 px inside the capsule,
+     whose expanded right end is the popup's edge */
+  --lgs-ill-inset: 4px 24px;
+  --lgs-ill-r: var(--lgs-r-capsule);
+}
+%{DashboardMenu}%{Variant_FrameMenu} %{DashboardMenu>ItemOuter}::before {
+  content: none;
+}
+/* glyphs white .70 at rest, labels 22 Medium white .96 (expanded) */
+%{DashboardMenu}%{Variant_FrameMenu} %{DashboardMenu>Item} %{DashboardMenu>ItemIcon} {
+  position: relative;
+  color: var(--lgs-text-2) !important;
+}
+%{DashboardMenu}%{Variant_FrameMenu} %{DashboardMenu>Item} %{DashboardMenu>ItemLabel} {
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--lgs-text-1) !important;
+  text-shadow: none;
+}
+/* the current route: the navigation selection drawn as a circle behind
+   the glyph (white .18 + its specular arc), glyph white, label Semibold;
+   never a pill, so it never shares a shape with focus */
+%{DashboardMenu}%{Variant_FrameMenu} %{DashboardMenu>Item}%{DashboardMenu>Active} %{DashboardMenu>ItemIcon}::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--lgs-c1a-tab-d);
+  height: var(--lgs-c1a-tab-d);
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: var(--lgs-fill-nav);
+  box-shadow: var(--lgs-sel-arc);
+  z-index: -1;
+  pointer-events: none;
+}
+%{DashboardMenu}%{Variant_FrameMenu} %{DashboardMenu>Item}%{DashboardMenu>Active} %{DashboardMenu>ItemIcon} {
+  color: var(--lgs-text-1) !important;
+  isolation: isolate;
+}
+%{DashboardMenu}%{Variant_FrameMenu} %{DashboardMenu>Item}%{DashboardMenu>Active} %{DashboardMenu>ItemLabel} {
+  font-weight: var(--lgs-nav-weight);
+  color: var(--lgs-text-1) !important;
+  background: none;
+  -webkit-background-clip: border-box;
+  background-clip: border-box;
+}
+/* gamepad focus: the pill across icon and label (P4's nav hook adds the
+   uniform light, the spot and the arc); glyph and label at full white */
+&:not(.lgs-input-laser) %{DashboardMenu}%{Variant_FrameMenu} %{DashboardMenu>Item}.gpfocus :is(%{DashboardMenu>ItemIcon}, %{DashboardMenu>ItemLabel}) {
+  color: var(--lgs-text-1) !important;
+}
+&:not(.lgs-input-laser) %{DashboardMenu}%{Variant_FrameMenu} %{DashboardMenu>Item}.gpfocus %{DashboardMenu>ItemLabel} {
+  font-weight: var(--lgs-nav-weight);
+}
+/* blocked items stay dim */
+%{DashboardMenu}%{Variant_FrameMenu} %{DashboardMenu>Blocked} :is(%{DashboardMenu>ItemIcon}, %{DashboardMenu>ItemLabel}) {
+  color: var(--lgs-text-disabled) !important;
+}
+/* Steam's blue route dot: the circle replaces it */
+%{DashboardMenu}%{Variant_FrameMenu} %{DashboardMenu>ActiveDot} {
+  background: transparent;
+}
+/* the source of an open menu (Power while it is open, T2): white */
+%{DashboardMenu}%{Variant_FrameMenu} %{DashboardMenu>Item}[data-lgs-open] %{DashboardMenu>ItemIcon}::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--lgs-c1a-tab-d);
+  height: var(--lgs-c1a-tab-d);
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: var(--lgs-selected-fill);
+  z-index: -1;
+}
+%{DashboardMenu}%{Variant_FrameMenu} %{DashboardMenu>Item}[data-lgs-open] %{DashboardMenu>ItemIcon} {
+  color: var(--lgs-text-on-selected) !important;
+  isolation: isolate;
+}
+/* during a modal (T2 class on the frame-menu document): black .35 */
+&.lgs-modal %{DashboardMenu}%{Variant_FrameMenu} {
+  filter: brightness(.65);
+}
+
+@media (prefers-contrast: more) {
+  %{DashboardMenu}%{Variant_FrameMenu} {
+    --lgs-c1a-tab-fill: rgb(11 13 16 / .94);
+  }
 }
 
 /* ------------------------------------------------------------------ */
-/* 5. Search route (/search/tab/*)                                     */
+/* 4a. The More circle (T2 node from device/rt/20-more.js; WN §3.4.4,    */
+/*     PLAN §1.11): 60 px visible in an 80 px hit, clear material over   */
+/*     content (black .38 + 10 px blur), white while its menu is open    */
+/* ------------------------------------------------------------------ */
+
+.lgs-more {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: var(--lgs-more-hit);
+  height: var(--lgs-more-hit);
+  display: grid;
+  place-items: center;
+  z-index: 6900;
+  isolation: isolate;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity var(--lgs-d-mat-out, 350ms) var(--lgs-ease-fade, ease-out), visibility 0s linear var(--lgs-d-mat-out, 350ms);
+}
+.lgs-more.lgs-more-show {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity var(--lgs-d-mat-in, 250ms) var(--lgs-ease-fade, ease-out);
+}
+.lgs-more::before {
+  content: "";
+  position: absolute;
+  inset: calc((var(--lgs-more-hit) - var(--lgs-more)) / 2);
+  z-index: -1;
+  border-radius: 50%;
+  background: rgb(0 0 0 / .38);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--lgs-mat-clear-shade);
+  transition: background-color var(--lgs-d-hover-in, 294ms) var(--lgs-ease-b0, ease-out);
+}
+.lgs-more[data-lgs-inglass]::before {
+  backdrop-filter: none;
+}
+&:not(.lgs-input-pad) .lgs-more:hover::before {
+  background-color: rgb(40 40 40 / .46);
+}
+.lgs-more svg {
+  width: var(--lgs-symbol);
+  height: var(--lgs-symbol);
+  fill: var(--lgs-text-1);
+}
+.lgs-more.lgs-more-open::before {
+  background: var(--lgs-selected-fill);
+  backdrop-filter: none;
+}
+.lgs-more.lgs-more-open svg {
+  fill: var(--lgs-text-on-selected);
+}
+
+/* ------------------------------------------------------------------ */
+/* 4b. The pointer proxy (T2 node from device/rt/20-pointer.js, native   */
+/*     mode only; WN §3.6, PLAN §1.11, S16)                              */
+/* ------------------------------------------------------------------ */
+
+/* a 16 px ring (2.5 px white .95) with a 6 px white core, a 1.5 px dark
+   outer ring and a soft glow: readable on bright art and dark glass. Not
+   glass and not a control; it never takes the pointer. */
+.lgs-pointer {
+  position: fixed;
+  left: -8px;
+  top: -8px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  pointer-events: none;
+  contain: strict;
+  z-index: 2147483647;
+  opacity: 0;
+  background: radial-gradient(circle, rgb(255 255 255 / .95) 0 3px, rgb(255 255 255 / 0) 3.5px);
+  box-shadow: inset 0 0 0 2.5px rgb(255 255 255 / .95), 0 0 0 1.5px rgb(0 0 0 / .45), 0 0 8px 2px rgb(255 255 255 / .35);
+}
+.lgs-pointer.lgs-pointer-on {
+  opacity: 1;
+}
+
+/* 5. (the app-details overlay scrim moved to C1c's 22-presentations.css
+   §7 on 2026-10-07, PLAN §6 two-step move) */
+
+/* ------------------------------------------------------------------ */
+/* 6. Search route (/search/tab/*): Phase 1, held until C1b's         */
+/*    21-search.css takes it (PLAN §6 two-step move)                   */
 /* ------------------------------------------------------------------ */
 
 /* Tab row (All / Library / Friends / Store / Tools / Hidden): the

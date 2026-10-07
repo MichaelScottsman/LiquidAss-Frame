@@ -27,20 +27,25 @@ agents never see them.
 | `--flags a,b,c=v` | Runtime flags on for this step only. `a` means `a=true`; `c=v` parses `v` as JSON (`true`, `false`, numbers, `"str"`), else a string. Example: `--flags wp.c2a,interactivePops` | the lock exit |
 | `--mode laser\|pad` | Input-mode stub: only **our** classes change, never Steam's getters (§1.2) | the lock exit |
 | `--media reduce\|contrast\|reduce,contrast` | CDP `Emulation.setEmulatedMedia` on every Steam UI window (and the SteamVR page for `vr:` surfaces): `prefers-reduced-motion: reduce`, `prefers-contrast: more` | the CDP sessions close at the lock exit |
+| `--hover SEL[,MS]` | A **real** laser hover: CDP `Input.dispatchMouseEvent` (mouseMoved) to the centre of SEL on the command's surface, after its `--pre`, held MS ms (default 300) and for the rest of the step; CSS `:hover` applies (untrusted `L.hover` events never set it). Also as `--pre "@hover SEL[,MS]"` and as `focus` states `"@hover SEL[,MS]"` / `"@unhover"` | the pointer is sent to (1400, 900) main-window texture px on every hovered surface at the lock exit (IM §9) |
+| `--stock` | The stock UI for the step: the theme (CSS and runtime) is turned off after the lock is taken, if it was on (TL-1 baselines, before-shots) | the theme is turned back on at the lock exit |
 
 The options are stripped from the argument list before the command sees it, so they can go anywhere after the
-command name. Each step prints one stderr line `step: flags=… mode=… media=…` with what was really applied
-(`(none)` when an adapter was missing, see below).
+command name. Each step prints one stderr line `step: flags=… mode=… media=… native=on|off` with what was really
+applied (`(none)` when an adapter was missing, see below) and the native layer's state at the time. Every result
+JSON carries `build`, `date` and `native` (`on`/`off`/`unknown`): `native-session` releases the lab locks between
+its steps, so another agent's CSS-tier step can run while native mode is on, and its evidence says so (R1 m2).
 
 ### 1.1 How `--flags` is applied
 
 1. **Runtime (P1).** `__LGS_RT.test.flags.push(obj)` returns a token; at the lock exit the lab calls
    `__LGS_RT.test.flags.pop(token)`. Requested from P1 (REQ P10->P1 in `wp/P10.md`). If P1 publishes another
    form in `contracts/runtime.md`, the lab follows it and this line is updated.
-2. **Daemon flags file.** The merged object is also written to `/tmp/lgs/flags.json` (atomic rename) for the
-   step, and the previous content (or its absence) is restored at the lock exit. P8 reads this file
-   (`interactivePops`). A session override someone put there before the step is kept and merged under the step's
-   flags.
+2. **Daemon flags file.** The step's flags are merged into `/tmp/lgs/flags.json` (atomic rename) for the step.
+   P8 reads this file (`interactivePops`). The read-modify-write holds its own lock, `/tmp/lgs/flags.lock` (a
+   `lab.lock` step and a `lab-vr.lock` step can run at the same time), and at the lock exit only the step's own
+   keys are put back to their previous values (or removed); an empty object removes the file, as P1's
+   `lgs flags` does. A session override someone put there before or during the step is kept (R1 m1).
 3. While `__LGS_RT` is absent the runtime part reports `(no runtime)` and only the file is written.
 
 ### 1.2 How `--mode` is applied
@@ -62,7 +67,19 @@ command name. Each step prints one stderr line `step: flags=… mode=… media=�
 | `/tmp/lgs/native.lock` | `native-session` for its whole duration | 1800 s |
 
 **Order** (no deadlocks): `native.lock` → `lab.lock` → `lab-vr.lock`. A step that needs both lab locks takes
-them in that order. Nobody takes `native.lock` while holding a lab lock.
+them in that order. Nobody takes `native.lock` while holding a lab lock. A `lab.lock` step that reads systemui
+briefly (`conformance` in a native session) takes `lab-vr.lock` for that read only. `/tmp/lgs/flags.lock` (30 s)
+guards the flags file and is held for milliseconds.
+
+**Exception safety** (R1 M4): if taking a lock or applying the step options raises (a lock busy for 240 s, a CDP
+error), the options already applied are undone, the locks already taken are released and the re-entry counter is
+reset before the error goes on, so the next step of the same process (a `native-session`) locks normally.
+
+**Room frames** (LAB never-list, R1 M5): every lock entry deletes `/tmp/lgs/hv-*.png` older than 60 s; each `hv`
+frame also gets a detached 90 s `sleep; rm -f` on the Frame; `glass.py` handles each `@@hv` line as it streams
+(fetch, measure, delete on both machines) and deletes any announced frame it could not handle;
+`native-session` deletes its own unfetched frames in its `finally`. Lab captures live under `/tmp/lgs/shots/`
+(was `/tmp/lgs-shots`, R1 m9).
 
 ## 3. Offline commands (PC only, no device)
 
@@ -84,7 +101,8 @@ Checks what `python glass.py sync` would upload. Exit 0 when clean, 1 when anyth
 
 The WN §8.2 top-edge profile (`tools/p2/edge_profile.py`): 8 segment means and the ratio of the darkest to the
 brightest quarter of `dL` along row `Y` (max over 3 rows) minus the glass 10 px inside. Pass: ratio ≤ 0.35
-(AT-23, G-OUTLINE). `--json` for machine output.
+(AT-23, G-OUTLINE), or no visible edge at all (brightest quarter < 8 dL: `edge: "none"`). Luma 601 by default
+(`--luma 709` for WN §8.2's revision 2 table). `--json` for machine output.
 
 ### `python glass.py focus --png FILE --pair NAME=A:B[:MIN] ... [--luma 601|709] [--inset N]`
 
@@ -93,35 +111,77 @@ Luma of region pairs in an existing image (mockup render or live shot). Regions:
 `--luma 601` (VP SHOT: 0.299 R + 0.587 G + 0.114 B, the default) or `709` (WN's measure script).
 `--inset 6` shrinks each rect by 6 px (VP SHOT definition; default 0 for explicit regions).
 
-### `python glass.py cmp MOCK.html LIVE.png [--id PKG] [--name WHAT] [--size 1920x1080]`
+### `python glass.py cmp MOCK.html [LIVE.png] [--id PKG] [--name WHAT] [--size 1920x1080] [--live] [--live-rects FILE] [--surface S] [--json]`
 
-1. Renders `MOCK.html` with `tools/mockshot.py --rects`, which also dumps the rect of every element with a
-   `data-id` attribute (mockup CSS px × device scale) to `shots/p2_cmp_<id>_<what>.rects.json`.
-2. Composes `shots/p2_cmp_<id>_<what>.png`: mockup left, live right, same scale, labelled.
-3. Rect deltas: for each `data-id` listed in `docs/phase2/wp/<PKG>-cmp.json` (schema below) it compares the
-   mockup rect with the live rect and prints `id dx dy dw dh` and PASS when every value is within ±8 px
-   (G-MOCK). Elements without a mapping are listed as unmapped.
+Works offline when it has the live shot and rects; it connects only for its live step. Step options (`--flags`,
+`--mode`, `--media`, `--stock`) apply to that step.
 
-`docs/phase2/wp/<PKG>-cmp.json` (owned by that package):
+1. Renders `MOCK.html` with `tools/mockshot.py --rects`: the rect of every element with a `data-id` (page px; a
+   repeated `data-id` keeps its first occurrence) and of `.lgk-overlay` (the kit's window) go to
+   `shots/p2_cmp_<id>_<what>.rects.json` (`<id>` = PKG lower case, `<what>` = `--name` or the mockup's stem).
+2. Live: when the package's cmp.json gives a `route` (or with `--live`, or when LIVE.png is missing or not given),
+   one locked step navigates, runs the `pre`, reads the rect of every mapped element (surface CSS px) and, when
+   LIVE.png is missing or not given, captures the surface into it (default `shots/p2_cmp_<id>_<what>_live.png`).
+   The live rects are saved as `shots/p2_cmp_<id>_<what>.live.json`; `--live-rects FILE` re-runs offline from it.
+3. Composes `shots/p2_cmp_<id>_<what>.png`: the mockup's window region (from `mockOrigin`, the live window's CSS
+   size) scaled to the live shot's size on the left, the live shot on the right, labelled with the files, build and
+   date; mapped rects outlined (mockup cyan, live magenta).
+4. Deltas per mapped `data-id`, in surface CSS px: mockup = (page rect − `mockOrigin`) / `mockScale`, live = the
+   element's `getBoundingClientRect()`. Prints `id dx dy dw dh` and PASS when every value is within ±8 px (G-MOCK);
+   `data-id`s without a mapping are listed as unmapped. Exit 0 PASS (or no map: side by side only), 1 FAIL.
+
+`docs/phase2/wp/<PKG>-cmp.json` (owned by that package), one mockup:
 
 ```json
 {"surface": "main", "route": "/library/home", "pre": "optional JS run before the rects are read",
- "scale": 1.5,
- "mockOrigin": [320, 66],
- "map": {"window": "%{BasicUIRoot}", "play": "%{PlayButtonContainer>PlayButton}"}}
+ "mockOrigin": [320, 66], "mockScale": 1,
+ "map": {"window": "%{BasicUiRoot}", "play": "%{PlayButtonContainer>PlayButton}"}}
 ```
 
-`mockOrigin` is the top-left of the window inside the mockup page, in mockup px (kit mockups put the window
-at 320, 66 in a 1920 × 1080 page); live rects are window px × `scale`. When the JSON has a `route`, `cmp` reads
-the live rects in one locked step (`--live` forces it, `--live-rects FILE` gives them instead).
+or several mockups (C1b, C1c, C3a), each entry selected by `--name`, else by the mockup file's stem (an entry
+whose key ends the stem, or the reverse, also matches); top-level fields are defaults for every entry:
 
-### `python glass.py ledger [--out FILE] [--json]`
+```json
+{"mockups": {
+  "window-nav-search": {"route": "/search", "pre": "...", "mockOrigin": [320, 30], "map": {"field": "..."}},
+  "control-center-bar": {"surface": "bar", "mockScale": 1.2, "mockOrigin": [120, 400],
+                         "map": {"pill": "%{...}", "toast": {"sel": "%{...}", "surface": "notifications",
+                                                             "mockOrigin": [700, 40], "mockScale": 1.107}}}}}
+```
 
-Builds the function ledger (§4.5) from every concept's retention table (`docs/phase2/concepts/*.md`). Default
-output `docs/phase2/verify/functions.csv` (V2's file; other packages pass `--out`). Columns:
-`audit_id,function,concept,owner,laser_path,gamepad_path,test_id,status`. It reports functions from the audits'
-§A lists that no concept maps (exit 1 when any). Status is filled from `docs/phase2/wp/*.md` evidence lines of
-the form `PASS <test id>` when present, else `open`.
+- `mockOrigin`: the top-left of the surface inside the mockup page (mockup px). Default: the `.lgk-overlay` rect
+  when the mockup has one, else (320, 66).
+- `mockScale`: mockup px per surface CSS px (1 for windows drawn at true size; C3a's popup quads at `--pop-scale`
+  1.2, 1.107, 1.93). Default 1.
+- A `map` value is a selector string (`%{Token}`, `@text=Label`, and a final `@last` or `@nth=N` to pick among the
+  visible matches; default the first) or an object `{sel, surface, mockOrigin, mockScale}` that overrides the entry
+  for that element.
+
+### `python glass.py ledger [--out FILE] [--json] [--quiet]`
+
+Builds the function ledger (§4.5): one CSV row per row of every concept's "Function retention table"
+(`docs/phase2/concepts/*.md`). Default output `docs/phase2/verify/functions.csv` (V2's file; other packages pass
+`--out`). Columns: `audit_id,function,concept,owner,laser_path,gamepad_path,test_id,status`.
+
+- **audit_id** = `<AUDIT>-<id>` with SN shell-nav, LA library-apps, GP game-pages, SY system, SM social-media. A row's
+  audit is the code its id carries (`SN H1`), else the first code in the nearest heading above its table
+  (`### 12.1 Library home (LA A.1)`), else the concept's default (window-nav SN, home-apps LA, control-center,
+  controls and settings SY, game-pages GP, social-media SM). An id that is not in that audit's §A list is the
+  concept's own and is written as `WN-`, `HA-`, `CC-`, `CTL-`, `GPC-`, `SET-` or `SMC-<id>`. Ids look like `H1`,
+  `AC3`, `PF2`, optionally followed by a note (`E6 (new)`); rows without one (per-page lists) are skipped.
+- **Columns** are found by their header: `#`, `Function`, `Laser…`, `Gamepad…` or `Pad`, `Owner` (else the concept's
+  owner package), `Test`.
+- **status** (R1 M6: test ids are per concept and per package): every test id of the row is resolved in its own
+  namespace and needs an **evidence-table row in that namespace's log** whose first cell starts with the id (or
+  `<code> <id>`) and whose later cell starts with `PASS` or holds `**PASS**`. Namespaces: `C1c AT-13` / `P3 IN-7`
+  → that package's `wp/<PKG>.md`; `WN AT-9`, `SET T-VR`, `CC A3–A6` (ranges expand) → the logs of that concept's
+  packages (WN: C1a, C1b, C1c; HA: C2a–C2c; CC: C3a, C3b; CTL: C4a, C4b; GPC: C5a, C5b; SET: C6a, C6b; SMC/SM: C7);
+  `PLAN-2c-2` → C2c; a bare id (`AT-6`, `C4`) → the row's owner packages; a gate name (`G-PAD`) also needs one of
+  the row's routes in the same line; exemption ids (`E-BACK`) are not tests. `pass` when every id has such a row,
+  `partial` when some do, `static` for `[x]` rows (actions tests never perform) without a test id, else `open`.
+  The CSV's last column `evidence` names the log row each id was found in (`C1a: AT-26`).
+- Exit 1 when an audit function (§A rows with an id) is mapped by no concept (listed), or a row has no laser or no
+  gamepad path.
 
 ### `python glass.py sgcheck --spec FILE [--json]`
 
@@ -158,11 +218,22 @@ Rules, from PLAN §4.1 and VP §6:
   target (a control nested in a row may also hit its host row); icon-only controls are circles
   (radius ≥ 0.48 × short side), text controls capsules (radius ≥ 0.45 × height) except vertical stacks.
 - **TYPE** (P-38, P-84): no text under 18 px, no weight under 500, no `text-transform: uppercase`,
-  `letter-spacing` > 0.01 em or `font-style: italic` in chrome (web content exempt, E-WEB).
-- **OUTLINE** (P-42, P-43, AT-23): no `border` or `outline` wider than 0, and no uniform 1 px `box-shadow` ring,
-  on any glass element (backdrop-filter or translucent fill, radius ≥ 16); no line under 2 CSS px; then a
-  capture of the surface and the edge profile on the top edge of each glass element ≥ 200 px wide (ratio ≤ 0.35).
-  High Contrast is exempt.
+  `letter-spacing` > 0.01 em or `font-style: italic` in chrome (web content exempt, E-WEB). **Body text ≥ 22 px**
+  (P-38, R1 m6): a text block outside any control that wraps to 2+ lines with 40+ characters, or holds 80+
+  characters, fails `body size N < 22`; shorter text is a label or metadata (Subheadline 20, Footnote and
+  Caption 18 are allowed there, DESIGN2 §8.1).
+- **OUTLINE** (P-42, P-43, AT-23): checked on every element **and on its `::before` / `::after`** whenever their
+  `content` is not `none` (R1 M2: the theme draws panes, selection fills and rims on pseudo-elements; a
+  pseudo-element's box is its insets and size against the host's padding box). On any glass box (backdrop-filter,
+  P4's `--lgs-edge` hook or a translucent fill, radius ≥ 16): no `border`, no `outline`, no `box-shadow` ring
+  (0 offsets, 0 blur, spread ≤ 2 px) and no **closed rim** of hard shadow lines (P-42). Anywhere: no line under
+  2 CSS px (P-43): borders, 1 px filled elements (and pseudo-elements), and **hard shadow lines** (0 blur, spread
+  ≤ 0, one offset of 1–2 px, e.g. `inset 0 1px 0 rgba(255,255,255,.4)`), and rings on non-glass boxes (a selection
+  fill's `0 0 0 2px`). Then a capture of the surface and the WN §8.2 edge profile on **every side** of each glass
+  box that can be seen: top and bottom when it is ≥ 200 px × m wide, left and right when ≥ 120 px × m tall (each
+  side measured as a top edge after a flip or transpose; ratio ≤ 0.35, or no visible edge). The capture is the one
+  file the result names (`OUTLINE.shotLocal`); a missing capture is an `error` and a FAIL, never 0 probes and a
+  PASS (R1 m3). High Contrast is exempt from the ring, rim and shadow-line rules.
 - **MOTION** (P-52, P-58, §1.5): 1 s after the pre, `getAnimations()` has nothing in `playState: running`, no
   `lgs-*` animation left, no infinite iterations; every `lgs-*` animation and every transition seen during the
   step has a token duration (D2 §11.2: 210, 294, 441, 488, 510, 607, 735, 514, 662, 250, 350 ms, and 150–200 ms
@@ -170,6 +241,27 @@ Rules, from PLAN §4.1 and VP §6:
   fills (`ItemFocusAnim-*`) are allowed.
 
 `--shot NAME` keeps the capture as `shots/NAME.png` (default: deleted after measuring).
+
+**Sweep scope (all gates).** While a `%{*ModalOverlayContent}` is active, SIZE and TYPE judge only what lies in the
+topmost one and OUTLINE probes nothing under it. Each element's visible part is its rect cut by every clipping
+ancestor (overflow other than visible, `clip-path`), the window and C1a's `--lgs-c1a-gh`: what is clipped away is
+skipped (`skipped: clipped`), and a control in a scroller whose centre is clipped or covered by chrome outside the
+scroller (bottom ornament, header) is `skipped: obscured` (it is scrolled into view before use). A control that is
+only partly visible, with a visible part shorter (or narrower) than SIZE's 80 px box, is not sampled for P-08
+(`skipped: partly visible: P-08 not sampled`, REQ C2a->P10 #9); P-80 and P-83 are still judged. A clipping
+ancestor's `clip-path: inset(...)` is resolved (px, %, `calc(100% - Npx)`), so C1a's glass cut at
+`--lgs-c1a-gh` is seen wherever that variable lives. A control whose sampling box meets a visible
+`[data-lgs-transient]` element (Home's attention card, a popover) that is neither its ancestor nor its descendant
+is `skipped: covered (transient)`; the transient's own controls are judged as usual (REQ C2a->P10 #12). SIZE's P-83 skips
+list rows (`%{*GamepadDialogContent>Field}`, `role=option|tab|row|listitem`) and content cards (art and ≥ 100 px ×
+m tall). OUTLINE's glass is a backdrop filter, P4's `--lgs-edge` hook, or a translucent fill other than a plain black
+tint (alpha < .5), radius ≥ 16; an edge probe whose brightest quarter is under 8 dL has `edge: "none"` and passes (no
+visible line). MOTION judges only **our** animations (keyframes from our sheets, transitions our rules declare);
+Steam's running ones are listed as `steamRunning`; scroll-driven animations (`__LGS_MOTION.isScrollDriven`, else a
+non-document timeline) skip the at-rest and duration checks but keep the easing check. AUD lists a scroll container
+that stays ≥ 300 × 300 as `exempt: scroll-container` rather than SHRUNK. `--stock-route R2` (gates and `audit`)
+snaps R2 with the theme off and the `--route` themed, running the pre again (AUD keys are DOM paths: the page must
+keep Steam's DOM structure).
 
 ### `python glass.py pad-bfs [--route R] [--pre JS] [--start SEL] [--max N] [--budget S] [--no-b] [--json]`
 
@@ -187,9 +279,24 @@ Gamepad reachability over the four directions (G-PAD, P-20 to P-24), one lock:
 5. B (unless `--no-b`): once at the end, B through `DispatchVirtualButtonClick(2)` from the entry focus;
    records whether the topmost layer closed or the route went back, then restores the route.
 
-Output: `{route, entry, nodes: [{id, el, text, rect}], edges: {id: {up, down, left, right}}, unreached: [...],
-irreversible: [...], b: {...}, pass}`. `unreached` lists visible focusables never reached. Budget defaults:
-`--max 120` nodes, `--budget 150` s (the step then ends with `truncated: true`).
+Output: `{route, entry, nodes: [{id, el, text, rect, route, key}], edges: {id: {up, down, left, right}}, routes,
+universe, unreached: [...], irreversible: [...], untested: [...], b: {...}, pass}`. Budget defaults: `--max 120`
+nodes, `--budget 150` s (the step then ends with `truncated: true`). `--out FILE` (PC) also writes the JSON.
+
+- **Universe.** The targets are the *leaf* focusables of the start route: elements with a Steam nav node that
+  hold no other such element (a Settings row whose focus goes to its dropdown is a container, not a target),
+  shown (not `display: none`, `visibility: hidden` or opacity < .05) but possibly scrolled out of view.
+  `unreached` = universe minus the nodes reached; `pass` = nothing unreached, nothing irreversible, not truncated.
+- **Other routes.** A move that changes the route inside the start route's first segment (Steam Settings:
+  selection follows focus) is an ordinary edge; the node remembers its route and is expanded only when it is
+  also in the universe (the Settings sidebar), so the sweep walks every sidebar item but not every page.
+  Edges are measured in each node's own route (the lab navigates there before taking focus).
+- **Node identity** (`key`): the first readable class that is not a state class, the element's text (or its
+  nearest labelled ancestor's, for toggles and sliders) and its column (x / 16). It survives re-renders and
+  scrolling; `L.bfs.keyOf(el)` gives it for other tools.
+- A reversibility check that would press Left/Right on a slider is listed under `untested`, not `irreversible`.
+- B is pressed once at the end from the entry focus; `b.effect` is `closed a layer`, `route A -> B` (Steam's
+  history back) or `nothing`. It does not enter `pass` (G-PAD's B rule is judged with a `--pre` that opens a layer).
 
 ### `python glass.py focus SURF [--route R] [--pre JS] --pairs FILE|JSON [--json] [--keep]`
 
@@ -202,38 +309,83 @@ state; luma (601 weights) averaged inside the element's rect × 1.5 inset by 6 s
   "b": {"state": "L.gpTake('main', '%{Poster}:nth-child(3)')", "sel": "%{Poster}:nth-child(2)"}}]
 ```
 
-`a.state` / `b.state` are JS run before that capture (same lock); `sel` (with `%{}` tokens) or `rect` gives the
-region; `band: [8, 16]` instead measures the band 8–16 px outside the rect (P-16). Output per pair: `La, Lb, dL,
-pass`. Shots are deleted unless `--keep`.
+`a.state` / `b.state` are JS run before that capture (same lock; equal strings share one capture, an empty or
+missing state captures as is); `sel` (with `%{}` tokens, and an optional `@text=Label` suffix: the match whose
+innerText is Label, else the first containing it) or `rect: [x0, y0, x1, y1]` (shot px) gives the region. Per side,
+optional: `shape: "rect"|"pill"|"circle"` (default rect), `inset` (shot px, default 6), `band: [8, 16]` (CSS px,
+× the surface's devicePixelRatio) to measure the band 8–16 px outside the rect instead (P-16). `min` defaults to 40.
+Output per pair: `La, Lb, dL, pass`; overall `pass` when every pair passes (exit 0/1). `--settle S` (default 0.8 s)
+waits after each state before the capture. The captures are deleted unless `--keep [NAME]`, which keeps them as
+`shots/NAME_<n>.png` (default NAME `p2_focus`). The pointer is sent to (1400, 900) and the route restored at the end.
 
-### `python glass.py motion SURF [--route R] --pre JS [--name ID_INTERACTION] [--at 0,.15,.35,.5,.75,1] [--json]`
+`@text=` works in every lab selector (`L.q`, `L.qa`, `L.click`, `L.gpTake`, `L.hover`).
 
-1. Runs the pre (which starts the interaction), then at once pauses every animation in the surface's document.
-2. Token audit of each animation (name, duration, delay, easing, iterations, fill) against D2 §11.2.
-3. Filmstrip: for each f, seeks every animation to f × (delay + duration) and captures
-   `shots/p2_motion_<name>_<f>.png`.
-4. Resumes, waits 1 s, and checks nothing is left (P-52, §1.5).
-5. Prints the JSON; G-MOTION's filmstrip verdicts (glass before content, no text scaling, no closed outline)
-   are recorded by the agent who views the strip.
+### `python glass.py motion SURF [--route R] --pre JS [--name ID_INTERACTION] [--at 0,.15,.35,.5,.75,1] [--json]` (or `--selftest MS`)
 
-### `python glass.py sgcheck [--route R] [--pre JS] [--json]` (live; holds `lab.lock` and `lab-vr.lock`)
+1. Records the animations already running (not part of the strip), then runs the pre and, **in the same
+   evaluation**, pauses every animation it started (`Animation.pause()`; `getAnimations()` flushes style, so the
+   CSS animations and transitions the pre starts exist and are held at t = 0 before a frame runs). A `@hover` pre
+   pauses right after the CDP hover. The pre must not await an animation's `finished`. (Until R1 this used CDP
+   `Animation.setPlaybackRate 0`, which did not hold the clock: frames lagged their f by about 100 ms, R1 M1.)
+2. Token audit (P-58) of every animation that is **ours** (keyframes defined in our stylesheets, or a transition on
+   an element that one of our rules with a `transition` declaration matches, CSS nesting resolved): duration,
+   easing and per-keyframe easings, through `__LGS_MOTION.isTokenDuration` / `isTokenEasing` when P5's library is
+   loaded (else the D2 §11.2 table); infinite iterations fail. Steam's own animations are listed, not judged.
+   `__LGS_MOTION.audit(doc)` is recorded as `motionLib`.
+3. Filmstrip: for each f, pauses any animation started since, sets every one to f × (delay + active duration),
+   **waits two `requestAnimationFrame`s** of the surface's window (so the compositor has drawn that state; the
+   frame records `raf: false` if they did not come within 500 ms) and captures
+   `shots/p2_motion_<name>_<f>.png` (f printed with `%g`: `_0`, `_0.15`, …, `_1`), plus
+   `shots/p2_motion_<name>_strip.png`: the frames side by side, cropped to the animated region, labelled.
+4. Geometry from each animated target's rect per frame (PC): P-53 (lateral travel > 24 px or a scale change > 1.5 %
+   on a target wider than 600 px), P-54 (a start > 16 px from rest). With `--media reduce`: P-56 (anything but
+   opacity, or > 200 ms).
+5. Plays the paused animations again (from the last f), waits `--rest` s (default 1), and checks nothing is left
+   (P-52, §1.5).
+6. Prints a summary (or the JSON with `--json`); exit 0 when the automatic part passes. G-MOTION's filmstrip
+   verdicts (glass before content, no text scaling, no closed outline) are recorded by the agent who views the strip.
 
-Builds the check model (§5) from the live system: the daemon's current spec, `__LGS_SG.dump()` in
-`vr:systemui`, and the main window's DOM (focusable rects, `#Footer`, header, ornament zones), then applies the
-rules. With no native session running it prints `BLOCKED: native layer off` (exit 3).
+**Self-test** `python glass.py motion main --route /library/home --selftest 300` (and `1000`): the pre is a probe of
+two 200 × 140 boxes, white over opaque black, one a WAAPI opacity 0 → 1 and one a CSS opacity transition, both
+linear over MS ms; each frame's box luma / 255 must equal its f within ±0.05 for both boxes, else FAIL. The probe
+is removed in the same lock.
 
-### `python glass.py hv NAME [--offaxis DEG] [--rect x0,y0,x1,y1] [--look]` (holds `lab-vr.lock`)
+### `python glass.py sgcheck [--route R] [--pre JS] [--settle S] [--json] [--out FILE]` (live; holds `lab.lock` and `lab-vr.lock`)
+
+Builds the check model (§5) from the live system in one lock, after `--settle` s (default 1.5, springs at rest):
+P6's report (`__LGS_LAYERS.snapshot()`: cover shapes, plates, layers with dz, `interactive`, `modal`, `material`,
+`hole`), the DOM of every reported surface (visible focusables; forbidden boxes = every visible
+`[data-lgs-nopop]` plus the selectors in `lab/sgcheck.json`; `video, [data-lgs-media]`; `[data-lgs-destructive]`)
+and `__LGS_SG.dump()` in `vr:systemui`; then applies the rules on the PC. A pop's `shadow` is its slab
+(`material` other than `"none"`) or a hole with a shadow; `media` / `destructive` = its crop meets such a box; a
+layer with a `hole` sets `holes: true` (R3 waived, PLAN §1.7 rule 3). Scene-graph nodes marked interactive in the
+default profile fail R8. Run it as a `native-session` step: without the reporter it prints
+`BLOCKED: native layer off` (exit 3). `--out` writes the result with the raw live data.
+
+### `python glass.py hv NAME [--offaxis DEG] [--rect x0,y0,x1,y1] [--full] [--look]` (holds `lab-vr.lock`)
 
 1. Builds `native/spike/hvgrab` on the Frame if missing (`g++`, the spike's own `build.sh`).
-2. Captures `system.HeadsetView` to `/tmp/lgs/hv-<pid>.png`, fetches it, deletes the Frame copy at once.
+2. Captures `system.HeadsetView` to `/tmp/lgs/hv-<pid>-<n>.png` and announces it (`@@hv`); `glass.py` fetches it
+   **as the line streams** (also inside a `native-session`, while later steps run), deletes the Frame copy at
+   once, and deletes any announced frame it could not handle. A detached `sleep 90; rm -f` on the Frame and the
+   purge at every lock entry (frames older than 60 s) cover a `glass.py` that died (R1 M5).
 3. Metrics (`tools/p2/hv_metrics.py`): glass luma inside the window rect (auto-detected, or `--rect` in frame
    px) and outside it; the top-edge profile ratio; a doubling score (normalised cross-correlation of the window's
    top band against itself shifted horizontally by 4–40 px; > 0.6 at a shift means a doubled edge).
-4. Deletes the local copy (TL-5: no PNG left on either machine). `--look` instead moves it to the PC's temp
-   folder (`%TEMP%/lgs-hv/`), prints the path for the agent to view, and **any** next `glass.py` command deletes
-   it (and `python glass.py hv --clean` does it at once). Never copy it elsewhere (LAB never-list).
-5. `--offaxis DEG` turns the dashboard by DEG degrees about the vertical axis through the scene-graph test hook
-   (P7) for the capture and restores it; without that hook it prints `BLOCKED: no off-axis hook` (exit 3).
+4. Deletes the local copy (TL-5: no PNG left on either machine). `--full` captures at full resolution (scale 1;
+   default 2). The doubling score is the highest local maximum of the correlation at a shift ≥ 6 px (text repeats
+   its strokes at the smallest shifts). Inside `native-session`, an `hv` step honours its own `--look`, `--rect`,
+   `--full`. `--look` instead moves it to **its own** folder `%TEMP%/lgs-hv-look-<pid>-<n>/`, prints the path for
+   the agent to view, and a detached timer deletes it after 120 s (any `glass.py` command also deletes look
+   folders older than 120 s, and `python glass.py hv --clean` deletes all of them at once). Never copy it
+   elsewhere (LAB never-list). Until R1 the shared `%TEMP%/lgs-hv/` was emptied by every agent's next command.
+   **Exit codes:** 0 G-HV pass, 1 fail, **3 when the verdict is withheld** (no `--rect`: the auto rect is a hint;
+   `BLOCKED: G-HV verdict withheld`, R1 m4).
+5. `--offaxis DEG` turns Steam's window by DEG degrees (−60..60) about its vertical axis with P7's lab hook
+   `__LGS_SG.test.yaw(DEG, 15000)` in `vr:systemui` for the capture, and `yaw(0)` right after (the hook also
+   restores itself after its TTL and on the watchdog). It works wherever `lgs_sg.js` is installed: native mode
+   (use it as a `native-session` step) and CSS-only mode while a scene-graph override is active. Without the hook
+   it prints `BLOCKED: no off-axis hook in vr:systemui (...)` (exit 3).
 
 ### `python glass.py native-session [--pre JS] [--settle S] [--step "CMD ARGS"]... [-- CMD ARGS]`
 
@@ -245,15 +397,42 @@ the native layer is off.
 
 - A step is any lab command line, quoted (`--step "shot main p2_c2a_home_native --route /library/home"`), or
   one command after `--`. Steps take their own `lab.lock` as usual; step options (§1) work inside them.
-- Files a step produces (`shot`, `motion`, `focus --keep`) are fetched to `shots/` like the plain commands.
-- `hv` and `sgcheck` are valid steps.
+- Files a step produces (`shot`, `motion`, `focus --keep`) are fetched to `shots/` like the plain commands, as the
+  step announces them (the output streams).
+- `hv`, `sgcheck` and `conformance --route R` are valid steps; the PC finishes each measuring step's result
+  (`gates`, `pad-bfs`, `focus`, `motion`, `sgcheck`, `conformance` with the depth items P-11, P-46, P-47, P-48,
+  P-51, R1 m5). Exit code: 1 if any step failed, else 3 if any was blocked, else 0.
+- The lab locks are released between steps, so other agents' CSS-tier steps run while native mode is on; every
+  result says `native: on|off` (§1). The session deletes its own unfetched `hv` frames in its `finally`.
 
-### `python glass.py conformance [--route R]... [--only P-01,P-14] [--json] [--out FILE]`
+### `python glass.py conformance [--route R]... [--only P-01,P-14] [--pad] [--json] [--out FILE]` (+ step options)
 
-Runs every automatable VP P-item (VP §6, verification codes AUD, DOM, CSS, PAD, SG, SHOT) on the given routes
-(default: the route matrix rows of PLAN §4.2 that need no pre) and prints one line per item:
-`P-38 PASS|FAIL|MANUAL|BLOCKED <detail>`. MANUAL marks REV, MOCK, FILM and HV items, which an agent judges.
-`--out` writes the JSON (V2 points it at `docs/phase2/verify/`).
+Reads the 89 P-items from VP §6 (id, requirement, severity, verify code) and runs, per route (default
+`/library/home`, `/library/tab/AllGames`, `/library/downloads`, `/settings/system`, `/media/grid`: PLAN §4.2 rows
+that need no pre and show no personal names), one locked step that gathers the gate sweeps (SIZE, TYPE, OUTLINE
+DOM part, MOTION at rest and our CSS durations), the AUD diff (theme off vs on; skipped with `--stock`), the DOM and
+CSS checks of `lab/lab_conf.js` and, inside a native session, the depth model. `--pad` also runs `pad-bfs` per route
+(slow). One line per item: `P-38 PASS|FAIL|MANUAL|BLOCKED|N/A [must|should] <detail>`; exit 1 when a "must" item
+fails. `--out` writes the JSON (V2 points it at `docs/phase2/verify/`). **A route that gives no result** (lab lock
+busy, CDP error, device unreachable) makes every automated item BLOCKED for it (`missingRoutes` in the JSON, a
+`BLOCKED:` line) and the command **exits 3** unless a must item FAILs elsewhere (exit 1): no data never reads as
+a pass (R1 M3). The depth items need a native session: `glass.py native-session --step "conformance --route R"`.
+
+| Automated | From |
+|---|---|
+| P-08, P-80, P-83 | G-SIZE rules (P-08 also AUD SHRUNK) |
+| P-38, P-84 | G-TYPE (18 px floor, body ≥ 22 px, weight; uppercase/tracking/italic) |
+| P-39 | AUD CONTRAST |
+| P-42, P-43 | G-OUTLINE DOM part, elements and their `::before`/`::after` (edge profiles: `gates`) |
+| P-52, P-58 | at rest after the route settles; non-token durations in our CSS (interactions: `motion`) |
+| P-13 | exactly one `.gpfocus` with a nav node (`--mode pad`; else BLOCKED) |
+| P-17, P-31, P-33, P-40, P-45, P-72, P-81, P-82, P-85, P-86, P-87 | DOM predicates of the VP rows |
+| P-01, P-02, P-89 | CSS: our rules (nesting resolved). P-01: every `.gpfocus` selector carries an input-mode scope; P-02: laser-scoped `.gpfocus` selectors without `:hover` (candidates: a reset rule is fine, review them); P-89: `:hover` reveals (opacity/visibility/display) without a `.gpfocus` twin after dropping mode scopes (heuristic) |
+| P-11, P-46, P-47, P-48, P-51 | depth model rules R8, R7, R5, R9, R6 (native session; else BLOCKED, as are P-34, P-49, P-50) |
+| P-20, P-22, P-23 | `--pad`: pad-bfs pass; entry focus not Back, the search field or the tab bar; focused rects inside y 124–620 |
+
+Everything else is MANUAL with its verify code (REV, MOCK, FILM, HV, SHOT pairs: use `focus`, `motion`, `hv`,
+`cmp`).
 
 ## 5. The depth check model (`sgcheck`)
 
@@ -273,12 +452,12 @@ size used by the click-safe rule is texture px / `scale`. Rules (each failure na
 
 | Rule | Check |
 |---|---|
-| R1 covered | each pop rect inflated by 2 px lies inside the union of covers and plates (sampled on a 4 px grid) |
+| R1 covered | each pop rect, deflated by 2 px (P6's tolerance, reporter §4 rule 1), lies inside the union of covers and plates (rounded rects, sampled on a 4 px grid) |
 | R1b forbidden | no pop intersects a `forbidden` rect (bottom ornament, store ornament, tab bar, window-bar row, `/invites` header) |
 | R2 click-safe | `dz ≤ 0.000521 × s`, s = the shorter side (CSS px) of the smallest focusable intersecting the pop; and dz is one of {0, 10, 15, 25} mm ± 0.5 mm |
 | R3 media | no pop with `media: true` (unless the model says `holes: true`) |
 | R4 destructive | no pop with `destructive: true` |
-| R5 container | each pop ≥ 60 × 60 CSS px |
+| R5 container | each pop ≥ 60 × 60 CSS px (a pop with `r: "capsule"`: ≥ 44 tall and ≥ 60 wide, P6 rule 5) |
 | R6 modal | while a pop has `modal: true`, every other pop is a descendant of the modal (`within` the modal rect) |
 | R7 depths | ≤ 4 distinct dz values at rest (+1 with a modal open) |
 | R8 interactive | `interactive: false` on every pop in the default profile |
@@ -293,8 +472,23 @@ The size, type and outline sweeps skip an element, and list it under `exempt`, w
 3. it is inside web content (`%{MainBrowserContainer}`, `/steamweb`, `/externalweb`: E-WEB), or the keyboard
    (E-KEY).
 
-Each exemption is checked against its own criterion where the table gives one (E-MENU, E-SWITCH, E-CHECK,
-E-MINI, E-SEG, E-TAB, E-BAR); the result is reported as `exempt: [{el, id, pass}]`.
+Each exemption is checked against its own criterion and reported as `exempt: [{el, id, rect, pass, why}]`; one
+that fails its criterion fails G-SIZE:
+
+| Id | Check (live) |
+|---|---|
+| E-MENU | visible ≥ 60, ≥ 320 wide, pitch to the next row ≥ 64 (the last row has none) |
+| E-TAB | height ≥ 52 and abutting the next item (gap ≤ 2) |
+| E-SWITCH | hit ≥ 95 % own over 86 × 80 around its centre, no other target |
+| E-CHECK | hit ≥ 95 % own over 80 × 80 |
+| E-MINI | hit ≥ 95 % own over 80 × 80; another target only if it is the field it clears |
+| E-SEG | ≥ 60 × 120 and contiguous with the next segment (gap ≤ 2) |
+| E-BAR | ≥ 64 × 72 bar px |
+| E-BACK | `aria-label` set and the centre hits it |
+| E-KEY, E-WEB, E-ROW58, E-DRILL | none here (judged by their owners' tests); `pass: null` |
+
+`lab/exemptions.json` today: E-WEB, E-KEY, E-TAB (frame-menu items), E-MENU (context-menu items), E-SWITCH,
+E-CHECK, E-SEG, E-MINI (Steam's primitives and the `.lgs-*` controls).
 
 ## 7. New lab helpers (`L`, in SharedJSContext)
 
@@ -322,14 +516,14 @@ date, ready to paste into an evidence log.
 | `edge` | **live** | 2026-10-07 |
 | `native-session` | **live** | 2026-10-07 |
 | `gates` | **live** (`--theme off` for stock baselines: AUD skipped, theme given back at the end) | 2026-10-07 |
-| `pad-bfs` | stub (exit 3) | 2026-10-07 |
-| `focus` | `--png` form **live**; live form stub (exit 3) | 2026-10-07 |
-| `hv` | **live** (`--offaxis` BLOCKED until P7's yaw hook) | 2026-10-07 |
-| `sgcheck` | stub (exit 3) | 2026-10-07 |
-| `motion` | stub (exit 3) | 2026-10-07 |
-| `cmp` | stub (exit 3) | 2026-10-07 |
-| `ledger` | stub (exit 3) | 2026-10-07 |
-| `conformance` | stub (exit 3) | 2026-10-07 |
+| `pad-bfs` | **live** (`--out FILE` saves the JSON) | 2026-10-07 |
+| `focus` | **live** (both forms) | 2026-10-07 |
+| `hv` | **live** (with `--offaxis`, P7's `test.yaw`; streamed fetch, exit 3 when the verdict is withheld) | 2026-10-07 |
+| `sgcheck` | **live** (both forms; live as a `native-session` step) | 2026-10-07 |
+| `motion` | **live** (pause + seek + two rAFs since R1; `--selftest MS`) | 2026-10-07 |
+| `cmp` | **live** (multi-mockup cmp.json, per-element surface/origin/scale) | 2026-10-07 |
+| `ledger` | **live** | 2026-10-07 |
+| `conformance` | **live** (30 items automated on CSS-only routes, 5 more as a `native-session` step, `--pad` adds 3; exit 3 when a route gives no result) | 2026-10-07 |
 
 ## 10. Changelog
 
@@ -342,3 +536,45 @@ date, ready to paste into an evidence log.
   (a before-shot) now gives the theme back at the end of its step instead of leaving it off for everyone. The lab
   helpers reinstall themselves whenever their source changes (`L.hash`). `gates --theme off` runs the sweeps on the
   stock UI (TL-1 baselines).
+- 2026-10-07 (session 2): `pad-bfs` live (TL-3: same 45-element set as SET's `settings-pad.js` on
+  `/settings/system`, `tools/p2/tl3_settings_pad.py`). `glass.py sync lab` (or any of `device theme lab native`)
+  uploads only those subtrees; plain `sync` is unchanged.
+- 2026-10-07 (session 2): live `focus` and `motion`; step option `--stock` (stock UI for the step); `@text=Label`
+  selector suffix in every lab selector. `edge` now defaults to the 601 luma, as `window-nav-measure.py` rev 3 does
+  (`--luma 709` for WN §8.2's revision 2 table). G-MOTION (`gates`, `motion`) judges only our animations: Steam's
+  own transitions (for example `%{ScaledChildren}`'s route transform) are no longer counted as non-token.
+- 2026-10-07 (session 2): `sgcheck` live (offline `--spec MODEL` and live inside `native-session`); R1 uses P6's 2 px
+  tolerance (deflate), R5 accepts P6's capsule size. `native-session` now finishes every measuring step on the PC
+  (gates, pad-bfs, focus, motion, sgcheck print their usual summaries; exit 1 when one fails). `focus` steps inside a
+  session take `--pairs` as inline JSON.
+- 2026-10-07 (session 2): `cmp` live. `<PKG>-cmp.json` may hold several mockups (`{"mockups": {...}}`, REQ C1b->P10,
+  C1c->P10) and per-entry or per-element `mockScale` / `mockOrigin` / `surface` (REQ C3a->P10); deltas are in
+  surface CSS px; the default origin is the mockup's `.lgk-overlay`.
+- 2026-10-07 (session 2): `ledger` live (§3: audit-id rules, own ids, status from evidence lines).
+- 2026-10-07 (session 2): `conformance` live (§4 table of automated items).
+- 2026-10-07 (session 2): `hv --offaxis DEG` live (P7's `__LGS_SG.test.yaw`). `pad-bfs` node identity is now class + label (aria-label, aria-labelledby, then text) + rank among equals in document order (no x: shelves scroll), and a node that is not mounted any more (a tab panel that follows focus) is reached again by replaying the edge that found it; `--out` files hash element texts (`--raw` keeps them). `native-session` holds both lab locks while it turns the native layer on and off, and its own step options apply to every step.
+- 2026-10-07 (session 2, 06:35): answered REQs from C1a, C1c, C2a, C4a, P1, P2, P5, P9: step option `--hover` (real
+  CDP hover; `@hover` pre and focus states); gate scope rules (modal, clip, obscured, list rows, content cards, black
+  tints, `--lgs-edge`, invisible edges, our animations only, scroll-driven); exemption criteria checked live and six
+  exemptions added; `--stock-route`; `hv --full`, local-maximum doubling; `glass.py selftest` (P1's passthrough);
+  the lock exit also resets the runtime's session flags to the restored file (`__LGS_RT.flags.setSession`).
+- 2026-10-07 (session 3, review R1): **behaviour changes**, all from `wp/P10-review-R1.md`:
+  - `motion` freezes by pausing the animations the pre started (in the same evaluation) and waits two
+    `requestAnimationFrame`s before each capture; strips taken before this lag their f by about 100 ms and should
+    be re-run. `motion --selftest MS` checks the luma ramp of a two-box probe (M1).
+  - `gates` OUTLINE (and `conformance` P-42/P-43) checks `::before`/`::after`, counts hard 1–2 px shadow lines and
+    closed rims, probes all four sides of each glass box, and measures exactly the capture its result names: some
+    routes that passed now fail on Phase 1 rims (`--lgs-glass-rim`) and selection rings (M2, m3).
+  - `gates` TYPE fails body text under 22 px (P-38, m6); SIZE skips P-08 sampling on partly visible controls (REQ
+    C2a->P10 #9).
+  - `conformance` exits 3 with BLOCKED items when a route gives no result (M3); `conformance` is a valid
+    `native-session` step and gives the depth items (m5).
+  - `ledger` status resolves test ids in their namespace and needs an evidence-table row in that log; new last CSV
+    column `evidence` (M6).
+  - Locks are exception-safe (M4); the flags file has its own `flags.lock` and restores only the step's keys (m1);
+    results and the `step:` line carry `native: on|off` (m2).
+  - `hv` frames are fetched as the output streams, reaped on the Frame after 90 s and purged at every lock entry
+    (M5); `hv --look` keeps the frame in its own folder for 120 s; a withheld verdict exits 3 (m4).
+  - `pad-bfs --pre` accepts `@hover` and the `--hover` option (m8); `glass.py --help` lists the Phase 2 commands;
+    lab captures go to `/tmp/lgs/shots/` (m9). The lab helpers read `window.__LGS_INDEX` at call time (REQ
+    C1a->P10).

@@ -1,0 +1,15 @@
+{
+ "_doc": "PLAN-4a-2 / G-MOCK mapping for glass.py cmp (contracts/lab.md section 3). controls-system.html: Settings > System with gamepad focus on the 'Default to Desktop Mode on startup' switch row (single-control row: the row carries the focus). Only Steam's settings rows are mapped (C4a's primitives); the page layout around them (sidebar, header) is C6a's and C1a's. Run with --mode pad --flags wp.p3. The pre scrolls the focused row to the mockup's y so positions are comparable.",
+ "surface": "main",
+ "mockups": {
+  "controls-system": {
+   "route": "/settings/system",
+   "pre": "(async()=>{const F=L.sel('%{*GamepadDialogContent>Field}');await L.root();await L.sleep(300);const row=[...L.qa('main',F)].find(e=>/Desktop Mode/.test(e.innerText));if(!row)return 'norow';const t=row.querySelector(L.sel('%{*GamepadDialogContent>Toggle}'));t.setAttribute('data-lgsc-x','1');await L.gpTake('main','[data-lgsc-x]');t.removeAttribute('data-lgsc-x');await L.sleep(300);const sc=L.q('main','%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageContent}');sc.scrollTop+=row.getBoundingClientRect().top-(window.__LGSC_Y||284);await L.sleep(600);return Math.round(row.getBoundingClientRect().top)})()",
+   "map": {
+    "row-focus": "%{*GamepadDialogContent>Field}.gpfocuswithin",
+    "row-tz": "%{*GamepadDialogContent>Field}:has(%{DropDownLabelContainer})",
+    "row-rest": "%{*GamepadDialogContent>Field}.gpfocuswithin + %{*GamepadDialogContent>Field}"
+   }
+  }
+ }
+}

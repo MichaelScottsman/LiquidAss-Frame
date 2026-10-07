@@ -13,9 +13,10 @@
 set -e
 cd "$(dirname "$0")/.."
 G=${GLASSD:-./glassd}
-D=/tmp/lgs/tphase
+D=/tmp/lgs/p9-fx/phase
 rm -rf $D
 mkdir -p $D
+trap 'rm -rf "$D"; rmdir /tmp/lgs/p9-fx 2>/dev/null' EXIT
 spec() {  # $1 = seq, $2 = phase
     cat > $D/spec.tmp <<EOF
 {"seq": $1, "dial": 0.5, "surfaces": [
@@ -31,7 +32,7 @@ EOF
     mv $D/spec.tmp $D/spec.json
 }
 spec 1 0
-$G --spec $D/spec.json --key-prefix glassd-phase. --out $D/out.json --test-backdrop room --dump $D/d --warmup 1000 \
+$G --spec $D/spec.json --key-prefix glassd-phase. --out $D/out.json --test-backdrop room --dump $D/d --dump-room $D/room.png --warmup 1000 \
     --orphan-ok > $D/log 2>&1 &
 PID=$!
 sleep 2

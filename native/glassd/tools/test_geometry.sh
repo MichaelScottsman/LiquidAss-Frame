@@ -5,8 +5,10 @@
 # continuously; test prefix, private out dir, no dumps.
 F=$(cd "$(dirname "$0")/.." && pwd)
 G=${GLASSD:-$F/glassd}
-D=/tmp/lgs-fx
+D=/tmp/lgs/p9-fx/geometry  # rule 7: test state only under /tmp/lgs
+rm -rf $D
 mkdir -p $D
+trap 'rm -rf "$D"; rmdir /tmp/lgs/p9-fx 2>/dev/null' EXIT
 [ -x $F/build/fakeov ] || { echo "build/fakeov missing: run build.sh"; exit 1; }
 cat > $D/spec.json <<'EOF'
 {"seq": 1, "dial": 0.5, "surfaces": [{"name": "fake", "overlayKey": "fx.fakesteam", "texW": 1920, "texH": 1080,

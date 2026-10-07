@@ -2,26 +2,41 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Glass Shell P2 window-nav: the bottom ornament contract (gamepad mode, laser mode, frozen target)</title>
+<title>Glass Shell P2 window-nav: the bottom ornament contract (gamepad, laser and the frozen target, a route without fixed slots, the quiet legend)</title>
 <link rel="stylesheet" href="kit.css">
 <link rel="stylesheet" href="window-nav-shared.css">
 <style>
-  .clip { position: absolute; left: 600px; width: 1280px; height: 300px; overflow: hidden; }
-  .clip > .lgk-overlay { left: 0; top: -420px; }
-  .grid { position: absolute; left: 0; top: 446px; right: 0; bottom: 0; }   /* the grid scrolled so the first row shows above the ornament */
+  /* A board of five true-size strips (main-window px at 1:1). Each strip shows the bottom 206 px of the window
+     (y 506-712): the ornament (y 628-712) and the content above it. Revision 3, PLAN §1.10, §1.11. */
+  .clip { position: absolute; left: 20px; width: 1280px; height: 206px; overflow: hidden; }
+  .clip > .lgk-overlay { left: 0; top: -506px; }
+  .grid { position: absolute; left: 0; top: 520px; right: 0; bottom: 0; }   /* the grid scrolled: a row's top shows above the ornament */
   .grid .lgk-poster { width: 220px; height: 330px; }
-  .lab { position: absolute; left: 40px; width: 520px; }
-  .lab b { display: block; font: 700 28px/1.2 var(--lg-font); color: #fff; text-shadow: 0 1px 3px rgb(0 0 0 / .6); }
-  .lab span { display: block; margin-top: 10px; padding: 14px 18px; border-radius: 16px; background: rgb(0 0 0 / .55); font: 500 20px/1.38 var(--lg-font); color: rgb(255 255 255 / .9); }
-  .tick { position: absolute; z-index: 45; font: 700 15px/1 var(--lg-font); color: #fff; padding: 4px 8px; border-radius: 8px; background: rgb(0 0 0 / .55); }
+  .lab { position: absolute; left: 1340px; width: 550px; }
+  .lab b { display: block; font: 700 26px/1.2 var(--lg-font); color: #fff; text-shadow: 0 1px 3px rgb(0 0 0 / .6); }
+  .lab span { display: block; margin-top: 8px; padding: 12px 16px; border-radius: 16px; background: rgb(0 0 0 / .58); font: 500 19px/1.36 var(--lg-font); color: rgb(255 255 255 / .92); }
+  .tick { position: absolute; z-index: 45; font: 700 15px/1 var(--lg-font); color: #fff; padding: 4px 8px; border-radius: 8px; background: rgb(0 0 0 / .6); }
+  /* Downloads rows (C7's route; the shell's More circle on a row: trailing, inset 24) */
+  .dlist { position: absolute; left: 40px; right: 40px; top: 516px; }
+  .dlist .lgk-row { height: 80px; }
+  .thumb { width: 96px; height: 54px; border-radius: 12px; flex: none; }
+  .two { display: flex; flex-direction: column; gap: 4px; }
+  /* Settings rows (C6a's route at rest: only A and B in the legend) */
+  .splat { position: absolute; left: 440px; right: 40px; top: 520px; }
+  .splat .lgk-row { height: 80px; }
+  .side { position: absolute; left: 24px; top: 530px; width: 380px; display: flex; flex-direction: column; gap: 4px; }
+  .side .lgk-row { height: 72px; border-radius: 36px; }
+  /* /account (C7's window-full route: the quiet legend sits inside the glass) */
+  .acct { position: absolute; left: 240px; right: 240px; top: 526px; }
+  .acct .lgk-row { height: 80px; }
 </style>
 </head>
 <body>
 <div class="lgk-view" data-room="lounge">
 
-  <!-- 1. gamepad mode ---------------------------------------------------------------------- -->
-  <div class="lab" style="top:52px"><b>Gamepad mode</b><span>Steam's legends become labelled buttons: label first, the controller glyph trailing as a hint. Select and Back stay, quieter, at the end. Options acts on the focused card (lifted).</span></div>
-  <div class="clip" style="top:40px">
+  <!-- 1. gamepad mode, library route: C2c's five fixed slots ------------------------------------------- -->
+  <div class="lab" style="top:14px"><b>Gamepad mode · Library</b><span>Steam's legends fill C2c's five fixed slots (880 px): label first, the controller glyph trailing as a hint. Select and Back stay, quieter. Options acts on the focused card.</span></div>
+  <div class="clip" style="top:6px">
     <div class="lgk-overlay">
       <div class="lgk-glass wn-win" data-mat="window">
         <div class="grid wn-fade-bottom">
@@ -30,71 +45,89 @@
           <div class="lgk-poster lgk-art" data-art="poster:2:Neon Orchard" style="left:530px; top:0"></div>
           <div class="lgk-poster lgk-art" data-art="poster:3:Tidebreaker" style="left:774px; top:0"></div>
           <div class="lgk-poster lgk-art" data-art="poster:4:Lumen Vale" style="left:1018px; top:0"></div>
-          <div class="lgk-poster lgk-art" data-art="poster:8:Echo Station" style="left:42px; top:354px"></div>
-          <div class="lgk-poster lgk-art" data-art="poster:6:Ironwood" style="left:286px; top:354px"></div>
-          <div class="lgk-poster lgk-art" data-art="poster:7:Paper Comets" style="left:530px; top:354px"></div>
-          <div class="lgk-poster lgk-art" data-art="poster:5:Glasswing" style="left:774px; top:354px"></div>
-          <div class="lgk-poster lgk-art" data-art="poster:9:Deep Field" style="left:1018px; top:354px"></div>
         </div>
       </div>
-      <div data-wn="ornament" data-legends="X:Filter|Y:Sort By|menu:Options|A:Select|B:Back"></div>
+      <div data-wn="more" data-corner="511,512" data-dz="none"></div>
+      <div data-wn="ornament" data-idp="pad-" data-slots="300,130,156,134,120" data-legends="Y:Sort By@Alphabetical|X:Filter|menu:Options|A:Select|B:Back"></div>
     </div>
   </div>
 
-  <!-- 2. laser mode ------------------------------------------------------------------------ -->
-  <div class="lab" style="top:392px"><b>Laser mode</b><span>Steam's laser-mode Sort and Filter buttons join the capsule (the current sort is shown). A / B and the duplicate X / Y legends hide: the Back circle and a direct click do the same. The More circle opens a card's menu where it is.</span></div>
-  <div class="clip" style="top:380px">
+  <!-- 2. laser mode and the frozen target, library route ------------------------------------------------ -->
+  <div class="lab" style="top:228px"><b>Laser mode and the frozen target</b><span>Steam's laser-only Sort and Filter buttons fill slots 1–2; the shell's Options slot 3. A and B stay, quiet, without glyphs. The card dwelled 600 ms stays the target as the pointer crosses another in 90 ms; its More circle stays on it while the pointer is in the ornament.</span></div>
+  <div class="clip" style="top:220px">
     <div class="lgk-overlay">
       <div class="lgk-glass wn-win" data-mat="window">
         <div class="grid wn-fade-bottom">
           <div class="lgk-poster lgk-art" data-art="poster:0:Starfall Drift" style="left:42px; top:0"></div>
-          <div class="lgk-poster lgk-art is-hover" data-art="poster:1:Hollow Peaks" style="left:286px; top:0"></div>
+          <div class="lgk-poster lgk-art" data-art="poster:1:Hollow Peaks" style="left:286px; top:0"></div>
           <div class="lgk-poster lgk-art" data-art="poster:2:Neon Orchard" style="left:530px; top:0"></div>
           <div class="lgk-poster lgk-art" data-art="poster:3:Tidebreaker" style="left:774px; top:0"></div>
           <div class="lgk-poster lgk-art" data-art="poster:4:Lumen Vale" style="left:1018px; top:0"></div>
-          <div class="lgk-poster lgk-art" data-art="poster:8:Echo Station" style="left:42px; top:354px"></div>
-          <div class="lgk-poster lgk-art" data-art="poster:6:Ironwood" style="left:286px; top:354px"></div>
-          <div class="lgk-poster lgk-art" data-art="poster:7:Paper Comets" style="left:530px; top:354px"></div>
-          <div class="lgk-poster lgk-art" data-art="poster:5:Glasswing" style="left:774px; top:354px"></div>
-          <div class="lgk-poster lgk-art" data-art="poster:9:Deep Field" style="left:1018px; top:354px"></div>
         </div>
       </div>
-      <div data-wn="more" data-x="496" data-y="458" data-hover></div>
-      <div data-wn="ornament" data-mode="laser" data-legends="sf-sort:Alphabetical|sf-filter:Filter|menu:Options@Hollow Peaks|A:Select|B:Back"></div>
-    </div>
-  </div>
-  <div class="wn-proxy" style="left:1040px; top:500px"></div>
-
-  <!-- 3. frozen target --------------------------------------------------------------------- -->
-  <div class="lab" style="top:732px"><b>The frozen target</b><span>The pointer leaves Hollow Peaks (dwelled 600 ms) and crosses Neon Orchard in 90 ms on its way down. The shell keeps the last card dwelled for 300 ms or more; entering the ornament re-focuses it, and Options names it.</span></div>
-  <div class="clip" style="top:720px">
-    <div class="lgk-overlay">
-      <div class="lgk-glass wn-win" data-mat="window">
-        <div class="grid wn-fade-bottom">
-          <div class="lgk-poster lgk-art" data-art="poster:0:Starfall Drift" style="left:42px; top:0"></div>
-          <div class="lgk-poster lgk-art is-focus" data-art="poster:1:Hollow Peaks" style="left:286px; top:0"></div>
-          <div class="lgk-poster lgk-art" data-art="poster:2:Neon Orchard" style="left:530px; top:0"></div>
-          <div class="lgk-poster lgk-art" data-art="poster:3:Tidebreaker" style="left:774px; top:0"></div>
-          <div class="lgk-poster lgk-art" data-art="poster:4:Lumen Vale" style="left:1018px; top:0"></div>
-          <div class="lgk-poster lgk-art" data-art="poster:8:Echo Station" style="left:42px; top:354px"></div>
-          <div class="lgk-poster lgk-art" data-art="poster:6:Ironwood" style="left:286px; top:354px"></div>
-          <div class="lgk-poster lgk-art" data-art="poster:7:Paper Comets" style="left:530px; top:354px"></div>
-          <div class="lgk-poster lgk-art" data-art="poster:5:Glasswing" style="left:774px; top:354px"></div>
-          <div class="lgk-poster lgk-art" data-art="poster:9:Deep Field" style="left:1018px; top:354px"></div>
-        </div>
-      </div>
-      <div data-wn="ornament" data-mode="laser" data-legends="sf-sort:Alphabetical|sf-filter:Filter|*menu:Options@Hollow Peaks|A:Select|B:Back"></div>
+      <!-- the target's More circle (the card itself is no longer lifted: the pointer left it) -->
+      <div data-wn="more" data-corner="506,520" data-dz="none"></div>
+      <div data-wn="ornament" data-idp="laser-" data-mode="laser" data-slots="300,130,156,134,120" data-legends="sf-sort:Alphabetical|sf-filter:Filter|*menu:Options|A:Select|B:Back"></div>
     </div>
   </div>
   <svg style="position:absolute; inset:0; width:1920px; height:1080px; z-index:44; pointer-events:none" viewBox="0 0 1920 1080">
-    <path d="M1000 856 C 1080 868, 1170 884, 1240 900 S 1350 948, 1390 966" fill="none" stroke="#fff" stroke-width="3" stroke-dasharray="2 9" stroke-linecap="round" opacity=".9"/>
-    <circle cx="1000" cy="856" r="6" fill="#fff" opacity=".85"/><circle cx="1240" cy="900" r="6" fill="#fff" opacity=".85"/>
+    <path d="M410 290 C 500 296, 600 304, 670 312 S 735 350, 748 384" fill="none" stroke="#fff" stroke-width="3" stroke-dasharray="2 9" stroke-linecap="round" opacity=".9"/>
+    <circle cx="410" cy="290" r="6" fill="#fff" opacity=".85"/><circle cx="670" cy="312" r="6" fill="#fff" opacity=".85"/>
   </svg>
-  <div class="wn-proxy" style="left:1390px; top:966px"></div>
-  <div class="tick" style="left:940px; top:876px">dwell 600 ms</div>
-  <div class="tick" style="left:1196px; top:858px">90 ms: ignored</div>
+  <div class="wn-proxy" style="left:748px; top:384px"></div>
+  <div class="tick" style="left:350px; top:300px">dwell 600 ms</div>
+  <div class="tick" style="left:612px; top:278px">90 ms: ignored</div>
+
+  <!-- 3. a route without fixed slots (Downloads), laser mode ------------------------------------------- -->
+  <div class="lab" style="top:442px"><b>A route without fixed slots · Downloads</b><span>The capsule fits its members. The Options member names the frozen target ("Options · Neon Orchard"), because the circle may be off screen. On rows the More circle sits at the trailing end, inset 24.</span></div>
+  <div class="clip" style="top:434px">
+    <div class="lgk-overlay">
+      <div class="lgk-glass wn-win" data-mat="window">
+        <div class="lgk-platter dlist">
+          <div class="lgk-row is-hover" style="--hx:30%;--hy:50%"><span class="thumb lgk-art" data-art="hero-clean:2:"></span><span class="two"><span>Neon Orchard</span><span class="t-subhead v2">Install · 6.8 GB</span></span></div>
+        </div>
+      </div>
+      <div data-wn="more" data-row="1234,562" data-dz="none"></div>
+      <div data-wn="ornament" data-idp="dl-" data-mode="laser" data-legends="menu:Options@Neon Orchard|A:Select|B:Back"></div>
+    </div>
+  </div>
+
+  <!-- 4. the quiet legend on a `window` route (Settings at rest): in the margin, on the dim band -------- -->
+  <div class="lab" style="top:656px"><b>Only A and B · a <code>window</code> route</b><span>The quiet legend: no capsule glass. Its labels sit in the margin over the room, so they rest on the dim band (a shadow, not glass; flag <code>quietBacking</code>) and pass P-39 over a bright wall. Left: the bare look over the curtain, for comparison.</span></div>
+  <div class="clip" style="top:648px">
+    <div class="lgk-overlay">
+      <div class="lgk-glass wn-win" data-mat="window">
+        <div class="side">
+          <div class="lgk-row is-nav-selected"><i data-i="vr"></i>Display</div>
+        </div>
+        <div class="lgk-platter splat">
+          <div class="lgk-row"><span>Show Battery Percentage</span><span class="lgk-toggle on" style="margin-left:auto"></span></div>
+        </div>
+      </div>
+      <div data-wn="ornament" data-idp="quiet-" data-legends="A:Select|B:Back"></div>
+      <div data-wn="ornament" data-idp="bare-" data-quiet="bare" data-legends="A:Select|B:Back" style="left:auto"></div>
+    </div>
+  </div>
+  <div class="tick" style="left:224px; top:836px">quietBacking off (PLAN §1.10)</div>
+
+  <!-- 5. the quiet legend on a `window-full` route (/account): inside the glass -------------------------- -->
+  <div class="lab" style="top:870px"><b>Only A and B · a <code>window-full</code> route</b><span>On <code>/account</code> the glass runs to 720, so the quiet legend sits inside it: labels white .70, no band, no capsule.</span></div>
+  <div class="clip" style="top:862px">
+    <div class="lgk-overlay">
+      <div class="lgk-glass wn-win full" data-mat="window">
+        <div class="lgk-platter acct">
+          <div class="lgk-row"><i data-i="gear"></i><span>Account Details</span><i data-i="chevron-right" style="margin-left:auto"></i></div>
+        </div>
+      </div>
+      <div data-wn="ornament" data-idp="full-" data-inglass data-legends="A:Select|B:Back"></div>
+    </div>
+  </div>
 </div>
 <script src="window-nav-shared.js"></script>
+<script>
+  /* the comparison copy in strip 4 sits in the margin at window x 300, over the bright curtain, instead of centred */
+  (() => { const b = document.querySelector('[data-id="bare-ornament"]'); if (b) { b.style.left = '300px'; } })();
+</script>
 <script src="kit.js"></script>
 </body>
 </html>

@@ -1,0 +1,768 @@
+/* Glass Shell phase 2: system presentations (package C1c, T1).
+   Context menus, value menus, the Power menu layout, alerts, sheets and the
+   modal scrim on `main`. Route and tab transitions are 23-transitions.css.
+   Sources: PLAN §1.4, §1.7, §1.8, §1.12, §1.16 (E-MENU); WN §5.1-§5.4 (rev 3,
+   C1c's Appendix A); mockups window-nav-menu, -sort, -power, -alert, -sheet.
+   Contracts: tokens.md (P4: materials, the --lgs-ill and --lgs-edge hooks,
+   sizes), motion.md (P5: lgs-morph, lgs-mat-large-in, lgs-sheet-in, fades).
+   Wrapped as html.lgs-on { ... } by the bundler ("&" is html.lgs-on).
+
+   T1 alone (no runtime) already lays menus out by item count with :has():
+     <= 5 actions   one column of 72 px rows, 6 px apart, 400 wide
+     6              compact: 60 px visible on a contiguous 64 px pitch
+     7-14           two columns (column-major, Steam's DOM order), 592 wide;
+                    Power (7) included (S24); 11-14 scroll inside the slab
+     >= 15          one scrolling column, 560 wide
+   Every slab stays inside the modal box y 108-616 (508 px; C2c REQ-6). WN's
+   "6-7 compact" cannot hold 7 rows there, so 7 take the grid (D28).
+   C1c's T2 (device/rt/22-menus.js, flag wp.c1c) later sets data-lgs-menu and
+   the lgs-menu-* classes; every count rule below also keys on those classes
+   and steps aside (:not([data-lgs-menu])) once T2 has classified a menu.
+
+   Never touched (LAB, inventory shell §6-§7): ModalPosition's top/bottom and
+   overflow, ModalClickToDismiss, the overlay's inline display, any handler.
+   Only paint, padding, the row and slab sizes PLAN §1.12 decides, the grid
+   of the slab, and Steam's entrance animations (S3) change. */
+
+/* ------------------------------------------------------------------ */
+/* 0. Geometry inputs                                                   */
+/* ------------------------------------------------------------------ */
+
+/* glass of the route (PLAN §1.2; C1a's data-lgs-glass, none = window):
+   window and hero 1280 x 656, window-full and windowless the whole quad */
+%{GamepadDialogOverlay} {
+  --lgs-c1c-gh: var(--lgs-glass-h, 656px);
+  /* WN §5.1.2: the red whole fill of a focused destructive row or a red
+     confirm, slightly denser than P4's --lgs-tint-danger (.84) because it
+     carries a dark label */
+  --lgs-c1c-red: rgb(from var(--lgs-red) r g b / .92);
+}
+[data-lgs-glass="window-full"] %{GamepadDialogOverlay},
+[data-lgs-glass="windowless"] %{GamepadDialogOverlay} {
+  --lgs-c1c-gh: var(--lgs-glass-h-full, 720px);
+}
+/* the modal box: Steam puts ModalPosition between the header height and the
+   footer (when FooterVisible); these mirror Steam's own variables */
+%{*GamepadDialogContent>ModalPosition} {
+  --lgs-c1c-top: var(--basicui-header-height, 40px);
+  --lgs-c1c-bot: 100vh;
+  /* sheets: at most this tall below the 108 toolbar row (D7, VP P-35) */
+  --lgs-c1c-sheet-h: calc(var(--lgs-c1c-gh) - 168px);
+}
+%{*GamepadDialogContent>ModalPosition}%{*GamepadDialogContent>FooterVisible} {
+  --lgs-c1c-bot: calc(100vh - var(--gamepadui-current-footer-height, 0px));
+}
+
+/* ------------------------------------------------------------------ */
+/* 1. Scrim (PLAN §1.8): black .35, no blur, clipped to the glass        */
+/* ------------------------------------------------------------------ */
+
+%{GamepadDialogOverlay} .ModalOverlayContent.ModalOverlayBackground {
+  background: var(--lgs-scrim);
+  backdrop-filter: none;
+  /* only the route's glass darkens; the ornament margin and the corners
+     never darken the room (decoration only: the scrim holds no content) */
+  clip-path: inset(0 0 calc(100% - var(--lgs-c1c-gh)) 0 round var(--lgs-r-window));
+  animation: lgs-fade-in var(--lgs-motion-fade) backwards;
+}
+/* menus: no scrim (WN §5.1.3), unless a dialog is still open beneath */
+%{GamepadDialogOverlay} .ModalOverlayContent.ModalOverlayBackground:has(~ .ModalOverlayContent.active .BasicUIContextMenu) {
+  background: transparent;
+  backdrop-filter: none;
+}
+%{GamepadDialogOverlay} .ModalOverlayContent.ModalOverlayBackground:has(~ .ModalOverlayContent.active .BasicUIContextMenu):has(~ .ModalOverlayContent.inactive) {
+  background: var(--lgs-scrim);
+}
+
+/* ------------------------------------------------------------------ */
+/* 2. Menu frame: the modal box, the header row, the slab               */
+/* ------------------------------------------------------------------ */
+
+/* Steam centres the menu in ModalPosition (40-678 today). Padding keeps it
+   in the modal box under the 108 toolbar row and 12 px clear of the
+   ornament (bottom <= 616; C2c REQ-6). Long menus scroll inside the slab. */
+%{*BasicContextMenuHeader>BasicContextMenuModal} {
+  box-sizing: border-box;
+  padding-top: max(0px, calc(var(--lgs-header, 108px) - var(--lgs-c1c-top)));
+  padding-bottom: max(0px, calc(var(--lgs-c1c-bot) - var(--lgs-ornament-y, 628px) + 12px));
+  /* the slab width by layout; the header row aligns to it */
+  --lgs-c1c-w: 400px;
+}
+
+/* The menu's title (Steam: 18 px, centred, above the slab) becomes the slab's
+   header row: 22 px Bold white .70, left, inside the glass. It is pulled
+   down over the slab's top padding; position relative only lifts its paint
+   above the slab (no offsets, no layout change, it holds no control). */
+%{*BasicContextMenuModal>BasicContextMenuHeader} {
+  position: relative;
+  z-index: 1;
+  /* 13 + 26 - 39 = 0: the title takes no room in Steam's centring, so the
+     slab, not slab + title, is what sits centred in the box */
+  margin: 13px 0 -39px;
+  padding: 0 0 0 calc(50% - var(--lgs-c1c-w) / 2 + 20px);
+  font: 700 22px/26px var(--lgs-font);
+  letter-spacing: 0;
+  text-align: start;
+  text-transform: none;
+  color: var(--lgs-text-2);
+  text-shadow: none;
+}
+
+/* Steam's container: replace its .5s opacity+scale entrance with the morph
+   on the slab (S3; MO R1: no opacity on a parent of glass). overflow: clip
+   with a margin keeps Steam's clipping but lets the slab's depth shadow and
+   the focus glow show (it is not a scroller either way). */
+%{*BasicContextMenuModal>BasicContextMenuContainer} {
+  animation: none;
+  overflow: clip;
+  overflow-clip-margin: 40px;
+  /* overflow: hidden made it a scroll container, whose automatic minimum
+     height is 0; clip does not, so keep Steam's shrink-to-fit explicitly
+     (long menus then scroll inside the slab, as stock) */
+  min-height: 0;
+  border-radius: var(--lgs-r-menu);
+}
+
+/* the slab: thick glass (PLAN §1.6), radius 32, padding 8, the E3 edge,
+   the 10 mm depth shadow (CSS-only; in native mode the crop pops +10 mm) */
+%{*BasicContextMenuModal>contextMenuContents} {
+  box-sizing: border-box;
+  width: var(--lgs-c1c-w);
+  min-width: 0;
+  padding: 8px;
+  gap: var(--lgs-menu-row-gap, 6px);
+  background: var(--lgs-mat-thick-bg);
+  backdrop-filter: var(--lgs-mat-thick-blur);
+  box-shadow: var(--lgs-mat-thick-shade), var(--lgs-shadow-10mm);
+  border-radius: var(--lgs-r-menu);
+  filter: none;
+  --lgs-edge: thick;
+  /* morph-open from the source (MO §6.4). T1 has no source: it grows down
+     from a capsule at the top centre; C1c's T2 writes the real rect. */
+  --sx: calc(50% - 40px);
+  --sy: 0px;
+  --sw: 80px;
+  --sh: 56px;
+  --sr: 28px;
+  --lgs-morph-r: var(--lgs-r-menu);
+  animation: lgs-morph var(--lgs-d-morph-open) var(--lgs-ease-b0) backwards;
+}
+/* Steam's 15/40 px end margins become the slab's padding */
+%{*BasicContextMenuModal>contextMenuContents} > :first-child { margin-top: 0; }
+%{*BasicContextMenuModal>contextMenuContents} > :last-child { margin-bottom: 0; }
+
+/* separators: space, no line (WN §5.1.1) */
+#MainNavMenu-Rest %{*BasicContextMenuModal>ContextMenuSeparator},
+%{*BasicContextMenuModal>ContextMenuSeparator} {
+  background: none;
+  /* decoration only: the slab's 6 px gap on each side is the group space,
+     so the separator takes none (the box is 508 px tall, D28) */
+  height: 0;
+  min-height: 0;
+  margin-block: 0;
+  padding-block: 0;
+  border-block-width: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* 3. Rows (WN §5.1.2; E-MENU)                                          */
+/* ------------------------------------------------------------------ */
+
+/* rest: no fill, white label, 24 px Medium; the light (hover, focus, press)
+   is P4's hook on ::after, drawn under the label. Steam paints Focused and
+   Selected white and Phase 1 used !important, hence !important at rest. */
+%{*BasicContextMenuHeader>BasicContextMenuModal} %{*BasicContextMenuModal>contextMenuContents} > %{*BasicContextMenuModal>contextMenuItem} {
+  box-sizing: border-box;
+  height: var(--lgs-menu-row, 72px);
+  min-height: 0;
+  flex: none;
+  padding: 0 22px;
+  border-radius: var(--lgs-r-row);
+  font: 500 24px/1.2 var(--lgs-font);
+  letter-spacing: 0;
+  text-transform: none;
+  background: transparent !important;
+  color: var(--lgs-text-1) !important;
+  box-shadow: none !important;
+  outline: none;
+  isolation: isolate;
+  --lgs-ill: row;
+  --lgs-ill-inset: 0px;
+  --lgs-ill-r: var(--lgs-r-row);
+  --lgs-ill-z: -1;
+  transition: background-color var(--lgs-d-hover-in) var(--lgs-ease-b0), color var(--lgs-d-hover-in) var(--lgs-ease-b0);
+  /* content of the morph: hidden until 15 %, in by 50 % */
+  animation: lgs-morph-content var(--lgs-d-morph-open) linear backwards;
+}
+/* submenu arrow (›): the label's colour */
+%{*BasicContextMenuModal>contextMenuItem}%{*BasicContextMenuModal>SubMenu} .SVGIcon_DownArrowContextMenu {
+  fill: currentColor;
+  opacity: .7;
+}
+%{*BasicContextMenuModal>contextMenuItem} %{*BasicContextMenuModal>Label} {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+/* section headers inside a menu: Footnote, not a control */
+%{*BasicContextMenuHeader>BasicContextMenuModal} %{*BasicContextMenuModal>contextMenuContents} > %{*BasicContextMenuModal>contextMenuItem}%{*BasicContextMenuModal>MenuSectionHeader} {
+  height: auto;
+  min-height: 40px;
+  font: 600 19px/1.2 var(--lgs-font);
+  text-transform: none;
+  color: var(--lgs-text-2) !important;
+  --lgs-ill: none;
+}
+
+/* disabled: content at 40 % (no hover) */
+%{*BasicContextMenuHeader>BasicContextMenuModal} %{*BasicContextMenuModal>contextMenuContents} > %{*BasicContextMenuModal>contextMenuItem}.disabled {
+  color: rgb(255 255 255 / var(--lgs-dis-content, .40)) !important;
+}
+
+/* submenu open on this row (Steam's active class): white, dark label (PLAN §1.4) */
+%{*BasicContextMenuHeader>BasicContextMenuModal} %{*BasicContextMenuModal>contextMenuContents} > %{*BasicContextMenuModal>contextMenuItem}%{*BasicContextMenuModal>active} {
+  background: var(--lgs-selected-fill) !important;
+  color: var(--lgs-text-on-selected) !important;
+  --lgs-ill: white;
+}
+
+/* checked value (CheckItem .menuChecked, Steam's selected option, ARIA, and
+   C1c's T2 data-lgs-checked on the library Sort menu's current sort):
+   a 24 px check in the leading 28 px slot, no fill (D2). Every row of a
+   menu that shows a check reserves the slot, so labels align. */
+%{*BasicContextMenuModal>contextMenuContents}:has(> :is(.menuChecked, %{*BasicContextMenuModal>Selected}, [aria-selected="true"], [data-lgs-checked])) > %{*BasicContextMenuModal>contextMenuItem} {
+  padding-left: 60px;
+}
+%{*BasicContextMenuHeader>BasicContextMenuModal} %{*BasicContextMenuModal>contextMenuContents} > %{*BasicContextMenuModal>contextMenuItem}:is(.menuChecked, %{*BasicContextMenuModal>Selected}, [aria-selected="true"], [data-lgs-checked])::before {
+  content: "";
+  position: absolute;
+  left: 18px;
+  top: 50%;
+  width: 24px;
+  height: 24px;
+  margin-top: -12px;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+  pointer-events: none;
+}
+/* checked rows take P4's light on ::after like every row (C4a removed Phase 1's
+   .menuChecked::after check mark from 10-primitives.css at 06:33) */
+
+/* ------------------------------------------------------------------ */
+/* 4. Tones (WN §5.1.2, CC §7)                                          */
+/* ------------------------------------------------------------------ */
+
+/* primary rows: whole fills at rest. Green (play family) carries a dark
+   label; blue (install family) a white one. Focus on a fill is the outer
+   glow (P-16), never a fill. */
+%{*BasicContextMenuHeader>BasicContextMenuModal} %{*BasicContextMenuModal>contextMenuContents} > %{*BasicContextMenuModal>contextMenuItem}:is(%{*BasicContextMenuModal>Positive}, .Play, .Launch, .Resume, .Stream, .Connect, .PlayMusic, .BorrowApp) {
+  background: linear-gradient(180deg, rgb(255 255 255 / .16), rgb(255 255 255 / 0) 60%), linear-gradient(var(--lgs-tint-play), var(--lgs-tint-play)) !important;
+  color: var(--lgs-text-on-selected) !important;
+  font-weight: 600;
+  --lgs-ill: white;
+}
+%{*BasicContextMenuHeader>BasicContextMenuModal} %{*BasicContextMenuModal>contextMenuContents} > %{*BasicContextMenuModal>contextMenuItem}:is(%{*BasicContextMenuModal>Emphasis}, .Install, .Download, .Update, .PreLoad) {
+  background: linear-gradient(180deg, rgb(255 255 255 / .16), rgb(255 255 255 / 0) 60%), linear-gradient(var(--lgs-tint-primary), var(--lgs-tint-primary)) !important;
+  color: var(--lgs-text-on-tint) !important;
+  font-weight: 600;
+  --lgs-ill: white;
+}
+
+/* destructive rows (never reordered, S20): <= 2 in the menu, a red Semibold
+   label at rest (>= 22 px Semibold only, P-40); > 2 (Power), white labels
+   at rest and the red glyph from T2. On gamepad focus, always a red whole
+   fill with a #0d0e12 Semibold label and the outer glow. */
+%{*BasicContextMenuHeader>BasicContextMenuModal} %{*BasicContextMenuModal>contextMenuContents}:not(:has(> :nth-child(3 of :is(%{*BasicContextMenuModal>Destructive}, .Stop)))) > %{*BasicContextMenuModal>contextMenuItem}:is(%{*BasicContextMenuModal>Destructive}, .Stop) {
+  color: var(--lgs-text-danger) !important;
+  font-weight: 600;
+}
+&:not(.lgs-input-laser) %{*BasicContextMenuHeader>BasicContextMenuModal} %{*BasicContextMenuModal>contextMenuContents} > %{*BasicContextMenuModal>contextMenuItem}:is(%{*BasicContextMenuModal>Destructive}, .Stop):is(.gpfocus, %{*BasicContextMenuModal>Focused}) {
+  background: linear-gradient(180deg, rgb(255 255 255 / .14), rgb(255 255 255 / 0) 60%), linear-gradient(var(--lgs-c1c-red), var(--lgs-c1c-red)) !important;
+  color: var(--lgs-text-on-selected) !important;
+  font-weight: 600;
+  --lgs-ill: white;
+}
+
+/* ------------------------------------------------------------------ */
+/* 5. Steam's Cancel: a 56 px quiet capsule, last (PLAN §1.12, HA-11)     */
+/* ------------------------------------------------------------------ */
+
+/* Steam appends a separator and Cancel to every top-level menu; submenus
+   (the container's second slab) have none. The element is 60 tall for the
+   hit region (P-80); the visible capsule is 56 (2 px clear border). */
+%{*BasicContextMenuHeader>BasicContextMenuModal} %{*BasicContextMenuModal>BasicContextMenuContainer} > %{*BasicContextMenuModal>contextMenuContents}:first-child > %{*BasicContextMenuModal>contextMenuItem}:last-child {
+  align-self: center;
+  justify-content: center;
+  width: auto;
+  /* >= 85 % of Steam's 280 x 48 hit area (G-AUD SHRUNK): 192 x 60 */
+  min-width: 192px;
+  height: 60px;
+  margin-top: 0;
+  padding: 0 44px;
+  border: 2px solid transparent;
+  background: rgb(255 255 255 / .08) padding-box !important;
+  border-radius: var(--lgs-r-capsule);
+  font: 500 22px/1.2 var(--lgs-font);
+  color: var(--lgs-text-2) !important;
+  --lgs-ill: raised;
+  --lgs-ill-r: var(--lgs-r-capsule);
+}
+
+/* ------------------------------------------------------------------ */
+/* 6. Layout by count (PLAN §1.12; C1c's T2 classes take over at M3)      */
+/* ------------------------------------------------------------------ */
+
+/* Each slab names its layout in --lgs-c1c-l (column, compact, grid,
+   scroll); its rows read it with a style query (the parent is their style
+   container). Counting: Steam's items include Cancel, so "n actions" is
+   n + 1 items. The rules have equal specificity and later ones win. */
+%{*BasicContextMenuModal>contextMenuContents} {
+  --lgs-c1c-l: column;
+  /* grid rows: T1 counts with :has() below; T2 writes --lgs-menu-rows */
+  --lgs-c1c-rows: 4;
+}
+/* 6 actions: compact (7 do not fit the 508 px box as compact rows: D28) */
+%{*BasicContextMenuModal>contextMenuContents}:is(.lgs-menu-compact, :not([data-lgs-menu]):has(> :nth-child(7 of %{*BasicContextMenuModal>contextMenuItem}))) {
+  --lgs-c1c-l: compact;
+  gap: 0;
+}
+/* >= 7 actions (D28; the Power menu's 7 included, S24): two columns,
+   column-major in Steam's DOM order; R rows of 72 (R = ceil(n / 2)), then one
+   row for Cancel. With 7 actions R = 4, so Power's column break falls exactly
+   between Steam's two groups. */
+%{*BasicContextMenuModal>contextMenuContents}:is(.lgs-menu-grid, :not([data-lgs-menu]):has(> :nth-child(8 of %{*BasicContextMenuModal>contextMenuItem}))) {
+  --lgs-c1c-l: grid;
+  --lgs-c1c-w: var(--lgs-menu-max-w, 592px);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: repeat(var(--lgs-c1c-rows), var(--lgs-menu-row, 72px)) auto;
+  grid-auto-flow: column;
+  gap: var(--lgs-menu-row-gap, 6px) 8px;
+}
+%{*BasicContextMenuModal>contextMenuContents}:not([data-lgs-menu]):has(> :nth-child(10 of %{*BasicContextMenuModal>contextMenuItem})) { --lgs-c1c-rows: 5; }
+%{*BasicContextMenuModal>contextMenuContents}:not([data-lgs-menu]):has(> :nth-child(12 of %{*BasicContextMenuModal>contextMenuItem})) { --lgs-c1c-rows: 6; }
+%{*BasicContextMenuModal>contextMenuContents}:not([data-lgs-menu]):has(> :nth-child(14 of %{*BasicContextMenuModal>contextMenuItem})) { --lgs-c1c-rows: 7; }
+/* T2's count (the :is() rule above carries :has()'s specificity, so the row
+   count lives in rules of their own) */
+%{*BasicContextMenuModal>contextMenuContents}.lgs-menu-grid[data-lgs-menu] { --lgs-c1c-rows: var(--lgs-menu-rows, 4); }
+/* >= 15 options: one scrolling column of 72 px rows, 560 wide (CTL C-D19;
+   Steam's slab already scrolls, the modal box caps it at 508) */
+%{*BasicContextMenuModal>contextMenuContents}:is(.lgs-menu-scroll, :not([data-lgs-menu]):has(> :nth-child(16 of %{*BasicContextMenuModal>contextMenuItem}))) {
+  --lgs-c1c-l: scroll;
+  --lgs-c1c-w: 560px;
+  display: flex;
+  gap: var(--lgs-menu-row-gap, 6px);
+}
+
+/* rows by layout */
+@container style(--lgs-c1c-l: compact) {
+  /* 60 visible on a contiguous 64 px pitch (E-MENU): the element is the
+     hit region, a 2 px clear border insets its fill and light */
+  %{*BasicContextMenuHeader>BasicContextMenuModal} %{*BasicContextMenuModal>contextMenuContents} > %{*BasicContextMenuModal>contextMenuItem}:not(:last-child) {
+    height: var(--lgs-menu-pitch-compact, 64px);
+    border: 2px solid transparent;
+    background-clip: padding-box !important;
+    --lgs-ill-r: 22px;
+  }
+  /* compact rows touch (gap 0): Cancel keeps 12 px of slab above it */
+  %{*BasicContextMenuHeader>BasicContextMenuModal} %{*BasicContextMenuModal>BasicContextMenuContainer} > %{*BasicContextMenuModal>contextMenuContents}:first-child > %{*BasicContextMenuModal>contextMenuItem}:last-child {
+    margin-top: 12px;
+  }
+}
+@container style(--lgs-c1c-l: grid) {
+  %{*BasicContextMenuHeader>BasicContextMenuModal} %{*BasicContextMenuModal>contextMenuContents} > %{*BasicContextMenuModal>contextMenuItem}:not(:last-child) {
+    height: auto;
+    min-width: 0;
+    padding-right: 14px;
+  }
+  /* Cancel spans both columns in the last row; Steam's separators sit in
+     that row under it (no space of their own, nothing drawn) */
+  %{*BasicContextMenuHeader>BasicContextMenuModal} %{*BasicContextMenuModal>BasicContextMenuContainer} > %{*BasicContextMenuModal>contextMenuContents}:first-child > :is(%{*BasicContextMenuModal>contextMenuItem}:last-child, %{*BasicContextMenuModal>ContextMenuSeparator}) {
+    grid-column: 1 / -1;
+    grid-row: -2 / -1;
+    align-self: start;
+  }
+  %{*BasicContextMenuHeader>BasicContextMenuModal} %{*BasicContextMenuModal>BasicContextMenuContainer} > %{*BasicContextMenuModal>contextMenuContents}:first-child > %{*BasicContextMenuModal>contextMenuItem}:last-child {
+    justify-self: center;
+    /* 6 + 6 px clear above the capsule: its 80 px hit box stays on the slab */
+    margin-top: 6px;
+  }
+}
+
+/* the menu's title row follows the top-level slab's layout: BasicContextMenuModal
+   carries --lgs-c1c-hl and the width, its header and the slab read them */
+%{*BasicContextMenuHeader>BasicContextMenuModal} {
+  --lgs-c1c-hl: column;
+  --lgs-c1c-hdr: 0;
+}
+%{*BasicContextMenuHeader>BasicContextMenuModal}:has(> %{*BasicContextMenuModal>BasicContextMenuHeader}:not(:empty)) {
+  --lgs-c1c-hdr: 1;
+}
+%{*BasicContextMenuHeader>BasicContextMenuModal}:is(:has(> %{*BasicContextMenuModal>BasicContextMenuContainer} > %{*BasicContextMenuModal>contextMenuContents}:first-child.lgs-menu-compact), :has(> %{*BasicContextMenuModal>BasicContextMenuContainer} > %{*BasicContextMenuModal>contextMenuContents}:first-child > :nth-child(7 of %{*BasicContextMenuModal>contextMenuItem})):not(:has(> %{*BasicContextMenuModal>BasicContextMenuContainer} > %{*BasicContextMenuModal>contextMenuContents}:first-child[data-lgs-menu]))) {
+  --lgs-c1c-hl: compact;
+}
+%{*BasicContextMenuHeader>BasicContextMenuModal}:is(:has(> %{*BasicContextMenuModal>BasicContextMenuContainer} > %{*BasicContextMenuModal>contextMenuContents}:first-child.lgs-menu-grid), :has(> %{*BasicContextMenuModal>BasicContextMenuContainer} > %{*BasicContextMenuModal>contextMenuContents}:first-child > :nth-child(8 of %{*BasicContextMenuModal>contextMenuItem})):not(:has(> %{*BasicContextMenuModal>BasicContextMenuContainer} > %{*BasicContextMenuModal>contextMenuContents}:first-child[data-lgs-menu]))) {
+  --lgs-c1c-hl: column;
+  --lgs-c1c-w: var(--lgs-menu-max-w, 592px);
+}
+%{*BasicContextMenuHeader>BasicContextMenuModal}:is(:has(> %{*BasicContextMenuModal>BasicContextMenuContainer} > %{*BasicContextMenuModal>contextMenuContents}:first-child.lgs-menu-scroll), :has(> %{*BasicContextMenuModal>BasicContextMenuContainer} > %{*BasicContextMenuModal>contextMenuContents}:first-child > :nth-child(16 of %{*BasicContextMenuModal>contextMenuItem})):not(:has(> %{*BasicContextMenuModal>BasicContextMenuContainer} > %{*BasicContextMenuModal>contextMenuContents}:first-child[data-lgs-menu]))) {
+  --lgs-c1c-hl: column;
+  --lgs-c1c-w: 560px;
+}
+/* compact: the title is an inline line (19 px Semibold). White .70, not WN's
+   .50: .50 measured 3.5 : 1 over a bright room (G-AUD CONTRAST, P-39) */
+@container style(--lgs-c1c-hl: compact) {
+  %{*BasicContextMenuModal>BasicContextMenuHeader} {
+    margin-top: 12px;
+    margin-bottom: -34px;
+    padding-left: calc(50% - var(--lgs-c1c-w) / 2 + 18px);
+    font: 600 19px/22px var(--lgs-font);
+    color: var(--lgs-text-2);
+  }
+}
+/* the slab's top padding holds the title row (48 regular, 38 compact) */
+@container style(--lgs-c1c-hdr: 1) {
+  %{*BasicContextMenuModal>BasicContextMenuContainer} > %{*BasicContextMenuModal>contextMenuContents}:first-child {
+    padding-top: 44px;
+  }
+}
+@container style(--lgs-c1c-hdr: 1) and style(--lgs-c1c-hl: compact) {
+  %{*BasicContextMenuModal>BasicContextMenuContainer} > %{*BasicContextMenuModal>contextMenuContents}:first-child {
+    padding-top: 38px;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* 7. Alerts and sheets (WN §5.3, §5.4)                                 */
+/* ------------------------------------------------------------------ */
+
+/* alerts (Steam's dialog card): centred on the glass (VP P-35, D7). Only
+   ModalPosition's bottom padding moves the centre; never its top/bottom. */
+%{*GamepadDialogContent>ModalPosition}:has(> %{*GamepadDialogContent_InnerWidth>GamepadDialogContent}) {
+  padding-top: 24px;
+  padding-bottom: max(24px, calc(var(--lgs-c1c-top) + 24px + var(--lgs-c1c-bot) - var(--lgs-c1c-gh)));
+}
+/* sheets (custom content): <= 960 wide, top-aligned under the 108 toolbar
+   row, at most --lgs-c1c-sheet-h tall; their own scroller scrolls inside */
+%{*GamepadDialogContent>ModalPosition}:not(:has(> %{*GamepadDialogContent_InnerWidth>GamepadDialogContent})):has(> div:not(%{*GamepadDialogContent>ModalClickToDismiss}, %{FocusRing}, %{FocusRingRoot}, .BasicUIContextMenu)) {
+  padding-top: max(24px, calc(var(--lgs-header, 108px) - var(--lgs-c1c-top)));
+  padding-bottom: max(24px, calc(var(--lgs-c1c-bot) - var(--lgs-header, 108px) - var(--lgs-c1c-sheet-h)));
+  padding-inline: max(24px, calc((100% - var(--lgs-sheet-max-w, 960px)) / 2));
+}
+
+/* the alert card: thick glass, radius 44, 640 wide (confirm dialogs),
+   padding 36 36 28; Steam's border, #0e141b fill and vw/vh padding go */
+%{*GamepadDialogContent>ModalPosition} > %{*GamepadDialogContent_InnerWidth>GamepadDialogContent} {
+  box-sizing: border-box;
+  max-width: var(--lgs-sheet-max-w, 960px);
+  padding: 36px 36px 28px;
+  border: 0;
+  border-radius: var(--lgs-r-tile, 44px);
+  background: var(--lgs-mat-thick-bg) !important;
+  backdrop-filter: var(--lgs-mat-thick-blur);
+  box-shadow: var(--lgs-mat-thick-shade), var(--lgs-shadow-10mm);
+  --lgs-edge: thick;
+  /* materialize 250 + swell 1.02 -> 1 (large glass, MO R8); replaces
+     Steam's .5s card fade (S3; its end state is the element's rest) */
+  --lgs-maxside: 640;
+  animation: lgs-mat-large-in var(--lgs-motion-mat-in) backwards;
+}
+%{*GamepadDialogContent>ModalPosition} > %{*GamepadDialogContent_InnerWidth>GamepadDialogContent}.GenericConfirmDialog {
+  width: var(--lgs-alert-w, 640px);
+}
+%{*GamepadDialogContent>ModalPosition} > %{*GamepadDialogContent_InnerWidth>GamepadDialogContent} > %{*GamepadDialogContent>GamepadDialogContent_InnerWidth} {
+  animation: lgs-mat-content-in var(--lgs-motion-mat-in) backwards;
+}
+
+/* the sheet card: custom content placed straight in ModalPosition */
+%{*GamepadDialogContent>ModalPosition} > div.Panel:not(%{*GamepadDialogContent>ModalClickToDismiss}, %{FocusRing}, %{FocusRingRoot}, .BasicUIContextMenu, %{*GamepadDialogContent_InnerWidth>GamepadDialogContent}) {
+  box-sizing: border-box;
+  padding: var(--lgs-inset, 24px);
+  border-radius: var(--lgs-r-sheet, 44px);
+  /* Body for content that does not set its own type (P-38: >= 18 px, >= 500) */
+  font: 500 22px/1.36 var(--lgs-font);
+  background: var(--lgs-mat-thick-bg) !important;
+  backdrop-filter: var(--lgs-mat-thick-blur);
+  box-shadow: var(--lgs-mat-thick-shade), var(--lgs-shadow-10mm);
+  --lgs-edge: thick;
+  animation: lgs-sheet-in var(--lgs-motion-sheet-in) backwards;
+}
+%{*GamepadDialogContent>ModalPosition} > div.Panel:not(%{*GamepadDialogContent>ModalClickToDismiss}, %{FocusRing}, %{FocusRingRoot}, .BasicUIContextMenu, %{*GamepadDialogContent_InnerWidth>GamepadDialogContent}) > * {
+  animation: lgs-sheet-content-in var(--lgs-motion-sheet-in) backwards;
+}
+
+/* type: title Title 3 28 px Bold, body Callout 22 px Medium (title case is
+   Steam's text; no uppercase, no tracking) */
+%{*GamepadDialogContent>ModalPosition} .DialogHeader {
+  font: 700 28px/1.25 var(--lgs-font);
+  letter-spacing: -.01em;
+  text-transform: none;
+  color: var(--lgs-text-1);
+  text-shadow: none;
+  margin-bottom: 12px;
+}
+%{*GamepadDialogContent>ModalPosition} .DialogBodyText {
+  font: 500 22px/1.36 var(--lgs-font);
+  color: var(--lgs-text-1);
+  margin-bottom: 0;
+}
+%{*GamepadDialogContent>ModalPosition} :is(.DialogSubHeader, .DialogControlsSectionHeader) {
+  font: 600 19px/1.2 var(--lgs-font);
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--lgs-text-2);
+  border-color: transparent;
+}
+
+/* buttons: 60 px capsules side by side in Steam's order, 24 Semibold (alert
+   footers, and buttons placed straight in a sheet, such as its Close) */
+%{*GamepadDialogContent>ModalPosition} .DialogFooter {
+  padding-top: 30px;
+}
+%{*GamepadDialogContent>ModalPosition} .DialogFooter .DialogTwoColLayout {
+  gap: 16px;
+}
+%{*GamepadDialogContent>ModalPosition} .DialogFooter button.DialogButton%{*GamepadDialogContent>Button},
+%{*GamepadDialogContent>ModalPosition} > div.Panel:not(%{*GamepadDialogContent>ModalClickToDismiss}, %{FocusRing}, %{FocusRingRoot}, .BasicUIContextMenu, %{*GamepadDialogContent_InnerWidth>GamepadDialogContent}) > button.DialogButton%{*GamepadDialogContent>Button} {
+  box-sizing: border-box;
+  height: var(--lgs-btn, 60px);
+  margin: 0;
+  padding: 0 var(--lgs-btn-pad, 24px);
+  border-radius: var(--lgs-r-capsule);
+  font: 600 24px/1.2 var(--lgs-font);
+  letter-spacing: 0;
+  text-transform: none;
+  background: var(--lgs-raised-bg) !important;
+  box-shadow: var(--lgs-raised-shadow) !important;
+  color: var(--lgs-text-1) !important;
+  outline: none;
+  isolation: isolate;
+  --lgs-ill: raised;
+  --lgs-ill-r: var(--lgs-r-capsule);
+  --lgs-ill-z: -1;
+  transition: background-color var(--lgs-d-hover-in) var(--lgs-ease-b0), color var(--lgs-d-hover-in) var(--lgs-ease-b0);
+}
+%{*GamepadDialogContent>ModalPosition} .DialogFooter button.DialogButton%{*GamepadDialogContent>Button}.Primary,
+%{*GamepadDialogContent>ModalPosition} > div.Panel:not(%{*GamepadDialogContent>ModalClickToDismiss}, %{FocusRing}, %{FocusRingRoot}, .BasicUIContextMenu, %{*GamepadDialogContent_InnerWidth>GamepadDialogContent}) > button.DialogButton%{*GamepadDialogContent>Button}.Primary {
+  background: linear-gradient(180deg, rgb(255 255 255 / .16), rgb(255 255 255 / 0) 55%), linear-gradient(var(--lgs-tint-primary), var(--lgs-tint-primary)) !important;
+  color: var(--lgs-text-on-tint) !important;
+  --lgs-ill: white;
+}
+/* destructive confirms (Steam's .Destructive, and C1c's T2 tag for Power
+   confirmations): red, dark label (CC §7, S19) */
+%{*GamepadDialogContent>ModalPosition} .DialogFooter button.DialogButton%{*GamepadDialogContent>Button}:is(.Destructive, [data-lgs-destructive]),
+%{*GamepadDialogContent>ModalPosition} > div.Panel:not(%{*GamepadDialogContent>ModalClickToDismiss}, %{FocusRing}, %{FocusRingRoot}, .BasicUIContextMenu, %{*GamepadDialogContent_InnerWidth>GamepadDialogContent}) > button.DialogButton%{*GamepadDialogContent>Button}:is(.Destructive, [data-lgs-destructive]) {
+  background: linear-gradient(180deg, rgb(255 255 255 / .16), rgb(255 255 255 / 0) 55%), linear-gradient(var(--lgs-c1c-red), var(--lgs-c1c-red)) !important;
+  color: var(--lgs-text-on-selected) !important;
+  --lgs-ill: white;
+}
+%{*GamepadDialogContent>ModalPosition} .DialogFooter button.DialogButton%{*GamepadDialogContent>Button}:is(.Disabled, [disabled]),
+%{*GamepadDialogContent>ModalPosition} > div.Panel:not(%{*GamepadDialogContent>ModalClickToDismiss}, %{FocusRing}, %{FocusRingRoot}, .BasicUIContextMenu, %{*GamepadDialogContent_InnerWidth>GamepadDialogContent}) > button.DialogButton%{*GamepadDialogContent>Button}:is(.Disabled, [disabled]) {
+  background: var(--lgs-raised-bg) !important;
+  color: rgb(255 255 255 / var(--lgs-dis-content, .40)) !important;
+  opacity: 1;
+}
+
+/* a button placed straight in a sheet keeps 12 px of sheet above it, so its
+   80 px hit box lands on the sheet, not on the scroller beside it (P-08) */
+%{*GamepadDialogContent>ModalPosition} > div.Panel:not(%{*GamepadDialogContent>ModalClickToDismiss}, %{FocusRing}, %{FocusRingRoot}, .BasicUIContextMenu, %{*GamepadDialogContent_InnerWidth>GamepadDialogContent}) > button.DialogButton%{*GamepadDialogContent>Button} {
+  margin-top: 12px;
+}
+
+/* text prompt: a 64 px recessed capsule; focused, the field ring (P-17) */
+%{*GamepadDialogContent>ModalPosition} input%{*GamepadDialogContent>BasicTextInput} {
+  box-sizing: border-box;
+  height: var(--lgs-field, 64px);
+  padding: 0 24px;
+  border: 0;
+  border-radius: var(--lgs-r-capsule);
+  font: 500 24px/1.2 var(--lgs-font);
+  font-style: normal;
+  background: var(--lgs-fill-thick) !important;
+  box-shadow: var(--lgs-recessed-shadow) !important;
+  color: var(--lgs-text-1) !important;
+}
+%{*GamepadDialogContent>ModalPosition} input%{*GamepadDialogContent>BasicTextInput}::placeholder {
+  font-style: normal;
+  color: var(--lgs-text-3);
+}
+%{*GamepadDialogContent>ModalPosition} input%{*GamepadDialogContent>BasicTextInput}:is(.gpfocus, :focus) {
+  box-shadow: var(--lgs-recessed-shadow), var(--lgs-field-focus) !important;
+}
+
+/* the app-details overlay (WN §5.4 last row; taken over from 20-shell.css §5,
+   PLAN §6): Steam's dimming layer becomes the scrim, black .35 without its
+   blur, brightness and saturation; Steam's opacity transition stays */
+%{PartnerEventOverlayContainer} %{Container>TransitionWrapper} {
+  background-color: var(--lgs-scrim);
+  backdrop-filter: none !important;
+}
+
+/* ------------------------------------------------------------------ */
+/* 8. Chrome while an alert or sheet is open (D16; C1c's T2 sets        */
+/*    html.lgs-modal on every popup window)                              */
+/* ------------------------------------------------------------------ */
+
+&.lgs-modal #header > * {
+  opacity: .45;
+  transition: opacity var(--lgs-motion-fade);
+}
+
+/* ------------------------------------------------------------------ */
+/* 9. Markup of C1c's T2 (device/rt/22-menus.js, flag wp.c1c); inert    */
+/*    without it                                                         */
+/* ------------------------------------------------------------------ */
+
+/* Power glyphs (CC §5): 26 px masks in the leading slot. More than 2
+   destructive rows, so the glyph is red at rest (the label white) and
+   follows the dark label on the red focus fill */
+%{*BasicContextMenuHeader>BasicContextMenuModal} %{*BasicContextMenuModal>contextMenuContents} > %{*BasicContextMenuModal>contextMenuItem}[data-lgs-glyph] {
+  padding-left: 60px;
+}
+%{*BasicContextMenuHeader>BasicContextMenuModal} %{*BasicContextMenuModal>contextMenuContents} > %{*BasicContextMenuModal>contextMenuItem}[data-lgs-glyph]::before {
+  content: "";
+  position: absolute;
+  left: 20px;
+  top: 50%;
+  width: 26px;
+  height: 26px;
+  margin-top: -13px;
+  background: currentColor;
+  -webkit-mask: var(--lgs-c1c-glyph) center / contain no-repeat;
+  pointer-events: none;
+}
+%{*BasicContextMenuHeader>BasicContextMenuModal} %{*BasicContextMenuModal>contextMenuContents} > %{*BasicContextMenuModal>contextMenuItem}[data-lgs-glyph]:is(%{*BasicContextMenuModal>Destructive}, .Stop)::before {
+  background: var(--lgs-red);
+}
+&:not(.lgs-input-laser) %{*BasicContextMenuHeader>BasicContextMenuModal} %{*BasicContextMenuModal>contextMenuContents} > %{*BasicContextMenuModal>contextMenuItem}[data-lgs-glyph]:is(%{*BasicContextMenuModal>Destructive}, .Stop):is(.gpfocus, %{*BasicContextMenuModal>Focused})::before {
+  background: currentColor;
+}
+[data-lgs-glyph="moon"] { --lgs-c1c-glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z'/%3E%3C/svg%3E"); }
+[data-lgs-glyph="power"] { --lgs-c1c-glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'%3E%3Cpath d='M12 3v8'/%3E%3Cpath d='M6.3 6.8a8 8 0 1 0 11.4 0'/%3E%3C/svg%3E"); }
+[data-lgs-glyph="restart"] { --lgs-c1c-glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M19.2 12.4a7.2 7.2 0 1 1-2.2-5.6'/%3E%3Cpath d='M17.6 3.6v3.9h-3.9'/%3E%3C/svg%3E"); }
+[data-lgs-glyph="vr"] { --lgs-c1c-glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linejoin='round'%3E%3Cpath d='M3 9a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v5a3 3 0 0 1-3 3h-3l-1.5-2h-3L9 17H6a3 3 0 0 1-3-3z'/%3E%3C/svg%3E"); }
+[data-lgs-glyph="person"] { --lgs-c1c-glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='12' cy='8' r='4'/%3E%3Cpath d='M4.5 20a7.5 7.5 0 0 1 15 0'/%3E%3C/svg%3E"); }
+[data-lgs-glyph="signout"] { --lgs-c1c-glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.4 4.8H6.6a1.6 1.6 0 0 0-1.6 1.6v11.2a1.6 1.6 0 0 0 1.6 1.6h3.8'/%3E%3Cpath d='M14.6 8l4 4-4 4'/%3E%3Cpath d='M9.4 12h9'/%3E%3C/svg%3E"); }
+
+/* Power's group labels (WN §5.2; Steam's strings "This Device" and
+   "Steam") over the two columns, and a T2 title for menus Steam leaves
+   untitled (Sort By). Both are the container's own pseudo-elements, so
+   no node enters Steam's list; the slab's top padding makes the room. */
+%{*BasicContextMenuModal>BasicContextMenuContainer}:is([data-lgs-g1], [data-lgs-g2], [data-lgs-title]) {
+  position: relative;
+}
+%{*BasicContextMenuModal>BasicContextMenuContainer}[data-lgs-g1]::before,
+%{*BasicContextMenuModal>BasicContextMenuContainer}[data-lgs-g2]::after {
+  position: absolute;
+  z-index: 2;
+  top: 48px;
+  max-width: 250px;
+  overflow: hidden;
+  font: 600 19px/24px var(--lgs-font);
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--lgs-text-2);
+  pointer-events: none;
+}
+%{*BasicContextMenuModal>BasicContextMenuContainer}[data-lgs-g1]::before {
+  content: attr(data-lgs-g1);
+  left: 30px;
+}
+/* column 2 starts at 8 + (592 - 24) / 2 + 8 = 300; the label at its row's 22 px inset */
+%{*BasicContextMenuModal>BasicContextMenuContainer}[data-lgs-g2]::after {
+  content: attr(data-lgs-g2);
+  left: 322px;
+}
+%{*BasicContextMenuModal>BasicContextMenuContainer}:is([data-lgs-g1], [data-lgs-g2]) > %{*BasicContextMenuModal>contextMenuContents}:first-child {
+  padding-top: 80px;
+}
+%{*BasicContextMenuModal>BasicContextMenuContainer}[data-lgs-title]::before {
+  content: attr(data-lgs-title);
+  position: absolute;
+  z-index: 2;
+  top: 13px;
+  left: 20px;
+  right: 20px;
+  overflow: hidden;
+  font: 700 22px/26px var(--lgs-font);
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--lgs-text-2);
+  pointer-events: none;
+}
+%{*BasicContextMenuModal>BasicContextMenuContainer}[data-lgs-title] > %{*BasicContextMenuModal>contextMenuContents}:first-child {
+  padding-top: 44px;
+}
+
+/* the source of an open menu (PLAN §1.4, P4's recipe): controls turn white
+   with a dark label; a content card stays at 0 mm with a soft glow (D6b).
+   The More circle and the frame menu's tabs have their own looks (C1a:
+   .lgs-more-open, data-lgs-open). */
+[data-lgs-menu-source="white"] {
+  background: var(--lgs-selected-fill) !important;
+  color: var(--lgs-text-on-selected) !important;
+  --lgs-ill: white;
+}
+/* ornament members light an inset capsule (C1a, 60 of 84 px): white there */
+#Footer [data-lgs-menu-source="white"] {
+  background: none !important;
+  --lgs-ill: raised;
+}
+#Footer [data-lgs-menu-source="white"]::after {
+  background: var(--lgs-selected-fill) !important;
+}
+[data-lgs-menu-source="glow"] {
+  box-shadow: 0 10px 28px rgb(0 0 0 / .42), 0 0 26px 3px rgb(255 255 255 / .20) !important;
+}
+
+/* sheets with T2's close circle: a 96 px toolbar row at the top of the
+   card holds the circle at (24, 24); the content starts below it */
+%{*GamepadDialogContent>ModalPosition} > div.Panel[data-lgs-sheet="close"]:not(%{*GamepadDialogContent>ModalClickToDismiss}, %{FocusRing}, %{FocusRingRoot}, .BasicUIContextMenu, %{*GamepadDialogContent_InnerWidth>GamepadDialogContent}) {
+  padding-top: 96px;
+}
+/* the close circle: our node in main's body, fixed over the card's (24, 24) */
+.lgs-sheet-close {
+  position: fixed;
+  z-index: 7100;
+  box-sizing: border-box;
+  width: var(--lgs-btn, 60px);
+  height: var(--lgs-btn, 60px);
+  border-radius: 50%;
+  background: var(--lgs-raised-bg);
+  box-shadow: var(--lgs-raised-shadow);
+  isolation: isolate;
+  cursor: default;
+  --lgs-ill: raised;
+  --lgs-ill-r: 50%;
+  --lgs-ill-z: -1;
+  --lgs-maxside: 60;
+  animation: lgs-mat-glass-in var(--lgs-motion-mat-in) backwards;
+}
+.lgs-sheet-close::before {
+  content: "";
+  position: absolute;
+  inset: 18px;
+  background: var(--lgs-text-1);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M6 6l12 12M18 6L6 18'/%3E%3C/svg%3E") center / contain no-repeat;
+  pointer-events: none;
+}
+/* the circle never outlives its sheet's overlay (Steam hides the overlay
+   before T2's next scan removes the node) */
+&:not(.lgs-modal) .lgs-sheet-close {
+  visibility: hidden;
+}
+
+/* ------------------------------------------------------------------ */
+/* 10. Accessibility                                                    */
+/* ------------------------------------------------------------------ */
+
+/* High Contrast: the tokens make the glass opaque and the edge hook draws
+   the one allowed stroke; the scrim goes darker so the page recedes. */
+@media (prefers-contrast: more) {
+  %{GamepadDialogOverlay} .ModalOverlayContent.ModalOverlayBackground {
+    background: rgb(0 0 0 / .60);
+  }
+}

@@ -6,8 +6,10 @@
 #  (d) parent SIGKILLed: glassd stops by itself; a successor starts
 #  (e) --orphan-ok keeps running when the parent dies
 G=${GLASSD:-$(cd "$(dirname "$0")/.." && pwd)/glassd}
-D=/tmp/lgs-fx
+D=/tmp/lgs/p9-fx/locks  # rule 7: test state only under /tmp/lgs
+rm -rf $D
 mkdir -p $D
+trap 'rm -rf "$D"; rmdir /tmp/lgs/p9-fx 2>/dev/null' EXIT
 echo "=== (a) same --out, different --key-prefix"
 $G --demo --no-feed --dash off --key-prefix glassd-fxA. --out $D/out.json --timeout 5 > $D/a.log 2>&1 &
 A=$!

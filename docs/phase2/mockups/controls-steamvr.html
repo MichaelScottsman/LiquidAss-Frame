@@ -20,8 +20,9 @@
   .vr-sl { width: 340px; flex: none; }
   .vr-sl > .knob { display: grid !important; place-items: center; font: 700 18px/1 var(--lg-font); color: #1b1c20; font-variant-numeric: tabular-nums; }   /* >= 18 main px (G-TYPE) */
   .vr-menu { position: absolute; width: 300px; padding: 8px; display: flex; flex-direction: column; gap: 6px; --r: 32px; }
-  .vr-menu .lgk-row { height: 72px; padding: 0 20px; font-size: 24px; }
-  .vr-menu .lgk-row .trail { margin-left: auto; }
+  .vr-menu .lgk-row { height: 72px; padding: 0 22px 0 16px; gap: 16px; font-size: 24px; }
+  /* the current value's check in the leading 28 px slot every row reserves (the menu rule of PLAN §1.12 / C1c) */
+  .vr-menu .lgk-row .lead { width: 28px; flex: none; display: grid; place-items: center; color: var(--lg-text-1); }
   .adv { display: inline-block; width: 11px; height: 11px; border-radius: 50%; background: rgb(175 82 222); margin-right: 12px; vertical-align: 3px; }
 </style>
 </head>
@@ -57,8 +58,8 @@
   </div>
   <!-- SteamVR's own popover for the dropdown (inside its panel): thick glass, 72 px rows, current value checked, grown from the source -->
   <div class="lgk-glass vr-menu" id="menu" data-mat="thick" data-dz="0" data-tier="T1 theme/vr (SteamVR's own popover, inside its panel: no pop)">
-    <div class="lgk-row is-hover" style="--hx:58%; --hy:48%">Left</div>
-    <div class="lgk-row">Right<span class="trail"><i data-i="check" style="--is:24px; stroke-width:3"></i></span></div>
+    <div class="lgk-row is-hover" style="--hx:58%; --hy:48%"><span class="lead"></span>Left</div>
+    <div class="lgk-row"><span class="lead"><i data-i="check" style="--is:24px; stroke-width:3"></i></span>Right</div>
   </div>
 
   <div data-wn="frame" data-cx="860" data-y="806" data-dim=".72"></div>

@@ -17,6 +17,10 @@
 # popped rects cut out, and the crops at their depths), head-on and 0.35 m off
 # axis; OUTDIR/plates{,-offaxis}/ is tools/test_plates.json (windowless Home:
 # 19 plates, the focused cell popped over its occluder plate).
+# R1: OUTDIR/platecover{,-offaxis}/ is tools/test_platecover.json (plates over
+# the window cover, PLAN 1.6's flat alerts, tiles and ornaments: a thick alert
+# with a blue-tinted button popped over it, a panel tile, a liquid disc, the
+# bottom ornament). tools/test_holes.py measures the holes' dL (GL-2).
 set -e
 cd "$(dirname "$0")/.."
 G=${GLASSD:-./glassd}
@@ -37,3 +41,5 @@ run holes tools/test_holes.json --test-backdrop room --view-content hero "$@"
 run holes-offaxis tools/test_holes.json --test-backdrop room --view-content hero --test-head 0.35,0.1,0 "$@"
 run plates tools/test_plates.json --test-backdrop room "$@"
 run plates-offaxis tools/test_plates.json --test-backdrop room --test-head 0.35,0.1,0 "$@"
+run platecover tools/test_platecover.json --test-backdrop room "$@"
+run platecover-offaxis tools/test_platecover.json --test-backdrop room --test-head 0.35,0.1,0 "$@"

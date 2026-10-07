@@ -32,7 +32,13 @@ lgs_shell.brief(status) -> dict # one-level summary for `lgs status`
 
 `"auto"` found in a file means "not decided" and falls through to the next source; the built-in end of the chain is CSS only. Both files may be flat (`{"native": "on"}`) or nested (`{"flags": {"native": "on"}}`). `status.native` reports `{requested, resolved, source, enabled, reason}`, e.g. `{"requested": "auto", "resolved": "off", "source": "builtin", "reason": "native=auto: the native gate has not passed (device/defaults.json has no native: on)"}`; `status.mode` is then `"css-only (native=auto: …)"` (DM-6).
 
-`--stay` (lab only) keeps the unit dormant while the Steam theme is off. The unit otherwise exits 3 polls (≈ 3 s) after the theme goes off.
+**Theme off without `lgs off`** (2026-10-07 session 2; `lgs off` itself stops the unit first). Lab `--stock` steps and P1's selftests turn the Steam theme off and on with `lgs.op` alone. After 3 polls (≈ 3 s) with the theme off the unit goes **dormant** instead of exiting: the native layer, the reporter, the scene graph (also the CSS-only transform overrides) and `html.lgs-native` are taken away, SteamVR page theming, page scripts and the `lgsAction` binding stay. When the theme is back it resumes in the same process within 1 s: reporter re-injected, bridge values re-sent, glass materializes again. It exits (full teardown, SteamVR pages stripped) when:
+
+- the theme stays off for the grace, `shellThemeGraceS` (flag, 0..3600 s, default **600**; `0` = exit after 3 polls as in Phase 1);
+- the theme is off on a **new** SharedJSContext target (Steam or its UI restarted): at once, so nothing outlives a Steam restart;
+- Steam's devtools stay unreachable for 120 s.
+
+`status.dormant` is `{since, graceS, stay}` while dormant, else `null`. `--stay` (lab only) is the same dormancy without a time limit.
 
 CLI: `lgs_shell.py start [--native|--css|--auto] [--stay] [--glassd PATH|none] [--glassd-args "…"] [--feed] [--test-report PATH]`, `stop`, `status`, `selftest NAME` (§9). From the PC: `python glass.py shell …` (P10 passes arguments on).
 
@@ -48,6 +54,7 @@ Merged as `defaults.json` < `/tmp/lgs/flags.json` (re-read within 1 s of a chang
 | `interactivePops` | false | Scene-graph spec `profile: "wearer"` (else `"default"`), reporter option `profile`, bridge `daemon.profile` (PLAN §1.7, S2) | live |
 | `actionsDryRun` | false | Every action of kind `nav` or `launch` is validated, logged and answered `{ok: true, dry: true}` without running (tests). P1's action logger has the same effect | live |
 | `sgDepthAnim` | true | `false` sends the spec `depthMotion: "none"` (P7's kill switch) | live |
+| `shellThemeGraceS` | 600 | Seconds the unit stays dormant while the Steam theme is off without `lgs off` (§1); `0` = exit after 3 polls | live |
 | `wp.<id>` and any other name | — | Gates a SteamVR page script that declares it (§6) or an action that declares it (§5) | live |
 
 The daemon never writes either file. `lgs off` (P1) clears `/tmp/lgs/flags.json`.
@@ -167,6 +174,10 @@ Arg schema keys: `type` (`str`: `max` length default 256, `re`; `int`/`num`: `mi
 
 **Kinds:** `echo`, `read` and `ui` always run; `nav` and `launch` are answered `{ok: true, dry: true}` and not run while `actionsDryRun` is on **or** P1's action logger is on (`rt.test.actions.enabled()`; the call is recorded there as `{fn: 'daemon.<type>', arg: args}`), and also when the logger state cannot be read.
 
+## 5.1 SteamVR page theming: fonts
+
+`lgs_vr_core.js` themes every SteamVR page (`systemui`, `controllerbindingui`, `keyboard`, …) with `theme/*.nowrap.css` + `theme/vr/*.css`. The pages' CSP (`default-src 'self' 'unsafe-eval'`, no `font-src`) blocks `data:` fonts, so every `@font-face` whose `src` is `url(data:font/woff2;base64,…)` is taken out of the page's CSS and added as a binary `FontFace` (family, `weight`, `style`, `stretch`, `unicodeRange`, `display` from the rule), once per theme version; `disable()` (theme off, daemon stop) deletes them again. `__LGS_VR.status()` lists `fonts` (`"<family> <weight> <status>"`) and `fontErrors`. Status: **live** (REQ P4->P8, FD-2).
+
 ## 6. SteamVR page scripts
 
 Files `device/vr/<page>.<name>.js` (owners per PLAN §2.6, e.g. C5b `systemui.nowplaying.js`, C6b `systemui.settings.js`), plus test-only files in `/tmp/lgs/vr-scripts/` (RAM). `<page>` is the SteamVR page title (`systemui`, `controllerbindingui`, …).
@@ -184,15 +195,17 @@ P8 copies from the reporter's report (P6) into `glassd.json`, after type checks,
 
 | Level | Fields copied | Cap |
 |---|---|---|
-| top | `dial` (from the dial file), `reduceMotion` (Steam's `prefers-reduced-motion`, polled 1/s), `unitM` (§4.1, live S × r), `masks` (report top-level `masks`) | `unitM`, `masks` |
+| top | `dial` (from the dial file), `reduceMotion` (Steam's `prefers-reduced-motion`, polled 1/s), `unitM` (§4.1, live S × r), `masks` (report top-level `masks`), `roomDim` (report top-level `roomDim`, 0..0.9) | `unitM`, `masks`, `roomDim` |
 | surface | `name`, `overlayKey`, `texW`, `texH`, `radius`, `material`, `visible`, `shapes`, `quad`, `phase`, `appear`, `phaseMs`, `plates`, `coverDz`, `masks`, `scaleFrom` | `plates`, `coverDz`, `masks`, `scaleFrom` |
-| slab (report `layers[]`) | `id`, `x`, `y`, `w`, `h`, `r`, `material`, `dz`, `phase`, `appear`, `phaseMs`, `tint`, `hole`, `ox`, `oy` | `tint`, `holes`, `offset`, `none` (material `none`) |
+| slab (report `layers[]`) | `id`, `x`, `y`, `w`, `h`, `r`, `material`, `dz`, `phase`, `appear`, `phaseMs`, `tint`, `hole`, `ox`, `oy`, `fill` (material `dim` only) | `tint`, `holes`, `offset`, `none` (material `none`), `dimSlab` (material `dim`) |
 | plate | `id`, `x`, `y`, `w`, `h`, `r`, `material`, `phase`, `appear`, `phaseMs`, `tint`, `fill`, `occluder`, `shadow` | `plates`, `dim` (material `dim`) |
+
+A slab or plate whose material needs a cap glassd does not list is **left out** (never sent as glass): `none` and `dim` slabs, `dim` plates. Without the `plates` cap, plates become cover shapes (≤ 8) as before.
 
 **Materialize policy** (GM §5.4), applied by P8 unless the report already sets `appear` or `phase` on that item:
 
 - a **new slab or plate id** gets `"appear": "materialize"`;
-- a slab or plate that **leaves** the report stays in `glassd.json` with `phase: 0` for its out-ramp (slab 350 ms, `thick` 514 ms, plates by material as P9 §1.3, 180 ms under `reduceMotion`), then is removed; during that time the scene-graph spec lists the slab under the surface's `slabsOut` (P7 may draw the slab panel alone; an older `lgs_sg.js` ignores it);
+- a slab or plate that **leaves** the report stays in `glassd.json` with `phase: 0` for its out-ramp (slab 350 ms, `thick` and `dim` slabs 514 ms, plates by material as P9 §1.3, 180 ms under `reduceMotion`), then is removed; during that time the scene-graph spec lists the slab under the surface's `slabsOut` (P7 may draw the slab panel alone; an older `lgs_sg.js` ignores it);
 - **covers are never animated by P8** (GM §5.4 caution); a report's own surface `phase` is passed through.
 
 When the report's `hole` is `true` or has no `clip` and P8 trims a sliver (`clip` in the spec), P8 sets `hole.clip` to that rect.
@@ -225,6 +238,7 @@ When the report's `hole` is `true` or has no `clip` and P8 trims a sliver (`clip
 | `mosaic` | surface | the report's `mosaic` bands `[{x, y, w, h}]` (≤ 16) | live |
 | `popped[].interactive` | pop | `true` only when the layer says so **and** the profile is `wearer` | live |
 | `popped[].from`, `motion`, `sink` | pop | copied from the report's layer | live |
+| `dimSlabs` | surface | `[{id, x, y, w, h, dz, slab}]`: `material: "dim"` layers (glassd §1.4 room-dim cells). They are **not popped** (no element to crop); P7 places the cell (behind the window, scaled up) when it supports room dim | built |
 
 **Transform overrides** (contracts/sg.md §4): the daemon merges `theme/sg/*.json` in name order (`supersedes` drops earlier ids; a rule with a `flag` is kept only while that flag is true in the merged flags) and calls `__LGS_SG.overrides({seq, rules})` whenever the active set changes and after every (re)inject. **In CSS-only mode** `lgs_sg.js` is installed in `vr:systemui` (with the 1 s heartbeat) while any override is active or a `window` state is requested, and `destroy()`ed when neither is; `destroy()` also runs at teardown in both modes.
 
@@ -232,7 +246,7 @@ When the report's `hole` is `true` or has no `clip` and P8 trims a sliver (`clip
 
 ## 10. Status (`/dev/shm/lgs/shell.json`, every 2 s; `lgs_shell.py status`)
 
-Phase 1 fields stay. New: `native.{requested, resolved, source}`, `flags` (merged), `bridge` (`runtime` present, last `sent` names and times), `geom`, `page`, `actions` (`types`, `plugins`, `failed`, `calls`, `rejected` (last 10), `dryRun`), `vrScripts` (`{page: {name: state}}`), `glassd.caps`, `steam.plateAcks`.
+Phase 1 fields stay. New: `dormant` (§1), `steam.restarted`, `steam.slowEvals` (Steam evaluations that timed out with the connection kept), `native.{requested, resolved, source}`, `flags` (merged), `bridge` (`runtime` present, last `sent` names and times), `geom`, `page`, `actions` (`types`, `plugins`, `failed`, `calls`, `rejected` (last 10), `dryRun`), `vrScripts` (`{page: {name: state}}`), `glassd.caps`, `steam.plateAcks`.
 
 ## 11. Test hooks (lab only)
 
@@ -241,4 +255,9 @@ Phase 1 fields stay. New: `native.{requested, resolved, source}`, `flags` (merge
 | `start --assume-caps plates,holes,…` | The writer acts as if glassd's `caps` listed these (checks the glassd.json side against an older binary) |
 | `start --test-report PATH` | The daemon does not inject the reporter; it reads the report JSON from `PATH` (re-read on change). With `--stay` and fakeglassd it exercises the whole glassd / scene-graph path without P6 (DM-1, DM-2) |
 | `/tmp/lgs/vr-scripts/<page>.<name>.js` | Test page scripts (DM-5) |
-| `lgs_shell.py selftest NAME` | `dm1` (native, fakeglassd: freeze, teardown order, restart backoff), `dm2` (native, fakeglassd: v3 fields, fades), `dm3` (geometry against the SP §1.2 snippet), `dm4` (echo / unknown type / wrong source / rate through the binding), `dm5` (inject a test page script, check, stop), `dm6` (resolve `auto` without starting anything), `actions` (validator unit tests, offline) |
+| `lgs_shell.py selftest NAME` | `dm1` (native, fakeglassd: freeze, teardown order, restart backoff), `dm2 [--keep-dump]` (native, fakeglassd: v3 fields incl. `roomDim`, a `dim` slab and the keyboard surface, fades), `dm3` (geometry against the SP §1.2 snippet), `dm4` (echo / unknown type / wrong source / rate through the binding), `dm5` (inject a test page script, check, stop), `dm6` (resolve `auto` without starting anything), `grace` (theme off / on without `lgs off`: dormant, then resumed in the same process; holds `lab.lock`, `lab-vr.lock`), `actions` (validator unit tests, offline). `dm1`, `dm2` hold `native.lock` and `lab-vr.lock` |
+
+## 12. Changes
+
+- 2026-10-07 04:10: first version (M1).
+- 2026-10-07 06:15-07:00: §1 theme off without `lgs off` → dormant (grace flag `shellThemeGraceS`, default 600 s), exit on a Steam restart or 120 s without Steam; §5.1 binary fonts in SteamVR pages (REQ P4->P8); §7 `roomDim`, `dim` slabs and `dim` plates behind their caps; §9 `dimSlabs`; §10 `dormant`, `steam.restarted`, `steam.slowEvals`; §11 `grace`, `plates` selftests. A Steam evaluation that times out no longer drops the connection (two in a row are tolerated). All backward compatible.

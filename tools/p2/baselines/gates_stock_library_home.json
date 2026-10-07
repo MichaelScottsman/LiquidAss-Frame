@@ -1,0 +1,265 @@
+{
+ "surface": "main",
+ "route": "/library/home",
+ "pre": false,
+ "theme": "keep",
+ "keep": null,
+ "step": {
+  "flags": {},
+  "mode": null,
+  "media": [],
+  "stock": true
+ },
+ "build": "11094443",
+ "date": "2026-10-07T05:57:21",
+ "gates": {
+  "MOTION": {
+   "pass": false,
+   "nonToken": [],
+   "atRest": {
+    "count": 1,
+    "running": [
+     "_2tSbN-Ik0JtgSVuvWRLekE on %{LibraryItemBox} %{Landscape} %{InRecentGames} (running)"
+    ],
+    "lgsLeft": [],
+    "infinite": []
+   },
+   "cssNonToken": []
+  },
+  "SIZE": {
+   "pass": false,
+   "m": 1,
+   "checked": 14,
+   "fails": [
+    {
+     "el": "%{SearchAndTitleContainer} %{ShowingSearch} %{ForceExpanded}",
+     "rect": [
+      108,
+      0,
+      1172,
+      40
+     ],
+     "rule": "P-80",
+     "why": "visible short side 40 < 60"
+    },
+    {
+     "el": "%{SearchAndTitleContainer} %{ShowingSearch} %{ForceExpanded}",
+     "rect": [
+      108,
+      0,
+      1172,
+      40
+     ],
+     "rule": "P-08",
+     "why": "hit 67% own, 0% other over 1172x80"
+    },
+    {
+     "el": "%{SearchBox} %{SearchAndTitleContainer>Visible} Focusable",
+     "rect": [
+      148,
+      0,
+      1128,
+      40
+     ],
+     "rule": "P-80",
+     "why": "visible short side 40 < 64"
+    },
+    {
+     "el": "%{SearchBox} %{SearchAndTitleContainer>Visible} Focusable",
+     "rect": [
+      148,
+      0,
+      1128,
+      40
+     ],
+     "rule": "P-08",
+     "why": "hit 67% own, 0% other over 1128x80"
+    },
+    {
+     "el": "%{Arrows} Panel Focusable",
+     "rect": [
+      36,
+      447,
+      32,
+      32
+     ],
+     "rule": "P-80",
+     "why": "visible short side 32 < 60"
+    },
+    {
+     "el": "%{Arrows} Panel Focusable",
+     "rect": [
+      36,
+      447,
+      32,
+      32
+     ],
+     "rule": "P-08",
+     "why": "hit 49% own, 4% other (%{SeasonalSale} %{SeasonalSale>Loaded} Panel) over 80x80"
+    },
+    {
+     "el": "%{GamepadTabbedPage>Tab} %{GamepadTabbedPage>Selected} %{HasAddon} \"WHAT'S NEW\"",
+     "rect": [
+      472,
+      446,
+      115,
+      34
+     ],
+     "rule": "P-80",
+     "why": "visible short side 34 < 60"
+    },
+    {
+     "el": "%{GamepadTabbedPage>Tab} %{GamepadTabbedPage>Selected} %{HasAddon} \"WHAT'S NEW\"",
+     "rect": [
+      472,
+      446,
+      115,
+      34
+     ],
+     "rule": "P-08",
+     "why": "hit 70% own, 5% other (%{SeasonalSale} %{SeasonalSale>Loaded} Panel) over 115x80"
+    },
+    {
+     "el": "%{GamepadTabbedPage>Tab} %{HasAddon} %{RightAddon} \"FRIENDS\"",
+     "rect": [
+      589,
+      446,
+      86,
+      34
+     ],
+     "rule": "P-80",
+     "why": "visible short side 34 < 60"
+    },
+    {
+     "el": "%{GamepadTabbedPage>Tab} %{HasAddon} %{RightAddon} \"FRIENDS\"",
+     "rect": [
+      589,
+      446,
+      86,
+      34
+     ],
+     "rule": "P-08",
+     "why": "hit 70% own, 5% other (%{SeasonalSale} %{SeasonalSale>Loaded} Panel) over 86x80"
+    },
+    {
+     "el": "%{GamepadTabbedPage>Tab} %{RightAddon} Panel \"RECOMMENDED\"",
+     "rect": [
+      676,
+      446,
+      132,
+      34
+     ],
+     "rule": "P-80",
+     "why": "visible short side 34 < 60"
+    },
+    {
+     "el": "%{GamepadTabbedPage>Tab} %{RightAddon} Panel \"RECOMMENDED\"",
+     "rect": [
+      676,
+      446,
+      132,
+      34
+     ],
+     "rule": "P-08",
+     "why": "hit 70% own, 5% other (%{SeasonalSale} %{SeasonalSale>Loaded} Panel) over 132x80"
+    },
+    {
+     "el": "%{Arrows} Panel Focusable",
+     "rect": [
+      1212,
+      447,
+      32,
+      32
+     ],
+     "rule": "P-80",
+     "why": "visible short side 32 < 60"
+    },
+    {
+     "el": "%{Arrows} Panel Focusable",
+     "rect": [
+      1212,
+      447,
+      32,
+      32
+     ],
+     "rule": "P-08",
+     "why": "hit 49% own, 4% other (%{SeasonalSale} %{SeasonalSale>Loaded} Panel) over 80x80"
+    }
+   ],
+   "failCount": 14,
+   "exempt": []
+  },
+  "TYPE": {
+   "pass": false,
+   "m": 1,
+   "checked": 7,
+   "fails": [
+    {
+     "el": "%{BackContainer>BackButton} \"Back\"",
+     "rect": [
+      44,
+      8,
+      64,
+      23
+     ],
+     "why": "size 16 < 18, weight 400 < 500"
+    },
+    {
+     "el": "div \"NO PLAYTIME YET\"",
+     "rect": [
+      51,
+      400,
+      114,
+      14
+     ],
+     "why": "size 12 < 18, uppercase, tracking 0.042 em"
+    },
+    {
+     "el": "%{GamepadTabbedPage>TabTitle} \"WHAT'S NEW\"",
+     "rect": [
+      488,
+      454,
+      83,
+      17
+     ],
+     "why": "size 12 < 18, uppercase, tracking 0.042 em"
+    },
+    {
+     "el": "%{GamepadTabbedPage>TabTitle} \"FRIENDS\"",
+     "rect": [
+      605,
+      454,
+      54,
+      17
+     ],
+     "why": "size 12 < 18, uppercase, tracking 0.042 em"
+    },
+    {
+     "el": "%{GamepadTabbedPage>TabTitle} \"RECOMMENDED\"",
+     "rect": [
+      692,
+      454,
+      100,
+      17
+     ],
+     "why": "size 12 < 18, uppercase, tracking 0.042 em"
+    }
+   ],
+   "failCount": 5,
+   "exempt": []
+  },
+  "OUTLINE": {
+   "pass": true,
+   "highContrast": false,
+   "glass": 0,
+   "fails": [],
+   "failCount": 0,
+   "probes": [],
+   "exempt": [],
+   "dpr": 1.5,
+   "shot": null,
+   "edges": []
+  }
+ },
+ "pass": false
+}

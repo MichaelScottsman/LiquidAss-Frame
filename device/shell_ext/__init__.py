@@ -42,6 +42,8 @@ ARG_TYPES = ("str", "int", "num", "bool", "enum")
 SPEC_KEYS = {"args", "sources", "rate", "kind", "flag", "timeout"}
 ARG_KEYS = {"type", "optional", "max", "re", "min", "values"}
 STR_MAX = 256
+TEST_PREFIX = "test:"                  # plugins from the registry's test_dir (RAM, lab only)
+TEST_KINDS = ("echo", "read")          # ... which may never navigate, launch or change the UI
 
 
 class ActionError(Exception):
@@ -202,9 +204,10 @@ BUILTIN = {
 # ------------------------------------------------------------------ the registry
 
 class Registry:
-    def __init__(self, host, plugin_dir=HERE, builtin=True, clock=time.monotonic):
+    def __init__(self, host, plugin_dir=HERE, builtin=True, clock=time.monotonic, test_dir=None):
         self.host = host
         self.dir = plugin_dir
+        self.test_dir = test_dir     # lab: RAM plugins "test:<name>", kinds echo / read only
         self.clock = clock
         self.plugins = {}        # name -> {"mod", "mtime", "ctx", "types"}
         self.failed = {}         # name -> error
@@ -235,18 +238,21 @@ class Registry:
 
     # ---------------------------------------------------------------- loading
     def files(self):
-        try:
-            names = sorted(os.listdir(self.dir))
-        except OSError:
-            return {}
         out = {}
-        for n in names:
-            if n.endswith(".py") and not n.startswith(("_", ".")):
-                p = os.path.join(self.dir, n)
-                try:
-                    out[n[:-3]] = (p, os.stat(p).st_mtime_ns)
-                except OSError:
-                    pass
+        for folder, prefix in ((self.dir, ""), (self.test_dir, TEST_PREFIX)):
+            if not folder:
+                continue
+            try:
+                names = sorted(os.listdir(folder))
+            except OSError:
+                continue
+            for n in names:
+                if n.endswith(".py") and not n.startswith(("_", ".")):
+                    p = os.path.join(folder, n)
+                    try:
+                        out[prefix + n[:-3]] = (p, os.stat(p).st_mtime_ns)
+                    except OSError:
+                        pass
         return out
 
     async def scan(self, force=False):
@@ -277,7 +283,7 @@ class Registry:
 
     def _load(self, name, path, mtime):
         try:
-            spec = importlib.util.spec_from_file_location(f"lgs_shell_ext_{name}", path)
+            spec = importlib.util.spec_from_file_location(f"lgs_shell_ext_{name.replace(':', '_')}", path)
             mod = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(mod)
             actions = getattr(mod, "ACTIONS", None)
@@ -291,6 +297,8 @@ class Registry:
                 if t in self.types:
                     raise ValueError(f"type {t!r} already registered by {self.types[t][0]}")
                 specs[t] = check_spec(t, s)
+                if name.startswith(TEST_PREFIX) and specs[t]["kind"] not in TEST_KINDS:
+                    raise ValueError(f"{t}: a test plugin may only have kinds {TEST_KINDS}")
         except Exception as e:  # noqa: BLE001 - a broken plugin must not stop the daemon
             msg = f"{type(e).__name__}: {e}"[:300]
             self.failed[name] = (mtime, msg)
@@ -576,6 +584,27 @@ def selftest(tmpdir):
         os.remove(os.path.join(tmpdir, "probe.py"))
         ch = await reg.scan(force=True)
         check("unload on removal", "-probe" in ch and "probe.nav" not in reg.types, ch)
+        # the RAM test folder (lab): echo / read plugins only, named test:<file>
+        tdir = os.path.join(tmpdir, "ramtest")
+        os.makedirs(tdir, exist_ok=True)
+        with open(os.path.join(tdir, "ping.py"), "w", encoding="utf-8") as f:
+            f.write("ACTIONS = {'t.ping': {'args': {}, 'kind': 'read', 'rate': 0}}\n"
+                    "async def run(ctx, t, a):\n    return 'pong'\n")
+        with open(os.path.join(tdir, "go.py"), "w", encoding="utf-8") as f:
+            f.write("ACTIONS = {'t.go': {'args': {}, 'kind': 'nav', 'rate': 0}}\nasync def run(ctx, t, a):\n    return 1\n")
+        reg.test_dir = tdir
+        ch = await reg.scan(force=True)
+        check("test folder: read plugin loaded as test:ping", "test:ping" in reg.plugins and "t.ping" in reg.types, ch)
+        check("test folder: a nav plugin is refused", "test:go" in reg.failed and "t.go" not in reg.types,
+              reg.failed.get("test:go"))
+        clock[0] += 20
+        r = await reg.call(mk(id="tp1", type="t.ping", args={}, src="main"))
+        check("test folder plugin answers", r and r["ok"] and r["result"] == "pong", r)
+        for n in ("ping.py", "go.py"):
+            os.remove(os.path.join(tdir, n))
+        ch = await reg.scan(force=True)
+        check("test folder plugin unloaded with its file", "t.ping" not in reg.types and "test:go" not in reg.failed, ch)
+        os.rmdir(tdir)
         await reg.stop()
         check("stop keeps builtin", list(reg.plugins) == ["builtin"])
 

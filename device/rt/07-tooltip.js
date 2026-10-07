@@ -4,6 +4,8 @@
 //   In-window: one div.lgs-tip per Steam window, for icon-only owners ([data-lgs-tip] or
 //              rt.tooltip.register). In after 0.8 s of attention (laser dwell or gamepad focus),
 //              out 0.2 s after leave; [data-lgs-tip-pad="now"] shows at once under gamepad focus.
+//              Flag tipQuick (off; P3-D4): the card's literal IN-7 timing instead, fully in at 0.8 s
+//              and gone 0.18 s after leave.
 //   Bar:       vrPooledPopupStore.ShowTooltip gets unDelayMS >= 800 (CTL P-C5); restored on removal.
 (function lgsP3Tooltip() {
   'use strict';
@@ -15,6 +17,7 @@
   const OUT_MS = 200;         // 0.2 s out
   const MAT_IN_MS = 250;      // materialize-in (D2 §11.2)
   const MAT_OUT_MS = 350;     // materialize-out
+  const QUICK_OUT_MS = 180;   // flag tipQuick: dematerialize on --lgs-d-reduce, no grace
   const BAR_DELAY_MS = 800;
   const GAP = 12;             // px between owner and tip
   const INSET = 24;           // clamp inside the window
@@ -22,52 +25,37 @@
   const STYLE_ID = 'lgs-tip-style';
   const MARK = Symbol.for('lgs.p3.tooltipWrapper');
 
-  // Base look and motion. :where() keeps specificity at 0 so theme CSS (P4 / C3a) can restyle it.
-  // Thick glass capsule, edges from a specular sheen only: no border, no outline (VP P-42).
+  // Base layout, look and motion. :where() keeps specificity at 0 so theme CSS (P4 / C3a) can
+  // restyle it. Material: P4's thick glass tokens, edges from P4's edge hook (class lgs-edge +
+  // data-lgs-mat="thick": E3 arcs on ::before), no border or outline (VP P-42). Motion: P5's
+  // small-glass materialize keyframes and tokens, which are Reduce-Motion-correct by themselves.
+  // Literal values are fallbacks for a theme without the tokens.
   const CSS = `
 :where(.lgs-tip) {
-  position: fixed; left: 0; top: 0; z-index: 7100; pointer-events: none; box-sizing: border-box;
-  display: flex; align-items: center; height: ${TIP_H}px; padding: 0 22px; border-radius: ${TIP_H / 2}px;
-  max-width: calc(100vw - ${2 * INSET}px); white-space: nowrap; overflow: hidden; border: 0; outline: 0;
-  font-family: var(--lgs-font, "LGS Inter", "Inter", "Motiva Sans", Arial, sans-serif);
-  font-size: 20px; font-weight: 600; line-height: 24px; letter-spacing: 0; text-transform: none; font-style: normal;
-  color: rgb(255 255 255 / .96);
-  background:
-    radial-gradient(120% 140% at 26% 0%, rgb(255 255 255 / .10), transparent 60%),
-    var(--lgs-tip-tint, rgb(26 28 38 / .56));
-  -webkit-backdrop-filter: blur(30px) saturate(1.8); backdrop-filter: blur(30px) saturate(1.8);
-  box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / .55), inset 0 -1.5px 2px -1px rgb(255 255 255 / .12),
-    0 10px 28px rgb(0 0 0 / .28);
+  position: fixed; left: 0; top: 0; z-index: 7100; pointer-events: none; box-sizing: border-box; margin: 0;
+  display: flex; align-items: center; height: var(--lgs-tooltip-h, ${TIP_H}px); padding: 0 20px;
+  border-radius: var(--lgs-r-capsule, 999px); border: 0; outline: 0;
+  max-width: calc(100vw - ${2 * INSET}px); white-space: nowrap;
+  font-family: var(--lgs-font, "LGS Inter", "Motiva Sans", Arial, sans-serif);
+  font-size: var(--lgs-fs-subhead, 20px); font-weight: 600; line-height: 24px;
+  letter-spacing: 0; text-transform: none; font-style: normal;
+  color: var(--lgs-text-1, rgb(255 255 255 / .96));
+  background: var(--lgs-mat-thick-bg, linear-gradient(180deg, rgb(255 255 255 / .08), rgb(255 255 255 / 0) 30%), rgb(36 37 42 / .40));
+  -webkit-backdrop-filter: var(--lgs-mat-thick-blur, blur(30px) saturate(1.5));
+  backdrop-filter: var(--lgs-mat-thick-blur, blur(30px) saturate(1.5));
+  box-shadow: var(--lgs-mat-thick-shade, inset 0 -12px 20px -12px rgb(0 0 0 / .20)), var(--lgs-shadow-5mm, 0 2px 6px rgb(0 0 0 / .30));
   transform-origin: 50% 0%;
 }
 :where(.lgs-tip)[data-placement="above"] { transform-origin: 50% 100%; }
 :where(.lgs-tip) > .lgs-tip-label { overflow: hidden; text-overflow: ellipsis; }
 :where(.lgs-tip)[data-state="hidden"] { display: none; }
 :where(.lgs-tip)[data-state="measure"] { visibility: hidden; animation: none; }
-:where(.lgs-tip)[data-state="in"] { animation: lgs-tip-glass-in ${MAT_IN_MS}ms linear backwards; }
-:where(.lgs-tip)[data-state="in"] > .lgs-tip-label { animation: lgs-tip-content-in ${MAT_IN_MS}ms linear backwards; }
-:where(.lgs-tip)[data-state="out"] { animation: lgs-tip-glass-out ${MAT_OUT_MS}ms linear forwards; }
-:where(.lgs-tip)[data-state="out"] > .lgs-tip-label { animation: lgs-tip-content-out ${MAT_OUT_MS}ms linear forwards; }
-@keyframes lgs-tip-glass-in {
-  0% { scale: var(--lgs-tip-s0, 1.06); opacity: 0; -webkit-backdrop-filter: blur(0px) saturate(1); backdrop-filter: blur(0px) saturate(1); }
-  92%, 100% { scale: 1; opacity: 1; -webkit-backdrop-filter: blur(30px) saturate(1.8); backdrop-filter: blur(30px) saturate(1.8); }
-}
-@keyframes lgs-tip-content-in { 0%, 35% { opacity: 0; filter: blur(8px); } 100% { opacity: 1; filter: blur(0px); } }
-@keyframes lgs-tip-content-out { 0% { opacity: 1; filter: blur(0px); } 55%, 100% { opacity: 0; filter: blur(8px); } }
-@keyframes lgs-tip-glass-out {
-  0%, 40% { scale: 1; opacity: 1; }
-  100% { scale: var(--lgs-tip-s0, 1.06); opacity: 0; -webkit-backdrop-filter: blur(0px) saturate(1); backdrop-filter: blur(0px) saturate(1); }
-}
-@keyframes lgs-tip-fade-in { from { opacity: 0; } to { opacity: 1; } }
-@keyframes lgs-tip-fade-out { from { opacity: 1; } to { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) {
-  :where(.lgs-tip)[data-state="in"] { animation: lgs-tip-fade-in 150ms linear backwards; }
-  :where(.lgs-tip)[data-state="out"] { animation: lgs-tip-fade-out 150ms linear forwards; }
-  :where(.lgs-tip)[data-state] > .lgs-tip-label { animation: none; }
-}
-@media (prefers-contrast: more) {
-  :where(.lgs-tip) { background: rgb(18 20 28 / .96); box-shadow: inset 0 0 0 2px rgb(255 255 255 / .70); }
-}`;
+:where(.lgs-tip)[data-state="in"] { animation: lgs-mat-glass-in var(--lgs-motion-mat-in, ${MAT_IN_MS}ms linear) backwards; }
+:where(.lgs-tip)[data-state="in"] > .lgs-tip-label { animation: lgs-mat-content-in var(--lgs-motion-mat-in, ${MAT_IN_MS}ms linear) backwards; }
+:where(.lgs-tip)[data-state="out"] { animation: lgs-mat-glass-out var(--lgs-motion-mat-out, ${MAT_OUT_MS}ms linear) forwards; }
+:where(.lgs-tip)[data-state="out"] > .lgs-tip-label { animation: lgs-mat-content-out var(--lgs-d-mat-out, ${MAT_OUT_MS}ms) linear forwards; }
+:where(.lgs-tip)[data-state="in"][data-resume], :where(.lgs-tip)[data-state="in"][data-resume] > .lgs-tip-label { animation: none; }
+:where(.lgs-tip)[data-state="out"][data-quick], :where(.lgs-tip)[data-state="out"][data-quick] > .lgs-tip-label { animation-duration: var(--lgs-d-reduce, ${QUICK_OUT_MS}ms); }`;
 
   let R = null;
   let live = null;
@@ -86,20 +74,28 @@
     if (RW && typeof RW.track === 'function') return (fn) => RW.track((e) => fn(e.win, e.doc, e.kind));
     return (fn) => input.hub.onDoc(fn);
   }
+  // A member on the public runtime object (PLAN §1.4 one accessor) through P1's tracked rt.expose,
+  // which deletes it when the module is removed; plain assignment (undone by off) only without it.
+  function expose(rt, name, value, offs) {
+    const P = PUB();
+    if (rt && rt !== P && typeof rt.expose === 'function') {
+      try { offs.push(rt.expose(name, value)); return; } catch (err) { log('warn', 'rt.expose(' + name + ') refused; assigning', String(err)); }
+    }
+    P[name] = value;
+    offs.push(() => { if (P[name] === value) delete P[name]; });
+  }
   function inputOf(rt) {
     try { if (rt && typeof rt.use === 'function') return rt.use('input'); } catch (_) { /* not via use */ }
     return (rt && rt.input) || (PUB() && PUB().input) || null;
   }
-  function resolve(sel) {
-    if (typeof sel !== 'string' || sel.indexOf('%{') < 0) return sel;
-    return sel.replace(/%\{([^}]+)\}/g, (_, tok) => {
-      try {
-        const r = H.__LGS_INDEX && typeof H.__LGS_INDEX.selector === 'function' ? H.__LGS_INDEX.selector(tok) : null;
-        if (r && r.sel) return r.sel;
-      } catch (_) { /* unresolved */ }
-      log('error', 'unresolved token ' + tok);
-      return '.lgs-unresolved';
-    });
+  function flagOn(name) {
+    try {
+      const f = R && R.flags;
+      if (!f) return false;
+      if (typeof f.enabled === 'function') return !!f.enabled(name);
+      if (typeof f.get === 'function') return !!f.get(name);
+      return !!f[name];
+    } catch (_) { return false; }
   }
 
   RT.define({
@@ -115,8 +111,35 @@
       if (!input || !input.hub || typeof attendFn !== 'function') throw new Error('tooltip: rt.input / rt.attend (P3) missing');
       const hub = input.hub;
       const onDoc = onDocOf(R, input);
-      const st = { regs: [], tips: new Map(), offs: [], bar: null, shown: 0 };
+      const lazySel = input.lazySel;
+      const st = { regs: [], tips: new Map(), offs: [], bar: null, shown: 0, quick: flagOn('tipQuick') };
       live = st;
+      // Fail closed (runtime.md §1 rule 2): set before any listener, registration or wrapper below.
+      st.remove = () => {
+        for (const off of st.offs.splice(0).reverse()) { try { off(); } catch (_) { /* gone */ } }
+        for (const t of st.tips.values()) { H.clearTimeout(t.timer); try { t.node.remove(); } catch (_) { /* gone */ } }
+        st.tips.clear();
+        st.regs.length = 0;
+        if (st.bar) {
+          const { store, own, orig, wrapper } = st.bar;
+          try {
+            if (store.ShowTooltip === wrapper) {
+              if (own) store.ShowTooltip = orig;
+              else delete store.ShowTooltip;
+            }
+          } catch (_) { /* gone */ }
+          st.bar = null;
+        }
+        // Belt and braces: no tip node or style left in any live popup.
+        for (const w of hub.windows()) {
+          try {
+            for (const n of w.document.querySelectorAll('.lgs-tip, #' + STYLE_ID)) n.remove();
+          } catch (_) { /* gone */ }
+        }
+      };
+      const WR = typeof H.WeakRef === 'function' ? H.WeakRef : null;
+      const weak = (el) => (el && WR ? new WR(el) : el);
+      const strong = (r) => (r && WR && r instanceof WR ? r.deref() || null : r);
 
       // ---------------------------------------------- owners
       function regFor(el) {
@@ -162,7 +185,8 @@
           (doc.head || doc.documentElement).appendChild(s);
         }
         const node = doc.createElement('div');
-        node.className = 'lgs-tip';
+        node.className = 'lgs-tip lgs-edge';
+        node.setAttribute('data-lgs-mat', 'thick');   // P4's edge hook: E3 arcs of thick glass on ::before
         node.setAttribute('role', 'tooltip');
         node.setAttribute('aria-hidden', 'true');
         node.setAttribute('data-state', 'hidden');
@@ -170,7 +194,7 @@
         label.className = 'lgs-tip-label';
         node.appendChild(label);
         (doc.body || doc.documentElement).appendChild(node);
-        t = { doc, node, label, owner: null, timer: 0, shownAt: 0 };
+        t = { doc, node, label, owner: null, lastOwner: null, timer: 0, shownAt: 0 };
         st.tips.set(doc, t);
         return t;
       }
@@ -190,13 +214,13 @@
         const r = el.getBoundingClientRect();
         let place = placementFor(el, reg);
         if (place === 'auto') place = (r.bottom > w.innerHeight * (600 / 720) || r.bottom + GAP + TIP_H + INSET > w.innerHeight) ? 'above' : 'below';
-        if (!same) t.node.setAttribute('data-state', 'measure');   // laid out, invisible, no animation
+        if (!same) { t.node.removeAttribute('data-resume'); t.node.setAttribute('data-state', 'measure'); }   // laid out, invisible, no animation
         const tw = Math.min(t.node.offsetWidth || 0, w.innerWidth - 2 * INSET) || 120;
         const x = Math.round(Math.max(INSET, Math.min(w.innerWidth - INSET - tw, r.left + r.width / 2 - tw / 2)));
         const y = Math.round(place === 'below' ? r.bottom + GAP : r.top - GAP - TIP_H);
         t.node.style.left = x + 'px';
         t.node.style.top = Math.max(INSET / 2, Math.min(w.innerHeight - TIP_H - INSET / 2, y)) + 'px';
-        t.node.style.setProperty('--lgs-tip-s0', String(1 + Math.min(0.15, Math.max(0.01, 12 / Math.max(tw, TIP_H)))));
+        t.node.style.setProperty('--lgs-maxside', String(Math.round(Math.max(tw, TIP_H))));   // P5's materialize swell s0
         t.node.setAttribute('data-placement', place);
         if (!same) { t.node.setAttribute('data-state', 'in'); t.shownAt = H.performance.now(); st.shown++; }
         t.why = why;
@@ -207,27 +231,63 @@
           if (el && t.owner !== el) continue;
           if (t.node.getAttribute('data-state') === 'hidden') { t.owner = null; continue; }
           H.clearTimeout(t.timer);
+          t.lastOwner = weak(t.owner);   // weak: only for tipQuick's return within the leave
           t.owner = null;
+          t.node.removeAttribute('data-resume');
           if (immediate) { t.node.setAttribute('data-state', 'hidden'); continue; }
+          if (st.quick) t.node.setAttribute('data-quick', ''); else t.node.removeAttribute('data-quick');
           t.node.setAttribute('data-state', 'out');
           t.hiddenAt = H.performance.now();
-          t.timer = H.setTimeout(() => { if (!t.owner) t.node.setAttribute('data-state', 'hidden'); }, MAT_OUT_MS);
+          t.timer = H.setTimeout(() => { if (!t.owner) t.node.setAttribute('data-state', 'hidden'); }, st.quick ? QUICK_OUT_MS : MAT_OUT_MS);
+        }
+      }
+      // tipQuick only (no leave grace there): attention that returns to the same owner while its tooltip
+      // is still leaving brings it straight back, with no new delay, so laser jitter cannot flicker it.
+      function resume(el) {
+        for (const t of st.tips.values()) {
+          if (strong(t.lastOwner) !== el || !t.node.isConnected || t.node.getAttribute('data-state') !== 'out' || !el.isConnected) continue;
+          H.clearTimeout(t.timer);
+          t.owner = el;
+          t.node.setAttribute('data-resume', '');
+          t.node.setAttribute('data-state', 'in');
+          t.why = 'resume';
         }
       }
 
       // ---------------------------------------------- attention: 0.8 s in, 0.2 s out (both inputs)
-      const handle = attendFn(isOwner, {
-        dwellMs: IN_MS,
-        leaveMs: OUT_MS,
-        classes: false,
-        onEnter(el, ev) {
-          const padLike = ev.source === 'pad' || (ev.source === 'feed' && input.mode === 'pad');
-          if (padLike && padNow(el, regFor(el))) show(el, 'pad-now');
-        },
-        onDwell(el, ev) { show(el, ev.source); },
-        onLeave(el) { hide(el, false); },
-      });
+      // Default (PLAN §1.13, D2 §11 "After 0.8 s, materialize 250 ms | 0.2 s, dematerialize 350 ms", MO
+      // §4.17, Apple's 0.8 s / 0.2 s reveal delays): the materialize starts at 0.8 s, the leave starts
+      // 0.2 s after attention ends. Flag tipQuick (P3-D4): the card's literal IN-7 instead, fully in
+      // at 0.8 s (start at 0.8 - 0.25 s) and gone 0.18 s after leave (no grace, see resume()).
+      function attendOpts() {
+        return {
+          dwellMs: st.quick ? IN_MS - MAT_IN_MS : IN_MS,
+          leaveMs: st.quick ? 0 : OUT_MS,
+          classes: false,
+          onEnter(el, ev) {
+            const padLike = ev.source === 'pad' || (ev.source === 'feed' && input.mode === 'pad');
+            if (padLike && padNow(el, regFor(el))) { show(el, 'pad-now'); return; }
+            if (st.quick) resume(el);
+          },
+          onDwell(el, ev) { show(el, ev.source); },
+          onLeave(el) { hide(el, false); },
+        };
+      }
+      let handle = attendFn(isOwner, attendOpts());
       st.offs.push(() => handle.off());
+      try {
+        if (R.flags && typeof R.flags.on === 'function') {
+          const offQ = R.flags.on('tipQuick', () => {
+            if (live !== st) return;
+            const q = flagOn('tipQuick');
+            if (q === st.quick) return;
+            st.quick = q;
+            try { handle.off(); } catch (_) { /* gone */ }
+            handle = attendFn(isOwner, attendOpts());
+          });
+          if (typeof offQ === 'function') st.offs.push(offQ);
+        }
+      } catch (err) { log('warn', 'flag tipQuick not watched', String(err)); }
       // A route change or a scroll can move the owner away; Steam removes it from the DOM: hide.
       st.offs.push(onDoc((w, doc) => {
         const onScroll = () => { const t = st.tips.get(doc); if (t && t.owner) hide(t.owner, true); };
@@ -268,7 +328,7 @@
           if (live !== st) return () => {};
           const o = opts || {};
           let self;
-          if (typeof target === 'string') { const sel = resolve(target); self = (el) => el.matches(sel); }
+          if (typeof target === 'string') { const get = lazySel(target); self = (el) => { const sel = get(); return !!sel && el.matches(sel); }; }
           else if (typeof target === 'function') self = (el) => !!target(el);
           else if (target && target.nodeType === 1) self = (el) => el === target;
           else throw new Error('tooltip.register: target must be an Element, a selector or a function');
@@ -290,7 +350,11 @@
           }
           let mapTooltips = null;
           try { mapTooltips = st.bar ? st.bar.store.m_mapTooltips.size : null; } catch (_) { mapTooltips = null; }
-          return { shown, owners: st.regs.length, barWrapper: !!(st.bar && st.bar.store.ShowTooltip === st.bar.wrapper), mapTooltips, count: st.shown };
+          return {
+            shown, owners: st.regs.length, barWrapper: !!(st.bar && st.bar.store.ShowTooltip === st.bar.wrapper), mapTooltips, count: st.shown,
+            timing: st.quick ? { quick: true, startMs: IN_MS - MAT_IN_MS, inMs: MAT_IN_MS, graceMs: 0, outMs: QUICK_OUT_MS }
+              : { quick: false, startMs: IN_MS, inMs: MAT_IN_MS, graceMs: OUT_MS, outMs: MAT_OUT_MS },
+          };
         },
         hideAll() { hide(null, true); },
         // Test hooks.
@@ -298,29 +362,7 @@
         hide(el) { hide(el || null, false); },
       };
       st.api = tooltip;
-      PUB().tooltip = tooltip;
-      st.remove = () => {
-        for (const off of st.offs.splice(0).reverse()) { try { off(); } catch (_) { /* gone */ } }
-        for (const t of st.tips.values()) { H.clearTimeout(t.timer); try { t.node.remove(); } catch (_) { /* gone */ } }
-        st.tips.clear();
-        st.regs.length = 0;
-        if (st.bar) {
-          const { store, own, orig, wrapper } = st.bar;
-          try {
-            if (store.ShowTooltip === wrapper) {
-              if (own) store.ShowTooltip = orig;
-              else delete store.ShowTooltip;
-            }
-          } catch (_) { /* gone */ }
-          st.bar = null;
-        }
-        // Belt and braces: no tip node or style left in any live popup.
-        for (const w of hub.windows()) {
-          try {
-            for (const n of w.document.querySelectorAll('.lgs-tip, #' + STYLE_ID)) n.remove();
-          } catch (_) { /* gone */ }
-        }
-      };
+      expose(R, 'tooltip', tooltip, st.offs);
       return tooltip;
     },
     remove() {

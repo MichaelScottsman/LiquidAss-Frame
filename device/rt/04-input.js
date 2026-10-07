@@ -54,11 +54,78 @@
     return name.replace(/_uid\d+$/, '');
   }
 
+  // ---------------------------------------------------------------- %{Token} selectors, resolved lazily
+  // A selector list with %{Token} classes resolves through P1's class index (__LGS_INDEX). A part whose
+  // token does not resolve is left out. The index can be incomplete for minutes (after a Steam page
+  // crash it held 3 of 550 modules, review R1 F6), so an incomplete result is never kept: the getter
+  // resolves again on use, at most once a second, until every part resolves.
+  let INDEX_OVERRIDE = null;   // test hook only (rt.input.test.index): stands in for an incomplete index
+  function resolveParts(list) {
+    const parts = String(list || '').split(/,(?![^(]*\))/).map((s) => s.trim()).filter(Boolean);
+    const out = [];
+    let full = true;
+    for (const p of parts) {
+      if (p.indexOf('%{') < 0) { out.push(p); continue; }
+      let bad = false;
+      const s = p.replace(/%\{([^}]+)\}/g, (_, tok) => {
+        try {
+          const idx = INDEX_OVERRIDE || H.__LGS_INDEX;
+          const r = idx && typeof idx.selector === 'function' ? idx.selector(tok) : null;
+          if (r && r.sel) return r.sel;
+        } catch (_) { /* unresolved */ }
+        bad = true;
+        return '';
+      });
+      if (bad) full = false; else out.push(s);
+    }
+    return { sel: out.join(', '), full };
+  }
+  function lazySel(list) {
+    let cache = '';
+    let full = false;
+    let at = -1e9;
+    let warned = false;
+    const get = () => {
+      if (full) return cache;
+      const t = H.performance.now();
+      if (t - at < 1000) return cache;
+      at = t;
+      const r = resolveParts(list);
+      cache = r.sel;
+      full = r.full;
+      if (!full && !warned) { warned = true; log('warn', 'unresolved %{Token} in selector; retrying on use', String(list)); }
+      return cache;
+    };
+    get.source = String(list);
+    get.resolved = () => { get(); return full; };
+    return get;
+  }
+
   // ---------------------------------------------------------------- webpack (one guarded pass)
+  // Steam's webpack require, taken once per page load. webpack also keeps every pushed chunk record
+  // in the array, so ours is spliced out again at once (G-REMOVE: no global mutation survives).
+  let REQ = null;
+  function webpackRequire() {
+    if (REQ) return REQ;
+    const ch = H.webpackChunksteamui;
+    if (!ch || typeof ch.push !== 'function') return null;
+    const sym = Symbol('lgs-p3-input');
+    let req = null;
+    try { ch.push([[sym], {}, (r) => { req = r; }]); } catch (_) { req = null; }
+    // Ours, and any record an earlier P3 build (before review R1 F4) left behind.
+    try {
+      for (let i = ch.length - 1; i >= 0; i--) {
+        const c = ch[i];
+        const id = c && Array.isArray(c[0]) ? c[0][0] : null;
+        if (id === sym || (typeof id === 'symbol' && id.description === 'lgs-p3-input')) ch.splice(i, 1);
+      }
+    } catch (_) { /* array gone */ }
+    if (req && req.m) REQ = req;
+    return REQ;
+  }
   // Ids are hints only; a module is used only if its source passes the needle test.
   function findSteamModules() {
-    let req = null;
-    try { H.webpackChunksteamui.push([[Symbol('lgs-p3-input')], {}, (r) => { req = r; }]); } catch (_) { /* no webpack */ }
+    const req = webpackRequire();
     const out = { reaction: null, bus: null, PN: null };
     if (!req) return out;
     const src = (id) => { try { return Function.prototype.toString.call(req.m[id]); } catch (_) { return ''; } };
@@ -225,6 +292,24 @@
         cur: null, stub: null, stubTimer: 0, lastPulse: -1e9, steam, hub, listeners, undo,
       };
       live = st;
+      // Fail closed (runtime.md §1 rule 2): remove() works from here on, whatever step throws below.
+      // Each Steam subscription registers its undo the moment it is made, here and with P1's tracked
+      // rt.cleanup (both run once), so a partial install leaves nothing behind.
+      function addUndo(fn) {
+        let done = false;
+        const once = () => { if (done) return; done = true; fn(); };
+        undo.push(once);
+        try { if (R && typeof R.cleanup === 'function' && R !== PUB()) R.cleanup(once); } catch (_) { /* untracked */ }
+        return once;
+      }
+      st.remove = () => {
+        H.clearTimeout(st.stubTimer);
+        for (const u of undo.splice(0).reverse()) { try { u(); } catch (_) { /* already gone */ } }
+        listeners.clear();
+        try { hub.clear(); } catch (_) { /* gone */ }
+        // Belt and braces: strip our marks from every live popup, hooked or not.
+        try { for (const p of PM.GetPopups()) { try { unpaintDoc(p.window.document); } catch (_) { /* gone */ } } } catch (_) { /* none */ }
+      };
 
       function computeLive() {
         let s = 0;
@@ -255,6 +340,9 @@
           de.removeAttribute('data-lgs-vr-mode');
         } catch (_) { /* gone */ }
       }
+      function hapticAvailable() {
+        try { return typeof hub.main().SteamClient.OpenVR.TriggerOverlayHapticEffect === 'function'; } catch (_) { return false; }
+      }
       function stateObj() {
         let sounds = true;
         try { sounds = H.settingsStore.clientSettings.enable_ui_sounds !== false; } catch (_) { /* default on */ }
@@ -270,7 +358,7 @@
             mobxReaction: !!(VRI && steam.reaction),
           },
           sound: { bus: !!steam.bus, enum: !!steam.PN, uiSoundsEnabled: sounds },
-          haptics: { available: true, armed: flag('haptics') === true },
+          haptics: { available: hapticAvailable(), armed: flag('haptics') === true },
         };
       }
       function update(reason) {
@@ -290,7 +378,7 @@
 
       // Paint every document the hub hooks (new popups included).
       st.cur = effective(computeLive());
-      undo.push(hub.onDoc((w, doc) => { if (st.cur) paintDoc(doc); return () => unpaintDoc(doc); }));
+      addUndo(hub.onDoc((w, doc) => { if (st.cur) paintDoc(doc); return () => unpaintDoc(doc); }));
 
       // ------------------------------------------------ sounds
       function soundId(name) {
@@ -359,62 +447,99 @@
       // after vgp_onfocus) overwrites the class attribute and drops our classes. A mark is re-added
       // by a MutationObserver callback (a microtask, so before the frame is painted) until it is
       // released. One observer per document; it only watches the elements we marked.
+      // Weak by design (review R1 F1): the registry never keeps an element alive. Marked elements are
+      // held through a WeakMap (element -> classes) and a WeakRef set used only to sweep on removal,
+      // so a page Steam unmounts while one of its nodes is marked is still collected.
+      const WR = typeof H.WeakRef === 'function' ? H.WeakRef : null;
       const marks = (() => {
-        const perDoc = new Map();   // doc -> { mo, els: Map(el -> Set(cls)) }
+        const perDoc = new Map();   // doc -> { mo, want: WeakMap(el -> {cls: Set, ref}), refs: Set(WeakRef | el) }
+        const deref = (ref) => (WR && ref instanceof WR ? ref.deref() : ref);
         function recFor(doc) {
           let r = perDoc.get(doc);
           if (r) return r;
-          const els = new Map();
+          const want = new WeakMap();
           const view = doc.defaultView || H;
           const MO = view.MutationObserver || H.MutationObserver;
           const mo = new MO((muts) => {
             for (const m of muts) {
-              const want = els.get(m.target);
-              if (!want) continue;
-              for (const c of want) if (!m.target.classList.contains(c)) m.target.classList.add(c);
+              const w = want.get(m.target);
+              if (!w) continue;
+              for (const c of w.cls) if (!m.target.classList.contains(c)) m.target.classList.add(c);
             }
           });
-          r = { mo, els };
+          r = { mo, want, refs: new Set() };
           perDoc.set(doc, r);
           return r;
+        }
+        function dropDoc(doc, r) { try { r.mo.disconnect(); } catch (_) { /* gone */ } perDoc.delete(doc); }
+        // Forget collected elements and closed documents (cheap: a handful of marks are live at a time).
+        function prune() {
+          for (const [doc, r] of perDoc) {
+            for (const ref of r.refs) { const el = deref(ref); if (!el) r.refs.delete(ref); }
+            if (!r.refs.size || !doc.defaultView) dropDoc(doc, r);
+          }
         }
         function add(el, cls) {
           if (!el || el.nodeType !== 1) return;
           const r = recFor(el.ownerDocument);
-          let want = r.els.get(el);
-          if (!want) { want = new Set(); r.els.set(el, want); r.mo.observe(el, { attributes: true, attributeFilter: ['class'] }); }
-          want.add(cls);
+          let w = r.want.get(el);
+          if (!w) {
+            w = { cls: new Set(), ref: WR ? new WR(el) : el };
+            r.want.set(el, w);
+            r.refs.add(w.ref);
+            r.mo.observe(el, { attributes: true, attributeFilter: ['class'] });
+            if (r.refs.size > 32) prune();
+          }
+          w.cls.add(cls);
           el.classList.add(cls);
         }
         function remove(el, cls) {
           if (!el || el.nodeType !== 1) return;
-          const r = perDoc.get(el.ownerDocument);
-          const want = r && r.els.get(el);
-          if (want) {
-            want.delete(cls);
-            if (!want.size) {
-              r.els.delete(el);
-              if (!r.els.size) { r.mo.disconnect(); perDoc.delete(el.ownerDocument); }   // drops stale observations
+          const doc = el.ownerDocument;
+          const r = perDoc.get(doc);
+          const w = r && r.want.get(el);
+          if (w) {
+            w.cls.delete(cls);
+            if (!w.cls.size) {
+              r.want.delete(el);
+              r.refs.delete(w.ref);
+              if (!r.refs.size) dropDoc(doc, r);   // disconnect also drops stale observations
             }
           }
           try { el.classList.remove(cls); } catch (_) { /* gone */ }
         }
         function has(el, cls) {
           const r = el && perDoc.get(el.ownerDocument);
-          const want = r && r.els.get(el);
-          return !!(want && want.has(cls));
+          const w = r && r.want.get(el);
+          return !!(w && w.cls.has(cls));
+        }
+        // Release every mark whose class passes pred (a module's own sweep on its removal).
+        function sweep(pred) {
+          for (const [doc, r] of [...perDoc]) {
+            for (const ref of [...r.refs]) {
+              const el = deref(ref);
+              const w = el && r.want.get(el);
+              if (!w) { r.refs.delete(ref); continue; }
+              for (const c of [...w.cls]) if (pred(c)) remove(el, c);
+            }
+            if (perDoc.get(doc) === r && !r.refs.size) dropDoc(doc, r);
+          }
         }
         function clear() {
           for (const r of perDoc.values()) {
-            r.mo.disconnect();
-            for (const [el, want] of r.els) { try { el.classList.remove(...want); } catch (_) { /* gone */ } }
+            try { r.mo.disconnect(); } catch (_) { /* gone */ }
+            for (const ref of r.refs) {
+              const el = deref(ref);
+              const w = el && r.want.get(el);
+              if (w) { try { el.classList.remove(...w.cls); } catch (_) { /* gone */ } }
+            }
           }
           perDoc.clear();
         }
-        function count() { let n = 0; for (const r of perDoc.values()) n += r.els.size; return n; }
-        return { add, remove, has, clear, count };
+        function count() { prune(); let n = 0; for (const r of perDoc.values()) n += r.refs.size; return n; }
+        return { add, remove, has, sweep, clear, count, weak: !!WR };
       })();
-      undo.push(() => marks.clear());
+      addUndo(() => marks.clear());
 
       const api = {
         get mode() { return st.cur.mode; },
@@ -432,62 +557,71 @@
         sound,
         soundId,
         haptic,
-        // P3-internal: the per-document hook hub and sticky class marks shared by attention, states, tooltip.
+        // P3-internal: the per-document hook hub, sticky class marks and lazy %{Token} selectors
+        // shared by attention, states and tooltip.
         hub,
         marks,
+        lazySel,
+        // Test hook (review R1 F6): make lazy selectors see a stand-in class index, e.g. one that has not
+        // indexed a token yet; null restores P1's. Only P3's own resolution is affected, never the theme's.
+        test: {
+          index(fake) { INDEX_OVERRIDE = fake && typeof fake.selector === 'function' ? fake : null; return !!INDEX_OVERRIDE; },
+        },
       };
+      addUndo(() => { INDEX_OVERRIDE = null; });
 
-      // ------------------------------------------------ subscriptions
+      // ------------------------------------------------ subscriptions (each undo registered at once)
       const s1 = FNC.NavigationSource.Subscribe(() => update('source'));
-      undo.push(() => s1.Unsubscribe());
+      addUndo(() => s1.Unsubscribe());
       if (VRI && typeof VRI.RegisterForNavigationTypeChange === 'function') {
         const s2 = VRI.RegisterForNavigationTypeChange(() => update('vr-overlay-focus'));
-        undo.push(() => s2.Unregister());
+        addUndo(() => s2.Unregister());
       }
       if (VRI && steam.reaction) {
         const dispose = steam.reaction(() => { try { return VRI.IsInGamepadNav; } catch (_) { return null; } }, () => update('vr-mode'));
-        undo.push(dispose);
+        addUndo(dispose);
       } else if (VRI) {
         const t = H.setInterval(() => update('poll'), 2000);   // last resort when MobX is not found
-        undo.push(() => H.clearInterval(t));
+        addUndo(() => H.clearInterval(t));
       }
-      const pending = new Set();
       if (!hub.p1) {
-      const pc = PM.AddPopupCreatedCallback((p) => {
-        for (const ms of [0, 250, 1000]) {
-          const t = H.setTimeout(() => {
-            pending.delete(t);
-            if (live !== st) return;
-            try { if (p.window) hub.scan(); for (const w of hub.windows()) { const d = hub.docOf(w); if (d) paintDoc(d); } } catch (_) { /* closed */ }
-          }, ms);
-          pending.add(t);
-        }
-      });
-      undo.push(() => pc.Unregister());
-      undo.push(() => { for (const t of pending) H.clearTimeout(t); pending.clear(); });
-      const pd = PM.AddPopupDestroyedCallback((p) => {
-        let w = null;
-        try { w = p.window; } catch (_) { /* gone */ }
-        if (w) hub.drop(w);
-      });
-      undo.push(() => pd.Unregister());
+        const pending = new Set();
+        addUndo(() => { for (const t of pending) H.clearTimeout(t); pending.clear(); });
+        const pc = PM.AddPopupCreatedCallback((p) => {
+          for (const ms of [0, 250, 1000]) {
+            const t = H.setTimeout(() => {
+              pending.delete(t);
+              if (live !== st) return;
+              try { if (p.window) hub.scan(); for (const w of hub.windows()) { const d = hub.docOf(w); if (d) paintDoc(d); } } catch (_) { /* closed */ }
+            }, ms);
+            pending.add(t);
+          }
+        });
+        addUndo(() => pc.Unregister());
+        const pd = PM.AddPopupDestroyedCallback((p) => {
+          let w = null;
+          try { w = p.window; } catch (_) { /* gone */ }
+          if (w) hub.drop(w);
+        });
+        addUndo(() => pd.Unregister());
       }
 
       hub.scan();
       for (const w of hub.windows()) { const d = hub.docOf(w); if (d) paintDoc(d); }
-      // PLAN §1.4: one accessor, __LGS_RT.input. Set on the public runtime object, so every module's
-      // scoped rt (Object.create(public)) and the lab (__LGS_RT.input.stub) see it.
-      PUB().input = api;
-      PUB().sound = sound;
-      PUB().haptic = haptic;
-      st.remove = () => {
-        H.clearTimeout(st.stubTimer);
-        for (const u of undo.splice(0).reverse()) { try { u(); } catch (_) { /* already gone */ } }
-        listeners.clear();
-        hub.clear();
-        // Belt and braces: strip our marks from every live popup, hooked or not.
-        try { for (const p of PM.GetPopups()) { try { unpaintDoc(p.window.document); } catch (_) { /* gone */ } } } catch (_) { /* none */ }
-      };
+      // PLAN §1.4: one accessor, __LGS_RT.input, on the public runtime object, so every module's scoped
+      // rt (Object.create(public)) and the lab (__LGS_RT.input.stub) see it. Through P1's rt.expose
+      // (tracked: deleted when this module is removed); plain assignment only without it.
+      function expose(name, value) {
+        const P = PUB();
+        if (R && R !== P && typeof R.expose === 'function') {
+          try { addUndo(R.expose(name, value)); return; } catch (err) { log('warn', 'rt.expose(' + name + ') refused; assigning', String(err)); }
+        }
+        P[name] = value;
+        addUndo(() => { if (P[name] === value) delete P[name]; });
+      }
+      expose('input', api);
+      expose('sound', sound);
+      expose('haptic', haptic);
       return api;
     },
     remove() {

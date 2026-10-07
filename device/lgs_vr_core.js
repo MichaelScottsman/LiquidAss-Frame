@@ -40,7 +40,43 @@
   } catch (_) { /* page without webpack: tokens stay unresolved */ }
   const unresolved = new Set();
   const ambiguous = new Set();
-  const css = payload.css.replace(/%\{([^}]+)\}/g, (_, tok) => {
+
+  // UI fonts. SteamVR pages' CSP (default-src 'self' 'unsafe-eval', no font-src)
+  // blocks data: URLs in @font-face (NetworkError), so every @font-face whose
+  // src is a data:font/woff2 URL leaves the CSS and becomes a binary FontFace
+  // (no fetch, so the CSP does not apply). Built once per payload version;
+  // apply() keeps them in document.fonts, disable() deletes them (REQ P4->P8).
+  const faces = [];
+  const fontErrors = [];
+  const cssIn = payload.css.replace(/@font-face\s*\{([^{}]*)\}/g, (all, body) => {
+    const src = /src\s*:\s*url\(\s*(["']?)data:font\/woff2;base64,([A-Za-z0-9+/=\s]+)\1\s*\)[^;]*;?/i.exec(body);
+    if (!src || typeof W.FontFace !== 'function') return all;
+    const rest = body.replace(src[0], ';');
+    const desc = (name) => {
+      const m = new RegExp('(?:^|;)\\s*' + name + '\\s*:\\s*([^;]+)', 'i').exec(rest);
+      return m ? m[1].trim() : null;
+    };
+    const family = (desc('font-family') || '').replace(/^(["'])(.*)\1$/, '$2');
+    if (!family) return all;
+    try {
+      const bin = W.atob(src[2].replace(/\s+/g, ''));
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const d = {};
+      for (const [prop, key] of [['font-weight', 'weight'], ['font-style', 'style'], ['font-stretch', 'stretch'],
+        ['unicode-range', 'unicodeRange'], ['font-display', 'display']]) {
+        const v = desc(prop);
+        if (v) d[key] = v;
+      }
+      faces.push(new W.FontFace(family, bytes.buffer, d));
+      return '/* @font-face "' + family.replace(/\*\//g, '') + '": a binary FontFace in this page (CSP) */';
+    } catch (e) {
+      fontErrors.push(family + ': ' + String(e && e.message || e));
+      return all;
+    }
+  });
+
+  const css = cssIn.replace(/%\{([^}]+)\}/g, (_, tok) => {
     if (!index) { unresolved.add(tok.trim()); return '.lgs-unresolved'; }
     const r = index.selector(tok);
     if (r.sel) return r.sel;
@@ -61,6 +97,11 @@
       st.textContent = css;
     }
     if (doc.head.lastElementChild !== st) doc.head.appendChild(st);
+    if (doc.fonts) {
+      for (const ff of faces) {
+        try { if (!doc.fonts.has(ff)) doc.fonts.add(ff); } catch (_) { /* never block the CSS */ }
+      }
+    }
     return true;
   }
 
@@ -69,6 +110,11 @@
     doc.documentElement.classList.remove(ROOT_CLASS);
     const st = doc.getElementById(STYLE_ID);
     if (st) st.remove();
+    if (doc.fonts) {
+      for (const ff of faces) {
+        try { doc.fonts.delete(ff); } catch (_) { /* already gone */ }
+      }
+    }
     if (W.__LGS_VR === api) delete W.__LGS_VR;
   }
 
@@ -76,6 +122,7 @@
     return {
       enabled: true, version: payload.version, page: W.document.title, cssBytes: css.length,
       classModules: index ? index.size : 0, unresolved: [...unresolved], ambiguous: [...ambiguous],
+      fonts: faces.map((f) => f.family + ' ' + f.weight + ' ' + f.status), fontErrors: fontErrors.slice(),
     };
   }
 

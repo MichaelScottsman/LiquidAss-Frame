@@ -4,13 +4,15 @@ Owner: **P9** (`native/glassd/**`, `native/spike/fakeglassd.cpp`). Readers: **P8
 
 Status of each field is in the last column of every table: **live** = in the installed binary, **built** = in the tree and tested offline, **planned** = specified here, not built yet. P9's evidence log (`docs/phase2/wp/P9.md`) says which build is installed.
 
+**2026-10-07 05:28:** the v3 binary is installed (`native/glassd/glassd` and `native/spike/fakeglassd` in the shared install), including G7 (`roomDim`, `dim` slabs). **R1 (review fixes):** hole `edges` (cap `holeEdges`), hole shading that follows the control, plates over a cover seeing the cover, the nine-tap cover copy, the P-48 slab shadow offset and the cover-without-slabs fix; installed 2026-10-07 08:00 (`wp/P9.md`, *Status*). Offline tests GL-1, GL-2, GL-3, GL-4, GL-6 pass; GL-5 is unverified live (`wp/P9.md`).
+
 Everything below is **backward compatible**: a v2 spec (no new fields) renders as before (only the depth conversion below changes slab shadows and slab optics, which were too deep), and a v3 field sent to an older binary is ignored by it (both the glassd and the fakeglassd parsers skip unknown keys). Feature-detect with `caps` in `glassd-out.json` (§3) before relying on a field: a binary without `caps` is v2.
 
 Units, unless a row says otherwise:
 
 - rects `x, y, w, h, r` in **Steam texture px** of that surface (CSS px × devicePixelRatio, 1.5 on every gamepadui surface), origin top-left, y down;
 - depths (`dz`, `coverDz`, mask `dz`) in **scene units** toward the viewer, the same numbers `lgs_sg.js` gets (metres = units × `unitM`; SP §1.1). v2 glassd read them as metres, which put slab shadows and slab optics about 2.7× too deep; v3 converts with `unitM`;
-- colours as `[r, g, b, a]` (0..1, sRGB, straight alpha; `[r, g, b]` means a = 1) or a CSS string (`"#rrggbb"`, `"#rrggbbaa"`, `"rgb(r g b / a)"`, `"rgba(r, g, b, a)"`, as `getComputedStyle` prints them). An unparsable colour is ignored (treated as absent) and logged once.
+- colours as `[r, g, b, a]` (0..1, sRGB, straight alpha; `[r, g, b]` means a = 1) or a CSS string (`"#rrggbb"`, `"#rrggbbaa"`, `"rgb(r g b / a)"`, `"rgba(r, g, b, a)"`, as `getComputedStyle` prints them), or one of the reporter's names `"green"` (#30d158), `"blue"` (#0091ff), `"red"` (#ff4245), `"scrim"` (black .35). An unparsable colour is ignored (treated as absent) and logged once per value (at most 16 values per run).
 
 ---
 
@@ -23,8 +25,9 @@ Units, unless a row says otherwise:
 | `seq` | int | 0 | Echoed in the output | live |
 | `dial` | 0..1 | 0.5 | Transparency dial (GM §2) | live |
 | `reduceMotion` | bool | false | Every phase ramp is a 180 ms coverage fade (MO C8) | live |
-| **`unitM`** | metres | 0.369 | Metres per scene unit, S × r (SP §1.1). P8 sends its live geometry value; glassd converts every depth with it | built |
-| `masks` | `[{O, U, V}]` | — | Extra **world** quads cut out of the room map (G4): `O` = one corner, `U`, `V` = the two full edge vectors, metres, standing space. For things that are not on a reported surface (SteamVR's own panels, a moved ornament). ≤ 8 | built |
+| **`roomDim`** | 0..0.9 | 0 | G7 (SM-D6 "surroundings dim", behind C7's flag `roomDim`, off by default): every cover and plate sees the room darkened by this much (folded into the glass's backdrop dimming), so the glass stays consistent with a dimmed room behind it. glassd animates it itself on `sheet-in` up and `sheet-out` down (180 ms fade under `reduceMotion`); the first spec applies it at once. The dark panel around the window is a `dim` slab (§1.4) that P7 stretches behind the window | live |
+| **`unitM`** | metres | 0.369 | Metres per scene unit, S × r (SP §1.1). P8 sends its live geometry value; glassd converts every depth with it | live |
+| `masks` | `[{O, U, V}]` | — | Extra **world** quads cut out of the room map (G4): `O` = one corner, `U`, `V` = the two full edge vectors, metres, standing space. For things that are not on a reported surface (SteamVR's own panels, a moved ornament). ≤ 8 | live |
 
 ### 1.2 `surfaces[]`
 
@@ -35,10 +38,10 @@ Units, unless a row says otherwise:
 | `quad` | `{O, U, V}` | — | World placement (Steam px (0,0) and steps per Steam px right and down) | live |
 | `phase`, `appear`, `phaseMs` | | 1, —, by size | The cover's materialize (GM §5) | live |
 | `slabs` | `[slab]` | [] | §1.4 | live (+ v3 fields) |
-| **`plates`** | `[plate]` | [] | §1.3. **≤ 32**; extra plates are dropped and listed (§3) | built |
-| **`coverDz`** | units | 0.001 | Where the cover and its plates sit relative to the surface plane, for glassd's optics only (the scene graph places the panel; P7 must use the same value as its spec `coverDz`). K-G6: `-0.027` (−10 mm at r = 1) puts the keyboard platter behind the keys | built |
-| **`masks`** | `[{x, y, w, h, dz?}]` | [] | Extra rects of **this surface** cut out of the room map (G4), in its Steam px (they may lie outside the texture, e.g. an ornament beside the window at negative x), at `dz` units. ≤ 8 per surface | built |
-| **`scaleFrom`** | `"main"` \| `"overlay"` | `"main"` for non-main surfaces | Which metres-per-pixel glassd trusts for a surface without `quad`: Steam's popups report transforms at the wrong scale, so glassd rescales them to the window's (README *Geometry*). `"overlay"` keeps the overlay's own transform (for overlays that report it right, e.g. a keyboard if K-G2 shows so) | built |
+| **`plates`** | `[plate]` | [] | §1.3. **≤ 32**; extra plates are dropped and listed (§3) | live |
+| **`coverDz`** | units | 0.001 | Where the cover and its plates sit relative to the surface plane, for glassd's optics only (the scene graph places the panel; P7 must use the same value as its spec `coverDz`). K-G6: `-0.027` (−10 mm at r = 1) puts the keyboard platter behind the keys | live |
+| **`masks`** | `[{x, y, w, h, dz?}]` | [] | Extra rects of **this surface** cut out of the room map (G4), in its Steam px (they may lie outside the texture, e.g. an ornament beside the window at negative x), at `dz` units. ≤ 8 per surface | live |
+| **`scaleFrom`** | `"main"` \| `"overlay"` | `"main"` for non-main surfaces | Which metres-per-pixel glassd trusts for a surface without `quad`: Steam's popups report transforms at the wrong scale, so glassd rescales them to the window's (README *Geometry*). `"overlay"` keeps the overlay's own transform (for overlays that report it right, e.g. a keyboard if K-G2 shows so) | live |
 
 ### 1.3 `plates[]` (G1): opaque per-shape glass at the cover's depth
 
@@ -46,20 +49,21 @@ A plate is one rounded rect of glass drawn **in the surface's backdrop region** 
 
 | Field | Type | Default | Meaning | Status |
 |---|---|---|---|---|
-| `id` | string | `"p<index>"` | Stable id: the phase animation and the acks follow it. Give one whenever plates come and go | built |
-| `x, y, w, h, r` | Steam px | r = min(w, h) / 2 | The shape (clipped to the texture) | built |
-| `material` | `window` \| `panel` \| `liquid` \| `thick` \| `clear` \| `dim` | `liquid` | GM §2 presets, sized by the plate's shorter side. **`dim`** is not glass: a flat dark plate (`fill`, default black .30) with an 8 px feathered edge, no optics, no light, no shadow; for the room dim (SM-D6) and CC-A dimming | built |
-| `phase`, `appear`, `phaseMs` | | 1, —, by size | Materialize, as for slabs (GM §5): `liquid`/`panel`/`clear`/`dim` plates ramp linearly 250 / 350 ms, `window` and `thick` plates ride `sheet-in` / `sheet-out` | built |
-| `tint` | colour | — | Coloured glass (G3): the glass is pulled toward this colour with strength `a`, keeping ± 25 % of the room's brightness variation and all of the light terms | built |
-| `fill` | colour | — | A flat tone composited over the glass inside the shape, blended in sRGB like CSS (SET's container tone: black .14 inside a platter) | built |
-| `occluder` | bool | false | The **occluder variant** (HA §10.2): brightness × .55, no key specular, no transmitted lip, no Fresnel, no contact shadow. Use it under a pop that sits over its own plate (Home's focused cell), so off axis the plate reads as the pop's shadow | built |
-| `shadow` | 0..1 | material's contact shadow | Contact-shadow alpha outside the plate (needs transparent texels around it). `0` turns it off | built |
+| `id` | string | `"p<index>"` | Stable id: the phase animation and the acks follow it. Give one whenever plates come and go | live |
+| `x, y, w, h, r` | Steam px | r = min(w, h) / 2 | The shape (clipped to the texture) | live |
+| `material` | `window` \| `panel` \| `liquid` \| `thick` \| `clear` \| `dim` | `liquid` | GM §2 presets, sized by the plate's shorter side. **`dim`** is not glass: a flat dark plate (`fill`, default black .30) with an 8 px feathered edge, no optics, no light, no shadow; for the room dim (SM-D6) and CC-A dimming | live |
+| `phase`, `appear`, `phaseMs` | | 1, —, by size | Materialize, as for slabs (GM §5): `liquid`/`panel`/`clear`/`dim` plates ramp linearly 250 / 350 ms, `window` and `thick` plates ride `sheet-in` / `sheet-out` | live |
+| `tint` | colour | — | Coloured glass (G3): the glass is pulled toward this colour with strength `a`, keeping ± 25 % of the room's brightness variation and all of the light terms | live |
+| `fill` | colour | — | A flat tone composited over the glass inside the shape, blended in sRGB like CSS (SET's container tone: black .14 inside a platter) | live |
+| `occluder` | bool | false | The **occluder variant** (HA §10.2): brightness × .55, no key specular, no transmitted lip, no Fresnel, no contact shadow. Use it under a pop that sits over its own plate (Home's focused cell), so off axis the plate reads as the pop's shadow | live |
+| `shadow` | 0..1 | material's contact shadow | Contact-shadow alpha outside the plate (needs transparent texels around it). `0` turns it off | live |
 
 Notes:
 
 - A plate never morphs into another id: to move glass, change its `x/y/w/h` (redrawn at once, no ramp) or retire the old id (`phase` 0, then remove it) and add a new one with `appear: "materialize"`.
 - A plate whose id leaves the spec disappears at once (no ghost: plates have no atlas cell that the scene graph might still show).
-- Slabs see plates behind them (glass over glass, GM §1.6): a slab over a plate samples the plate, not the room.
+- Slabs see plates behind them (glass over glass, GM §1.6): a slab over a plate samples the plate, not the room, through a round nine-tap blur (R1: one coarse tap drew a square inside the slab).
+- **A plate over a cover sees that cover** (R1, glass over glass): it samples the cover's quarter-resolution copy as a slab does, with its optics 2 mm in front of the cover, so it reads as raised window glass (half its tint, L +8) with its own bezel and light, never as a closed rim of bent room. Plates on a windowless surface (`shapes: []`) see the room, as before.
 - Cost: each plate is one scissored draw over its rect plus its shadow margin. 19 Home plates ≈ 0.45 M texels at scale 0.75; GL-3 measures it.
 
 ### 1.4 `slabs[]`: v3 additions
@@ -68,16 +72,23 @@ Existing fields (`id`, `x`, `y`, `w`, `h`, `r`, `material`, `dz`, `phase`, `appe
 
 | Field | Type | Default | Meaning | Status |
 |---|---|---|---|---|
-| `material: "none"` | | | The slab gets its cell (so P8's pop rule and P7's placement work unchanged) but draws **nothing** there; its hole and its shadow on the cover are still drawn. For pops over opaque art where the glass is in-page (GP's cluster) | built |
-| **`tint`** | colour | — | Coloured Liquid Glass (G3): green Play / Resume, blue Install / Update (D2 §6.4 Tinted). As for plates | built |
-| **`hole`** | `true` \| `{shadow, y, blur, fill, clip}` | — | **Hole treatment** (G2). Drawn into the cover (and into any plate) under the popped element: the slab's own contact shadow, **not** excluded under the slab, clipped to the crop's rect, plus an optional `fill` tone under the shadow. Off axis the sliver a pop reveals then reads as its shadow over its container's tone, not as a bright sliver of glass or room. `true` = all defaults | built |
-| `hole.shadow` | 0..1 | 0.35 | Shadow alpha (black) | built |
-| `hole.y`, `hole.blur` | Steam px | 9, 27 | Offset down and blur radius (= GP's 6 / 18 CSS px at 1.5×) | built |
-| `hole.fill` | colour | — | The container's tone inside the clip rect (the art's mean colour over hero art; black .14 in a platter; the scrim's black .35 under an alert). Blended in sRGB, hard-edged at the clip rect | built |
-| `hole.clip` | `[x0, y0, x1, y1]` | the slab's rect | The crop's rect, i.e. the hole the base mosaic leaves (pass P8's `clip` when it trims a sliver) | built |
-| **`ox`, `oy`** | Steam px | 0 | Offset of the slab's **world point** from `x, y` for a crop the scene graph moved (SP §11.2 item 1, moved ornaments). The hole and the cover shadow stay at `x, y` | built |
+| `material: "dim"` | | | G7: the cell is a flat dark tone (`fill`, default black .30) with an 8 px feathered edge: no optics, no light, no shadow, no hole on the cover (unless it has `hole`). It is the texture for the room-dim panel: P7 places this cell as a large quad behind the window (`dz` < 0 or a fixed distance), scaled up, so the feather becomes a soft edge. Rides `sheet-in` / `sheet-out` like `thick` (out-ramp 514 ms) | live |
+| `fill` | colour | black .30 | The `dim` slab's tone | live |
+| `material: "none"` | | | The slab gets its cell (so P8's pop rule and P7's placement work unchanged) but draws **nothing** there; its hole and its shadow on the cover are still drawn. For pops over opaque art where the glass is in-page (GP's cluster) | live |
+| **`tint`** | colour | — | Coloured Liquid Glass (G3): green Play / Resume, blue Install / Update (D2 §6.4 Tinted). As for plates | live |
+| **`hole`** | `true` \| `{shadow, y, blur, fill, clip}` | — | **Hole treatment** (G2). Drawn into the cover (and into any plate) under the popped element: the slab's own contact shadow, **not** excluded under the slab, clipped to the crop's rect, plus an optional `fill` tone under the shadow. Off axis the sliver a pop reveals then reads as its shadow over its container's tone, not as a bright sliver of glass or room. `true` = all defaults | live |
+| `hole.shadow` | 0..1 | 0.35 | Shadow alpha (black) | live |
+| `hole.y`, `hole.blur` | Steam px | 9, 27 | Offset down and blur radius (= GP's 6 / 18 CSS px at 1.5×) | live |
+| `hole.fill` | colour | — | The container's tone inside the clip rect (black .14 in a platter; the scrim's black .35 under an alert; over art prefer `edges`). Blended in sRGB, hard-edged at the clip rect | live |
+| **`hole.edges`** | `{top, right, bottom, left}`, each a colour or a list of 1-8 colours | — | R1, cap `holeEdges`. The tones **just outside** each edge of the clip rect (a 2 CSS px strip; a list samples along the edge, left to right or top to bottom, about one sample per 27 CSS px). Inside the hole glassd blends them by nearness to each edge (and between the samples along it), so the sliver a pop reveals off axis continues what surrounds the crop. An edge without samples uses `fill`. For pops over art and posters: P6's `fill: "auto"` (REQ P9->P6); P8 must pass it through (REQ P9->P8) | live in glassd (R1) |
+| `hole.clip` | `[x0, y0, x1, y1]` | the slab's rect | The crop's rect, i.e. the hole the base mosaic leaves (pass P8's `clip` when it trims a sliver) | live |
+| **`ox`, `oy`** | Steam px | 0 | Offset of the slab's **world point** from `x, y` for a crop the scene graph moved (SP §11.2 item 1, moved ornaments). The hole and the cover shadow stay at `x, y` | live |
 
-The cast shadow of a slab on its cover (GM §1.5) is unchanged for slabs without `hole`. With `hole`, the cover shadow uses the hole's alpha, offset and blur everywhere, so the shadow is continuous across the crop's edge.
+**Choosing the hole's tone (GL-2, revised in R1).** The hole is a hard-edged rect (the crop's), and off axis only a thin L-shaped sliver of it shows. Where its tone differs from what lies just outside the crop, the sliver draws a crisp L-bracket along the rect, which reads as an outline (VP P-42). One flat `fill` cannot match art that varies by 15-20 L over a crop (R1 review M2), so over art and posters send **`edges`**: with them the sliver's rim matches the art within |dL| 2-3 and its corners within 2-4 (`tools/test_holes.py`). Over a flat container (a platter, the scrim under an alert) a flat `fill` is exact. Without either, the cover glass shows in the sliver: right over glass, wrong over opaque art.
+
+**How the hole is shaded (R1).** Inside the clip rect: the control's own contact shadow (`shadow`, `y`, `blur`), not excluded under the slab, and a small ambient-occlusion floor (30 % of `shadow`) only under the control's rounded shape (6 px falloff), never in the rect's corners beyond its rounded ends. Over an opaque tone (`fill` or `edges`, by their alpha) the shadow also follows the control's shape (falloff 0.4 x `blur`) and fades to nothing at the clip rect's edge (over 0.3 x `blur`), because past that edge the content hides the cover and the shadow cannot continue: the sliver darkens toward the control and meets the content with no step. Over glass (no fill) the shadow stays continuous across the crop's edge.
+
+The cast shadow of a slab on its cover (GM §1.5), for slabs without `hole`: offset down 0.3 x dz (VP P-48: 0.4 CSS px per mm; R1, was 2 mm + 0.4 x dz), softness 3 mm + 0.4 x dz. With `hole`, the cover shadow uses the hole's alpha, offset and blur everywhere.
 
 ### 1.5 Example
 
@@ -104,7 +115,8 @@ The cast shadow of a slab on its cover (GM §1.5) is unchanged for slabs without
 | Topic | Rule |
 |---|---|
 | Draw order in the backdrop region | cover (with the casters' shadows and holes) → plates in spec order (each with the holes that fall on it) → holes' fills → nothing else. The slab atlas is separate (unchanged) |
-| What slabs see behind them | The cover **and the plates** at quarter resolution (GM §1.6), so a pop over its plate sees that plate |
+| What slabs see behind them | The cover **and the plates** at quarter resolution (GM §1.6), so a pop over its plate sees that plate (nine-tap blur, R1) |
+| What plates see behind them | Over a cover: the cover alone, at quarter resolution (R1). On a windowless surface: the room |
 | Phase | Covers, plates and slabs animate independently toward their `phase`; glassd renders at full rate while any ramp moves (GM §5) |
 | Masks | Every visible surface's quad (unchanged), plus surface `masks` and top-level `masks`. Up to 24 mask quads in all; beyond that the room map stops integrating (`masks=N(incomplete)`), never integrates UI |
 | Limits | cover shapes ≤ 8; plates ≤ 32 per surface; casters (slab shadows and holes) on one piece of glass ≤ 16; masks ≤ 24 |
@@ -119,11 +131,11 @@ Unchanged fields: `seq`, `pid`, `updated`, `healthy`, `fps`, `gpu_ms`, `frames`,
 
 | New field | Where | Meaning | Status |
 |---|---|---|---|
-| `version` | top | `3` | built |
-| `caps` | top | The v3 features this binary has: any of `"plates"`, `"holes"`, `"tint"`, `"masks"`, `"coverDz"`, `"none"`, `"offset"`, `"dim"`, `"scaleFrom"`, `"unitM"`. P8 sends a field only when its cap is listed | built |
-| `plates` | surface | The plate ids drawn (in the backdrop region, so their UV is `backdrop`). P8 acks a plate once its surface's cover node has been pushed ≥ 350 ms and the id is listed here | built |
-| `droppedPlates` | surface | Plate ids not drawn (beyond 32, or empty after clipping) | built |
-| `counts` | surface | `{"shapes", "plates", "slabs", "holes", "dropped", "droppedPlates"}` | built |
+| `version` | top | `3` | live |
+| `caps` | top | The v3 features this binary has: any of `"plates"`, `"holes"`, `"tint"`, `"masks"`, `"coverDz"`, `"none"`, `"offset"`, `"dim"`, `"scaleFrom"`, `"unitM"`, `"roomDim"`, `"dimSlab"` (a slab `material: "dim"`), `"holeEdges"` (R1: `hole.edges`). P8 sends a field only when its cap is listed | live (`holeEdges` from R1) |
+| `plates` | surface | The plate ids drawn (in the backdrop region, so their UV is `backdrop`). P8 acks a plate once its surface's cover node has been pushed ≥ 350 ms and the id is listed here | live |
+| `droppedPlates` | surface | Plate ids not drawn (beyond 32, or empty after clipping): the first 32 (R1; `counts.droppedPlates` counts them all). `dropped` (slabs) is listed the same way | live |
+| `counts` | surface | `{"shapes", "plates", "slabs", "holes", "dropped", "droppedPlates"}` | live |
 
 `cover` stays the number of cover **shapes**. A windowless surface (`shapes: []`) with plates reports `cover: 0`; P8 decides `lgs-native` for such a surface from `plates` (P8's contract).
 
@@ -133,19 +145,20 @@ Unchanged fields: `seq`, `pid`, `updated`, `healthy`, `fps`, `gpu_ms`, `frames`,
 
 | Option | Meaning | Status |
 |---|---|---|
-| `--bench-scene NAME` | Replaces `--spec` with a built-in Phase 2 scene: `home` (19 plates + 1 slab), `library` (window cover + 3 slabs), `ccm` (4 plates), `keyboard` (library + a keyboard cover) | built |
+| `--spec tools/bench/NAME.json --bench` | The Phase 2 bench scenes (files, not built in): `home` (19 plates + 1 slab), `library` (window cover + ornament plate + 3 slabs), `ccm` (4 plates), `keyboard` (library + a keyboard cover). `tools/test_bench.sh` runs all four (GL-3) | live |
+| `--selftest phase` | The materialize ramps against `motion_tokens.h`, no SteamVR (MO-5); exit 0 = pass | live |
 | `--test-backdrop`, `--test-head`, `--dump-view`, `--bench`, `--phase` | As README | live |
 
 ---
 
 ## 5. fakeglassd (`native/spike/fakeglassd.cpp`)
 
-Follows this contract: it accepts every v3 field, paints plates (flat frosted gradients, `occluder` at .55, `dim` dark, `tint`/`fill` applied), paints holes as dark rects, and writes the same `glassd-out.json` fields (`version`, `caps`, `plates`, `droppedPlates`, `counts`). It never touches the camera. Test GL-6.
+Follows this contract: it accepts every v3 field, paints plates (flat frosted gradients, `occluder` at .55, `dim` dark, `tint`/`fill` applied), paints holes as flat rects (their `fill`, else the mean of their `edges`, else black .35), and writes the same `glassd-out.json` fields (`version`, `caps` with `holeEdges`, `plates`, `droppedPlates` (the first 32), `counts`). It never touches the camera. Test GL-6.
 
 ---
 
 ## 6. Not in v3
 
-- Morphs of glass between shapes (`morph-open` / `morph-close` across a menu and its source), `press` and press position (D2 §11.8): not built. Menus materialize in place (`phase`); C1c's CSS draws the morph.
+- Morphs of glass between shapes (`morph-open` / `morph-close` across a menu and its source), `press` and press position (D2 §11.8): not built. Menus materialize in place (`phase`); C1c's CSS draws the open morph (C1c D15) and glassd dematerializes on close. This is a PLAN 1.17 decision recorded in `wp/P9.md` (*Notes and decisions*, R1): a glassd `morph-close` needs P8 to keep the closing slab with its source rect and P7 to keep drawing a slab whose pop has gone (P7 does not draw a listed slab without a sinking pop), and no package asks for it yet.
 - A cover offset per shape: `coverDz` is per surface.
-- Room dim **outside** the window's rect (SM-D6) needs glass outside the Steam texture: a `dim` plate draws only inside its surface. G7 note in P9.md.
+- Room dim **outside** the window's rect (SM-D6): glassd provides the pieces (top-level `roomDim` and the `dim` slab cell, §1.1, §1.4, `shots/p2_glassd_roomdim.png`); placing the cell as a quad behind the window is P7's and passing `roomDim` and the slab is P8's. Neither is built (nobody asked yet: C7's `roomDim` flag is off by default). A `dim` **plate** draws only inside its surface.

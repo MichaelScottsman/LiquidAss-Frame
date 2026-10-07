@@ -68,6 +68,8 @@ constexpr const char *kDefaultPrefix = "glassd.";
 constexpr const char *kShmDir = "/dev/shm/lgs";
 constexpr int kMaxShapes = 8;
 constexpr int kMaxPlates = 32;   // per surface (docs/phase2/contracts/glassd.md §1.3)
+constexpr int kMaxListedDrops = 32;  // dropped plate ids listed in glassd-out.json (all are counted)
+constexpr float kPlateLiftM = 0.002f;  // R1: optics of a plate over a cover sit this far in front of it
 constexpr int kMaxCasters = 16;  // slab shadows and holes on one piece of glass (glass.frag uShBox[])
 constexpr int kMaxMasks = 24;    // feed mask quads (room_update.frag uQO[])
 constexpr int kMaxExtraMasks = 8;  // per surface and at the top level
@@ -157,7 +159,8 @@ void usage() {
         "  --phase M          pin every cover and slab at materialize progress M (0..1), for dumps\n"
         "  --selftest phase   check the materialize ramps against motion_tokens.h (no SteamVR), exit 0 = pass\n"
         "  --view-content C   with --dump-view: none (default) or hero, a stand-in page in front of the\n"
-        "                     cover (opaque art with the popped rects cut out, and the popped crops)\n"
+        "                     cover (opaque art with the popped rects cut out, and the popped crops);\n"
+        "                     hero-art: the same without the cut-outs (GL-2's reference for a hole's dL)\n"
         "SIGUSR1 dumps the room map and surfaces (to the --dump paths, else /tmp/lgs/glassd-dump/).\n"
         "SIGUSR2 (test aid) treats every overlay as lost: destroys and recreates it.\n"
         "Exit codes: 0 stopped, 1 setup error, 2 bad arguments, 75 temporary (lock held, SteamVR absent or gone).\n");
@@ -213,8 +216,8 @@ bool parseArgs(int argc, char **argv, Options &o) {
         else if (a == "--selftest") ok = next(o.selftest) && o.selftest == "phase";
         else if (a == "--view-content") {
             std::string v;
-            ok = next(v) && (v == "none" || v == "hero");
-            o.viewContent = v == "hero" ? 1 : 0;
+            ok = next(v) && (v == "none" || v == "hero" || v == "hero-art");
+            o.viewContent = v == "hero" ? 1 : v == "hero-art" ? 2 : 0;
         }
         else if (a == "--once") o.once = true;
         else if (a == "--force") o.force = true;
@@ -449,10 +452,15 @@ struct Color {
 };
 // v3 hole treatment under a popped element (G2): its contact shadow, not
 // excluded under the slab, clipped to the crop's rect, over a fill tone.
+constexpr int kMaxEdgeSamples = 8;  // per hole edge (glass.frag uHoleTex)
 struct HoleSpec {
     bool on = false;
     float shadow = 0.35f, y = 9.f, blur = 27.f;  // Steam px (6 / 18 CSS px at 1.5x)
     Color fill;
+    // R1: tones just outside each edge of the crop (top, right, bottom, left),
+    // 0..8 samples along it (left to right, top to bottom); none = `fill`
+    std::vector<Color> edges[4];
+    bool hasEdges() const { return !edges[0].empty() || !edges[1].empty() || !edges[2].empty() || !edges[3].empty(); }
     bool hasClip = false;
     float cx0 = 0, cy0 = 0, cx1 = 0, cy1 = 0;  // crop rect, Steam px
 };
@@ -464,9 +472,11 @@ struct SlabSpec {
     float dz = 0.015f;  // scene units (metres = dz x unitM)
     float ox = 0, oy = 0;  // v3: world-point offset of a moved crop (Steam px)
     Color tint;         // v3 (G3)
+    Color fill;         // v3 G7: a "dim" slab's tone (default black .30)
     HoleSpec hole;      // v3 (G2)
     PhaseSpec ph;
     bool none() const { return material == "none"; }
+    bool dim() const { return material == "dim"; }  // v3 G7: a flat dark cell, no optics
 };
 struct ShapeSpec {
     float x = 0, y = 0, w = 0, h = 0, r = 0;
@@ -505,7 +515,8 @@ struct SurfSpec {
     PhaseSpec ph;
     // v3
     std::vector<PlateSpec> plates;          // at most kMaxPlates
-    std::vector<std::string> droppedPlates;  // beyond kMaxPlates or empty after clipping
+    std::vector<std::string> droppedPlates;  // beyond kMaxPlates or empty after clipping (the first kMaxListedDrops)
+    size_t droppedPlatesN = 0;               // all of them
     float coverDz = 0.001f;                 // scene units: the cover and plates relative to the surface
     std::vector<MaskSpec> masks;
     bool scaleFromOverlay = false;          // "scaleFrom": "overlay": no rescale to the window's mpp
@@ -515,13 +526,26 @@ struct Spec {
     float dial = 0.5f;
     bool reduceMotion = false;
     float unitM = 0.369f;  // v3: metres per scene unit (S x r)
+    float roomDim = 0;     // v3 G7: every piece of glass sees the room darkened by this (0..1)
     std::vector<WorldMask> masks;  // v3: extra world mask quads
     std::vector<SurfSpec> surfaces;
 };
 
 // v3 colours: [r, g, b(, a)] in 0..1, "#rgb", "#rrggbb", "#rrggbbaa",
-// "rgb(r g b / a)", "rgba(r, g, b, a)" (0..255 channels, alpha 0..1 or %).
+// "rgb(r g b / a)", "rgba(r, g, b, a)" (0..255 channels, alpha 0..1 or %),
+// and the reporter's names "green", "blue", "red", "scrim".
+bool parseColorValue(const JVal *v, Color &c);
 bool parseColor(const JVal *v, Color &c) {
+    if (parseColorValue(v, c)) return true;
+    if (v && v->type != JVal::Null) {
+        // ignored (treated as absent) and logged once per value, at most 16 values
+        static std::set<std::string> logged;
+        std::string what = v->type == JVal::Str ? "\"" + v->s.substr(0, 60) + "\"" : v->type == JVal::Arr ? "an array" : "a non-colour";
+        if (logged.size() < 16 && logged.insert(what).second) std::printf("spec: unparsable colour %s ignored\n", what.c_str());
+    }
+    return false;
+}
+bool parseColorValue(const JVal *v, Color &c) {
     c = Color{};
     if (!v) return false;
     float ch[4] = {0, 0, 0, 1};
@@ -582,6 +606,37 @@ bool parseColor(const JVal *v, Color &c) {
 }
 float srgbToLin1(float c) { return c <= 0.04045f ? c / 12.92f : std::pow((c + 0.055f) / 1.055f, 2.4f); }
 
+// A numeric id as text: integers exactly, anything beyond 2^53 (or not
+// finite) as %.17g, never through an overflowing integer cast (R1 m7).
+std::string numId(double n) {
+    if (std::isfinite(n) && std::fabs(n) < 9.0e15 && n == std::floor(n)) return std::to_string((long long)n);
+    char b[40];
+    std::snprintf(b, sizeof b, "%.17g", n);
+    return b;
+}
+
+// Hole edge tones (R1): {"top": c | [c, ...], "right": ..., "bottom": ..., "left": ...},
+// each a colour or 1..8 colours along that edge; unparsable entries are skipped.
+void readEdges(const JVal *e, HoleSpec &h) {
+    if (!e || e->type != JVal::Obj) return;
+    static const char *names[4] = {"top", "right", "bottom", "left"};
+    for (int k = 0; k < 4; k++) {
+        const JVal *v = e->get(names[k]);
+        if (!v) continue;
+        // a list of colours, or one colour (a string, or [r, g, b(, a)] numbers)
+        const bool list = v->type == JVal::Arr && !v->a.empty() && v->a[0].type != JVal::Num;
+        if (list) {
+            for (const JVal &c : v->a) {
+                Color col;
+                if (h.edges[k].size() < size_t(kMaxEdgeSamples) && parseColor(&c, col)) h.edges[k].push_back(col);
+            }
+        } else {
+            Color col;
+            if (parseColor(v, col)) h.edges[k].push_back(col);
+        }
+    }
+}
+
 void readPhase(const JVal &o, PhaseSpec &ph) {
     ph.phase = std::clamp(float(o.num("phase", 1.0)), 0.f, 1.f);
     if (!std::isfinite(ph.phase)) ph.phase = 1;
@@ -610,9 +665,16 @@ bool parseSpec(const std::string &text, Spec &out, std::string &err) {
     if (!JParser(text).parse(root, err)) return false;
     if (root.type != JVal::Obj) { err = "spec is not an object"; return false; }
     out = Spec{};
-    out.seq = (long long)root.num("seq", 0);
+    {
+        const double sq = root.num("seq", 0);
+        out.seq = std::isfinite(sq) ? (long long)std::clamp(sq, -9.0e18, 9.0e18) : 0;
+    }
     out.dial = float(root.num("dial", 0.5));
     out.reduceMotion = root.boolean("reduceMotion", false);
+    {
+        const float d = float(root.num("roomDim", 0));
+        out.roomDim = std::isfinite(d) ? std::clamp(d, 0.f, 0.9f) : 0.f;
+    }
     {
         const float u = float(root.num("unitM", 0.369));
         out.unitM = std::isfinite(u) && u > 0.01f && u < 10.f ? u : 0.369f;
@@ -660,7 +722,7 @@ bool parseSpec(const std::string &text, Spec &out, std::string &err) {
             for (const JVal &q : sl->a) {
                 SlabSpec b;
                 b.id = q.str("id", "");
-                if (const JVal *idn = q.get("id"); idn && idn->type == JVal::Num) b.id = std::to_string((long long)idn->n);
+                if (const JVal *idn = q.get("id"); idn && idn->type == JVal::Num) b.id = numId(idn->n);
                 b.w = float(q.num("w", 0));
                 b.h = float(q.num("h", 0));
                 b.r = float(q.num("r", 0));
@@ -672,6 +734,7 @@ bool parseSpec(const std::string &text, Spec &out, std::string &err) {
                 b.ox = finite(float(q.num("ox", 0)));
                 b.oy = finite(float(q.num("oy", 0)));
                 parseColor(q.get("tint"), b.tint);
+                parseColor(q.get("fill"), b.fill);
                 if (const JVal *h = q.get("hole")) {
                     if (h->type == JVal::Bool) {
                         b.hole.on = h->b;
@@ -681,6 +744,7 @@ bool parseSpec(const std::string &text, Spec &out, std::string &err) {
                         b.hole.y = std::clamp(finite(float(h->num("y", 9))), -200.f, 200.f);
                         b.hole.blur = std::clamp(finite(float(h->num("blur", 27))), 0.f, 400.f);
                         parseColor(h->get("fill"), b.hole.fill);
+                        readEdges(h->get("edges"), b.hole);
                         if (const JVal *c = h->get("clip"); c && c->type == JVal::Arr && c->a.size() == 4) {
                             bool ok = true;
                             float v[4];
@@ -707,7 +771,7 @@ bool parseSpec(const std::string &text, Spec &out, std::string &err) {
                 if (q.type != JVal::Obj) { index++; continue; }
                 PlateSpec p;
                 p.id = q.str("id", "");
-                if (const JVal *idn = q.get("id"); idn && idn->type == JVal::Num) p.id = std::to_string((long long)idn->n);
+                if (const JVal *idn = q.get("id"); idn && idn->type == JVal::Num) p.id = numId(idn->n);
                 if (p.id.empty()) p.id = "p" + std::to_string(index);
                 if (p.id.size() > 128) p.id = p.id.substr(0, 128);
                 index++;
@@ -725,7 +789,8 @@ bool parseSpec(const std::string &text, Spec &out, std::string &err) {
                 const float x0 = std::max(0.f, p.x), y0 = std::max(0.f, p.y);
                 const float x1 = std::min(float(ss.texW), p.x + p.w), y1 = std::min(float(ss.texH), p.y + p.h);
                 if (x1 - x0 < 1 || y1 - y0 < 1 || ss.plates.size() >= size_t(kMaxPlates)) {
-                    ss.droppedPlates.push_back(p.id);
+                    if (ss.droppedPlates.size() < size_t(kMaxListedDrops)) ss.droppedPlates.push_back(p.id);
+                    ss.droppedPlatesN++;
                     continue;
                 }
                 p.r = std::min(p.r, 0.5f * std::min(x1 - x0, y1 - y0));
@@ -800,6 +865,8 @@ struct Surface {
     PhaseAnim anim;                  // the cover's materialize progress
     Target lowTex;                   // the cover at 1/4 resolution, mipmapped (glass.frag pass 1): its flat
                                      // interior for pass 2, and what slabs see behind them
+    Target coverTex;                 // R1: a copy of lowTex with the cover only (no plates), mipmapped:
+                                     // what plates over a cover see behind them (glass over glass)
     int submittedW = 0, submittedH = 0;  // what SteamVR holds (mouse scale follows it)
     int submitFails = 0, createTries = 0;
     uint64_t createNs = 0, submitFailSinceNs = 0, lastSubmitNs = 0;
@@ -947,6 +1014,8 @@ struct Caster {
     bool hole = false;
     float x0 = 0, y0 = 0, x1 = 0, y1 = 0;  // crop rect (holes)
     Color fill;                             // hole fill (alpha already phased)
+    const HoleSpec *spec = nullptr;         // its edge tones (R1), alpha phased by `edgeA`
+    float edgeA = 1;
 };
 // v3 per-piece look: colour tint, flat fill, occluder variant, dim plate.
 struct Look {
@@ -977,6 +1046,7 @@ class Glassd {
     Program progGlass, progUpdate, progPush, progPull, progRow, progHfill, progTest, progView;
     bool testRoomDone = false;
     GLuint vao = 0;
+    GLuint holeTex = 0;  // hole edge tones of the casters being drawn (glass.frag uHoleTex, unit 4)
     Room room;
     FeedCapture feed;
     FeedFrame frame;
@@ -1022,6 +1092,7 @@ class Glassd {
     uint64_t nextRenderNs = 0, lastLoopNs = 0, lastRenderNs = 0;
     bool dumpedOnce = false;
     uint64_t lastPhaseNs = 0;  // when the phases were last stepped (dump lines)
+    PhaseAnim roomDimAnim;     // v3 G7: the room dim, on sheet-in up and sheet-out down
 
     // ------------------------------------------------------------- shaders
     std::string shaderSource(const std::string &name) {
@@ -1183,6 +1254,10 @@ class Glassd {
         if (destroyOverlay && s.ov != vr::k_ulOverlayHandleInvalid) {
             vr::VROverlay()->DestroyOverlay(s.ov);
             s.ov = vr::k_ulOverlayHandleInvalid;
+        }
+        if (destroyOverlay) {  // the surface goes away: its copies too
+            s.lowTex.destroy();
+            s.coverTex.destroy();
         }
         for (auto &b : s.bufs) releaseBuffer(b);
     }
@@ -1418,7 +1493,7 @@ class Glassd {
     // Materialize targets: covers and thick slabs (menus, sheets) ride the
     // sheet springs, other slabs the linear 250/350 ms ramps.
     void setSlabPhase(SlabSlot &sl, uint64_t now) {
-        sl.anim.set(sl.s.ph.phase, sl.s.material == "thick", sl.s.ph.ms, sl.s.ph.materialize ? 0.f : -1.f, now);
+        sl.anim.set(sl.s.ph.phase, sl.s.material == "thick" || sl.s.dim(), sl.s.ph.ms, sl.s.ph.materialize ? 0.f : -1.f, now);
     }
     void setCoverPhase(Surface &s, uint64_t now) {
         s.anim.set(s.spec.ph.phase, true, s.spec.ph.ms, s.spec.ph.materialize ? 0.f : -1.f, now);
@@ -1452,9 +1527,11 @@ class Glassd {
             for (auto &sl : s->ghosts) moving |= sl.anim.step(now, spec.reduceMotion);
             for (auto &p : s->plates) moving |= p.anim.step(now, spec.reduceMotion);
         }
+        moving |= roomDimAnim.step(now, spec.reduceMotion);
         return moving;
     }
     float phaseOf(const PhaseAnim &a) const { return opt.phasePin >= 0 ? std::clamp(opt.phasePin, 0.f, 1.f) : a.init ? a.x : 1.f; }
+    float roomDimNow() const { return roomDimAnim.init ? std::clamp(roomDimAnim.x, 0.f, 0.9f) : 0.f; }
 
     void expireGhosts(uint64_t now) {
         for (auto &s : surfaces)
@@ -1502,6 +1579,8 @@ class Glassd {
         const uint64_t now = monoNowNs();
         // test runs (dumps): when each spec took effect, for tools/test_phase.sh
         if (!opt.dumpDir.empty()) std::printf("spec seq %lld applied (t=%.4f)\n", ns.seq, double(now) / 1e9);
+        // v3 G7: the room dim rides sheet-in / sheet-out (a first spec applies it at once)
+        roomDimAnim.set(ns.roomDim, true, -1, -1, now);
         // drop surfaces that left the spec
         for (size_t i = 0; i < surfaces.size();) {
             bool keep = false;
@@ -1533,7 +1612,7 @@ class Glassd {
                 s->warnedShapes = false;
             if (!ss.droppedPlates.empty() && ss.droppedPlates != s->spec.droppedPlates)
                 std::printf("surface %s: %zu plates not drawn (more than %d, or outside the texture)\n", ss.name.c_str(),
-                            ss.droppedPlates.size(), kMaxPlates);
+                            ss.droppedPlatesN, kMaxPlates);
             s->spec = ss;
             setCoverPhase(*s, now);
             syncPlates(*s, now);
@@ -2036,7 +2115,9 @@ class Glassd {
         p.set("uTintA", m.tintA * ph.tint);
         p.set("uBandMid", 0.314f);  // L 80 of 255: the middle of text-bearing glass (DESIGN2 §6.3)
         p.set("uBandK", 1.f + (m.bandK - 1.f) * ph.tint);
-        p.set("uDim", m.dim * ph.tint);
+        // v3 G7: the room dim folds into the backdrop dimming of glass that sees the room; a slab
+        // over its cover sees the cover, which is dimmed already
+        p.set("uDim", 1.f - (1.f - m.dim * ph.tint) * (1.f - (under ? 0.f : roomDimNow())));
         p.set("uSpec", m.spec * ph.light);
         p.set("uGloss", m.gloss);
         p.set("uFill", m.fill);
@@ -2070,6 +2151,7 @@ class Glassd {
             p.set("uCoverLod", std::log2((360.f / float(room.W)) / coverDeg));
             p.set("uCoverSize", float(s.lowTex.w), float(s.lowTex.h));
             p.set("uCoverScale", lowScale);
+            p.set("uCoverTaps", coverTaps);
             p.set("uSteamSize", float(s.spec.texW), float(s.spec.texH));
         }
         const int nc = std::min<int>(int(casters.size()), kMaxCasters);
@@ -2109,6 +2191,7 @@ class Glassd {
         const float mpp = designMpp();
         std::vector<Caster> holes, shadows;
         for (const SlabSlot &sl : s.slots) {
+            if (sl.s.dim() && !sl.s.hole.on) continue;  // v3 G7: a dim cell casts nothing
             const float settle = ramp(float(double(now - sl.stillSinceNs) / 1e6), 150.f, 300.f);
             const Phased ph = phaseMap(phaseOf(sl.anim), spec.reduceMotion);
             float ex, ey, sw, sh;
@@ -2131,14 +2214,19 @@ class Glassd {
                 c.y1 = h.hasClip ? h.cy1 : ey + sh;
                 c.fill = h.fill;
                 c.fill.a *= settle * ph.alpha;
-                if (c.alpha < 0.005f && (!c.fill.set || c.fill.a < 0.005f)) continue;
+                c.spec = &h;
+                c.edgeA = settle * ph.alpha;
+                if (c.alpha < 0.005f && (!c.fill.set || c.fill.a < 0.005f) && (!h.hasEdges() || c.edgeA < 0.005f)) continue;
                 holes.push_back(c);
             } else {
                 const Material sm = materialFor(sl.s.none() ? "liquid" : sl.s.material, spec.dial, std::min(sl.s.w, sl.s.h));
                 c.alpha = sm.slabShadow * settle * ph.shadow;
                 if (c.alpha < 0.005f) continue;
                 const float dzM = std::max(0.f, sl.s.dz * spec.unitM);
-                c.off = (0.002f + dzM * 0.4f) / mpp;
+                // VP P-48: offset 0.4 CSS px per mm of depth (= 0.3 m per m on the
+                // surface at 0.77 mm per CSS px; R1 m4: was 2 mm + 0.4 dz, about
+                // twice that), softness 3 mm + 0.4 dz (P-48's 1.2 px/mm within its band)
+                c.off = (0.3f * dzM) / mpp;
                 c.soft = (0.003f + dzM * 0.4f) / mpp;
                 shadows.push_back(c);
             }
@@ -2150,6 +2238,74 @@ class Glassd {
         for (const Caster &c : shadows) holes.push_back(c);
         if (holes.size() > size_t(kMaxCasters)) holes.resize(size_t(kMaxCasters));
         return holes;
+    }
+
+    // How a piece of glass reads the copy behind it (glass.frag uCoverTaps): the
+    // round nine-tap blur only where something small and sharp lies behind it
+    // (a plate, or a hole's fill tone), which one coarse tap would turn into a
+    // square (R1 M3); one tap over plain cover glass, where it looks the same
+    // and costs a ninth (about 0.3 ms in the library scene).
+    int coverTaps = 9;
+    bool copyHasDetail(const Surface &s, const std::vector<Caster> &casters, float x0, float y0, float x1, float y1,
+                       bool plates) const {
+        const float pad = 48.f;  // Steam px: the blur's reach plus the bend
+        x0 -= pad, y0 -= pad, x1 += pad, y1 += pad;
+        auto hit = [&](float a0, float b0, float a1, float b1) { return a0 < x1 && x0 < a1 && b0 < y1 && y0 < b1; };
+        if (plates)
+            for (const PlateSlot &p : s.plates)
+                if (phaseOf(p.anim) > 0.002f && hit(p.s.x, p.s.y, p.s.x + p.s.w, p.s.y + p.s.h)) return true;
+        for (const Caster &c : casters)
+            if (c.hole && ((c.fill.set && c.fill.a > 0.01f) || (c.spec && c.spec->hasEdges())) && hit(c.x0, c.y0, c.x1, c.y1))
+                return true;
+        return false;
+    }
+
+    // The casters' hole edge tones for glass.frag (uHoleTex, unit 4): row i =
+    // caster i, texel e * 8 + k = sample k of edge e (sRGB bytes, straight
+    // alpha, phased), texel 32 = the sample count of each edge (0 = the flat
+    // fill). Uploaded only while some hole has edge tones (and once after).
+    bool holeTexUsed = true;
+    void uploadHoles(const std::vector<Caster> &casters) {
+        constexpr int W = 4 * kMaxEdgeSamples + 1;
+        if (!holeTex) {
+            glGenTextures(1, &holeTex);
+            glActiveTexture(GL_TEXTURE4);
+            glBindTexture(GL_TEXTURE_2D, holeTex);
+            glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, W, kMaxCasters);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glActiveTexture(GL_TEXTURE0);
+            holeTexUsed = true;  // its first contents are undefined: upload zeros at least once
+        }
+        bool any = false;
+        for (const Caster &c : casters) any |= c.hole && c.spec && c.spec->hasEdges();
+        if (!any && !holeTexUsed) return;  // every count is zero already
+        static uint8_t px[kMaxCasters][W][4];
+        std::memset(px, 0, sizeof px);
+        auto q8 = [](float v) { return uint8_t(std::lround(std::clamp(v, 0.f, 1.f) * 255.f)); };
+        const size_t n = std::min(casters.size(), size_t(kMaxCasters));
+        for (size_t i = 0; i < n; i++) {
+            const Caster &c = casters[i];
+            if (!c.hole || !c.spec) continue;
+            for (int e = 0; e < 4; e++) {
+                const std::vector<Color> &v = c.spec->edges[e];
+                const size_t m = std::min(v.size(), size_t(kMaxEdgeSamples));
+                px[i][W - 1][e] = uint8_t(m);
+                for (size_t k = 0; k < m; k++) {
+                    uint8_t *t = px[i][size_t(e) * kMaxEdgeSamples + k];
+                    t[0] = q8(v[k].r);
+                    t[1] = q8(v[k].g);
+                    t[2] = q8(v[k].b);
+                    t[3] = q8(v[k].a * c.edgeA);
+                }
+            }
+        }
+        glActiveTexture(GL_TEXTURE4);
+        glBindTexture(GL_TEXTURE_2D, holeTex);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, W, kMaxCasters, GL_RGBA, GL_UNSIGNED_BYTE, px);
+        glActiveTexture(GL_TEXTURE0);
+        holeTexUsed = any;
     }
 
     // The quarter-resolution copy of the backdrop (covers and plates): pass 1
@@ -2164,6 +2320,26 @@ class Glassd {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 6);  // slabs sample up to mip 4.5
+    }
+    // R1: the cover alone, copied from lowTex after the cover's pass 1, for
+    // plates drawn over that cover (they sample it as slabs sample lowTex).
+    // (Drawing pass 1 a second time instead of the blit cost 0.1 ms more.)
+    void copyCover(Surface &s) {
+        if (s.coverTex.w != s.lowTex.w || s.coverTex.h != s.lowTex.h || !s.coverTex.tex) {
+            s.coverTex.destroy();
+            s.coverTex.create(s.lowTex.w, s.lowTex.h, s.lowTex.fmt, true);
+            glBindTexture(GL_TEXTURE_2D, s.coverTex.tex);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 6);
+        }
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, s.lowTex.fbo);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, s.coverTex.fbo);
+        glBlitFramebuffer(0, 0, s.lowTex.w, s.lowTex.h, 0, 0, s.lowTex.w, s.lowTex.h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glActiveTexture(GL_TEXTURE2);
+        s.coverTex.mipmap();
+        glActiveTexture(GL_TEXTURE0);
     }
     // Nothing may sample the low copy while it is the render target.
     static void unbindLow() {
@@ -2211,10 +2387,17 @@ class Glassd {
         const float coverDzM = s.spec.coverDz * spec.unitM;
         const bool hasSlabs = !s.slots.empty() || !s.ghosts.empty();
         const std::vector<Caster> casters = buildCasters(s, now);
+        uploadHoles(casters);
         // cover: the union of its shapes, one pass, in the backdrop region,
         // with the shadows and holes of the settled slabs in front of it
         const std::vector<ShapeSpec> shapes = coverShapes(s);
-        bool coverDrawn = false, lowReady = false;
+        std::vector<const PlateSlot *> live;
+        for (const PlateSlot &p : s.plates)
+            if (phaseOf(p.anim) > 0.002f) live.push_back(&p);
+        // R1 (m1): plates over a cover see that cover behind them (glass over
+        // glass, like a slab), so pass 1 also runs to give them its copy
+        const bool platesOverCover = !shapes.empty() && !live.empty();
+        bool coverDrawn = false, lowReady = false, coverCopied = false;
         if (!shapes.empty()) {
             float x0 = 1e9f, y0 = 1e9f, x1 = -1e9f, y1 = -1e9f;
             for (const ShapeSpec &q : shapes) {
@@ -2242,7 +2425,7 @@ class Glassd {
                 const float inner = std::max(std::min(cm.bezelM / mpp, 0.5f * minSide), 1.6f * std::max(2.f, cm.darkW / mpp)) +
                                     1.5f / lowScale + 2.f;
                 const bool twoPass = opt.debugView == 0 && minSide > 2.f * inner + 8.f / lowScale;
-                if (twoPass || hasSlabs) {
+                if (twoPass || hasSlabs || platesOverCover) {
                     ensureLow(s);
                     unbindLow();
                     glDisable(GL_SCISSOR_TEST);
@@ -2250,6 +2433,10 @@ class Glassd {
                     s.lowTex.bind();
                     drawGlass(s, g, head, cm, cph, 0, 0, s.lowTex.w, s.lowTex.h, {0, 0, 0}, shapes, coverDzM, false, casters, 1, lowScale);
                     lowReady = true;
+                    if (platesOverCover) {
+                        copyCover(s);  // scissor off: a blit obeys it
+                        coverCopied = true;
+                    }
                     glBindFramebuffer(GL_FRAMEBUFFER, b.fbo);
                     glEnable(GL_SCISSOR_TEST);
                     glActiveTexture(GL_TEXTURE3);
@@ -2265,17 +2452,25 @@ class Glassd {
             }
         }
         // v3 plates, in spec order, over the cover (premultiplied "over"); the
-        // low copy gets them too when slabs need to see them
+        // low copy gets them too when slabs need to see them. Over a cover a
+        // plate samples the cover's copy (unit 2) and its optics sit
+        // kPlateLiftM in front of it, so its bezel bends the window glass, not
+        // the room behind the window (R1 m1: a closed rim of bent room)
         bool platesDrawn = false;
-        std::vector<const PlateSlot *> live;
-        for (const PlateSlot &p : s.plates)
-            if (phaseOf(p.anim) > 0.002f) live.push_back(&p);
+        const bool plateUnder = coverCopied;
+        const float plateDz = coverDzM + (plateUnder ? kPlateLiftM : 0.f);
+        auto bindCoverCopy = [&] {
+            glActiveTexture(GL_TEXTURE2);
+            glBindTexture(GL_TEXTURE_2D, s.coverTex.tex);
+            glActiveTexture(GL_TEXTURE0);
+        };
         if (!live.empty()) {
             glEnable(GL_BLEND);
             glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
             if (hasSlabs) {
                 ensureLow(s);
                 unbindLow();
+                if (plateUnder) bindCoverCopy();
                 glDisable(GL_SCISSOR_TEST);
                 s.lowTex.bind();
                 if (!lowReady) {
@@ -2294,11 +2489,13 @@ class Glassd {
                     const int y1 = std::min(s.lowTex.h, int(std::ceil((p->s.y + p->s.h + pad) * lowScale)) + 1);
                     if (x1 <= x0 || y1 <= y0) continue;
                     glScissor(x0, y0, x1 - x0, y1 - y0);
+                    coverTaps = copyHasDetail(s, casters, p->s.x, p->s.y, p->s.x + p->s.w, p->s.y + p->s.h, false) ? 9 : 1;
                     drawGlass(s, g, head, pm, phaseMap(phaseOf(p->anim), spec.reduceMotion), 0, 0, s.lowTex.w, s.lowTex.h, {0, 0, 0},
-                              {{p->s.x, p->s.y, p->s.w, p->s.h, p->s.r}}, coverDzM, false, casters, 1, lowScale, plateLook(*p));
+                              {{p->s.x, p->s.y, p->s.w, p->s.h, p->s.r}}, plateDz, plateUnder, casters, 1, lowScale, plateLook(*p));
                 }
                 glBindFramebuffer(GL_FRAMEBUFFER, b.fbo);
             }
+            if (plateUnder) bindCoverCopy();
             for (const PlateSlot *p : live) {
                 const Material pm = materialFor(p->s.material, spec.dial, std::min(p->s.w, p->s.h));
                 const float pad = platePad(*p, pm);
@@ -2308,8 +2505,9 @@ class Glassd {
                 const int y1 = std::min(s.bh, int(std::ceil((p->s.y + p->s.h + pad) * s.scale)) + 1);
                 if (x1 <= x0 || y1 <= y0) continue;
                 glScissor(x0, y0, x1 - x0, y1 - y0);
+                coverTaps = copyHasDetail(s, casters, p->s.x, p->s.y, p->s.x + p->s.w, p->s.y + p->s.h, false) ? 9 : 1;
                 drawGlass(s, g, head, pm, phaseMap(phaseOf(p->anim), spec.reduceMotion), 0, 0, s.bw, s.bh, {0, 0, 0},
-                          {{p->s.x, p->s.y, p->s.w, p->s.h, p->s.r}}, coverDzM, false, casters, 0, 0.f, plateLook(*p));
+                          {{p->s.x, p->s.y, p->s.w, p->s.h, p->s.r}}, plateDz, plateUnder, casters, 0, 0.f, plateLook(*p));
                 platesDrawn = true;
             }
             glDisable(GL_BLEND);
@@ -2334,15 +2532,28 @@ class Glassd {
             glScissor(gx0, gy0, gx1 - gx0, gy1 - gy0);
             glClear(GL_COLOR_BUFFER_BIT);  // the cell's gutter may hold an older cell's pixels
             if (sl.s.none()) return;       // v3: a cell that draws nothing (its hole is on the cover)
+            if (sl.s.dim()) {
+                // v3 G7: a flat dark cell (the room dim the scene graph stretches behind the window)
+                Look flat;
+                flat.flat = true;
+                flat.fill = sl.s.fill;
+                glScissor(sl.x, sl.y, sl.w, sl.h);
+                drawGlass(s, g, head, materialFor("liquid", spec.dial, std::min(sl.s.w, sl.s.h)),
+                          phaseMap(phaseOf(sl.anim), spec.reduceMotion), sl.x, sl.y, sl.w, sl.h, {ex, ey, 0},
+                          {{0, 0, sw, sh, sl.s.r}}, 0.f, false, {}, 0, 0.f, flat);
+                return;
+            }
             const Material m = materialFor(sl.s.material, spec.dial, std::min(sl.s.w, sl.s.h));
             Look look;
             look.tint = sl.s.tint;
             glScissor(sl.x, sl.y, sl.w, sl.h);
+            coverTaps = copyHasDetail(s, casters, ex + sl.s.ox, ey + sl.s.oy, ex + sl.s.ox + sw, ey + sl.s.oy + sh, true) ? 9 : 1;
             drawGlass(s, g, head, m, phaseMap(phaseOf(sl.anim), spec.reduceMotion), sl.x, sl.y, sl.w, sl.h,
                       {ex + sl.s.ox, ey + sl.s.oy, 0}, {{0, 0, sw, sh, sl.s.r}}, sl.s.dz * spec.unitM - 0.0008f, under, {}, 0, 0.f, look);
         };
         for (const SlabSlot &sl : s.slots) drawSlab(sl);
         for (const SlabSlot &sl : s.ghosts) drawSlab(sl);
+        coverTaps = 9;
         glDisable(GL_SCISSOR_TEST);
         s.last = s.next;
         s.next = (s.next + 1) % 3;
@@ -2376,6 +2587,7 @@ class Glassd {
         p.set("uRoomAvg", 1);
         p.set("uCover", 2);
         p.set("uLow", 3);
+        p.set("uHoleTex", 4);
         p.set("uRoomSize", float(room.W), float(room.H));
         p.set("uCenter", room.center.x, room.center.y, room.center.z);
         p.set("uRadius", room.radius);
@@ -2475,7 +2687,7 @@ class Glassd {
                       spec.seq, int(getpid()), double(rt.tv_sec) + double(rt.tv_nsec) / 1e9, !exiting && healthy() ? "true" : "false",
                       exiting ? 0.0 : double(fpsNow), double(gpuMs()), (unsigned long long)frames, lastDash ? "true" : "false");
         o += b;
-        o += ", \"version\": 3, \"caps\": [\"plates\", \"holes\", \"tint\", \"masks\", \"coverDz\", \"none\", \"offset\", \"dim\", \"scaleFrom\", \"unitM\"]";
+        o += ", \"version\": 3, \"caps\": [\"plates\", \"holes\", \"tint\", \"masks\", \"coverDz\", \"none\", \"offset\", \"dim\", \"scaleFrom\", \"unitM\", \"roomDim\", \"dimSlab\", \"holeEdges\"]";
         std::snprintf(b, sizeof b, ", \"last_submit_s\": %.1f, \"room_ms\": %.2f, \"room_updates\": %llu, \"feed\": %s%s",
                       lastSubmitNs ? double(now - lastSubmitNs) / 1e9 : -1.0, double(roomTimer.have ? roomTimer.ms : roomCpuMs),
                       (unsigned long long)room.updates, jsonEscape(feedState()).c_str(), exiting ? ", \"exiting\": true" : "");
@@ -2502,10 +2714,10 @@ class Glassd {
             o += "}";
             if (!s->dropped.empty()) {
                 o += ", \"dropped\": [";
-                bool f = true;
+                size_t n = 0;  // the first kMaxListedDrops (counts.dropped has them all)
                 for (const std::string &id : s->dropped) {
-                    o += (f ? "" : ", ") + jsonEscape(id);
-                    f = false;
+                    if (n == size_t(kMaxListedDrops)) break;
+                    o += (n++ ? ", " : "") + jsonEscape(id);
                 }
                 o += "]";
             }
@@ -2522,7 +2734,7 @@ class Glassd {
             for (const SlabSlot &sl : s->slots) holes += sl.s.hole.on;
             std::snprintf(b, sizeof b,
                           ", \"counts\": {\"shapes\": %zu, \"plates\": %zu, \"slabs\": %zu, \"holes\": %zu, \"dropped\": %zu, \"droppedPlates\": %zu}",
-                          cover, s->plates.size(), s->slots.size(), holes, s->dropped.size(), s->spec.droppedPlates.size());
+                          cover, s->plates.size(), s->slots.size(), holes, s->dropped.size(), s->spec.droppedPlatesN);
             o += b;
             o += "}";
         }
@@ -2662,6 +2874,7 @@ class Glassd {
             col[i * 4 + 3] = 1.f;
         }
         p.set("uContent", opt.viewContent);
+        p.set("uRoomDim", roomDimNow());  // v3 G7: the dim panel behind the UI, as the wearer would see it
         glUniform1i(p.loc("uNSlab"), int(sl.size()));
         if (!sl.empty()) {
             glUniform4fv(p.loc("uSlabRect"), GLsizei(sl.size()), rect);

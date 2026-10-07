@@ -40,28 +40,19 @@
     if (RW && typeof RW.track === 'function') return (fn) => RW.track((e) => fn(e.win, e.doc, e.kind));
     return (fn) => input.hub.onDoc(fn);
   }
+  // A member on the public runtime object (PLAN §1.4 one accessor) through P1's tracked rt.expose,
+  // which deletes it when the module is removed; plain assignment (undone by off) only without it.
+  function expose(rt, name, value, offs) {
+    const P = PUB();
+    if (rt && rt !== P && typeof rt.expose === 'function') {
+      try { offs.push(rt.expose(name, value)); return; } catch (err) { log('warn', 'rt.expose(' + name + ') refused; assigning', String(err)); }
+    }
+    P[name] = value;
+    offs.push(() => { if (P[name] === value) delete P[name]; });
+  }
   function inputOf(rt) {
     try { if (rt && typeof rt.use === 'function') return rt.use('input'); } catch (_) { /* not via use */ }
     return (rt && rt.input) || (PUB() && PUB().input) || null;
-  }
-  // %{Token} -> selector; unresolved tokens are dropped from a selector list (each part on its own).
-  function resolveList(list) {
-    const parts = list.split(/,(?![^(]*\))/).map((s) => s.trim()).filter(Boolean);
-    const out = [];
-    for (const p of parts) {
-      if (p.indexOf('%{') < 0) { out.push(p); continue; }
-      let bad = false;
-      const s = p.replace(/%\{([^}]+)\}/g, (_, tok) => {
-        try {
-          const r = H.__LGS_INDEX && typeof H.__LGS_INDEX.selector === 'function' ? H.__LGS_INDEX.selector(tok) : null;
-          if (r && r.sel) return r.sel;
-        } catch (_) { /* unresolved */ }
-        bad = true;
-        return '';
-      });
-      if (!bad) out.push(s);
-    }
-    return out.join(', ');
   }
 
   RT.define({
@@ -75,19 +66,41 @@
       const hub = input.hub;
       const onDoc = onDocOf(R, input);
       const marks = input.marks;
+      // %{Token} selectors resolve lazily and are retried until P1's class index has every token, so an
+      // install while the index is incomplete cannot switch a tag off for the session (review R1 F6).
+      const lazySel = input.lazySel;
+      // No strong set of touched elements (review R1 F1): marks are weak, at most one spot host per
+      // window is held (released on the next move), and removal sweeps every live window instead.
       const st = {
-        docs: new Map(), offs: [], spotHosts: [], spotSel: DEFAULT_SPOT, pressSel: DEFAULT_PRESS,
-        disabledSel: resolveList(DISABLED), ringSel: resolveList('%{FocusRing}'),
+        docs: new Map(), offs: [], spotHosts: [], spotSel: lazySel(DEFAULT_SPOT), pressSel: lazySel(DEFAULT_PRESS),
+        disabledSel: lazySel(DISABLED), ringSel: lazySel('%{FocusRing}'),
         stats: { spotWrites: 0, spotClears: 0, pressed: 0, released: 0, safetyClears: 0, focusIn: 0, ringCheck: 0, disabledFocus: 0 },
-        touched: new Set(),
       };
       live = st;
+      // Fail closed (runtime.md §1 rule 2): set before any listener or subscription below.
+      st.remove = () => {
+        for (const off of st.offs.splice(0).reverse()) { try { off(); } catch (_) { /* gone */ } }
+        try { marks.sweep((c) => OUR_CLASSES.includes(c)); } catch (_) { /* input gone */ }
+        // Belt and braces: nothing of ours left in any live popup (classes and the inline spot).
+        for (const w of hub.windows()) {
+          try {
+            for (const el of w.document.querySelectorAll('.lgs-pressed, .lgs-focus-in, .lgs-ring-check, .lgs-focus-disabled')) {
+              for (const c of OUR_CLASSES) marks.remove(el, c);
+            }
+            for (const el of w.document.querySelectorAll('[style*="--hx"], [style*="--hy"]')) {
+              el.style.removeProperty('--hx');
+              el.style.removeProperty('--hy');
+            }
+          } catch (_) { /* gone */ }
+        }
+      };
 
       function big(n, w) {
         try { const r = n.getBoundingClientRect(); return r.width * r.height > 0.5 * w.innerWidth * w.innerHeight; } catch (_) { return true; }
       }
       // Nearest ancestor matching sel that is not a page-sized container.
       function hostFor(t, sel, w) {
+        if (!sel) return null;
         for (let n = t; n && n.nodeType === 1; n = n.parentElement) {
           let ok = false;
           try { ok = n.matches(sel); } catch (_) { ok = false; }
@@ -96,14 +109,20 @@
         return null;
       }
       function spotHost(t, w) {
-        for (const s of st.spotHosts) { const h = hostFor(t, s, w); if (h) return h; }
-        return hostFor(t, st.spotSel, w);
+        for (const s of st.spotHosts) { const h = hostFor(t, s(), w); if (h) return h; }
+        return hostFor(t, st.spotSel(), w);
       }
+      // The last pointer target per window is only a hint: held weakly (review R1 F1).
+      const WR = typeof H.WeakRef === 'function' ? H.WeakRef : null;
+      const weak = (el) => (el && WR ? new WR(el) : el);
+      const strong = (r) => (r && WR && r instanceof WR ? r.deref() || null : r);
 
       // ---------------------------------------------- light spot (CTL §4.2, VP P-09, P-10)
+      // The spot host is held weakly as well: a page Steam unmounts under a still pointer is collected.
       function clearSpot(rec) {
-        const el = rec.spotEl;
-        if (!el) return;
+        const el = strong(rec.spotEl);
+        if (!rec.spotEl) return;
+        if (!el) { rec.spotEl = null; rec.spotX = rec.spotY = null; return; }
         try { el.style.removeProperty('--hx'); el.style.removeProperty('--hy'); } catch (_) { /* gone */ }
         rec.spotEl = null;
         rec.spotX = rec.spotY = null;
@@ -112,22 +131,23 @@
       function flushSpot(rec) {
         rec.raf = 0;
         if (live !== st || input.mode !== 'laser' || !rec.ptr) return;
-        const { target, x, y } = rec.ptr;
+        const { x, y } = rec.ptr;
+        const target = strong(rec.ptr.target);
         const el = target && target.isConnected ? spotHost(target, rec.win) : null;
-        if (el !== rec.spotEl) clearSpot(rec);
+        const cur = strong(rec.spotEl);
+        if (el !== cur) clearSpot(rec);
         if (!el) return;
         let r;
         try { r = el.getBoundingClientRect(); } catch (_) { return; }
         if (!r.width || !r.height) return;
         const hx = (Math.max(0, Math.min(1, (x - r.left) / r.width)) * 100).toFixed(1) + '%';
         const hy = (Math.max(0, Math.min(1, (y - r.top) / r.height)) * 100).toFixed(1) + '%';
-        if (el === rec.spotEl && hx === rec.spotX && hy === rec.spotY) return;
+        if (el === cur && hx === rec.spotX && hy === rec.spotY) return;
         el.style.setProperty('--hx', hx);
         el.style.setProperty('--hy', hy);
-        rec.spotEl = el;
+        if (el !== cur) rec.spotEl = weak(el);
         rec.spotX = hx;
         rec.spotY = hy;
-        st.touched.add(el);
         st.stats.spotWrites++;
       }
 
@@ -150,10 +170,9 @@
         if (d.button !== A_BUTTON || d.is_repeat) return;
         const t = e.target;
         if (!t || t.nodeType !== 1) return;
-        const el = hostFor(t, st.pressSel, rec.win) || t;
+        const el = hostFor(t, st.pressSel(), rec.win) || t;
         if (rec.pressed.has(el)) unpress(rec, el, 'again');
         marks.add(el, 'lgs-pressed');
-        st.touched.add(el);
         rec.pressed.set(el, H.setTimeout(() => unpress(rec, el, 'safety'), PRESS_CLEAR_MS));
         st.stats.pressed++;
       }
@@ -165,8 +184,9 @@
 
       // ---------------------------------------------- gamepad focus tags (CTL §4.3, §4.5, §4.7)
       function rings(rec) {
-        if (!st.ringSel) return [];
-        try { return [...rec.doc.querySelectorAll(st.ringSel)]; } catch (_) { return []; }
+        const sel = st.ringSel();
+        if (!sel) return [];
+        try { return [...rec.doc.querySelectorAll(sel)]; } catch (_) { return []; }
       }
       function focusIn(rec, el) {
         if (!el || el.nodeType !== 1) return;
@@ -180,7 +200,6 @@
         } else {
           marks.add(el, 'lgs-focus-in');
         }
-        st.touched.add(el);
         H.clearTimeout(rec.focusInTimers.get(el));
         rec.focusInTimers.set(el, H.setTimeout(() => {
           rec.focusInTimers.delete(el);
@@ -191,7 +210,7 @@
         for (const ring of rings(rec)) {
           const on = !!rec.ringCheck;
           if (on !== ring.classList.contains('lgs-ring-check')) {
-            if (on) { marks.add(ring, 'lgs-ring-check'); st.touched.add(ring); st.stats.ringCheck++; } else marks.remove(ring, 'lgs-ring-check');
+            if (on) { marks.add(ring, 'lgs-ring-check'); st.stats.ringCheck++; } else marks.remove(ring, 'lgs-ring-check');
           }
         }
       }
@@ -201,10 +220,11 @@
         applyRingCheck(rec);
       }
       function isDisabled(t, w) {
-        if (!st.disabledSel) return false;
+        const sel = st.disabledSel();
+        if (!sel) return false;
         for (let n = t, i = 0; n && n.nodeType === 1 && i < 4; n = n.parentElement, i++) {
           let ok = false;
-          try { ok = n.matches(st.disabledSel); } catch (_) { ok = false; }
+          try { ok = n.matches(sel); } catch (_) { ok = false; }
           if (ok) return !big(n, w);
           if (i > 0 && n.classList && n.classList.contains('Panel') && n.classList.contains('Focusable')) break;   // another control
         }
@@ -218,7 +238,7 @@
         focusIn(rec, t);
         for (const ring of rings(rec)) focusIn(rec, ring);
         st.stats.focusIn++;
-        if (isDisabled(t, rec.win)) { marks.add(t, 'lgs-focus-disabled'); rec.disEl = t; st.touched.add(t); st.stats.disabledFocus++; }
+        if (isDisabled(t, rec.win)) { marks.add(t, 'lgs-focus-disabled'); rec.disEl = t; st.stats.disabledFocus++; }
         let chk = false;
         try { chk = !!t.closest('.DialogCheckbox'); } catch (_) { chk = false; }
         rec.ringCheck = chk;
@@ -248,7 +268,7 @@
         const move = (e) => {
           // Always remember the pointer (cheap), so the spot appears the moment Steam's source flips to
           // the laser; write only in laser mode, at most once per frame.
-          rec.ptr = { target: e.target, x: e.clientX, y: e.clientY };
+          rec.ptr = { target: weak(e.target), x: e.clientX, y: e.clientY };
           if (input.mode === 'laser') schedule(rec);
         };
         const out = (e) => { if (!e.relatedTarget) { rec.ptr = null; clearSpot(rec); } };
@@ -296,20 +316,32 @@
       }));
 
       function recFor(el) { try { return st.docs.get(el.ownerDocument) || null; } catch (_) { return null; } }
+      // An area's selector whose tokens resolve to nothing (yet) falls back to the default list.
+      function orDefault(get, def) {
+        const f = () => get() || def;
+        f.resolved = get.resolved;
+        f.source = get.source;
+        return f;
+      }
 
       const states = {
-        get spotSelector() { return st.spotSel; },
-        set spotSelector(v) { if (typeof v === 'string' && v) st.spotSel = resolveList(v) || DEFAULT_SPOT; },
-        get pressSelector() { return st.pressSel; },
-        set pressSelector(v) { if (typeof v === 'string' && v) st.pressSel = resolveList(v) || DEFAULT_PRESS; },
+        get spotSelector() { return st.spotSel(); },
+        set spotSelector(v) { if (typeof v === 'string' && v) st.spotSel = orDefault(lazySel(v), DEFAULT_SPOT); },
+        get pressSelector() { return st.pressSel(); },
+        set pressSelector(v) { if (typeof v === 'string' && v) st.pressSel = orDefault(lazySel(v), DEFAULT_PRESS); },
         // Areas: a host whose own CSS draws the spot (e.g. a card's outer box); tried before the default list.
         addSpotHost(sel) {
-          const s = resolveList(String(sel || ''));
-          if (!s) return () => {};
+          if (!sel || typeof sel !== 'string') return () => {};
+          const s = lazySel(sel);
           st.spotHosts.push(s);
           return () => { const i = st.spotHosts.indexOf(s); if (i >= 0) st.spotHosts.splice(i, 1); };
         },
         stats() { return Object.assign({}, st.stats); },
+        // Diagnostics: the selectors in use and whether every %{Token} in them has resolved yet.
+        selectors() {
+          const one = (g) => ({ sel: g(), resolved: g.resolved() });
+          return { spot: one(st.spotSel), press: one(st.pressSel), disabled: one(st.disabledSel), ring: one(st.ringSel), hosts: st.spotHosts.map(one) };
+        },
         // Test hook (IN-4): run our handler on a fake event object, never dispatched to Steam.
         test: {
           feed(type, target, detail) {
@@ -332,20 +364,7 @@
         },
       };
       st.api = states;
-      PUB().states = states;
-      st.remove = () => {
-        for (const off of st.offs.splice(0).reverse()) { try { off(); } catch (_) { /* gone */ } }
-        for (const el of st.touched) {
-          try { for (const c of OUR_CLASSES) marks.remove(el, c); el.style.removeProperty('--hx'); el.style.removeProperty('--hy'); } catch (_) { /* gone */ }
-        }
-        st.touched.clear();
-        // Belt and braces: nothing of ours left in any live popup.
-        for (const w of hub.windows()) {
-          try {
-            for (const el of w.document.querySelectorAll('.lgs-pressed, .lgs-focus-in, .lgs-ring-check, .lgs-focus-disabled')) el.classList.remove(...OUR_CLASSES);
-          } catch (_) { /* gone */ }
-        }
-      };
+      expose(R, 'states', states, st.offs);
       return states;
     },
     remove() {

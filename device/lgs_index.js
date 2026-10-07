@@ -13,16 +13,64 @@
 //   *...   - a leading * matches every module variant that fits, e.g.
 //            %{*GamepadDialogContent>Field} covers all four gamepaddialog
 //            builds Steam ships; it expands to :is(.a,.b,...)
-function lgsBuildIndex() {
-  let req;
-  // Steam's client UI bundle, or SteamVR's web UI bundle (vrwebhelper pages)
-  const chunks = window.webpackChunksteamui || window.webpackChunkvrwebui;
-  chunks.push([[Symbol('lgs-index')], {}, (r) => { req = r; }]);
+//
+// The harvest only requires "pure" factories, whose whole body is
+// `e => { e.exports = { key: "string", ... } }` (CSS modules are; 545 of 552 on
+// build 11094443, the rest were localization JSON). Requiring one is side-effect
+// free even before Steam loaded it. Every other factory is never run: Steam's
+// require caches a module before its factory runs and keeps a half-built one if
+// it throws, so running arbitrary factories early (right after a SharedJSContext
+// reload) could break Steam modules (review R1 M1c).
+//
+// The result says whether it is plausible: `ok` is false below `minModules`
+// (default 200 for Steam's client bundle, whose healthy size is about 550; 1 for
+// SteamVR's vrwebui pages). Callers must not cache an index whose `ok` is false
+// (lgsIndexShared does it right).
+
+// Steam's webpack require, or null while the webpack runtime is not loaded. The
+// probe record webpack keeps in the chunk array is spliced out again, so nothing
+// accumulates however often this runs.
+function lgsWebpackRequire() {
+  const W = window;
+  const chunks = W.webpackChunksteamui || W.webpackChunkvrwebui;
+  // Before the runtime loads, push is the plain Array method: the callback would never run.
+  if (!chunks || typeof chunks.push !== 'function' || chunks.push === Array.prototype.push) return null;
+  let req = null;
+  const sym = Symbol('lgs-index');
+  const rec = [[sym], {}, (r) => { req = r; }];
+  try { chunks.push(rec); } catch (_) { return null; }
+  try {
+    for (let i = chunks.length - 1; i >= 0; i--) {
+      const c = chunks[i];
+      const id = c && Array.isArray(c[0]) ? c[0][0] : null;
+      // ours, and any record an older build of this file left behind
+      if (c === rec || (typeof id === 'symbol' && id.description === 'lgs-index')) chunks.splice(i, 1);
+    }
+  } catch (_) { /* array gone */ }
+  return req && req.m ? req : null;
+}
+
+function lgsBuildIndex(opts) {
+  const o = opts || {};
+  const W = window;
+  const bundle = W.webpackChunksteamui ? 'steamui' : (W.webpackChunkvrwebui ? 'vrwebui' : null);
+  const minModules = typeof o.minModules === 'number' ? o.minModules : (bundle === 'steamui' ? 200 : 1);
+  const t0 = (W.performance ? W.performance.now() : Date.now());
+  const req = o.req || lgsWebpackRequire();
   const CLASSY = /^[A-Za-z_][\w-]*( [A-Za-z_][\w-]*)*$/;
+  // e=>{e.exports={...}}, (e,t,n)=>{...}, function(e){...}; optional "use strict"; no nested braces
+  const PURE = /^\s*(?:function\s*\w*\s*\(\s*\w+(?:\s*,\s*\w+){0,2}\s*\)|\(\s*\w+(?:\s*,\s*\w+){0,2}\s*\)\s*=>|\w+\s*=>)\s*\{\s*(?:(["'])use strict\1;?\s*)?\w+\.exports\s*=\s*\{[^{}]*\}\s*;?\s*\}\s*$/;
   const mods = [];
   const byKey = new Map();
   const seen = new Set();
-  for (const id of Object.keys(req.m)) {
+  let factories = 0, pure = 0;
+  const ids = req && req.m ? Object.keys(req.m) : [];
+  factories = ids.length;
+  for (const id of ids) {
+    let src;
+    try { src = Function.prototype.toString.call(req.m[id]); } catch (_) { continue; }
+    if (src.length > 40000 || !PURE.test(src)) continue;
+    pure++;
     let e;
     try { e = req(id); } catch (_) { continue; }
     if (!e || typeof e !== 'object' || seen.has(e)) continue;
@@ -91,5 +139,37 @@ function lgsBuildIndex() {
     return { sel: cls.length === 1 ? cls[0] : ':is(' + cls.join(',') + ')', n: cls.length };
   }
 
-  return { mods, byKey, byHash, resolve, selector, tokenFor, size: mods.length };
+  // Still the index of this page's webpack runtime, with no factory registered since?
+  // (A lazily loaded chunk adds factories: rebuild then.)
+  function current() {
+    try { return !!(req && req.m && Object.keys(req.m).length === factories); } catch (_) { return false; }
+  }
+
+  const size = mods.length;
+  return {
+    mods, byKey, byHash, resolve, selector, tokenFor, current, req,
+    size, factories, pure, bundle, minModules,
+    ok: !!req && size >= minModules,
+    why: !req ? 'webpack runtime not loaded' : (size < minModules ? `${size} CSS modules < ${minModules}` : null),
+    builtAt: Date.now(),
+    ms: Math.round(((W.performance ? W.performance.now() : Date.now()) - t0) * 10) / 10,
+  };
+}
+
+// The page's shared index (window.__LGS_INDEX): reused while it is ok and current,
+// rebuilt otherwise; a new one is cached only when ok, and a cached one that is not
+// ok (from an older build, or built by a caller that did not check) is dropped.
+// Returns the index, which may be not ok (and then is not cached): check `.ok`.
+function lgsIndexShared(opts) {
+  const W = window;
+  const cur = W.__LGS_INDEX;
+  const min = opts && typeof opts.minModules === 'number' ? opts.minModules : null;
+  if (cur && cur.selector && cur.ok === true && typeof cur.current === 'function' && cur.current()
+      && (min === null || cur.size >= min)) return cur;
+  const fresh = lgsBuildIndex(opts);
+  if (fresh.ok) { W.__LGS_INDEX = fresh; return fresh; }
+  const curGood = cur && cur.selector && cur.ok === true && (min === null || cur.size >= min);
+  if (curGood) return cur;             // a new chunk, but the fresh harvest is short: keep the last good map
+  if (cur) { try { delete W.__LGS_INDEX; } catch (_) { W.__LGS_INDEX = undefined; } }
+  return fresh;
 }

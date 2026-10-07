@@ -14,8 +14,10 @@ set -e
 cd "$(dirname "$0")/.."
 G=${GLASSD:-./glassd}
 T=${1:-15}
-D=/tmp/lgs/tbench
+D=/tmp/lgs/p9-fx/bench
+rm -rf $D
 mkdir -p $D
+trap 'rm -rf "$D"; rmdir /tmp/lgs/p9-fx 2>/dev/null' EXIT
 worst=0
 for scene in home library ccm keyboard; do
     $G --spec tools/bench/$scene.json --key-prefix glassd-bench. --out $D/out.json --test-backdrop room --bench \

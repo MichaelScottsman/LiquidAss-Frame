@@ -19,9 +19,10 @@
 // glassd.json v3 (docs/phase2/contracts/glassd.md): it accepts every v3 field.
 // Cover shapes are painted as their union; plates as flat frosted rounded
 // rects over it (occluder x.55, "dim" dark, tint and fill mixed in); holes as
-// a dark rect (their fill, else black .35) inside the crop rect on the cover;
-// tinted slabs take their colour; "none" slabs leave their cell empty. The
-// output carries version 3, caps, cover, plates, droppedPlates and counts.
+// a dark rect (their fill, else the mean of their edge tones, else black .35)
+// inside the crop rect on the cover; tinted slabs take their colour; "none"
+// slabs leave their cell empty. The output carries version 3, caps (with
+// glassd's "holeEdges"), cover, plates, droppedPlates (the first 32) and counts.
 #include <gbm.h>
 #include <openvr.h>
 
@@ -249,6 +250,7 @@ struct Slab {
     int x = 0, y = 0, pw = 0, ph = 0;   // atlas rect, glassd px
     float ex = 0, ey = 0;         // element position (Steam px)
     Col tint;
+    Col fill;                     // "dim" slab tone (v3 G7)
     bool hole = false;
     Col holeFill;
     float cx0 = 0, cy0 = 0, cx1 = 0, cy1 = 0;  // hole clip (Steam px)
@@ -269,6 +271,7 @@ struct Surface {
     std::vector<Rect> shapes;           // the cover: their union (v2 rules for absent / empty)
     std::vector<Plate> plates;          // v3, at most 32
     std::vector<std::string> droppedPlates;
+    size_t droppedN = 0;  // all dropped plates (the list holds the first 32)
     std::vector<Slab> slabs;
     std::string sig;
     vr::VROverlayHandle_t ov = vr::k_ulOverlayHandleInvalid;
@@ -401,6 +404,16 @@ static void Paint(const Surface &s, uint8_t *px, uint32_t stride) {
     // slabs: translucent "liquid" rounded rects (tinted when asked; "none" draws nothing)
     for (const Slab &sl : s.slabs) {
         if (sl.material == "none") continue;
+        if (sl.material == "dim") {  // v3 G7: a flat dark cell, feathered 8 px
+            const float fa0 = sl.fill.set ? sl.fill.a : 0.30f;
+            for (int y = 0; y < sl.ph; y++)
+                for (int x = 0; x < sl.pw; x++) {
+                    const float e = std::min(std::min(x + 0.5f, sl.pw - x - 0.5f), std::min(y + 0.5f, sl.ph - y - 0.5f));
+                    const float a = fa0 * Clamp01(e / (8.f * g_scale));
+                    put(sl.x + x, sl.y + y, sl.fill.set ? sl.fill.r : 0, sl.fill.set ? sl.fill.g : 0, sl.fill.set ? sl.fill.b : 0, a);
+                }
+            continue;
+        }
         const float sr = std::min(float(sl.r) * g_scale, std::min(sl.pw, sl.ph) * 0.5f);
         const float shx = sl.pw * 0.5f, shy = sl.ph * 0.5f;
         for (int y = 0; y < sl.ph; y++)
@@ -520,7 +533,7 @@ static bool ReadFile(const std::string &path, std::string &out) {
 static void WriteOut(const std::string &path, double seq, const std::map<std::string, Surface> &surfs, long frames) {
     std::string o = "{\"seq\":" + std::to_string(long(seq)) + ",\"fps\":1.0,\"gpu_ms\":0.0,\"frames\":" +
                     std::to_string(frames) + ",\"fake\":true,\"version\":3,\"caps\":[\"plates\",\"holes\",\"tint\",\"masks\","
-                    "\"coverDz\",\"none\",\"offset\",\"dim\",\"scaleFrom\",\"unitM\"],\"surfaces\":{";
+                    "\"coverDz\",\"none\",\"offset\",\"dim\",\"scaleFrom\",\"unitM\",\"roomDim\",\"dimSlab\",\"holeEdges\"],\"surfaces\":{";
     bool first = true;
     char tmp[256];
     for (const auto &kv : surfs) {
@@ -550,7 +563,7 @@ static void WriteOut(const std::string &path, double seq, const std::map<std::st
         size_t holes = 0;
         for (const Slab &sl : s.slabs) holes += sl.hole;
         std::snprintf(tmp, sizeof tmp, ",\"counts\":{\"shapes\":%zu,\"plates\":%zu,\"slabs\":%zu,\"holes\":%zu,\"dropped\":0,\"droppedPlates\":%zu}}",
-                      s.shapes.size(), s.plates.size(), s.slabs.size(), holes, s.droppedPlates.size());
+                      s.shapes.size(), s.plates.size(), s.slabs.size(), holes, s.droppedN);
         o += tmp;
     }
     o += "}}\n";
@@ -649,6 +662,7 @@ int main(int argc, char **argv) {
                     for (const Rect &q : shapes) sig += "|s" + num(q.x) + "," + num(q.y) + "," + num(q.w) + "," + num(q.h) + "," + num(q.r);
                     std::vector<Plate> plates;
                     std::vector<std::string> droppedPlates;
+                    size_t droppedN = 0;
                     int pi = 0;
                     for (const J &q : js["plates"].a) {
                         Plate pl;
@@ -661,7 +675,11 @@ int main(int argc, char **argv) {
                         pl.tint = ParseCol(q["tint"]);
                         pl.fill = ParseCol(q["fill"]);
                         pl.occluder = q["occluder"].truthy(false);
-                        if (pl.rc.w < 1 || pl.rc.h < 1 || plates.size() >= 32) { droppedPlates.push_back(pl.id); continue; }
+                        if (pl.rc.w < 1 || pl.rc.h < 1 || plates.size() >= 32) {
+                            if (droppedPlates.size() < 32) droppedPlates.push_back(pl.id);  // listed: the first 32
+                            droppedN++;
+                            continue;
+                        }
                         sig += "|p" + pl.id + pl.material + num(pl.rc.x) + "," + num(pl.rc.y) + "," + num(pl.rc.w) + "," + num(pl.rc.h) +
                                (pl.occluder ? "o" : "") + (pl.tint.set ? "t" + num(pl.tint.r + pl.tint.g * 3 + pl.tint.b * 9 + pl.tint.a * 27) : "") +
                                (pl.fill.set ? "f" + num(pl.fill.r + pl.fill.g * 3 + pl.fill.b * 9 + pl.fill.a * 27) : "");
@@ -677,11 +695,33 @@ int main(int argc, char **argv) {
                         sl.ex = float(l["x"].num());
                         sl.ey = float(l["y"].num());
                         sl.tint = ParseCol(l["tint"]);
+                        sl.fill = ParseCol(l["fill"]);
                         const J &h = l["hole"];
                         sl.hole = h.t == J::Obj || (h.t == J::Bool && h.b);
                         sl.cx0 = sl.ex; sl.cy0 = sl.ey; sl.cx1 = sl.ex + sl.w; sl.cy1 = sl.ey + sl.h;
                         if (h.t == J::Obj) {
                             sl.holeFill = ParseCol(h["fill"]);
+                            // R1 edge tones: fakeglassd paints their mean as a flat fill
+                            const J &ed = h["edges"];
+                            if (ed.t == J::Obj && !sl.holeFill.set) {
+                                float acc[4] = {0, 0, 0, 0};
+                                int n = 0;
+                                for (const char *k : {"top", "right", "bottom", "left"}) {
+                                    const J &e = ed[k];
+                                    const bool list = e.t == J::Arr && !e.a.empty() && e.a[0].t != J::Num;
+                                    const size_t m = list ? std::min<size_t>(e.a.size(), 8) : 1;
+                                    for (size_t i = 0; i < m; i++) {
+                                        const Col c = ParseCol(list ? e.a[i] : e);
+                                        if (!c.set) continue;
+                                        acc[0] += c.r; acc[1] += c.g; acc[2] += c.b; acc[3] += c.a;
+                                        n++;
+                                    }
+                                }
+                                if (n) {
+                                    sl.holeFill.set = true;
+                                    sl.holeFill.r = acc[0] / n; sl.holeFill.g = acc[1] / n; sl.holeFill.b = acc[2] / n; sl.holeFill.a = acc[3] / n;
+                                }
+                            }
                             const J &c = h["clip"];
                             if (c.t == J::Arr && c.a.size() == 4 && c.a[2].num() > c.a[0].num() && c.a[3].num() > c.a[1].num()) {
                                 sl.cx0 = float(c.a[0].num()); sl.cy0 = float(c.a[1].num());
@@ -691,6 +731,7 @@ int main(int argc, char **argv) {
                         if (sl.id.empty() || sl.w < 1 || sl.h < 1) continue;
                         sig += "|" + sl.id + ":" + std::to_string(sl.w) + "x" + std::to_string(sl.h) + "r" + std::to_string(sl.r) + sl.material +
                                (sl.tint.set ? "t" + num(sl.tint.r + sl.tint.g * 3 + sl.tint.b * 9 + sl.tint.a * 27) : "") +
+                               (sl.fill.set ? "f" + num(sl.fill.r + sl.fill.g * 3 + sl.fill.b * 9 + sl.fill.a * 27) : "") +
                                (sl.hole ? "h" + num(sl.cx0) + "," + num(sl.cy0) + "," + num(sl.cx1) + "," + num(sl.cy1) +
                                               (sl.holeFill.set ? "f" + num(sl.holeFill.a) : "")
                                         : "");
@@ -700,6 +741,7 @@ int main(int argc, char **argv) {
                         s.shapes = shapes;
                         s.plates = plates;
                         s.droppedPlates = droppedPlates;
+                        s.droppedN = droppedN;
                         s.slabs = slabs;
                         if (Layout(s) && Publish(s)) {
                             s.sig = sig;

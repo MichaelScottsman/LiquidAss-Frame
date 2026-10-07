@@ -94,12 +94,12 @@ Setting `animation` on a Steam node replaces Steam's whole list (MO R3): repeat 
 |---|---|---|---|
 | `lgs-mat-glass-in` | **Small glass** (≤ 600 × 600 px, MO R8). Glass channel resolves by 92 %: `scale` s0 → rest, `background-color` transparent → rest, `backdrop-filter` `blur(0px) saturate(1)` → rest, `box-shadow` none → rest; coverage `opacity` 0 → 1 by ≈ 28 % (glassd's `smoothstep(0, .3, m)`) | `var(--lgs-motion-mat-in) backwards` on the glass element | `--lgs-maxside` (number, CSS px of the longest side, default 80): s0 = 1 + clamp(.01, 12 / maxSide, .15) (C3) |
 | `lgs-mat-glass-out` | Reverse: to s0, transparent, `blur(0px)`, no shadow; coverage `opacity` → 0 over the last ≈ 30 % | `var(--lgs-motion-mat-out) forwards` (node removed after) | `--lgs-maxside` |
-| `lgs-mat-large-in` | **Large glass** (alerts, anything > 600 px): coverage `opacity` and `scale` s0 → rest only (no blur ramp, R8) | `var(--lgs-motion-mat-in) backwards` (alert: 250 ms + swell 1.02 → 1, D2 §11.5) | `--lgs-maxside` (default 640 → s0 ≈ 1.019) |
+| `lgs-mat-large-in` | **Large glass** (alerts, anything > 600 px): `scale` s0 → rest riding the glass (resolved by 92 %), and `opacity` 0 → 1 as `min(1, g / .8)` (≈ 74 % of the time): with no blur ramp allowed (R8), opacity carries the whole glass channel | `var(--lgs-motion-mat-in) backwards` (alert: 250 ms + swell 1.02 → 1, D2 §11.5) | `--lgs-maxside` (default 640 → s0 ≈ 1.019) |
 | `lgs-mat-content-in` | Content channel: hidden (opacity 0, `blur(8px)`) until 35 %, then to rest | `var(--lgs-motion-mat-in) backwards` on the glass's children (same duration as the glass) | — |
 | `lgs-mat-content-out` | To opacity 0, `blur(8px)` by 55 %, held | `var(--lgs-d-mat-out) linear forwards` on the children | — |
 | `lgs-toast-in` | Toast (MO §4.10): the small-glass materialize finishes in the first 250 ms, and `translate` (0, dy) → rest rides the animation's own easing | `var(--lgs-motion-snappy) backwards` (488 ms, b15) in place of Steam's `toastEnter*`; children `lgs-mat-content-in` on `--lgs-motion-mat-in` | `--lgs-toast-dy` (default `-8px`, from the anchor's side), `--lgs-maxside` |
-| `lgs-sheet-in` | Sheet (MO §4.8): `scale` s0 → rest on the animation's easing; coverage `opacity` 0 → 1 as `smoothstep(0, .3, spring)` (≈ 12 % of the time). No blur ramp (large) | `var(--lgs-motion-sheet-in) backwards` | `--lgs-sheet-s0` (default .97) |
-| `lgs-sheet-out` | `scale` → s1 on the easing; `opacity` held to ≈ 26 % then dissolves on the spring | `var(--lgs-motion-sheet-out) forwards` | `--lgs-sheet-s1` (default .98) |
+| `lgs-sheet-in` | Sheet (MO §4.8): `scale` s0 → rest on the animation's easing; `opacity` 0 → 1 as `min(1, spring / .8)` (≈ 32 % of the time; it carries the glass channel, since a large slab may not ramp its blur, R8) | `var(--lgs-motion-sheet-in) backwards` | `--lgs-sheet-s0` (default .97) |
+| `lgs-sheet-out` | `scale` → s1 on the easing; `opacity` = `min(1, (1 − spring) / .8)`: held to 8.5 %, then dissolves on the spring (≈ .75 at 15 %, .21 at 35 %, .07 at 50 %) | `var(--lgs-motion-sheet-out) forwards` | `--lgs-sheet-s1` (default .98) |
 | `lgs-sheet-content-in` | Opacity 0 until 25 %, rest by 70 % | `var(--lgs-motion-sheet-in) backwards` on the sheet's content | — |
 | `lgs-sheet-content-out` | Opacity → 0 by 40 % | `var(--lgs-motion-sheet-out) forwards` | — |
 | `lgs-morph` | Menu morph from its source: `clip-path: inset(<source rect> round --sr)` → `inset(0 round --lgs-morph-r)` | `var(--lgs-d-morph-open) var(--lgs-ease-b0) backwards` on the menu's glass box (≤ 600 × 600, R9) | `--sx --sy --sw --sh --sr`: the source rect relative to the menu box (T2 writes them; T1 defaults 0 0 64px 48px 24px); `--lgs-morph-r` (default `var(--lgs-r-menu, 32px)`) |
@@ -112,7 +112,7 @@ Setting `animation` on a Steam node replaces Steam's whole list (MO R3): repeat 
 | `lgs-knob-lift` | Toggle knob lifts into glass: `scale` 1.3 × 1.2 and `background-color` white .35 from 20 % to 65 %, rest at both ends | `var(--lgs-d-snappy) linear` on the knob, no fill (T2 adds the trigger class for 500 ms, MO §4.15) | — |
 | `lgs-shift-in` | `translate` (x, y) → rest | e.g. a SteamVR switch knob arriving from the other side: `var(--lgs-motion-snappy) backwards` | `--lgs-shift-x`, `--lgs-shift-y` (default 0px) |
 | `lgs-fade-in` / `lgs-fade-out` | `opacity` 0 → rest / rest → 0 | Any cross-dissolve on `fade` | — |
-| `lgs-edge-in` | `opacity` 0 → rest | Scroll edge effect, scroll-driven: `animation: lgs-edge-in linear both; animation-timeline: …; animation-range: 0px 24px` (MO §4.13) | — |
+| `lgs-edge-in` | `opacity` 0 → rest | Scroll edge effect, scroll-driven: `animation: lgs-edge-in linear both; animation-timeline: …; animation-range: 0px 24px` (MO §4.13). Live: opacity 0 at the top, .5 at 12 px. It is always `running` in `getAnimations()` (scroll timeline, duration `auto`): `isScrollDriven()` tells it apart | — |
 
 Rules every caller keeps (MO §6.3, D2 §11.4):
 
@@ -160,7 +160,8 @@ Times are **milliseconds** (`performance.now()` scale) everywhere except `spring
 | `reduced(win = window)` | `matchMedia('(prefers-reduced-motion: reduce)').matches` |
 | `allowed` | `{durations: [ms…], easings: [linear() strings…]}`: every token duration (normal and Reduce Motion) and curve, for G-MOTION / P-58 |
 | `isTokenEasing(str)`, `isTokenDuration(ms)` | Match against `allowed`, tolerant of Chromium's serialisation (`linear(0 0%, …)`) |
-| `audit(doc = document)` | `[{name, kind, target, duration, easings, iterations, playState, tokenDuration, tokenEasing}]` for every `doc.getAnimations()` entry (CSS animations report their per-keyframe easings) |
+| `audit(doc = document)` | `[{name, kind, target, duration, easings, iterations, playState, scroll, tokenDuration, tokenEasing}]` for every `doc.getAnimations()` entry (CSS animations report their per-keyframe easings; a scroll-driven one has `scroll: true` and `tokenDuration: true`) |
+| `isScrollDriven(anim)` | True when the animation runs on a scroll or view timeline (e.g. `lgs-edge-in`, MO §4.13). Such an animation stays `running` while its scroller exists but moves only with the scroll, so at-rest checks (P-52, G-MOTION) skip it |
 | `remove()` | Deletes `globalThis.__LGS_MOTION` |
 
 Depth channel example (P7): `const s = __LGS_MOTION.create('depth', {value: 0}); s.to(dz, now); while (!s.done(t)) push(s.value(t));` then one final push of `s.target`.
@@ -190,3 +191,11 @@ Header-only, C++17, `namespace lgs_motion`, no allocation:
 | `python springs.py --write` | Regenerate all three outputs in place |
 | `python springs.py --check` | MO-1 (D2 §11.3 strings byte-identical) and every output up to date; exit 1 otherwise |
 | `python springs.py --test-js` | MO-2: `motion.js` (via node) against the Python closed form at 1 ms steps for every token |
+| `python springs.py --live mo3\|mo4\|cef\|film` | Live tests through the locked lab (`glass.py shot … --pre`, `glass.py js`): MO-3 keyframes at rest, MO-4 the same under `--media reduce`, MO-2 inside Steam's CEF, `film` the filmstrips and `shots/p2_cmp_p5_motion.png` (`--mode pad\|laser`, `--media reduce` pass through) |
+
+---
+
+## 6. Changelog
+
+- 2026-10-07 (M1): contract written; names stable.
+- 2026-10-07 (session 2): exit coverage curves moved from `0%` to their hold offset (Chromium merges implicit start values into an explicit `0%` keyframe, easing included; `wp/P5.md` D-P5-7). Large glass (`lgs-mat-large-in`, `lgs-sheet-in`, `lgs-sheet-out`) now fades its opacity over the glass channel, `min(1, m / .8)`, instead of glassd's quick coverage alpha, so alerts and sheets materialize like `window-nav-motion.html` instead of popping in (D-P5-8). Ramp plateaus are exactly 1 (no `.998` tail). `allowed.easings` holds only `linear()` strings. Names and call forms unchanged. Added `isScrollDriven(anim)` and the `scroll` field of `audit()` rows.

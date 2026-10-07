@@ -43,7 +43,7 @@ It replaces `docs/DESIGN.md` (Phase 1) wherever the two disagree. Phase 1 functi
 7. **Recessed containers, raised controls.** Platters, sidebars, fields and tracks are darker than the glass; buttons, selected rows and bubbles are lighter. (§6.5)
 8. **White means "on".** White fill + dark label = a toggled or selected button, a selected segment, or the button whose menu is open. Navigation selection (tab, sidebar row) is a lighter translucent pill. (§8.2)
 9. **Light, not rings, for state.** Hover is a soft light at the pointer; gamepad focus is illumination from within; press is a glow that spreads. Rows and toolbar buttons never scale; content cards lift. The only ring is the text-field focus ring. (§10)
-10. **Depth carries hierarchy, a few centimetres at most.** Ornaments +25 mm, menus +30 mm, sheets +50 mm, focused cards +15 mm. Text never gets depth of its own. (§3.8)
+10. **Depth carries hierarchy, a few centimetres at most.** Default profile: tab bar and bar popups +25 mm, focused cards and Home cells +15 mm, menus, alerts and sheets +10 mm, everything in the window at 0; at most four depths at rest. The larger interactive depths (menus +30, sheets +50 mm) wait for a wearer (§3.8) [A3]. Text never gets depth of its own. (§3.8)
 11. **Motion is springs, from MO only.** Glass materializes, menus grow out of their source, nothing moves at rest, Reduce Motion keeps fades and removes movement. (§11)
 12. **Title case, Inter, white.** Inter Variable (Medium body, Bold titles); no uppercase chrome, no letter-spaced labels, no italics; white text at three vibrancy levels. (§5, §8)
 
@@ -66,6 +66,28 @@ It replaces `docs/DESIGN.md` (Phase 1) wherever the two disagree. Phase 1 functi
 | D13 | Scrim | VR: .40 | **.35** | Apple's dimming number (MO, DL §2) |
 | D14 | `dz` units | NATIVE.md and `layers.json` call them metres | They are **scene units**: metres = units × S × r, S = 0.369 (SP §1.1) | Measured live. This file gives depths in mm and in units |
 | D15 | Bar and popup scale | SN: popups 0.034°/px; SY: bar and its popups 0.037°/px | Both, per surface (§2.5) | The bar sits 13 cm nearer than the window |
+
+### 0.3 Amendments A1–A13 (PLAN §1.18, applied by P4)
+
+The build plan (`docs/phase2/PLAN.md` §1) decides conflicts between this file and the seven area concepts. Its §1.18 lists the changes to this file; they are applied in place and tagged **[A<n>]** where the text changed. Where this file and PLAN §1 still disagree, PLAN §1 wins.
+
+| # | Sections changed | Change | Source |
+|---|---|---|---|
+| A1 | §3.1, §3.2, §3.3, §7.4, §7.5 | Glass 656 with a 64 px ornament margin; ornament y 628–712, ≤ 960 wide; title at x 100; search 520 / 640 / circle; no microphone | WN D-1 to D-4, D-8; PLAN §1.2, §1.9, §1.10 |
+| A2 | §3.5 | Windowless routes drawn with plates; LB/RB = sections; one-line labels; folder pages | HA-1, HA-3, HA-5, HA-14; PLAN §1.2, §1.14 |
+| A3 | §0.1 rule 10, §3.3, §3.7, §3.8 | Two depth profiles (default, wearer), the seven admission rules, the values table; the dimming recipe | PLAN §1.7, §1.8; WN D-7, D-12 |
+| A4 | §6.1, §6.2, §6.6 | θ from the shorter side; E3 radial lobe instead of the linear top layer; plates and hole treatment in the tier map | GM §1.7, WN D-15; PLAN §1.6 |
+| A5 | §6.5, §8.2, §10 | Focus add .28 → **.32** (the tuning range .28–.32, set from G-FOCUS); navigation-row hover = the spot only; navigation selection with arc and Semibold; input-mode keying; laser dwell; glyph badges in gamepad mode only; white-fill focus glow | PLAN §1.4; VP D-1, D-2, D-5, D-7 |
+| A6 | §3.7 | Menu layouts by item count; exemption E-MENU; destructive rule by count; Steam's Cancel as a quiet capsule | WN D-5, D-16; PLAN §1.12, §1.16 |
+| A7 | §12 | The friends list is not virtualized; settings drill-down may hide a section under E-DRILL | SM-D9, SET §4.3; PLAN §1.16 |
+| A8 | §2.5, §3.3 | Bar pitch 64 bar px; tab-bar live pitch with a floor of 52 | CC D-CC8, WN D-2; PLAN §1.3 |
+| A9 | new §10.5 | Feedback: Steam's sounds through its bus; haptics off | VP D-4, IM §6; PLAN §1.13, S17 |
+| A10 | §11.5 | Route transition overrides adopted within Steam's timeouts | PLAN §1.5, §1.17 S3 |
+| A11 | §17 | The verification checklist points to PLAN §4 | PLAN §4 |
+| A12 | §5.2, §18 | `theme/01-font.nowrap.css` exists (generated) and is live; measured results | P4 evidence (`docs/phase2/wp/P4.md`, FD-2) |
+| A13 | §14 | Tier status from the capability studies: T3 proven; T4 click unproven; plates and holes planned | SR, SP, E2E; PLAN §1.6, §1.7 |
+
+Token values are in `theme/00-tokens.nowrap.css`; their contract (names, meaning, how areas use the hooks) is `docs/phase2/contracts/tokens.md`. §16 below is the original proposal, annotated where the live values differ.
 
 ---
 
@@ -129,7 +151,7 @@ Steam and SteamVR render several quads at different distances and metres-per-pix
 |---|---|---|---|---|---|
 | Main window (all Steam routes, menus, sheets) | 0.0307 | 1.00 | 80 | 24 | NATIVE, SN §0.2 |
 | Steam popups at the window plane (`frame.menu`, tooltip, toasts, floating footer) | 0.034 | 0.90 | 72 | 22 | SN §0.2 |
-| Bar and its child popups (`bar`, `barpopup`: + menu, Quick Access) | 0.037 | 0.83 | 67 (use 72 where it fits) | 20 | SY §0.3 |
+| Bar and its child popups (`bar`, `barpopup`: + menu, Quick Access) | 0.037 | 0.83 | 67 (use 72 where it fits); bar discs 56 at a **64 bar px pitch** in 64 × 72 slots (E-BAR) [A8] | 20 | SY §0.3, CC D-CC8 |
 | Steam VR keyboard (across) | 0.0416 | 0.74 | 59 | 18 | SM §0.2 |
 | Volume HUD [inferred] | ≈ 0.059 | 0.52 | 42 | 12 | SY §0.3 |
 | SteamVR frame controls, their tooltips, More Options | 0.023 | 1.33 | 107 | 32 | SN §0.2 |
@@ -137,6 +159,8 @@ Steam and SteamVR render several quads at different distances and metres-per-pix
 | SteamVR controller binding UI (2400 px page) | 0.0164 | 1.87 | 150 | 45 | GP §0.2 |
 
 Unless a section says otherwise, sizes in this file are **main-window px**. Multiply by m for other surfaces.
+
+**Tab-bar items [A8, WN D-2].** The frame menu holds ten destinations, so a fixed 72 popup px pitch would need 764 popup px against 653 available. The tab bar uses a **live pitch** of 52–66 frame-menu px (58 at r = 1 with Console on), circle = pitch − 8, with a floor of **52** (exemption E-TAB, PLAN §1.16).
 
 ### 2.6 Depth units
 
@@ -158,7 +182,7 @@ Unless a section says otherwise, sizes in this file are **main-window px**. Mult
                  | () |               |                                                                    |
                  | () |               |                         window glass, radius 54                    |
                  +----+               |                                                                    |
-                 +----+               +-----------+------------------------------------------+-------------+  <- glass bottom (664)
+                 +----+               +-----------+------------------------------------------+-------------+  <- glass bottom (656) [A1]
                  | () |                           |  bottom ornament 84 px, overlaps by 28  |                <- Steam footer, restyled
                  +----+                           +------------------------------------------+                  (720)
                                                  ( frame controls )        SteamVR systemui, window plane, idle-dim
@@ -173,15 +197,15 @@ Rendered: `shots/p2_example.png`.
 | Item | Value | Notes |
 |---|---|---|
 | Overlay | 1280 × 720 CSS px, fixed by Steam | Never resize the Steam window (SP §7) |
-| Glass | Full overlay on routes without a bottom ornament; **1280 × 664** on routes with one (56 px ornament margin below) | The ornament margin technique (VR §3.3): chrome outside the glass that is still Steam DOM, so laser and gamepad work unchanged |
+| Glass | Set by the route's **glass mode** (PLAN §1.2), never by focus: **1280 × 656** with a 64 px ornament margin below (`window`: library, search, Downloads, Settings, …), 1280 × 720 (`window-full`: What's New, `/account`, routes without a footer), none (`windowless`: Home, folders, `/invites`, §3.5) or art-filled (`hero`) [A1] | The ornament margin technique (VR §3.3): chrome outside the glass that is still Steam DOM, so laser and gamepad work unchanged. 656 rather than 664 because SteamVR's window-bar row sits 19 px below the panel and needs ≥ 24 px clearance (WN D-1) |
 | Corner radius | **54 px** | Concentric with 60 px corner circles at a 24 px inset |
 | In-window toolbar row (Steam's `#header`) | **108 px** tall: 24 + 60 + 24 | Needs the taller-header capability (SN C.0.1, CQ1): `--basicui-header-height` and `HeaderStore.m_flCurrentHeaderHeight` |
 | Back / close | 60 px circle at (24, 24) | Always top-left. After 0.6 s of hover or focus it grows rightwards into a capsule with the previous page's title (§10.3) |
-| Title | Large Title 46 px Bold, left, at x 40, vertically centred on the row; nested pages: Title 2 30 px Bold centred | No title strip, no app name |
-| Search | 64 px capsule centred in the row, width min(640, 50 % of the glass) | §7.5 |
+| Title | Large Title 46 px Bold, left, at **x 100** (right of the Back circle, which is on every route), vertically centred on the row; nested pages: Title 2 30 px Bold centred [A1, WN D-3] | No title strip, no app name |
+| Search | Centred at x 640: a 64 px capsule **520** wide on section roots (Library, Photos, Downloads), **640** on nested routes and the search route, or a **60 px circle** in an 80 × 80 box (Home, folders, hero routes, Steam Settings, `/account`, …; PLAN §1.9). No microphone [A1, WN D-4, D-8] | §7.5 |
 | Trailing actions | 60 px circles, right inset 24, 20 px apart | Account, More |
 | Content inset | 40 px left/right for text columns and grids; ≥ 24 px for anything else | |
-| Bottom ornament | 84 px capsule, y 636–720, width ≤ 70 % of the glass (896 px), centred | Steam's `#Footer` restyled into it; its measured height moves page bottoms automatically (SN C.0.1) |
+| Bottom ornament | 84 px capsule, **y 628–712**, ≤ **960** wide, centred, straddling the glass bottom by 28 px. When the legend holds only A and B it is a **quiet legend** (no capsule material, 60 px items, Medium white .70). Members switch to a compact style rather than exceed 960; nothing is dropped or hidden (PLAN §1.10) [A1] | Steam's `#Footer` restyled into it; its measured height moves page bottoms automatically (SN C.0.1) |
 | Curvature | SteamVR already curves the window | Describe, don't set |
 | Shape tolerance | Scroll content fades under the ornament (scroll edge, §6.7), never a hard clip | |
 
@@ -191,8 +215,8 @@ General rules [official, VR §4]: ornaments sit in a parallel plane slightly in 
 
 | Ornament | Steam node | Shape and size | Depth | Tier |
 |---|---|---|---|---|
-| **Tab bar** (main navigation) | Steam's VR main menu, the `frame.menu.<id>` popup beside the window's leading edge (SN C.2) | Vertical liquid capsule 80 popup px wide: 56 popup px circular items at 72 popup px pitch (= 62 / 79 main px). Primary capsule: Home, Library, Store, Friends, Media, Downloads (6). A second capsule 16 px below: Settings, VR Settings, Power. Centred vertically on the glass, 16–24 px outside its edge | +25 mm (popup request `z`, SP §3.3) | T1 (Steam's own menu variables `--menu-item-height`, `--menu-icon-size`), T3/T4 (always visible: clear `only_visible_with_laser`, SP §6.3 [PLAUSIBLE]), T5 slab |
-| **Bottom toolbar** | Steam's `#Footer` legend and per-route action buttons | 84 px capsule, 60 px controls, 12 px padding, centred, overlaps the glass by 28 px | +25 mm, in-place interactive crop (SP §2.6) | T1 layout, T4 pop, T5 slab |
+| **Tab bar** (main navigation) | Steam's VR main menu, the `frame.menu.<id>` popup beside the window's leading edge (SN C.2) | Vertical liquid capsule: circular items at the **live pitch** of §2.5 (52–66 frame-menu px, circle = pitch − 8) [A8]. Primary capsule: Home, Library, Store, Friends, Media, Downloads (6). A second capsule 16 px below: Settings, VR Settings, Power. Centred vertically on the glass, 16–24 px outside its edge | +25 mm (the frame-menu popup's own transform [PLAUSIBLE]; fallback Steam's +10) | T1 (Steam's own menu variables `--menu-item-height`, `--menu-icon-size`), T3/T4 (always visible: clear `only_visible_with_laser`, SP §6.3 [PLAUSIBLE]), T5 slab |
+| **Bottom toolbar** | Steam's `#Footer` legend and per-route action buttons | 84 px capsule, 60 px controls, 12 px padding, centred, y 628–712, overlaps the glass by 28 px [A1] | **0**, with an inset slab behind it (ghost rule, E2E §1) [A3, WN D-7] | T1 layout, T4 pop, T5 slab |
 | **Top ornament** (optional, Safari-style) | Search or browser navigation for web views | 84 px capsule above the glass, 12 px gap | +25 mm | Only on routes that give up 96 px of glass |
 
 - The tab bar expands on hover after **0.4 s** (gamepad: at once on entry) to about 280 px, labels in Headline 24 px Semibold, overlaying the content; collapses 0.3 s after leaving (VR §5). Steam already expands it after 500 ms and collapses after 800 ms; keep Steam's timers if they are JS constants (SN C.2).
@@ -212,14 +236,16 @@ visionOS Home and the Environments picker have no window: circular icons float i
 
 | Property | Value |
 |---|---|
-| Route | A T3 view in the main window with transparent glass (SP E6 [PROVEN visually]; `layers.json` main `cover` excludes the transparent home) |
+| Route | The **`windowless`** glass mode (PLAN §1.2): `/library/home`, the folder routes `/library/lgs/folder/*`, `/invites`. A T3 view in the main window with no window glass; **every glass element is a plate** (PLAN §1.6): glassd's plate primitive in native mode, the CSS plate (black .58 under a white .16 → .04 gradient, plus edges) otherwise. Only the attended item pops [A2, HA-1] |
 | Icon | **120 px circle** (3.7°). Diameter / column pitch 0.54 (refs 0.52–0.55) |
 | Lattice | 13 per page as 4-5-4, rows offset by half a pitch. Column pitch **224 px**, row pitch **188 px** (0.84 × column, refs 0.84) |
-| Label | Subheadline 20 px Medium, white .92, ≤ 2 lines, centred, 14 px below the icon, with the on-room text shadow (§8.3) |
+| Label | Subheadline 20 px Medium, white .92, **one line** ending in an ellipsis, centred, 14 px below the icon, with the on-room text shadow (§8.3); the full name shows on attention (card or name plate) [A2, HA-5] |
 | Focusable | The whole cell (icon + label), ≥ 200 × 180 px |
-| Paging | Page dots 12 px at 24 px pitch in a capsule; LB/RB and Left/Right at a row end change pages; neighbour pages' edge icons at 35 % opacity |
-| Hover / focus | Scale 1.10, +15 mm (rest +10 → +25 mm), shadow deepens; after 0.8 s (ramp) a Play or Open capsule appears below the label |
+| Sections and paging | **LB/RB switch sections** (Recent · Collections · Apps), as on every Steam tabbed page; D-pad Left/Right past a row end turns the page; LT/RT also turn pages when delivered. Every section and page also has a D-pad path. Page dots 12 px at 24 px pitch in a capsule; neighbour pages' edge icons at 35 % opacity [A2, HA-3] |
+| Hover / focus | Scale 1.10, shadow deepens; the attended cell pops **+15 mm** as a non-interactive crop over its plate (plates stay at 0, PLAN §1.7) [A3]. After 0.8 s of attention (P3's attention state, gamepad focus or laser dwell) the disc morphs into a 320 × 240 card holding Play and More (HA-6). A opens the game page, X is Play (HA-4) |
 | Hexagonal D-pad | Needs explicit neighbour maps (LA LQ3) so Down then Up returns to the same icon. Fallback: a 5 × 3 square lattice of the same circles |
+
+| Folders | A collection opened from Home is a **folder route** (`/library/lgs/folder/<id>`, HA-14): pages of the same honeycomb (1 + 6 per page, VP D-13), Steam's Back and B work natively [A2] |
 
 Use it for "+ > Launch Program" (all programs, A–Z), Library home (recent games, collections as folders) and pickers. The library **catalogue** stays a window of rectangular posters (LA D.1: circles are for launching, posters for browsing 350 items).
 
@@ -240,14 +266,61 @@ visionOS 27 Control Center is three separate portrait tiles (ref 3). SY C.1 Prop
 
 | Surface | Spec (main px) | Depth |
 |---|---|---|
-| **Menu / context menu / dropdown** | Thick glass, radius 32, padding 8, rows 72 px with radius 24, 6 px between rows, min width 320, symbols left of labels, title as a header row inside the slab (22 px Bold, text-2), groups separated by 8 px of space (no separator lines), destructive rows red label at rest and red fill on focus. The invoking button turns white while open. Grows from its source (§11.6) | +30 mm |
-| **Popover** | As a menu, sized to content, no arrow. Over 40 % of the window → treat as a sheet | +30 mm |
-| **Sheet / modal** | Centred, width ≤ 75 % of the glass, radius 44, thick glass. Close or Back as a 60 px circle top-left. Parent: scrim black .35 | +30 → +50 mm; parent dims (D12) |
-| **Alert** | 640 px wide, radius 44, title Title 3 28 px Bold left-aligned, body left-aligned, buttons 60 px capsules side by side (keep Steam's row order: `DialogTwoColLayout` is a nav row), primary tinted, destructive red | +30 mm, parent dims |
+| **Menu / context menu / dropdown** | Thick glass, radius 32, padding 8, rows radius 24, min width 320, max 592, symbols left of labels (the current value's check in a leading 28 px slot), title as a 40 px header row inside the slab (22 px Bold, text-2), groups separated by 8 px of space (no separator lines). **Layout by item count** (table below) [A6]. The invoking button turns white while open. Grows from its source (§11.6). Steam's Cancel stays, as a 56 px quiet capsule centred under the rows | **+10 mm** (default profile), appearing with the materialize; +30 in the wearer profile [A3] |
+| **Popover** | As a menu, sized to content, no arrow. Over 40 % of the window → treat as a sheet | +10 mm (wearer +30) [A3] |
+| **Sheet / modal** | Centred on the glass, width ≤ 960 (75 % of the glass), radius 44, thick glass. Close or Back as a 60 px circle top-left. Parent: scrim black .35 | **+10 mm** (wearer +30 → +50); parent dims (§3.8, Dimming) [A3] |
+| **Alert** | 640 px wide, radius 44, title Title 3 28 px Bold left-aligned, body left-aligned, buttons 60 px capsules side by side (keep Steam's row order: `DialogTwoColLayout` is a nav row; Steam's default focus untouched, S6), primary tinted, destructive red with a `#0d0e12` label | **+10 mm; 0 if it contains a destructive button** (wearer +30, still 0 if destructive); parent dims [A3] |
 | **Toast** | Uses the whole 340 × 80 popup quad: panel glass card, radius 30, 48 px circular app icon, title 20 px Semibold, body 18 px, one line each. Materializes in place (no slide) | Placement is SteamVR's |
-| **Tooltip** | Capsule, 20 px Semibold, after 0.8 s of hover or focus, below its button | Owner + 5 mm |
+| **Tooltip** | Thick-glass capsule 48 px tall, 20 px Semibold, after 0.8 s of hover or focus (0.2 s out), below its button (PLAN §1.13) | CSS shadow only (wearer: owner + 5 mm) [A3] |
+
+**Menu layout by count [A6, WN D-5; PLAN §1.12].** No menu scrolls inside the 520 px box.
+
+| Actionable items | Layout |
+|---|---|
+| ≤ 5 | One column of **72 px** rows, 6 px apart, a 40 px header row |
+| 6–7 | **Compact**: 60 px visible rows on a contiguous 64 px pitch, inline 26 px label |
+| ≥ 8 (single level) | **Two columns**, ≤ 592 px wide |
+
+Value menus (dropdowns): up to 8 options a slab anchored to its capsule; more than 8 on settings routes a list page over the detail pane; elsewhere 9–14 options the two-column grid; 15 or more one scrolling column of two-line rows. Menu rows are exempt from the 80 px size gate under **E-MENU**: ≥ 60 visible on a contiguous pitch of ≥ 64 (compact) or 78 (regular), rows ≥ 320 wide (PLAN §1.16).
+
+**Destructive items [A6, WN D-16 = CC D-CC1].** With ≤ 2 destructive rows: red label at rest. With more (Power): red glyph and white label at rest, because a wall of red carries no signal. Always a red whole fill with a `#0d0e12` label on focus. Never reordered (SM-D8); Steam's default focus untouched (S6).
 
 ### 3.8 Depth plan
+
+**Two profiles [A3, PLAN §1.7].** The **default** profile ships: every pop is a **non-interactive** crop, so the laser passes through it to Steam's panel at the same x/y (only proven mechanisms by default, WN D-12). The **wearer** profile is behind the flag `interactivePops` (off, sign-off S2); it restores the larger interactive depths of the table at the end of this section and turns on only after the SP §12 check by a person wearing the headset.
+
+**Admission rules (default profile).** A pop must satisfy all of these; the reporter (P6) enforces them and gate G-DEPTH checks them:
+
+1. **Covered** (ghost rule, E2E §1): inside a cover or a plate; never over the bottom ornament, the store's navigation ornament, the tab bar, the window-bar row or the `/invites` header.
+2. **Click-safe**: dz_mm ≤ 0.25 × s × 0.769, s = the shorter side (CSS px) of the smallest visible focusable intersecting the crop; in units dz ≤ 0.000521 × s. +10 mm needs s ≥ 52, +15 mm needs s ≥ 78. A pop that fails drops to the next lower allowed value.
+3. **Not over media or opaque art**, unless the hole treatment is live and an off-axis `hvgrab` passes.
+4. **Never a destructive confirmation**: an alert or sheet holding a destructive button stays flat.
+5. **Containers only**: ≥ 60 × 60 px, never text or a glyph alone.
+6. **Still**: never while its scroller moves; while a modal is open only the modal pops.
+7. **Few depths**: at most 4 distinct dz values at rest per route, from {0, +10, +15, +25} mm.
+
+**Values (default / wearer).**
+
+| Element | Default | Wearer | Mechanism |
+|---|---|---|---|
+| Window, content, rows, in-window controls, fields, platters, bottom ornament, store ornament | 0 | 0 | Cover; ornaments get an inset slab behind them |
+| Tab-bar ornament, bar popups (+, Quick Access, …) | +25 | +25 | The popup's own transform / request `z` [PLAUSIBLE]; fallback Steam's |
+| Home / folder plates, labels, page dots | 0 | 0 | Plates + mosaic bands |
+| Focused Home cell, open card, name plate | +15 | +15, interactive | Crop over its plate |
+| Focused or hovered content card ≥ 150 px | +15 | +15, interactive | Crop over the cover |
+| Primary capsule ≥ 70 px; the Pause circle on the Now Downloading card | +10 | +15, interactive | Crop + tinted slab |
+| Game-page cluster, Play, tab row at rest (over art) | 0; +10 once the hole treatment and the off-axis check pass | Play +15, others +10 | Crop + hole treatment |
+| Game-page tabs, pinned | +10 | +20 | Crop + slab |
+| Menus, popovers, dropdown slabs | +10 | +30, growing from the source's depth | Crop + `thick` slab |
+| Alerts | +10; 0 if destructive | +30 (0 if destructive) | Crop + `thick` slab, or a flat `thick` plate |
+| Sheets, the search sheet | +10 | +30 → +50 | Crop + `thick` slab |
+| Source card while its menu is open | +15 if it was the focused card, else 0 with a CSS glow | +15 | — |
+| Control Center tiles (CC-M) | 0 | 0 | Plates |
+| Tooltips | CSS shadow only | Owner + 5 mm | — |
+
+**Dimming [A3, PLAN §1.8].** Menus: no scrim. Alerts and sheets: Steam's `.ModalOverlayBackground` restyled to black .35 (`--lgs-scrim`) in both modes; under a pop the hole treatment's fill follows the scrim. The `t1` tint is not used for in-window modals (in native mode it would dim only the hidden real panel; in CSS-only mode it would also dim the modal); it is used only for CC-A and the sheet-recede variant (S7, off). Control Center (CC-M) hides the window's content with CSS opacity while its tile plates materialize.
+
+The original depth classes (now the wearer profile's reference) with their disparity:
 
 | Element class | Depth (mm) | Units at r = 1 | Disparity (display px) | Paired cue |
 |---|---|---|---|---|
@@ -264,10 +337,10 @@ visionOS 27 Control Center is three separate portrait tiles (ref 3). SY C.1 Prop
 Rules:
 
 - **Pop containers, never labels or glyphs on their own.** Text rides its glass.
-- **Crops stay at their original x/y** (input lands on Steam's real panel). Make popped crops interactive (`interactive: true`, `steam-input-appid: 769`, `can-take-keyboard-focus: true`) so the laser hits the crop and not Steam's panel behind it; this removes a 4–14 px parallax error on popped menus (SP §2.4). Registration is [PROVEN]; the click is [PLAUSIBLE].
+- **Crops stay at their original x/y** (input lands on Steam's real panel). In the default profile crops are non-interactive, which is why depths stay click-safe (rule 2) [A3]. The wearer profile makes popped crops interactive (`interactive: true`, `steam-input-appid: 769`, `can-take-keyboard-focus: true`) so the laser hits the crop and not Steam's panel behind it; this removes a 4–14 px parallax error on popped menus (SP §2.4). Registration is [PROVEN]; the click is [PLAUSIBLE].
 - **Animated depth deltas ≤ 20 mm**, on the `depth` spring (MO M4). Static depths may be larger. Disparity cap: 80 mm (≈ 3 display px).
 - **Shadow sized by depth:** y-offset 0.4 px per mm, blur 1.2 px per mm, black .25–.35, only where something of the same page is behind (CSS); glassd draws the contact shadow over the room.
-- **Sheet push-back variant (needs sign-off).** SP §5 proved that the transform above Steam's frame page (`t1`) can recede the window (−0.3 units ≈ 11 cm) while it stays a laser target, and that glassd covers and crops reparented to main recede with it. The visionOS geometry (sheet at the original distance, parent −50 mm) is therefore available: recede `t1` by 50 mm and add +50 mm to the sheet's crop. It moves the window, which MO §4.8 lists under "must not animate" for CSS only; decide after an `hvgrab` comparison of both variants.
+- **Sheet push-back variant (sign-off S7: off, flag `sheetRecede`).** SP §5 proved that the transform above Steam's frame page (`t1`) can recede the window (−0.3 units ≈ 11 cm) while it stays a laser target, and that glassd covers and crops reparented to main recede with it. The visionOS geometry (sheet at the original distance, parent −50 mm) is therefore available: recede `t1` by 50 mm and add +50 mm to the sheet's crop. It moves the window, which MO §4.8 lists under "must not animate" for CSS only; decide after an `hvgrab` comparison of both variants.
 - Units: `dz_units = dz_m / (S × r)`. `theme/layers.json` today uses 0.010–0.03 units (3.7–11 mm), which this plan supersedes.
 
 ---
@@ -319,7 +392,7 @@ Audit gates (§17): no focusable element under 80 × 80 px hit box unless its ce
 
 The theme is injected as one `<style>` per Steam and SteamVR window and nothing is written into Steam's files, so the font travels inside the CSS as a `data:` URI.
 
-1. Generate: `python docs/phase2/fontkit.py --css theme/01-font.nowrap.css` (Foundation runs this when the font is adopted; this task did not add the file to `theme/`, so the live theme is unchanged). Output 163,006 bytes: the subset as 161,948 bytes of base64.
+1. Generate: `python docs/phase2/fontkit.py --css theme/01-font.nowrap.css`. **P4 generated it on 2026-10-07 and it is live [A12]**: 163,504 bytes (the subset as 161,948 bytes of base64, the face rule and the sweep); measured 163,530 bytes inside each window's bundle. Never edit it by hand.
 2. It must be a `*.nowrap.css` file: `device/lgs.py` nests every other stylesheet under `html.lgs-on {}` and warns on `@font-face` there; `device/lgs_vr.py` also sends every `theme/*.nowrap.css` to SteamVR's pages, so the same face reaches systemui.
 3. The generated rule (base64 elided):
 
@@ -341,10 +414,14 @@ The theme is injected as one `<style>` per Steam and SteamVR window and nothing 
 
 ```css
 html.lgs-on { --lgs-font: "LGS Inter", "Motiva Sans", Arial, sans-serif; }
-html.lgs-on body,
-html.lgs-on :is(button, input, textarea, select) {       /* form controls do not inherit font in Chromium */
-  font-family: var(--lgs-font); font-synthesis: none; -webkit-font-smoothing: antialiased;
-  font-optical-sizing: auto;
+html.lgs-on body {
+  font-family: var(--lgs-font); font-synthesis: none; font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+}
+/* the sweep as generated [A12]: (0,3,2) beats Steam's strongest family rule (".BasicUI .A .B",
+   0,3,0) and reaches form controls, which do not inherit font-family in Chromium */
+html.lgs-on.lgs-on.lgs-on body :where(:not(code, pre, kbd, samp, tt, code *, pre *, kbd *, samp *)) {
+  font-family: var(--lgs-font);
 }
 ```
 
@@ -352,6 +429,7 @@ html.lgs-on :is(button, input, textarea, select) {       /* form controls do not
    - **Languages that would mix faces in one word** (Vietnamese, and any language whose letters Inter covers only partly) keep Steam's stack: `html.lgs-on:lang(vi) { --lgs-font: "Motiva Sans", Arial, sans-serif; }`. Check what Steam puts in `document.documentElement.lang`; if it is not the UI language, key the rule on Steam's language class instead.
 5. Cost: +163 KB of CSS per window that receives the bundle. Measure with `python glass.py perf` and a memory read before and after; abandon `opsz` (−42 KB) before abandoning the face.
 6. Verify on each surface: `document.fonts.check('500 24px "LGS Inter"')` is true, a CJK friend name still renders, and no CSP error appears for `font-src data:` (the risk is listed in §18).
+   **Measured 2026-10-07 [A12]:** every Steam window (`main`, `bar`, `barpopup`, `keyboard`, `notifications`, `tooltip`, `frame.menu`, `floatingfooter`, `volumelevel`) loads the face, labels and inputs compute `"LGS Inter", …`, CJK falls through to Steam's font at the same width as stock, and scrolling `main` stays within 5 % (88.8 vs 87.7 fps). SteamVR's pages send `Content-Security-Policy: default-src 'self' 'unsafe-eval'`, which blocks `font-src data:`; there the face is added from script as a binary `FontFace` (no fetch, so the CSP does not apply), by the SteamVR theme core (P8). Until then those pages keep Steam's stack.
 
 ### 5.3 Type scale
 
@@ -398,7 +476,7 @@ Rules:
 | `thick` | Menus, sheets, alerts, the keyboard platter | tint .45, mip 4.2, bezel 14 mm, rim .7 | 0.5–1 |
 | `clear` | Only over media (video controls, the Play group over hero art), always with a 35 % black dimming layer under it | liquid with low tint and low frost, 1.6× refraction | 0 |
 
-Thickness `θ = clamp(log2(maxSide / 64 px) / 4, 0, 1)` interpolates frost, lens strength, tint, specular, darkened edge and shadow between presets, including during a morph (MO §2.3).
+Thickness `θ = clamp(log2(shorterSide / 44 px) / 4, 0, 1)` interpolates frost, lens strength, tint, specular, darkened edge and shadow between presets, including during a morph (MO §2.3). θ is taken from the **shorter** side: the longer side made a 600 × 64 px tab bar "thick", against its own `liquid` preset, and the shorter side is what bounds a slab's bezel [A4, GM §1.7]. The CSS presets (T1) do not vary with size; glassd does.
 
 ### 6.2 Edges without outlines
 
@@ -408,7 +486,7 @@ The user's requirement: menus and panels have no clear outlines; the outline com
 |---|---|---|---|
 | **E1 Tone step** | The glass is frosted and pulled toward a mid luminance, so its silhouette shows as a change of brightness and detail | Window and panel tint (`--lgs-window-bg`); over the room CSS cannot frost | Frost + adaptive tint |
 | **E2 Lens band** | What is behind bends inward over a 6–16 px band at the bezel; the centre stays clear | SVG `feDisplacementMap` in `backdrop-filter` on the 1–3 most important small controls in a page (Chromium only); otherwise omitted | `uBezel`, `uRefr`, `uDisp` |
-| **E3 Specular arcs** | A bright arc where the edge faces the key light (top, top-left), fading to nothing down the sides; a weaker arc (25–40 %) on the opposite edge; **gaps on both sides**, so never a closed loop | Masked `conic-gradient` ring 1.5–2 px (≥ 1.2 display px) on a free pseudo-element, key alpha .45–.62, plus a faint top-edge linear layer on wide shapes | `uRim`, `uSpec`, world-fixed light |
+| **E3 Specular arcs** | A bright arc where the edge faces the key light (top, top-left), fading to nothing down the sides; a weaker arc (25–40 %) on the opposite edge; **gaps on both sides**, so never a closed loop | Masked `conic-gradient` ring 1.5–2 px (≥ 1.2 display px) on a free pseudo-element, key alpha .45–.62, plus a **radial lobe at 26 % of the width** (no linear top layer: it read as a full-width line on wide slabs) [A4, WN D-15] | `uRim`, `uSpec`, world-fixed light (the GM v2 crescent) |
 | **E4 Darkened edge** | A 2–14 px dark band just inside the arcs, 8–20 % black; more on larger glass | Blurred inset shadow: `inset 0 0 Wpx -0.15W rgb(0 0 0 / A)` | `uDarkEdge` |
 | **E5 Thickness and depth shadow** | The lower edge reads slightly occluded; a shadow sized by depth grounds the slab | `inset 0 -2px 4px -1px rgb(0 0 0 / .12)`; outer shadow per §3.8 | Inner shadow, contact shadow |
 
@@ -416,12 +494,12 @@ Rules:
 
 - **R1** No `border`, no `outline`, no uniform `inset 0 0 0 1px` ring on any glass. The Phase 1 rim tokens `--lgs-window-rim`, `--lgs-panel-rim`, `--lgs-glass-rim` lose their closing ring term.
 - **R2** One light for the whole scene: from above, 20° left of vertical (`conic-gradient(from 340deg …)`), matching glassd's light. Every arc peaks at the same angle.
-- **R3** Arcs scale with size: on a 40 px capsule the key arc spans the top half; on a window it is a band near the top-left corner plus a faint top edge.
+- **R3** Arcs scale with size: on a 40 px capsule the key arc spans the top half; on a window it is a band near the top-left corner plus the lobe at 26 % of the width [A4].
 - **R4** Selection and focus never add an outline (§10).
 - **R5** The only stroke allowed is under Increase Contrast / Steam high contrast: 2 px solid white .70, glass opaque (§13).
 - No 1 px lines inside glass either: separate panes by a material step, rows by space, and use a ≥ 2 px soft separator (white .08, inset 72 px) only where grouping is otherwise lost.
 
-The edge CSS (T1), on a pseudo-element Steam leaves free, with the host already positioned by Steam:
+The edge CSS (T1), on a pseudo-element Steam leaves free, with the host already positioned by Steam. **As built [A4]:** `theme/03-material.css` draws it on `::before` of any element that sets `--lgs-edge: window|panel|liquid|thick|clear|control` (a CSS style query; contract `docs/phase2/contracts/tokens.md` §2), with the lobe in place of the linear layer below and the rim ×1.5 under gamepad focus. The original recipe:
 
 ```css
 .lgs-edge::before {
@@ -448,6 +526,7 @@ The edge CSS (T1), on a pseudo-element Steam leaves free, with the host already 
 | panel | 1.5 px | .90 | 10 px / .16 |
 | liquid | 1.5 px | 1.10 | 6 px / .12 |
 | thick | 1.5 px | .85 | 12 px / .20 |
+| clear | 1.5 px | 1.20 | 5 px / .10 |
 
 ### 6.3 Tone and adaptation
 
@@ -473,7 +552,7 @@ The edge CSS (T1), on a pseudo-element Steam leaves free, with the host already 
 | Thin | white .10 | Buttons at rest, chips | Raised |
 | Navigation selected | white .18 | Selected tab, sidebar row, list selection | Raised |
 | Hover add | + white .08 | Hover | — |
-| Focus add | + white .14 | Gamepad focus | — |
+| Focus add | + white **.32** (the final value of the .28–.32 tuning range, set from G-FOCUS: .28 failed P-14 and P-15 on the tab bar over glass at L ~95; `docs/phase2/wp/P4.md` P4-D8) [A5, VP D-2] | Gamepad focus | — |
 | Regular | black .14 | Sidebar, grouped platters, Control Center inner platter | Recessed |
 | Thick | black .30 + `inset 0 2px 5px rgb(0 0 0 / .26)` | Text and search fields, slider tracks, segmented tracks | Recessed |
 | Selected | white .94, label `#0d0e12` | Toggled / selected button, selected segment, open-menu source | Raised, reserved |
@@ -485,9 +564,12 @@ The edge CSS (T1), on a pseudo-element Steam leaves free, with the host already 
 
 | Element class | T5 (glassd running) | T1 fallback (CSS only) |
 |---|---|---|
-| Main window | `window` cover over the room, shapes exclude the ornament margin | Smoky tint + E3–E5 |
-| Ornaments (tab bar, toolbar) | `liquid` slab under an interactive in-place crop at +25 mm; per-slab offset for moved ornaments (SP §11.2) | In-page `backdrop-filter` blur 12 px + saturate 1.7 + edges; the tab-bar popup gets panel tint |
-| Menus, sheets, alerts | `thick` slab at +30 / +50 mm | `backdrop-filter` blur 30 px + tint black .30–.40 + edges + shadow |
+| Main window | `window` cover over the room (656 or 720 by glass mode), shapes exclude the ornament margin | Smoky tint `rgb(20 22 30 / .60–.84)` (dial) + E3–E5 |
+| Windowless routes (Home, folders, `/invites`), Control Center tiles, menus and alerts kept flat | **Plate** [A4]: an opaque glass shape with its own material, phase and tint at the cover's depth; Steam's real panel hidden under it (PLAN §1.6, P9 G1) | CSS plate: black .58 under a white .16 → .04 gradient + edges (`--lgs-mat-plate-bg`) |
+| Bottom ornament | `liquid` inset slab behind it at 0 mm [A3] | In-page blur 12 + saturate 1.7 + liquid edges |
+| Tab bar | `liquid` cover of the frame-menu popup at +25 mm | Panel tint + edges |
+| Menus, sheets, alerts | `thick` slab under the pop at +10 mm (wearer +30 / +50), or a flat `thick` plate [A3, A4] | `backdrop-filter` blur 30 px + tint .30–.40 + edges + shadow |
+| Under every pop | **Hole treatment** [A4]: the popped element's contact shadow and its container's tone drawn into the cover, so the hole reads as its shadow, not a bright sliver (PLAN §1.6, P9 G2) | — (nothing pops) |
 | Bar segments, popup quads | `liquid` / `panel` cover | Tint + edges, no blur |
 | Primary capsule | Tinted `liquid` slab (needs a per-slab tint, GP GQ8) | Tinted fill + edges |
 | Content (art, posters, web pages) | Never glass | Never glass |
@@ -518,19 +600,19 @@ See §3.3.
 
 ### 7.4 Corner buttons, back and close
 
-60 px circles concentric with the window corner (inset 24). Back top-left, actions top-right. Back grows into a capsule with the previous page's title after 0.6 s of hover or focus (Subheadline 20 px Medium, max 240 px, the circle stays in place). B keeps working.
+60 px circles concentric with the window corner (inset 24), with 80 px hit boxes at (14, 14). Back top-left on every route, actions top-right. The Large Title therefore starts at x 100 [A1, WN D-3]. Back grows into a capsule with the previous page's title after 0.6 s of hover or focus (Subheadline 20 px Medium, max 240 px, the circle stays in place). B keeps working. Steam's "Back" text shown as the chevron circle is exemption E-BACK (PLAN §1.16).
 
 ### 7.5 Search field (the user's named example)
 
 | Property | Value |
 |---|---|
 | Where | Centred in the window's toolbar row on every route (Steam's `%{SearchBox}` element restyled, SN C.1); the same capsule on the search route; optionally a Safari-style top ornament for web views |
-| Shape | 64 px capsule (never below 60), width min(640 px, 50 % of the glass) |
+| Shape | 64 px capsule (never below 60): **520** wide on section roots (Library, Photos, Downloads), **640** on nested routes and the search route; or a **60 px circle** in an 80 × 80 box on Home, folders, hero routes, Steam Settings, the `/chat` sidebar row, the photo viewer, `/account`, the `/invites` card and achievements (PLAN §1.9) [A1, WN D-4] |
 | Fill | Thick (recessed): black .30 + inner shadow |
-| Content | Magnifier 26 px at 22 px inset, placeholder Body 24 px Medium at white .55 (upright), clear and mic as 44 px circles inside with 80 px hit areas |
+| Content | Magnifier 26 px at 22 px inset, placeholder Body 24 px Medium at white .55 (upright), clear as a 44 px circle inside with an 80 px hit area. **No microphone**: Steam has no dictation [A1, WN D-8] |
 | Focus | The one ring in the system: 3 px soft white .55 + 16 px glow |
 | Keyboard | Opens on activation only. Typed text is echoed on the keyboard's own slab (SM C.2, SQ4), so eyes stay on the keys |
-| Search sheet (T3) | Focusing the field may open a glass sheet with recent searches and top library matches (64 px rows); typing hands off to Steam's `/search` route (SN C.1) |
+| Search sheet (T3) | Search is window-nav §4: a sheet over a snapshot of the page you were on, with Steam's search route underneath; the whole search stays in the sheet (WN D-17, PLAN §1.9). Other areas add results through C1b's provider API |
 
 ### 7.6 Sidebar and split view
 
@@ -597,10 +679,14 @@ Contrast check: on glass at L 85, secondary white .70 composites to ≈ L 204 �
 | State | Look |
 |---|---|
 | Toggled or selected **button**, selected **segment**, button whose **menu is open** | White .94 fill, dark label |
-| Current **navigation** location (tab, sidebar row, list selection) | White .18 translucent pill, white label |
-| Hover (laser) | + white .08 and a light spot at the pointer |
-| Gamepad focus | + white .14, light spot, the control's own specular arc brightens ×1.5 |
+| Current **navigation** location (tab, sidebar row, list selection) | White .18 translucent pill with a specular top arc, white **Semibold** label [A5] |
+| Hover (laser) | + white .08 and a light spot (.12) at the pointer, under the label; on **navigation rows** (sidebar, list, tab bar) the spot only, no fill [A5, SM-D13, SET T-SEL] |
+| Gamepad focus | + white **.32** uniform, a .16 spot in the upper third, the control's own specular arc ×1.5; the first frame shows 60 % [A5, VP D-2] |
+| Focus on a white or coloured fill | A blurred outer glow (`--lgs-white-glow`, 22 px blur, 8 px spread, white .55), never a ring (VP P-16) [A5] |
+| Disabled + focus | Fill .10, arc at 60 %, no spot (CTL C-D15) [A5] |
 | Text field focus | 3 px soft ring white .55 (the only ring) |
+
+Criteria (gate G-FOCUS, PLAN §1.4): focus ≥ +40 L over rest; focus ≥ selected + 15 L; selected ≥ hovered + 12 L; glow band ≥ +20 L on white and coloured fills; disabled + focus ≥ +10 L; first frame ≥ 60 % of the final contrast. Focus and selection also differ in shape where they share a control (WN D-10: the selected tab is a circle behind the glyph, focus a pill).
 
 ### 8.3 Colour
 
@@ -649,17 +735,21 @@ A glass disc (T5 `liquid` slab, or a thin fill + specular arc in CSS) holding th
 
 The laser plays the role of the eyes; Steam's gamepad focus (`.gpfocus`) plays the role of the controller focus system. **Every focusable element shows a state in both models, and nothing is reachable by hover alone** [official, VR §12].
 
+**Input-mode keying [A5, VP D-1].** Steam sets `.gpfocus` for the laser too, so every look is keyed on P3's input mode (`html.lgs-input-laser` / `html.lgs-input-pad`, from `FocusNavController.NavigationSource`): laser looks key on `:hover` only, never on `.gpfocus` (a stale `.gpfocus` can survive under the laser); the focus look keys on `.gpfocus` only in gamepad mode. `theme/04-states.css` publishes the states as numbers (`--lgs-hover`, `--lgs-focus`, `--lgs-press`, `--lgs-lift`, `--lgs-dis`) so areas never write input-mode logic (contract `tokens.md` §3).
+
+**Laser dwell [A5, VP D-7].** A laser sweeps through every card in its path, so under the laser brightness changes at once but **lift, scale and depth start only after 80 ms of dwell** (`.lgs-dwell`, sign-off S25). Gamepad focus lifts at once.
+
 ### 10.1 The illumination layer
 
-States are drawn on a pseudo-element Steam leaves free (`::after` usually; Steam's FocusRing uses `::after` on some nodes), with `mix-blend-mode: plus-lighter`, `pointer-events: none`, never an outline (MO §6.4 recipe "Illumination layer").
+States are drawn on a pseudo-element Steam leaves free (`::after` usually; Steam's FocusRing uses `::after` on some nodes), `pointer-events: none`, never an outline (MO §6.4 recipe "Illumination layer"). **As built:** the hook `--lgs-ill: raised|recessed|row|nav|white|card` on an element draws the layer on its `::after` (`theme/04-states.css`), with **normal alpha compositing**, not `plus-lighter`: VP D-2's "+48 L for .28" is normal compositing, and a blend mode on every hooked control would force isolated groups. Steam's floating FocusRing becomes a light plate (white .12 + the .16 spot + a soft glow, no outline, no pulse) where Steam draws its only focus cue (CTL §4.5).
 
 | State | Laser hover | Gamepad focus |
 |---|---|---|
-| Fill | + white .08 | + white .14, held |
+| Fill | + white .08 (navigation rows: none) | + white **.32**, held [A5] |
 | Light spot | Radial gradient at the hit point (T2 writes `--hx/--hy` from `pointermove`, throttled to frames), radius 1.5 × the shorter side, peak + .08–.12 additive (MO §4.2) | Static, centred in the upper third, peak + .16 |
 | Specular | — | The control's own arc ×1.5 (it "lifts into glass") |
-| First frame | — | ≥ 60 % of final contrast immediately (a static `!important` fill), so focus is never invisible during D-pad auto-repeat |
-| Content cards | Lift (§7.8) | Same |
+| First frame | — | ≥ 60 % of final contrast immediately (P5's `lgs-focus-in` starts at `--lgs-focus-first` = .60), so focus is never invisible during D-pad auto-repeat |
+| Content cards | Lift (§7.8) after 80 ms of dwell [A5] | Lift at once |
 | Rows, toolbar buttons, tabs | No scale, no lift | Same |
 | Text fields | Fill only | Fill + the 3 px ring |
 
@@ -685,6 +775,12 @@ States are drawn on a pseudo-element Steam leaves free (`::after` usually; Steam
 - Every hover reveal also appears under gamepad focus.
 - Every footer-legend-only action gets a visible button (bottom toolbar, a "⋯" on the hovered or focused row) that dispatches the same Steam handler (SM §A.10, LA C.4).
 - Unavailable items give no hover feedback.
+- **Controller glyph badges show only in gamepad mode** (keyed on `html[data-lgs-vr-mode="gamepad"]`); in laser mode they would teach buttons the user is not holding. Steam's own laser-mode pill replaces the legend there [A5, VP D-5].
+
+### 10.5 Feedback: sound and haptics [A9]
+
+- **Sound** (VP D-4, IM §6.4): our T2/T3 controls call Steam's sound bus with the same `ENavSound` Steam plays for the same event (navigation move, activate, toggle, back), so new controls do not feel dead next to Steam's. No new sound files, no sound on hover, and Steam's UI-sounds setting is honoured.
+- **Haptics: off** (sign-off S17, flag `haptics`). No wearer can judge them.
 
 ---
 
@@ -786,7 +882,7 @@ Chromium 126 (Steam's CEF) supports `linear()`. One curve per bounce value:
 Steam-specific notes [MO §4.10, §4.12, §5]:
 
 - Steam's toast children run `animation: toastEnter, toastExit`; add our entrance in place of `toastEnter` and keep `toastExit` with Steam's timing, or the toast never leaves. Read the real keyframe names from the live stylesheet first.
-- Route overrides (`TopLevelTransitionSwitch` Enter / EnterActive / ExitActive) keep each phase at or below Steam's own totals (enter ≤ 800 ms with delay, exit ≤ 200 ms) so React's transition timeouts never cut an animation. Direction (±16 px) needs T2; T1 uses 0 px. These rules lift the Phase 1 ban on touching `TopLevelTransition` and need sign-off.
+- Route overrides (`TopLevelTransitionSwitch` Enter / EnterActive / ExitActive) keep each phase at or below Steam's own totals (enter ≤ 800 ms with delay, exit ≤ 200 ms) so React's transition timeouts never cut an animation. Direction (±16 px) needs T2; T1 uses 0 px. These rules lift the Phase 1 ban on touching `TopLevelTransition`. **Adopted** (sign-off S3: the brief asks for Liquid Glass motion): route, card and menu entrance overrides are allowed within Steam's timeouts; toasts keep Steam's `toastExit*` [A10, PLAN §1.5].
 - Steam's library tab slide (`translateX(±40 %)`, 320 ms, 80 ms delay) becomes ±16 px + fade on `page`.
 
 ### 11.6 Menu morph and materialize recipes [MO §6.4]
@@ -835,7 +931,8 @@ R1 never fade a parent of glass (it becomes a backdrop root); R2 Steam's keyfram
 - **Never reorder focusable siblings with `order`**: inside a row or column the D-pad follows DOM order. Non-focusable siblings may move (GP C.1 moves the stats block with `order: 1`).
 - **Nodes with explicit handlers keep their axis**: tab strips with `onMoveLeft/onMoveRight` stay horizontal (that is why game-page tabs are a segmented control, not a vertical ornament).
 - **Never turn a row into a column or the reverse** where Steam declares `flow-children`; the D-pad would invert (SN, SM rules).
-- **Virtualised lists** (library grid, Storage list, friends) keep their JS-computed geometry: style rows, do not change row heights in CSS; larger posters need T3 props (LA LQ2).
+- **Virtualised lists** (library grid, Storage list) keep their JS-computed geometry: style rows, do not change row heights in CSS; larger posters need T3 props (LA LQ2). The **friends list is not virtualized** (measured, SM-D9), so its rows may change height in CSS [A7].
+- **Settings drill-down** may hide a section in one view when it stays visible in exactly one other view and SET's T-CNT sums equal stock (exemption E-DRILL, PLAN §1.16; flag `settingsDrill`) [A7, SET §4.3].
 - **New views (T3)** use Steam's `Focusable`, `DialogButton`, `ToggleField`, `GamepadPage`, `Menu` and `showContextMenu`; each has an `onCancel` and an error boundary, and lives under `/library/lgs/…` (SR §3.4, §7).
 - **Verification:** `L.pad` traversal after `BTakeFocus(3)` / `FocusApplicationRoot()` (GP §0.4, SR §4): every target reachable; Down-Up and Left-Right return to the start; LB/RB still page; B closes or returns.
 
@@ -863,9 +960,9 @@ Never change Steam's accessibility settings to test them; emulate media features
 |---|---|---|
 | T1 CSS incl. layout | Sizes, shapes, type, fills, edges, in-page Liquid Glass, ornament margin layouts, scroll edges, motion tokens | Layout changes allowed under §12 rules |
 | T2 DOM augmentation | Light-spot coordinates, pressed class for gamepad A, selection pill, icon chips (`data-lgs-page`), `aria-label`s, decorative art variables | Allowed: adds only, never removes or moves Steam nodes |
-| T3 Steam React views | Home / launcher routes, Control Center side tiles, search sheet, folder art, A–Z program grid, taller header sync | **[PROVEN]** routes, overrides, Steam components, focus (SR, 19/19 selftest) |
-| T4 scene graph | Depth for ornaments, menus, sheets, focused cards; popup `z`/`scale`; window dim and recede; frame-height override; enlarged frame controls | Interactive crop registration, popups as ornaments, dim/recede, frame height, frame controls **[PROVEN]**; click on a moved crop, laser on transparent texels, cross-popup gamepad focus **[UNPROVEN]** |
-| T5 glassd | Real frost, lensing, specular, adaptive tint and contact shadows over the room; tinted slabs; materialize; morph | Surfaces, slabs, partial covers **[PROVEN-P1]**; per-slab offset and tint, extra mask rects, systemui covers needed (SP §11.2, GP GQ6/GQ8) |
+| T3 Steam React views | Home / launcher routes, Control Center side tiles, search sheet, folder art, A–Z program grid, taller header sync | **[PROVEN]** routes, overrides, Steam components, focus (SR, 19/19 selftest); Phase 2 builds them on P2's framework (`contracts/react.md`) [A13] |
+| T4 scene graph | Depth for ornaments, menus, sheets, focused cards; popup `z`/`scale`; window dim and recede; frame-height override; enlarged frame controls | Interactive crop registration, popups as ornaments, dim/recede, frame height, frame controls **[PROVEN]**; click on a moved crop, laser on transparent texels, cross-popup gamepad focus **[UNPROVEN]**, so the default profile uses non-interactive, click-safe crops only (§3.8) [A13] |
+| T5 glassd | Real frost, lensing, specular, adaptive tint and contact shadows over the room; tinted slabs; materialize; morph | Surfaces, slabs, partial covers **[PROVEN-P1]**; GM v2 material (edges from shape and light, prism lensing, glass-over-glass) built; **plates (G1), hole treatment (G2), per-slab tint (G3) planned** (P9); systemui covers needed (SP §11.2, GP GQ6/GQ8) [A13] |
 
 ---
 
@@ -885,7 +982,7 @@ Never change Steam's accessibility settings to test them; emulate media features
 | Edges | The §6.2 recipe exactly: conic specular arcs with side gaps, darkened inner edge, thickness shading, depth shadow (`--dz` in mm) |
 | T1 fallback | `data-tier="t1"` on the view: window and panel glass lose the room frost (approximate: ornament glass outside the window still frosts the room in the kit) |
 | Depth | Not stereo: shown through the §3.8 shadow; `#annot` in the URL labels every `[data-dz]` element with its depth and tier |
-| States | Classes `is-hover` (with `--hx/--hy`), `is-focus`, `is-pressed`, `is-selected`, `is-nav-selected`, `is-disabled` |
+| States | Classes `is-hover` (with `--hx/--hy`), `is-focus`, `is-pressed`, `is-selected`, `is-nav-selected`, `is-disabled`, plus `is-nav-row` (hover = spot only) and `is-onfill` (coloured fill: focus = glow). Same values and compositing as the theme's `04-states.css`; `python docs/phase2/fontkit.py --parity` checks that every shared token is equal |
 
 Not simulated: SteamVR's window curvature, the Frame's 19.6 ppd (judge legibility in an `hvgrab` frame, not in a mockup), stereo, motion.
 
@@ -895,11 +992,11 @@ Not simulated: SteamVR's window curvature, the Frame's 19.6 ppd (judge legibilit
 <link rel="stylesheet" href="kit.css">
 <div class="lgk-view" data-room="lounge">
   <div class="lgk-overlay" style="left:320px; top:66px">             <!-- Steam's 1280 x 720 overlay -->
-    <div class="lgk-glass" data-mat="window" style="left:0; top:0; width:1280px; height:664px">
+    <div class="lgk-glass" data-mat="window" style="left:0; top:0; width:1280px; height:656px">
       <div class="t-large" style="position:absolute; left:40px; top:25px">Library</div>
       …fills, rows, posters (never another .lgk-glass inside)…
     </div>
-    <div class="lgk-glass lgk-toolbar" data-mat="liquid" data-lens data-dz="25" style="left:192px; top:636px; width:896px">…</div>
+    <div class="lgk-glass lgk-toolbar" data-mat="liquid" data-lens data-dz="0" style="left:192px; top:628px; width:896px">…</div>
   </div>
 </div>
 <script src="kit.js"></script>
@@ -913,12 +1010,12 @@ Not simulated: SteamVR's window curvature, the Frame's 19.6 ppd (judge legibilit
 
 ### 15.3 The worked example
 
-`_example.html` → `shots/p2_example.png` (variants: `p2_example_studio.png`, `p2_example_dim.png`, `p2_example_t1.png`). It shows:
+`_example.html` → `shots/p2_example.png` (variants: `p2_example_studio.png`, `p2_example_dim.png`, `p2_example_t1.png`, rendered before A1–A13). Re-rendered 2026-10-07 with the amendments. It shows:
 
-- the Library window (glass 1280 × 664, radius 54) with a Large Title, a centred 64 px search capsule with a mic, an account circle at the concentric corner inset, a segmented control (white selected segment), 220 × 330 posters with an update chip and a download-progress capsule, and a scroll-edge fade under the toolbar;
-- the tab-bar ornament (frame menu, 6 + 3 items, Library selected as a lighter platter, lensing at the bezel);
-- the bottom toolbar ornament straddling the glass by 28 px: the Sort button white because its menu is open, a Filter capsule with a count, an `All · VR · Non-VR` segmented control, controller glyph badges;
-- the Sort menu (thick glass at +30 mm) grown upward out of its button, the current sort checked, the laser-hovered row lit at the hit point;
+- the Library window (`window` glass mode: 1280 × 656, radius 54) with the Back circle at (24, 24), a Large Title at x 100, a 520 px search capsule centred at x 640 with no microphone, an account circle at the concentric corner inset, a segmented control (white selected segment), 220 × 330 posters with an update chip and a download-progress capsule [A1];
+- the tab-bar ornament (frame menu, 6 + 3 items, Library selected as the navigation pill with its arc, lensing at the bezel);
+- the bottom ornament at y 628–712 straddling the glass by 28 px at depth 0: the Sort button white because its menu is open, a Filter capsule with a count, an `All · VR · Non-VR` segmented control; laser mode, so no controller glyph badges [A1, A3, A5];
+- the Sort menu (thick glass at +10 mm, the default profile; five items: one column of 72 px rows under a 40 px header) grown upward out of its button, the current sort checked in the leading slot, the laser-hovered row lit at the hit point (hover look only: the laser never paints the focus look) [A3, A5, A6];
 - SteamVR's frame controls (idle-dim), the dashboard bar as two liquid capsules (Steam button, running apps as circular art, +; clock, battery capsule, notification badge, Quick Access), and the grab pill under the bar.
 
 ---
@@ -926,6 +1023,8 @@ Not simulated: SteamVR's window curvature, the Frame's 19.6 ppd (judge legibilit
 ## 16. Proposed tokens (for `theme/00-tokens.nowrap.css`, owned by Foundation)
 
 Values replace the Phase 1 tokens of the same name; new names are added. Selectors and file ownership as in DESIGN.md §10.
+
+**As built (P4, 2026-10-07).** The live tokens are `theme/00-tokens.nowrap.css`; `docs/phase2/contracts/tokens.md` is their contract. Differences from the proposal below: `--lgs-focus-add` is **.32** (A5); the Phase 2 material values live under new names `--lgs-mat-<m>-bg / -blur / -shade` (window, panel, liquid, liquid-room, thick, clear, plate), because Phase 1 files use `--lgs-glass-bg` and `--lgs-thick-bg` inside `linear-gradient()` and `background-color`, where a gradient value would be invalid and make glass transparent; `--lgs-glass-bg`, `--lgs-thick-bg`, `--lgs-glass-blur`, `--lgs-thick-blur` keep their Phase 1 values until the last area migrates (PLAN §6). Motion tokens live in P5's `theme/02-motion.nowrap.css`. New: the state numbers (`--lgs-hover`, `--lgs-focus`, `--lgs-within`, `--lgs-press`, `--lgs-lift`, `--lgs-dis`), the hook switches `--lgs-edge` and `--lgs-ill`, the PLAN §1.3 size tokens, the selection recipe and `--lgs-white-glow`.
 
 ```css
 @property --lgs-hover { syntax: "<number>"; inherits: false; initial-value: 0; }
@@ -1010,6 +1109,8 @@ Depths for `theme/layers.json` (scene units at r = 1; the daemon should convert 
 ---
 
 ## 17. Verification checklist (agents only)
+
+**The gates are PLAN §4 [A11]:** the global gates (G-AUD, G-SIZE, G-TYPE, G-OUTLINE, G-FOCUS, G-MOTION, G-PAD, G-DEPTH, G-HV, G-REMOVE), the route matrix, the native gate and the conformance run of VP §6, measured with the lab commands of `docs/phase2/contracts/lab.md`. Where a row below disagrees with PLAN §4 (for example #5's focus threshold, now G-FOCUS's +40 L, or #7's depths, now the §3.8 default profile), PLAN §4 wins. The table stays as the design-level summary.
 
 | # | Check | How |
 |---|---|---|

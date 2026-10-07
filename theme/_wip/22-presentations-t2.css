@@ -1,0 +1,69 @@
+/* DRAFT (C1c M3): CSS for the attributes C1c's T2 (device/rt/_wip/22-menus.js) sets.
+   Merged into theme/22-presentations.css at M3, after a live check; inert without T2.
+   Wrapped as html.lgs-on { ... } by the bundler once merged. */
+
+/* Power glyphs (CC §5): 26 px masks in the leading slot; > 2 destructive rows,
+   so the glyph is red at rest and follows the dark label on the red focus fill */
+%{*BasicContextMenuHeader>BasicContextMenuModal} %{*BasicContextMenuModal>contextMenuContents} > %{*BasicContextMenuModal>contextMenuItem}[data-lgs-glyph] {
+  padding-left: 60px;
+}
+%{*BasicContextMenuHeader>BasicContextMenuModal} %{*BasicContextMenuModal>contextMenuContents} > %{*BasicContextMenuModal>contextMenuItem}[data-lgs-glyph]::before {
+  content: "";
+  position: absolute;
+  left: 18px;
+  top: 50%;
+  width: 26px;
+  height: 26px;
+  margin-top: -13px;
+  background: currentColor;
+  -webkit-mask: var(--lgs-c1c-glyph) center / contain no-repeat;
+  pointer-events: none;
+}
+%{*BasicContextMenuHeader>BasicContextMenuModal} %{*BasicContextMenuModal>contextMenuContents} > %{*BasicContextMenuModal>contextMenuItem}[data-lgs-glyph]:is(%{*BasicContextMenuModal>Destructive}, .Stop)::before {
+  background: var(--lgs-red);
+}
+&:not(.lgs-input-laser) %{*BasicContextMenuHeader>BasicContextMenuModal} %{*BasicContextMenuModal>contextMenuContents} > %{*BasicContextMenuModal>contextMenuItem}[data-lgs-glyph]:is(.gpfocus, %{*BasicContextMenuModal>Focused})::before {
+  background: currentColor;
+}
+[data-lgs-glyph="moon"] { --lgs-c1c-glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z'/%3E%3C/svg%3E"); }
+[data-lgs-glyph="power"] { --lgs-c1c-glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M12 3v8'/%3E%3Cpath d='M6.3 6.8a8 8 0 1 0 11.4 0'/%3E%3C/svg%3E"); }
+[data-lgs-glyph="restart"] { --lgs-c1c-glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M19.2 12.4a7.2 7.2 0 1 1-2.2-5.6'/%3E%3Cpath d='M17.6 3.6v3.9h-3.9'/%3E%3C/svg%3E"); }
+[data-lgs-glyph="vr"] { --lgs-c1c-glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linejoin='round'%3E%3Cpath d='M3 9a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v5a3 3 0 0 1-3 3h-3l-1.5-2h-3L9 17H6a3 3 0 0 1-3-3z'/%3E%3C/svg%3E"); }
+[data-lgs-glyph="person"] { --lgs-c1c-glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='12' cy='8' r='4'/%3E%3Cpath d='M4.5 20a7.5 7.5 0 0 1 15 0'/%3E%3C/svg%3E"); }
+[data-lgs-glyph="signout"] { --lgs-c1c-glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.4 4.8H6.6a1.6 1.6 0 0 0-1.6 1.6v11.2a1.6 1.6 0 0 0 1.6 1.6h3.8'/%3E%3Cpath d='M14.6 8l4 4-4 4'/%3E%3Cpath d='M9.4 12h9'/%3E%3C/svg%3E"); }
+
+/* the source of an open menu (PLAN §1.4: white .94 with a dark glyph); a content
+   card stays at 0 mm with a soft glow (D6b) */
+[data-lgs-menu-source="white"] {
+  background: var(--lgs-selected-fill) !important;
+  color: var(--lgs-text-on-selected) !important;
+  --lgs-ill: white;
+}
+[data-lgs-menu-source="glow"] {
+  box-shadow: 0 10px 28px rgb(0 0 0 / .42), 0 0 26px 3px rgb(255 255 255 / .20) !important;
+}
+
+/* the sheet's close circle (WN §5.4): our node, fixed over the sheet's (24, 24) */
+.lgs-sheet-close {
+  position: fixed;
+  z-index: 7100;
+  width: var(--lgs-btn, 60px);
+  height: var(--lgs-btn, 60px);
+  border-radius: 50%;
+  background: var(--lgs-raised-bg);
+  box-shadow: var(--lgs-raised-shadow);
+  isolation: isolate;
+  --lgs-ill: raised;
+  --lgs-ill-z: -1;
+  cursor: default;
+  animation: lgs-mat-glass-in var(--lgs-motion-mat-in) backwards;
+  --lgs-maxside: 60;
+}
+.lgs-sheet-close::before {
+  content: "";
+  position: absolute;
+  inset: 17px;
+  background: var(--lgs-text-1);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round'%3E%3Cpath d='M6 6l12 12M18 6L6 18'/%3E%3C/svg%3E") center / contain no-repeat;
+  pointer-events: none;
+}

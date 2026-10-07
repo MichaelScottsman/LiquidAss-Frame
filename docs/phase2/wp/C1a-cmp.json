@@ -1,0 +1,92 @@
+{
+ "_doc": "C1a (PLAN-1a-3, G-MOCK): live selectors for the shell's mockups. Mockup member rects are the 60 px visible capsules; the live legends are the 84 px hit rows (light inset 12), so members read dy -12, dh +24 by design (WN §3.4.1). Back and the More circle: the mockup rect is the 60 px circle, the live rect its 80 px hit box (-10, -10, +20, +20). The tab bar is drawn at 10 items, p 58 (Console on); the device has 9 items today, so the live pitch is 66 (WN §3.3.2 rule 2). Run with --flags wp.p3,wp.c1a (T2 tags, Large Title, slots, the More circle).",
+ "surface": "main",
+ "mockScale": 1,
+ "mockups": {
+  "window-nav-anatomy": {
+   "route": "/library/tab/AllGames",
+   "pre": "(async()=>{const R=window.__LGS_RT; await R.settled(); L.nav('/library/tab/AllGames'); await L.sleep(1800);const s=R.shell.ornamentSlots('library',{widths:[300,130,156,134,120],gap:4,padding:12});const m=R.more.register('%{LibraryItemBox}',{placement:'card'}); const W=L.surface('main');const A=L.qa('main','%{LibraryItemBox}')[1]; const r=A.getBoundingClientRect();for (const t of ['pointerover','mouseover','pointermove','mousemove']) A.dispatchEvent(new (t.startsWith('pointer')?W.PointerEvent:W.MouseEvent)(t,{bubbles:true,clientX:r.x+r.width/2,clientY:r.y+r.height/2}));await L.sleep(800); setTimeout(()=>{try{s.remove();m.remove();}catch(e){}},20000); return 'more '+R.more.nodes();})()",
+   "mockOrigin": [
+    320,
+    66
+   ],
+   "map": {
+    "back": "#header %{BackContainer}",
+    "title": "#header > .lgs-title",
+    "search": "#header %{SearchAndTitleContainer}",
+    "more": ".lgs-more",
+    "orn-menu": "#Footer [data-lgs-btn=\"MENU\"]",
+    "orn-a": "#Footer [data-lgs-btn=\"OK\"]",
+    "orn-b": "#Footer [data-lgs-btn=\"CANCEL\"]",
+    "tabbar": {
+     "surface": "frame.menu",
+     "mockScale": 1.1,
+     "sel": "%{DashboardMenu}%{Variant_FrameMenu}",
+     "mockOrigin": [
+      -28,
+      -14
+     ]
+    }
+   }
+  },
+  "window-nav-tabbar": {
+   "route": "/library/downloads",
+   "pre": "(async()=>{await window.__LGS_RT.settled(); L.nav('/library/downloads'); await L.sleep(1800); await L.root(); await L.sleep(300);for (let i=0;i<3;i++){ if (JSON.stringify(L.focused()).includes('SearchBox')) break; await L.pad('up'); await L.sleep(350); }await L.pad('left'); await L.sleep(600);const fname=()=>{const e=L.q('frame.menu','%{DashboardMenu>Item}.gpfocus'); return e?(e.innerText||'').trim():'';};for (let i=0;i<12&&fname()!=='Store';i++){ const n=L.qa('frame.menu','%{DashboardMenu>Item}').map(e=>(e.innerText||'').trim()); await L.pad(n.indexOf(fname())>n.indexOf('Store')?'up':'down'); await L.sleep(350); }await L.sleep(900); return fname();})()",
+   "mockOrigin": [
+    380,
+    66
+   ],
+   "map": {
+    "back": "#header %{BackContainer}",
+    "title": "#header > .lgs-title",
+    "search": "#header %{SearchAndTitleContainer}",
+    "orn-menu": "#Footer [data-lgs-btn=\"MENU\"]",
+    "orn-a": "#Footer [data-lgs-btn=\"OK\"]",
+    "orn-b": "#Footer [data-lgs-btn=\"CANCEL\"]",
+    "tabbar": {
+     "surface": "frame.menu",
+     "mockScale": 1.1,
+     "sel": "%{DashboardMenu}%{Variant_FrameMenu}",
+     "mockOrigin": [
+      32,
+      -14
+     ]
+    },
+    "tab-store": {
+     "surface": "frame.menu",
+     "mockScale": 1.1,
+     "sel": "%{DashboardMenu>Item}.gpfocus",
+     "mockOrigin": [
+      32,
+      -14
+     ]
+    }
+   }
+  },
+  "window-nav-ornament": {
+   "route": "/settings/system",
+   "pre": "(async()=>{await window.__LGS_RT.settled(); L.nav('/settings/system'); await L.sleep(1800); return 1;})()",
+   "mockOrigin": [
+    20,
+    142
+   ],
+   "map": {
+    "quiet-orn-a": "#Footer [data-lgs-btn=\"OK\"]",
+    "quiet-orn-b": "#Footer [data-lgs-btn=\"CANCEL\"]"
+   }
+  },
+  "window-nav-chrome": {
+   "route": "/library/tab/AllGames",
+   "pre": "(async()=>{const R=window.__LGS_RT; await R.settled(); L.nav('/library/tab/AllGames'); await L.sleep(1800);const s=R.shell.ornamentSlots('library',{widths:[300,130,156,134,120],gap:4,padding:12});const m=R.more.register('%{LibraryItemBox}',{placement:'card'}); const W=L.surface('main');const A=L.qa('main','%{LibraryItemBox}')[1]; const r=A.getBoundingClientRect();for (const t of ['pointerover','mouseover','pointermove','mousemove']) A.dispatchEvent(new (t.startsWith('pointer')?W.PointerEvent:W.MouseEvent)(t,{bubbles:true,clientX:r.x+r.width/2,clientY:r.y+r.height/2}));await L.sleep(800); setTimeout(()=>{try{s.remove();m.remove();}catch(e){}},20000); return 'more '+R.more.nodes();})()",
+   "mockOrigin": [
+    320,
+    -300
+   ],
+   "map": {
+    "orn-menu": "#Footer [data-lgs-btn=\"MENU\"]",
+    "orn-a": "#Footer [data-lgs-btn=\"OK\"]",
+    "orn-b": "#Footer [data-lgs-btn=\"CANCEL\"]"
+   }
+  }
+ }
+}

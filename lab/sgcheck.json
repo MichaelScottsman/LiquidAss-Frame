@@ -1,0 +1,10 @@
+{
+ "_doc": "Forbidden boxes for glass.py sgcheck (R1b, PLAN 1.7 rule 1), per surface, besides every visible [data-lgs-nopop] element (P6 contract 4). Owned by P10: send additions as 'REQ <YOU>->P10'. Selectors accept %{Token} and @text=; one that does not resolve is skipped.",
+ "forbidden": {
+  "main": [
+   {"name": "bottom ornament", "sel": "[data-wn=\"ornament\"], [data-lgs-ornament]"},
+   {"name": "store navigation ornament", "sel": "[data-lgs-store-ornament]"},
+   {"name": "/invites header", "sel": "[data-lgs-invites-header]"}
+  ]
+ }
+}

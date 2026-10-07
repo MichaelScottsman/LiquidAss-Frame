@@ -12,6 +12,9 @@
  * gamepad mode; an ornament holding only A and B is the quiet legend; members turn compact
  * above 960 px; the laser-mode Options member is the shell's T2 node; the More circle is 60 px
  * inside its host (data-corner = the host's top-right corner, or data-row = its trailing edge).
+ * Session 2: data-slots (fixed ornament slots, shell.ornamentSlots), the quiet legend's dim band
+ * on `window` routes (data-quiet="bare" draws PLAN §1.10's bare labels), data-modal (page members
+ * recede during an alert or sheet), and data-inglass on the More circle (no blur inside glass).
  */
 (() => {
   'use strict';
@@ -96,7 +99,9 @@
    *   A:/B:          nav legends: quiet trailing members in both modes, never hidden (PLAN §1.10)
    *   prefixes  * hover   ! menu open (white)   ~ gamepad focus   - disabled
    * Only A and B present -> the quiet legend (no capsule glass; data-inglass on window-full routes, where it
-   * sits inside the glass). Wider than 960 -> compact members. */
+   * sits inside the glass; otherwise on the dim band, or bare with data-quiet="bare"). Wider than 960 -> compact
+   * members. data-slots="300,130,156,134,120": fixed slots (one width per member, gap 4, padding 12; no group
+   * spacers, no name suffix). data-modal: an alert or sheet is open, the page's members recede. */
   function glyph(g) {
     if (g === 'menu') return '<span class="lgk-glyph wn-menu-glyph"></span>';
     return `<span class="lgk-glyph">${g}</span>`;
@@ -120,17 +125,20 @@
       return { g, label, tgt, kind, cls };
     });
     const quiet = items.length > 0 && items.every((it) => it.kind === 'nav') && !el.dataset.seg;
-    let html = '', prev = null;
+    const slots = el.dataset.slots ? el.dataset.slots.split(',').map(Number) : null;
+    let html = '', prev = null, si = 0;
     for (const it of items) {
       const grp = it.kind === 'opt' ? 'act' : it.kind;
-      if (prev && prev !== grp) html += '<span class="gsep"></span>';
+      if (prev && prev !== grp && !slots) html += '<span class="gsep"></span>';
       prev = grp;
-      const t = it.tgt ? ` <span class="tgt">· ${it.tgt}</span>` : '';
+      if (slots) it.cls.push('s' + (si + 1));
+      const sw = slots ? ` width:${slots[si++]}px;` : '';
+      const t = it.tgt && !(slots && it.g === 'menu') ? ` <span class="tgt">· ${it.tgt}</span>` : '';   // fixed slots: no target-name suffix on Options (state labels stay)
       if (it.kind === 'sf' || it.kind === 'opt') {
         const ic = it.kind === 'opt' ? 'more' : it.g === 'sf-sort' ? 'sort' : 'filter';
-        html += `<span class="${it.cls.join(' ')}"${did(el, 'orn-' + it.g.toLowerCase())} style="--hx:40%;--hy:35%"><i data-i="${ic}"></i><span class="val">${it.label}</span>${t}</span>`;
+        html += `<span class="${it.cls.join(' ')}"${did(el, 'orn-' + it.g.toLowerCase())} style="--hx:40%;--hy:35%;${sw}"><i data-i="${ic}"></i><span class="val">${it.label}</span>${t}</span>`;
       } else {
-        html += `<span class="${it.cls.join(' ')}"${did(el, 'orn-' + it.g.toLowerCase())} style="--hx:40%;--hy:35%">${it.label}${t}${laser ? '' : glyph(it.g)}</span>`;
+        html += `<span class="${it.cls.join(' ')}"${did(el, 'orn-' + it.g.toLowerCase())} style="--hx:40%;--hy:35%;${sw}"><span class="val">${it.label}</span>${t}${laser ? '' : glyph(it.g)}</span>`;
       }
     }
     if (el.dataset.seg) {                                     // area slot: one segmented control (e.g. All · VR · Non-VR)
@@ -139,12 +147,17 @@
     }
     if (!html) { el.remove(); return; }
     const top = el.dataset.top || '628';
-    const mode = laser ? ' mode-laser' : ' mode-pad';
+    const mode = (laser ? ' mode-laser' : ' mode-pad') + (slots ? ' fixed' : '') + (flag(el, 'modal') ? ' modal' : '');
+    const inglass = flag(el, 'inglass');
+    const qcls = inglass ? ' in-glass' : el.dataset.quiet === 'bare' ? ' bare' : ' band';
+    const qtier = inglass ? 'quiet legend inside the glass (window-full): labels white .70, no material'
+      : el.dataset.quiet === 'bare' ? 'quiet legend, quietBacking off: PLAN §1.10 bare labels over the room'
+      : 'quiet legend in the margin (window route): the dim band (black .62, not glass), labels white .82; flag quietBacking';
     const node = quiet
-      ? h(`<div class="wn-orn quiet${mode}${flag(el, 'inglass') ? ' in-glass' : ''}"${did(el, 'ornament')} style="top:${top}px" data-dz="0" data-tier="quiet legend (only A and B): Steam's #Footer legends, no capsule material, no slab">${html}</div>`).firstElementChild
-      : h(`<div class="lgk-glass lgk-toolbar wn-orn${mode}"${did(el, 'ornament')} data-mat="liquid" data-lens style="--dz:18; top:${top}px" data-dz="0" data-tier="ornament contract: T1 #Footer + %{SortAndFilterContainer}; T2 target + modes; T5 liquid slab (inset, no pop)">${html}</div>`).firstElementChild;
+      ? h(`<div class="wn-orn quiet${mode}${qcls}"${did(el, 'ornament')} style="top:${top}px" data-dz="0" data-tier="${qtier}">${html}</div>`).firstElementChild
+      : h(`<div class="lgk-glass lgk-toolbar wn-orn${mode}"${did(el, 'ornament')} data-mat="liquid" data-lens style="--dz:18; top:${top}px" data-dz="0" data-tier="ornament contract: T1 #Footer + %{SortAndFilterContainer}; T2 target + modes${slots ? ' + fixed slots (shell.ornamentSlots)' : ''}; T5 liquid slab (inset, no pop)">${html}</div>`).firstElementChild;
     el.replaceWith(node);
-    if (node.scrollWidth > 960) node.classList.add('compact');   // never drop a member (PLAN §1.10)
+    if (!slots && node.scrollWidth > 960) node.classList.add('compact');   // never drop a member (PLAN §1.10)
   }
 
   /* ---------------- SteamVR frame controls (systemui panel, x0.75), old placement (kept for area mockups) */
@@ -236,9 +249,10 @@
     else if (el.dataset.row) { const [x, y] = el.dataset.row.split(',').map(Number); cx = x - 24 - 30; cy = y; }
     else { cx = parseFloat(el.dataset.x); cy = parseFloat(el.dataset.y); }
     const open = flag(el, 'open') ? ' is-open' : '', hov = flag(el, 'hover') ? ' is-hover' : '';
+    const ing = flag(el, 'inglass') ? ' in-glass' : '';      // inside another glass container: no blur (P-45)
     const dz = el.dataset.dz || '15';                         // data-dz="none": no depth label of its own
     const dza = dz === 'none' ? '' : ` data-dz="${dz}"`;
-    el.replaceWith(h(`<div class="wn-more${open}${hov}"${did(el, 'more')} style="left:${cx - 30}px; top:${cy - 30}px"${dza} data-tier="T2 More circle: the host's own onMenuButton; rides its host's depth"><i data-i="more"></i></div>`));
+    el.replaceWith(h(`<div class="wn-more${open}${hov}${ing}"${did(el, 'more')} style="left:${cx - 30}px; top:${cy - 30}px"${dza} data-tier="T2 More circle: the host's own onMenuButton; rides its host's depth"><i data-i="more"></i></div>`));
   }
 
   /* ---------------- Steam VR keyboard (keyboard quad, x0.74) with the display-only echo row */

@@ -31,8 +31,9 @@ usage: lgs [toggle|on|off|reload|status|dial 0..1|toast TEXT|flags ...|check]
   check    offline bundle check (no device needed; also runs on the PC):
            braces, .nowrap at-rules, %{token} syntax, JSON fragments, JS syntax
            (node --check when node is installed). Exit 1 when broken
-  selftest [RT-1,RT-2,...]  the P1 acceptance tests on the live UI, inside the
-           lab lock (docs/phase2/wp/P1.md)
+  selftest [RT-1,RT-2,...] [--mode=pad|laser]  the P1 acceptance tests on the
+           live UI, inside the lab lock (docs/phase2/wp/P1.md); RT-H checks the
+           test hooks; --mode runs every step with the lab's input-mode stub
 """
 import asyncio
 import hashlib
@@ -55,7 +56,10 @@ FLAGS_FILE = "/tmp/lgs/flags.json"                  # session overrides (RAM)
 CDP = "http://127.0.0.1:8080"
 LOG = "/tmp/lgs/lgs.log"
 LOG_MAX = 512 * 1024   # /tmp is RAM: keep the log and one older copy (lgs.log.1)
-DIAL = os.path.join(ROOT, "dial")
+DIAL = "/tmp/lgs/dial"                              # lgs dial (RAM: rule 7, nothing survives a reboot)
+READY_WAIT_S = 120     # "on": how long to wait for Steam's UI and a plausible class index (review R1 M1)
+READY_BACKOFF_S = (2, 4, 8, 15)                     # then every 15 s
+MIN_CLASS_MODULES = 200                             # a sane index of Steam's client bundle (healthy: about 550)
 
 # PLAN §1.17 sign-off register: built-in flag defaults, used when
 # device/defaults.json (V1) does not set a flag. "On (gated)" flags stay off
@@ -77,6 +81,14 @@ BUILTIN_FLAGS = {
     "settingsDrill": False,     # S23 (gated)
     "rt.stubs": False,          # P1 test stubs (RT-1, RT-3, RT-4)
     "rt.stubThrow": False,      # P1 failing stub (RT-2)
+    "rt.stubSlow": False,       # P1 stub whose install() outlives its timeout (RT-2, review R1 M2)
+    # Other packages' flags with a contracted default (shown by `lgs flags`, read by rt.flags)
+    "react": True,              # P2 kill switch for every T3 feature (contracts/react.md §1)
+    "reactLab": False,          # P2 lab route, tests only (react.md §9)
+    "actionsLive": False,       # P2: Steam actions run only when true (react.md §7; V1 sets it at release)
+    "actionsDryRun": False,     # P8: nav/launch actions logged, not run (daemon.md §2)
+    "sgDepthAnim": True,        # P8/P7: depth motion kill switch (daemon.md §2)
+    "shellThemeGraceS": 600,    # P8: dormant seconds while the theme is off without lgs off (daemon.md §2)
 }
 
 
@@ -272,9 +284,9 @@ def bundle_files(paths):
         if name.endswith(".nowrap.css"):
             parts.append(f"/* {name} */\n{text}")
         else:
-            for bad in ("@keyframes", "@font-face", "@import", "@property"):
-                if bad in text:
-                    log(f"warning: {name} uses {bad}; move it to a *.nowrap.css file")
+            clean = _css_scan(text)[0]          # comments and strings do not count (review R1 m5)
+            for m in sorted({m.group(0) for m in AT_NOWRAP.finditer(clean)}):
+                log(f"warning: {name} uses {m}; move it to a *.nowrap.css file")
             parts.append(f"/* {name} */\nhtml.lgs-on {{\n{text}\n}}")
     try:
         with open(DIAL, encoding="utf-8") as f:
@@ -293,7 +305,83 @@ def core_call(payload):
     with open(os.path.join(HERE, "lgs_core.js"), encoding="utf-8") as f:
         core_js = f.read().strip().rstrip(";")
     return (f"(() => {{\n{index_js}\n{lens_js}\n"
-            f"return ({core_js})({json.dumps(payload)}, lgsBuildIndex, lgsLens);\n}})()")
+            f"return ({core_js})({json.dumps(payload)}, lgsBuildIndex, lgsLens, lgsIndexShared);\n}})()")
+
+
+# "on" waits for Steam: evaluated with the theme's distinct tokens before anything is
+# torn down or injected. Steam's UI must be up (SteamUIStore, popup manager, main
+# window, live webpack runtime) and the shared class index plausible (>= minModules
+# CSS modules; at most half the theme's tokens unresolved). A short index is never
+# cached (lgsIndexShared). Answers {ready, missing, index, tokens, unresolved}.
+CHECK_JS = r"""(() => {
+  const P = __P__, W = window, miss = [];
+  try { if (!W.SteamUIStore || !W.SteamUIStore.WindowStore) miss.push('SteamUIStore'); } catch (_) { miss.push('SteamUIStore'); }
+  let pm = null; try { pm = W.g_PopupManager; } catch (_) { /* not yet */ }
+  if (!pm || !pm.m_mapPopups) miss.push('g_PopupManager');
+  let main = null;
+  try { const w = W.SteamUIStore.WindowStore.VRGamepadUIMainWindowInstance.BrowserWindow; if (w && w.document && w.document.body) main = w; } catch (_) { /* fall back */ }
+  if (!main && pm && pm.m_mapPopups) {
+    for (const p of pm.m_mapPopups.values()) { try { if (/^VR_uid/.test(p.m_strName) && p.window && p.window.document && p.window.document.body) main = p.window; } catch (_) { /* closing */ } }
+  }
+  if (!main) miss.push('main window');
+  const ch = W.webpackChunksteamui;
+  if (!ch || typeof ch.push !== 'function' || ch.push === Array.prototype.push) miss.push('webpack runtime');
+  if (miss.length) return JSON.stringify({ ready: false, missing: miss });
+  const ix = lgsIndexShared({ minModules: P.minModules });
+  const info = { size: ix.size, factories: ix.factories, ok: ix.ok, why: ix.why || null, ms: ix.ms, cached: W.__LGS_INDEX === ix };
+  if (!ix.ok) return JSON.stringify({ ready: false, missing: [], index: info });
+  let unresolved = 0;
+  for (const t of P.tokens) { const r = ix.selector(t); if (!r.sel && r.err !== 'ambiguous') unresolved++; }
+  const bad = P.tokens.length >= 20 && unresolved > P.tokens.length * 0.5;
+  if (bad && W.__LGS_INDEX === ix) { try { delete W.__LGS_INDEX; } catch (_) { W.__LGS_INDEX = undefined; } }
+  return JSON.stringify({ ready: !bad, missing: [], index: info, tokens: P.tokens.length, unresolved });
+})()"""
+
+
+def check_call(tokens, min_modules):
+    with open(os.path.join(HERE, "lgs_index.js"), encoding="utf-8") as f:
+        index_js = f.read()
+    return f"(() => {{\n{index_js}\nreturn {CHECK_JS.replace('__P__', json.dumps({'tokens': tokens, 'minModules': min_modules}))};\n}})()"
+
+
+def wait_ready(tokens, min_modules=MIN_CLASS_MODULES, wait=None):
+    """Poll Steam until it is ready for an injection (CHECK_JS), with backoff 2, 4,
+    8 s, then every 15 s, for up to `wait` seconds (READY_WAIT_S). Each attempt
+    connects anew, so a SharedJSContext that reloads meanwhile is followed; each
+    attempt that is not ready is logged. Returns {state: 'ok' | 'gave-up',
+    attempts, waitedS, last}: 'gave-up' with an index problem other than the
+    unresolved share means "do not inject"."""
+    wait = READY_WAIT_S if wait is None else wait
+    t0, n, last = time.time(), 0, None
+    expr = check_call(tokens, min_modules)
+    while True:
+        n += 1
+        try:
+            last = _jsonish(run_js("SharedJSContext", expr, 30))
+        except (Exception, SystemExit) as e:  # noqa: BLE001 - devtools down (Steam restarting)
+            last = {"ready": False, "missing": [f"devtools: {str(e)[:120]}"]}
+        if not isinstance(last, dict):
+            last = {"ready": False, "missing": [f"unexpected answer {str(last)[:80]}"]}
+        waited = round(time.time() - t0, 1)
+        if last.get("ready"):
+            if n > 1:
+                log(f"index: attempt {n}: ready after {waited} s ({json.dumps(last.get('index'))})")
+            return {"state": "ok", "attempts": n, "waitedS": waited, "last": last}
+        log(f"index: attempt {n}: waiting ({waited} s): missing {last.get('missing')}, "
+            f"index {json.dumps(last.get('index'))}, unresolved {last.get('unresolved')}/{last.get('tokens')}")
+        if time.time() - t0 >= wait:
+            log(f"index: gave up after {n} attempts, {waited} s")
+            return {"state": "gave-up", "attempts": n, "waitedS": waited, "last": last}
+        delay = READY_BACKOFF_S[min(n - 1, len(READY_BACKOFF_S) - 1)]
+        time.sleep(max(0.2, min(delay, wait - (time.time() - t0))))
+
+
+def theme_tokens(css, lens):
+    toks = {m.group(1).strip() for m in re.finditer(r"%\{([^}]+)\}", css)}
+    for spec in lens or []:
+        if isinstance(spec, dict):
+            toks |= {m.group(1).strip() for m in re.finditer(r"%\{([^}]+)\}", str(spec.get("sel", "")))}
+    return sorted(toks)
 
 
 # ---------------------------------------------------------------- flags
@@ -424,16 +512,19 @@ def _read(path):
 
 def rt_module_js(label, src):
     """Wrap one module file: its define() calls are attributed to it, its own
-    top-level names stay local, and a throw marks only this file failed."""
+    top-level names stay local, and a throw marks only this file failed. The
+    wrapper is strict (a file's own top-level 'use strict' is not a directive
+    inside the try block), so an accidental implicit global throws instead of
+    leaking past lgs off (review R1 mB3)."""
     if label.startswith("shared/"):
         name = os.path.splitext(os.path.basename(label))[0]
-        return ("(function () {\n const __rt = window.__LGS_RT;\n"
+        return ("(function () {\n 'use strict';\n const __rt = window.__LGS_RT;\n"
                 " const module = { exports: {} }; const exports = module.exports;\n"
                 f" __rt._loading({json.dumps(label)});\n try {{\n"
                 f"{src}\n;\n __rt._shared({json.dumps(name)}, module.exports);\n"
                 f" }} catch (e) {{ __rt._fail({json.dumps(label)}, e); }} finally {{ __rt._loading(null); }}\n"
                 f"}}).call(window);\n//# sourceURL=lgs/{label}")
-    return ("(function () {\n const __rt = window.__LGS_RT;\n"
+    return ("(function () {\n 'use strict';\n const __rt = window.__LGS_RT;\n"
             f" __rt._loading({json.dumps(label)});\n try {{\n"
             f"{src}\n;\n"
             f" }} catch (e) {{ __rt._fail({json.dumps(label)}, e); }} finally {{ __rt._loading(null); }}\n"
@@ -534,8 +625,15 @@ def rt_summary(st, ms=None):
     return out
 
 
+# Marked elements: an lgs-* (or "lgs") class, a data-lgs* attribute, an lgs- / lgs_ id.
+# One native XPath query per window instead of walking every element (review R1 M1 item 4).
+SWEEP_XPATH = ("//*[starts-with(@id,'lgs-') or starts-with(@id,'lgs_')"
+               " or contains(concat(' ',normalize-space(@class),' '),' lgs-')"
+               " or contains(concat(' ',normalize-space(@class),' '),' lgs ')"
+               " or @*[starts-with(name(),'data-lgs')]]")
+
 SWEEP_JS = r"""(() => {
-  const RX = /^_*lgs/i;
+  const RX = /^_*lgs/i, XP = __XP__;
   const out = { windows: {}, globals: [], clean: true };
   try { out.globals = Object.getOwnPropertyNames(window).filter((k) => RX.test(k)); } catch (_) { /* proxy */ }
   let pops = [];
@@ -543,27 +641,32 @@ SWEEP_JS = r"""(() => {
   for (const p of pops) {
     let w = null;
     try { w = p.window; if (!w || !w.document || !w.document.documentElement) continue; } catch (_) { continue; }
-    const cls = new Set(), attrs = new Set(), ids = new Set();
-    let n = 0;
-    const els = [w.document.documentElement, ...w.document.documentElement.querySelectorAll('*')];
-    for (const el of els) {
-      let hit = false;
-      for (const c of el.classList) if (c.startsWith('lgs-') || c === 'lgs') { cls.add(c); hit = true; }
-      for (const a of el.getAttributeNames()) if (a.startsWith('data-lgs')) { attrs.add(a); hit = true; }
-      if (el.id && /^lgs[-_]/.test(el.id)) { ids.add(el.id); hit = true; }
-      if (hit) n++;
+    const cls = new Set(), attrs = new Set(), ids = new Set(), items = [];
+    let snap = null;
+    try { snap = w.document.evaluate(XP, w.document, null, 7, null); } catch (_) { continue; }
+    const n = snap.snapshotLength;
+    for (let i = 0; i < n; i++) {
+      const el = snap.snapshotItem(i);
+      const mc = [], ma = [];
+      for (const c of el.classList) if (c.startsWith('lgs-') || c === 'lgs') { cls.add(c); mc.push(c); }
+      for (const a of el.getAttributeNames()) if (a.startsWith('data-lgs')) { attrs.add(a); ma.push(a); }
+      const lid = el.id && /^lgs[-_]/.test(el.id);
+      if (lid) ids.add(el.id);
+      // a signature per marked element: tag, lgs id, lgs classes, data-lgs attributes (diffable between sweeps)
+      if (items.length < 40) items.push(el.tagName.toLowerCase() + (lid ? '#' + el.id : '')
+        + mc.sort().map((c) => '.' + c).join('') + ma.sort().map((a) => '[' + a + ']').join(''));
     }
     const g = [];
     try { for (const k of Object.getOwnPropertyNames(w)) if (/^__LGS/.test(k)) g.push(k); } catch (_) { /* cross-realm */ }
     if (n || g.length) {
       out.clean = false;
       out.windows[String(p.m_strName || '?').replace(/_uid\d+$/, '')] =
-        { elements: n, classes: [...cls], attrs: [...attrs], ids: [...ids], globals: g };
+        { elements: n, classes: [...cls], attrs: [...attrs], ids: [...ids], globals: g, items };
     }
   }
   if (out.globals.includes('__LGS_RT') || out.globals.includes('__LGS')) out.clean = false;
   return JSON.stringify(out);
-})()"""
+})()""".replace("__XP__", json.dumps(SWEEP_XPATH))
 
 
 async def _session(fn):
@@ -592,16 +695,21 @@ def _shell_start(native):
     return lgs_shell.start(native=(mode == "on"))
 
 
-def op(name, quiet=False, text=None, vr=False, native=None, flags=None, rt=None):
+def op(name, quiet=False, text=None, vr=False, native=None, flags=None, rt=None, wait=None, min_modules=None):
     """Run one operation on the Steam UI; with vr=True also on the native glass
     layer and SteamVR's pages: on starts the transient unit lgs-shell (SteamVR
     page theming; the native glass layer per `native`, see _shell_start), off
     stops it and strips the pages.
 
-    on also (re)loads the runtime (device/rt) after the CSS unless rt=False or
-    the flag "rt" is off; flags = {name: value} is the "cli" flag layer. If the
-    runtime fails to load, the CSS theme stays on and res["runtime"] says why.
-    off removes the runtime modules first and adds a cleanup report."""
+    on first waits (wait_ready: up to `wait` s, default READY_WAIT_S) until
+    Steam's UI is up and the class index is plausible (>= min_modules CSS
+    modules, default MIN_CLASS_MODULES); when it gives up, nothing is changed
+    and res["index"]["state"] is "gave-up". Then it (re)loads the runtime
+    (device/rt) after the CSS unless rt=False or the flag "rt" is off; flags =
+    {name: value} is the "cli" flag layer. If the runtime fails to load, the
+    CSS theme stays on and res["runtime"] says why.
+    off removes the runtime modules first and adds a cleanup report; its "Off"
+    toast is shown after the leftovers sweep (review R1 mB1)."""
     shell_off = None
     if vr and name == "off":
         # Native layer first, so Steam's own panels are back before the CSS goes.
@@ -611,6 +719,7 @@ def op(name, quiet=False, text=None, vr=False, native=None, flags=None, rt=None)
         except Exception as e:  # noqa: BLE001 - best effort
             shell_off = f"error: {e}"
     payload = {"op": name, "quiet": quiet}
+    ready = None
     if name == "on":
         css, svg = bundle()
         lens = []
@@ -621,10 +730,28 @@ def op(name, quiet=False, text=None, vr=False, native=None, flags=None, rt=None)
                     lens = json.load(f)
             except ValueError as e:
                 log(f"lens.json ignored: {e}")
-        payload.update(css=css, svg=svg, lens=lens,
+        mm = MIN_CLASS_MODULES if min_modules is None else min_modules
+        payload.update(css=css, svg=svg, lens=lens, minModules=mm,
                        version=hashlib.sha1((css + svg + json.dumps(lens)).encode()).hexdigest()[:10])
+        ready = wait_ready(theme_tokens(css, lens), mm, wait)
+        last = ready["last"]
+        if ready["state"] != "ok":
+            idx = last.get("index") or {}
+            if last.get("missing") or not idx.get("ok"):
+                # Steam not ready or the harvest short: change nothing (the CSS stays as it is).
+                try:
+                    cur = _jsonish(run_js("SharedJSContext", core_call({"op": "status"}), 30))
+                except (Exception, SystemExit) as e:  # noqa: BLE001
+                    cur = {"enabled": False, "error": str(e)[:200]}
+                res = cur if isinstance(cur, dict) else {"enabled": False}
+                res["index"] = dict(idx, state="gave-up", missing=last.get("missing"),
+                                    attempts=ready["attempts"], waitedS=ready["waitedS"])
+                res["runtime"] = {"runtime": "unchanged", "reason": "Steam not ready or class index too short"}
+                return res
+            payload["final"] = True     # only the unresolved share is off: inject anyway (Phase 1 behaviour)
     if text:
         payload["text"] = text
+    core_payload = dict(payload, quiet=True) if name == "off" else payload
 
     async def go(s):
         out = {}
@@ -633,14 +760,15 @@ def op(name, quiet=False, text=None, vr=False, native=None, flags=None, rt=None)
                 out["rt_off"] = await rt_teardown(s, "off" if name == "off" else "reload")
             except Exception as e:  # noqa: BLE001 - the theme must still switch
                 out["rt_off"] = {"error": str(e)[:300]}
-        out["res"] = _jsonish(await s.eval(core_call(payload), 60))
-        if name == "on":
+        out["res"] = _jsonish(await s.eval(core_call(core_payload), 60))
+        res0 = out["res"] if isinstance(out["res"], dict) else {}
+        if name == "on" and res0.get("enabled"):
             want = rt if rt is not None else truthy(flags_effective(flags).get("rt", True))
             if not want:
                 out["runtime"] = {"runtime": "off", "reason": "flag rt is off" if rt is None else "--no-rt"}
             else:
                 try:
-                    out["runtime"] = await rt_load(s, flags, payload.get("version"))
+                    out["runtime"] = await rt_load(s, flags, res0.get("version") or payload.get("version"))
                 except Exception as e:  # noqa: BLE001 - fallback: CSS theme only (Phase 1)
                     log(f"rt: load failed, CSS only: {e!r}")
                     try:
@@ -648,8 +776,16 @@ def op(name, quiet=False, text=None, vr=False, native=None, flags=None, rt=None)
                     except Exception:  # noqa: BLE001
                         pass
                     out["runtime"] = {"runtime": "off", "reason": f"loader failed: {str(e)[:300]}"}
+        elif name == "on":
+            out["runtime"] = {"runtime": "off", "reason": "theme not injected"}
         elif name == "off":
+            # Sweep first, then the "Off" toast: the toast is not a leftover (review R1 mB1).
             out["sweep"] = _jsonish(await s.eval(SWEEP_JS, 30))
+            if not quiet:
+                try:
+                    await s.eval(core_call({"op": "toast", "text": "Liquid Glass  ·  Off"}), 15)
+                except Exception:  # noqa: BLE001 - cosmetic
+                    pass
         elif name == "status":
             out["runtime"] = _jsonish(await s.eval(
                 "window.__LGS_RT ? JSON.stringify(window.__LGS_RT.status({counts: true})) : null", 15))
@@ -660,6 +796,11 @@ def op(name, quiet=False, text=None, vr=False, native=None, flags=None, rt=None)
     if isinstance(res, dict):
         if name == "on":
             res["runtime"] = o.get("runtime")
+            if ready is not None and isinstance(res.get("index"), dict):
+                res["index"].update(attempts=ready["attempts"], waitedS=ready["waitedS"])
+                if payload.get("final"):
+                    res["index"]["state"] = "gave-up"
+                    res["index"]["note"] = "injected with most tokens unresolved (stale theme for this Steam build?)"
             if SKIPPED:
                 res["skipped"] = list(SKIPPED)
         elif name == "off":
@@ -893,7 +1034,9 @@ COUNTS_JS = r"""JSON.stringify((() => {
   const n = (x) => { try { x = x && x.m_vecCallbacks ? x.m_vecCallbacks : x; return Array.isArray(x) ? x.length : null; } catch (_) { return null; } };
   const pm = g_PopupManager; let nav = null;
   try { nav = n(FocusNavController.NavigationSource.m_callbacks); } catch (_) { /* not in VR */ }
-  return { popupCreated: n(pm.m_rgPopupCreatedCallbacks), popupDestroyed: n(pm.m_rgPopupDestroyedCallbacks), navigationSource: nav };
+  let vrNav = null;
+  try { vrNav = n(vrGamepadInput.m_NavigationTypeChangeCallbacks); } catch (_) { /* not in VR */ }
+  return { popupCreated: n(pm.m_rgPopupCreatedCallbacks), popupDestroyed: n(pm.m_rgPopupDestroyedCallbacks), navigationSource: nav, vrNavigationType: vrNav };
 })())"""
 
 # Evaluated in each popup's own devtools target, where getEventListeners works.
@@ -957,17 +1100,27 @@ def _st_shell_ok():
         return None
 
 
+def _st_shell_mode():
+    """'on' (native) / 'off' (CSS only) while the lgs-shell unit runs, None when
+    it does not, '?' when it cannot be read."""
+    try:
+        import lgs_shell
+        state, pid = lgs_shell.unit_info()
+        if state not in ("active", "activating", "reloading") or lgs_shell.daemon_stopping(pid):
+            return None
+        return "on" if "--native" in lgs_shell.daemon_argv(pid) else "off"
+    except Exception:  # noqa: BLE001
+        return "?"
+
+
 def _st_restore(lab):
-    """Theme on with the runtime (session flags only), the lgs-shell unit kept."""
+    """Theme on with the runtime (session flags only). The lgs-shell unit is left
+    as it is: only RT-6's full CLI cycle touches it, and puts it back itself
+    (another agent may have it stopped on purpose, e.g. in a native session)."""
     res = op("on", quiet=True)
-    out = {"theme": bool(isinstance(res, dict) and res.get("enabled")),
-           "runtime": (res.get("runtime") or {}).get("runtime") if isinstance(res, dict) else None}
-    if _st_shell_ok() is False:
-        try:
-            out["shell"] = _shell_start(None)
-        except Exception as e:  # noqa: BLE001
-            out["shell"] = f"error: {e}"
-    return out
+    return {"theme": bool(isinstance(res, dict) and res.get("enabled")),
+            "runtime": (res.get("runtime") or {}).get("runtime") if isinstance(res, dict) else None,
+            "shellActive": _st_shell_ok()}
 
 
 def _foreign_globals(left):
@@ -975,9 +1128,12 @@ def _foreign_globals(left):
             if not EXPECTED_GLOBALS.match(k) and not RUNTIME_GLOBALS.match(k)]
 
 
-def _leftover_problems(left):
+def _leftover_problems(left, base=None):
     """Runtime/core problems in an "off" sweep: __LGS_RT or __LGS left, or any
     element still carrying an lgs-* class, data-lgs-* attribute or lgs- id.
+    With base (the sweep of an "off" taken before the test's own on/off), marked
+    elements already there before are not counted: another agent's probe
+    element, not this cycle's (they are reported by _foreign_elements).
     Other packages' globals are reported apart (_foreign_globals)."""
     probs = []
     if not isinstance(left, dict):
@@ -985,20 +1141,60 @@ def _leftover_problems(left):
     for k in left.get("globals") or []:
         if RUNTIME_GLOBALS.match(k):
             probs.append(f"global {k}")
+    bw = (base or {}).get("windows") or {}
     for name, w in (left.get("windows") or {}).items():
         g = [k for k in w.get("globals") or [] if not EXPECTED_GLOBALS.match(k)]
-        if w.get("elements") or g:
+        items = list(w.get("items") or [])
+        if base is not None and w.get("elements", 0) <= 40:
+            before = list((bw.get(name) or {}).get("items") or [])
+            for it in before:
+                if it in items and not OWN_MARKS.search(it):   # our own marks never count as foreign
+                    items.remove(it)
+            if items or g:
+                probs.append(f"{name}: new since baseline {items} {g}")
+        elif w.get("elements") or g:
             probs.append(f"{name}: {w.get('elements')} elements {w.get('classes')} {w.get('attrs')} {w.get('ids')} {g}")
     return probs
 
 
+# Marks the CSS core, the lens filters and P1's stubs put in the DOM: one of these
+# left after "off" is always ours, baseline or not.
+OWN_MARKS = re.compile(r"#lgs-(theme|defs|toast|lens-style)(?![\w-])|\.lgs-on(?![\w-])|\.lgs-rt-stub|\[data-lgs-(lens|rt-stub)")
+
+
+def _foreign_elements(base):
+    """Marked elements already present in the baseline "off" sweep (not ours)."""
+    return {name: w.get("items") for name, w in ((base or {}).get("windows") or {}).items() if w.get("items")}
+
+
+def _st_dom_counters():
+    """Memory.getDOMCounters of Steam's UI renderer after a forced GC (documents,
+    nodes, JS event listeners; SharedJSContext and its popups share the renderer)."""
+    async def go(s):
+        try:
+            await s.send("HeapProfiler.collectGarbage", {}, 30)
+        except Exception:  # noqa: BLE001 - counts without the GC are still useful
+            pass
+        return await s.send("Memory.getDOMCounters", {}, 15)
+    try:
+        return asyncio.run(_session(go))
+    except Exception as e:  # noqa: BLE001
+        return {"error": str(e)[:160]}
+
+
+MEM_NODES_PER_CYCLE = 500       # RT-1: growth per on/off cycle above this fails
+MEM_LISTENERS_PER_CYCLE = 10
+
+
 def st_rt1(lab, ctx):
-    """lgs on / off three times with the three stub modules."""
+    """lgs on / off three times with the three stub modules; DOM counters (forced
+    GC) before and after the cycles (review R1 M1 item 5)."""
     ons, offs, reports = [], [], []
     with lab.Lock():
         ctx["route"] = lab.lab_js("L.route()")
         op("on", quiet=True)     # warm-up: the current core and runtime replaced by this build
-        op("off", quiet=True)
+        base = op("off", quiet=True).get("leftovers")   # marked elements not ours (another agent's probe)
+        mem0 = _st_dom_counters()
         offs.append({"counts": _st_js(COUNTS_JS), "listeners": _st_eval_cli(LISTENERS_JS)})
         for _ in range(3):
             r = op("on", quiet=True, flags={"rt.stubs": True})
@@ -1008,6 +1204,7 @@ def st_rt1(lab, ctx):
             off = op("off", quiet=True)
             reports.append(off)
             offs.append({"counts": _st_js(COUNTS_JS), "listeners": _st_eval_cli(LISTENERS_JS)})
+        mem1 = _st_dom_counters()
         restore = _st_restore(lab)
     same_on = all(o["sig"] == ons[0]["sig"] and o["counts"] == ons[0]["counts"]
                   and o["listeners"] == ons[0]["listeners"] for o in ons)
@@ -1015,14 +1212,22 @@ def st_rt1(lab, ctx):
     stubs = dict(ons[0]["sig"])
     stubs_ok = all(stubs.get(n) == "installed" for n in ("rt.stub.a", "rt.stub.b", "rt.stub.c"))
     rep_ok = all((r.get("runtime") or {}).get("patchedLeft") == 0 and not (r.get("runtime") or {}).get("errors")
-                 and not _leftover_problems(r.get("leftovers")) for r in reports)
+                 and not _leftover_problems(r.get("leftovers"), base) for r in reports)
     delta = {k: (ons[0]["counts"].get(k) or 0) - (offs[0]["counts"].get(k) or 0) for k in ons[0]["counts"]}
-    ok = same_on and same_off and stubs_ok and rep_ok
+    mem = {"before": mem0, "after": mem1}
+    if "error" not in mem0 and "error" not in mem1:
+        mem["perCycle"] = {k: round((mem1.get(k, 0) - mem0.get(k, 0)) / 3, 1) for k in ("documents", "nodes", "jsEventListeners")}
+        mem_ok = mem["perCycle"]["nodes"] <= MEM_NODES_PER_CYCLE and mem["perCycle"]["jsEventListeners"] <= MEM_LISTENERS_PER_CYCLE
+    else:
+        mem_ok = True        # counters unavailable: recorded, not a failure
+    mem["ok"] = mem_ok
+    ok = same_on and same_off and stubs_ok and rep_ok and mem_ok
     return ok, {"onStatusIdentical": same_on, "offCountsBackToBaseline": same_off, "stubsInstalled": stubs_ok,
-                "reportsClean": rep_ok, "countsOff": offs[0]["counts"], "countsOn": ons[0]["counts"],
+                "reportsClean": rep_ok, "domCounters": mem, "countsOff": offs[0]["counts"], "countsOn": ons[0]["counts"],
                 "deltaOnOff": delta, "listenersOn": ons[0]["listeners"], "listenersOff": offs[0]["listeners"],
                 "modules": ons[0]["sig"], "offReport": reports[-1].get("runtime"),
-                "leftovers": [_leftover_problems(r.get("leftovers")) for r in reports],
+                "leftovers": [_leftover_problems(r.get("leftovers"), base) for r in reports],
+                "foreignElementsBefore": _foreign_elements(base),
                 "foreignGlobals": _foreign_globals(reports[-1].get("leftovers")), "restore": restore}
 
 
@@ -1035,8 +1240,9 @@ def st_rt2(lab, ctx):
         with lab.Lock():
             op("on", quiet=True)
             base_sig = dict(_st_sig(_st_status()))
-            r = op("on", quiet=True, flags={"rt.stubs": True, "rt.stubThrow": True})
-            st = _st_status()
+            r = op("on", quiet=True, flags={"rt.stubs": True, "rt.stubThrow": True, "rt.stubSlow": True})
+            time.sleep(1.5)        # rt.stub.slow's install resumes 0.6 s after its 5 s timeout
+            st = _st_status(log=120)
             sweep = _st_js(CLASS_SWEEP_JS)
             main = sweep.get("VR") or sweep.get("main") or {}
             restore = _st_restore(lab)
@@ -1044,6 +1250,8 @@ def st_rt2(lab, ctx):
         _RT_EXTRA[:] = []
     mods = {m["name"]: m for m in st.get("modules", [])}
     thr = mods.get("rt.stub.throw", {})
+    slow = mods.get("rt.stub.slow", {})
+    slow_log = [e.get("msg") for e in st.get("log") or [] if e.get("mod") == "rt.stub.slow"]
     loads = {f["file"]: f["error"] for f in st.get("failedLoads", [])}
     others_same = all(mods.get(n, {}).get("state") == state for n, state in base_sig.items()
                       if not n.startswith("rt.stub"))
@@ -1056,8 +1264,18 @@ def st_rt2(lab, ctx):
         "cssOn": bool(main.get("style")) and "lgs-on" in (main.get("classes") or []),
         "throwStubClassGone": not any("lgs-rt-stub-throw" in (w.get("classes") or []) for w in sweep.values()),
         "runtimeRunning": st.get("runtime") == "running",
+        # review R1 M2: an install that outlives its timeout fails closed, also for what it does afterwards
+        "slowStubTimedOut": slow.get("state") == "failed" and "timed out" in (slow.get("error") or ""),
+        "slowLateWorkIgnored": any("after the module was removed" in (m or "") for m in slow_log)
+        and not any(m in ("late interval tick", "late timer fired") for m in slow_log),
+        "slowClassesGone": not any(any(c.startswith("lgs-rt-stub-slow") for c in (w.get("classes") or []))
+                                   for w in sweep.values()),
+        "slowNotExposed": "rtStubSlow" not in (st.get("exposed") or {}),
+        "slowRemoveCalledAgain": any("remove() called again" in (m or "") for m in slow_log),
     }
     return all(checks.values()), {"checks": checks, "stubThrow": {k: thr.get(k) for k in ("state", "error")},
+                                  "stubSlow": {"state": slow.get("state"), "error": (slow.get("error") or "")[:120],
+                                               "log": slow_log[-10:]},
                                   "failedLoads": loads, "loadResult": r.get("runtime"), "restore": restore}
 
 
@@ -1112,12 +1330,14 @@ def st_rt4(lab, ctx):
     with lab.Lock():
         op("on", quiet=True)
         st0 = _st_status()
+        base = op("off", quiet=True).get("leftovers")   # marked elements not ours (another agent's probe)
+        out["foreignElementsBefore"] = _foreign_elements(base)
         all_flags = {m["flag"]: True for m in (st0 or {}).get("modules", []) if m.get("flag")}
         for name, flags in (("a", {"rt.stubs": True}), ("b", dict(all_flags, **{"rt.stubThrow": False}))):
             r_on = op("on", quiet=True, flags=flags)
             r = op("off", quiet=True)
             rt_rep = r.get("runtime") or {}
-            probs = _leftover_problems(r.get("leftovers"))
+            probs = _leftover_problems(r.get("leftovers"), base)
             this_ok = rt_rep.get("patchedLeft") == 0 and not rt_rep.get("errors") and not probs \
                 and not rt_rep.get("globalsLeft")
             out[name] = {"pass": this_ok, "flags": sorted(flags), "installed": (r_on.get("runtime") or {}).get("modules"),
@@ -1180,15 +1400,46 @@ PERSIST_KNOWN = [  # not written by Glass Shell: classified, listed, not failure
     (re.compile(r"^~/\.local/share/Steam/|^~/\.steam/"), "Steam's own files"),
     (re.compile(r"^/tmp/lgs-shots(/|$)"), "lab screenshots (P10, /tmp)"),
     (re.compile(r"^/tmp/(steam|\.X11|pulse|dumps|\.steam)"), "Steam / system"),
+    (re.compile(r"^/tmp/cc\w{6}\.\w+$"), "compiler temporary of another agent's build (gcc -pipe off)"),
+    (re.compile(r"^~/\.local/state/wireplumber/"), "PipeWire session manager's own state (stream volumes)"),
+    (re.compile(r"^/dev/shm/u\d+-Shm_\w+$"), "Steam / SteamVR IPC shared memory (mapped by vrserver, vrcompositor; RAM)"),
+    (re.compile(r"^/tmp/lgs-fx/"), "P9's glassd tool fixtures (native/glassd/tools/test_*.py; REQ P1->P9: under /tmp/lgs)"),
+    (re.compile(r"^~/\.local/share/glass-shell/.*/__pycache__/[\w.-]+\.pyc$"),
+     "bytecode cache of a synced .py, written by another process's import (our process writes none: audit)"),
+    (re.compile(r"^~/\.config/openvr/config/chaperone_info\.vrchap$"),
+     "SteamVR's vrserver rewrites it every 60 s (hh:mm:58, vrserver.txt 'Read chaperone JSON'); no Glass Shell code "
+     "mentions it (review R1 m8)"),
 ]
+# Where a web-storage or settings write of ours would land: never waved through as "Steam's own
+# files"; each new file is read and passes only without a Glass Shell marker (review R1 mB4).
+PERSIST_CONTENT_CHECKED = re.compile(
+    r"^~/\.local/share/Steam/(config/htmlcache/Default/(Local Storage|Session Storage|IndexedDB|WebStorage|"
+    r"File System|databases|Service Worker)/|(config|userdata/\d+/config)/[^/]+\.vdf$)")
+GS_MARKER = re.compile(rb"__LGS|lgs[-_][a-z]|glass-shell|Liquid Glass|lgsAction|data-lgs")
+PERSIST_AFTER_S = 61    # the after-window outlasts any once-a-minute writer (vrserver's chaperone file, review R1 m8)
+
+
+def _content_marker(path):
+    """The first Glass Shell marker in a file (bytes), or None."""
+    try:
+        with open(os.path.expanduser(path), "rb") as f:
+            data = f.read(16 * 1024 * 1024)
+    except OSError as e:
+        return f"unreadable: {e}"
+    m = GS_MARKER.search(data)
+    return m.group(0).decode("latin-1") if m else None
+# What our own process may write during on/off (the audit hook below).
+AUDIT_ALLOWED = re.compile(r"^(/tmp/lgs(/|$)|/dev/shm/lgs(/|$)|/dev/null$|/proc/self/|pipe:|socket:)")
 
 
 def _persist_scan(marker):
+    """Files and symlinks under PERSIST_DIRS modified after marker. Directories
+    are left out: their mtime moves whenever anyone adds a file to them."""
     home = os.path.expanduser("~")
     dirs = [os.path.expanduser(d) for d in PERSIST_DIRS if os.path.isdir(os.path.expanduser(d))]
     cmd = ["find"] + dirs + ["-xdev", "(", "-path", os.path.join(home, ".local/share/Steam/steamapps"),
                              "-o", "-path", os.path.join(home, ".cache"), ")", "-prune",
-                             "-o", "-newer", marker, "-print"]
+                             "-o", "(", "-type", "f", "-o", "-type", "l", ")", "-newer", marker, "-print"]
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
     out = set()
     for line in r.stdout.splitlines():
@@ -1198,26 +1449,73 @@ def _persist_scan(marker):
     return out
 
 
+class _WriteAudit:
+    """sys.addaudithook: every path this process opens for writing, creates,
+    removes or renames while active (RT-6: positive proof for our own process;
+    the find scan covers the daemon and Steam)."""
+    hooked = False
+    active = None
+
+    def __enter__(self):
+        self.paths = set()
+        _WriteAudit.active = self
+        if not _WriteAudit.hooked:
+            sys.addaudithook(_WriteAudit._hook)
+            _WriteAudit.hooked = True
+        return self
+
+    def __exit__(self, *a):
+        _WriteAudit.active = None
+
+    @staticmethod
+    def _hook(event, args):
+        a = _WriteAudit.active
+        if a is None:
+            return
+        try:
+            if event == "open":
+                path, mode, flags = args[0], args[1], args[2]
+                writing = (isinstance(mode, str) and any(c in mode for c in "wax+")) or \
+                          (isinstance(flags, int) and flags & (os.O_WRONLY | os.O_RDWR | os.O_CREAT | os.O_APPEND))
+                if writing and isinstance(path, (str, bytes)):
+                    a.paths.add(os.path.abspath(os.fsdecode(path)))
+            elif event in ("os.remove", "os.rmdir", "os.mkdir", "os.symlink", "os.link", "os.truncate", "os.utime",
+                           "os.chmod", "shutil.rmtree", "shutil.copyfile", "shutil.move"):
+                if args and isinstance(args[0], (str, bytes)):
+                    a.paths.add(os.path.abspath(os.fsdecode(args[0])))
+            elif event in ("os.rename", "os.replace"):
+                for p in args[:2]:
+                    if isinstance(p, (str, bytes)):
+                        a.paths.add(os.path.abspath(os.fsdecode(p)))
+        except Exception:  # noqa: BLE001 - an audit hook must never raise
+            pass
+
+
 def st_rt6(lab, ctx):
-    """Persistence scan after on/off (runtime cycles, plus one full CLI cycle when native.lock is free)."""
+    """Persistence scan after on/off (runtime cycles, plus one full CLI cycle when
+    native.lock is free). Three evidence sources: a write audit of this process,
+    a find scan of every writable place (control windows before and after the
+    test window remove what other agents and Steam wrote meanwhile), and the
+    web storage of every Steam window."""
     import fcntl
     sys.dont_write_bytecode = True
     os.makedirs("/tmp/lgs", exist_ok=True)
-    mark_c, mark_t = "/tmp/lgs/p1-mark-control", "/tmp/lgs/p1-mark-test"
-    for m in (mark_c, mark_t):
+    mark_c, mark_t, mark_a = "/tmp/lgs/p1-mark-control", "/tmp/lgs/p1-mark-test", "/tmp/lgs/p1-mark-after"
+    for m in (mark_c, mark_t, mark_a):
         with open(m, "w"):
             pass
     syncl = open("/tmp/lgs/sync.lock", "a")
     fcntl.flock(syncl, fcntl.LOCK_SH)          # no sync while we look (ours use LOCK_SH too)
     native = open("/tmp/lgs/native.lock", "a")
     have_native = False
+
+    def window(marker, seconds):
+        os.utime(marker)
+        time.sleep(1.1)                         # mtime granularity
+        time.sleep(seconds)
+        return _persist_scan(marker)
     try:
-        # Control window: nothing of ours runs.
-        os.utime(mark_c)
-        time.sleep(1.1)
-        t0 = time.time()
-        time.sleep(8)
-        control = _persist_scan(mark_c)
+        control = window(mark_c, 8)             # before: nothing of ours runs (short; the after-window is 61 s)
         try:
             fcntl.flock(native, fcntl.LOCK_EX | fcntl.LOCK_NB)
             have_native = True
@@ -1227,39 +1525,63 @@ def st_rt6(lab, ctx):
         time.sleep(1.1)
         t1 = time.time()
         with lab.Lock(both=True):
-            for _ in range(2):
-                op("on", quiet=True, flags={"rt.stubs": True})
-                op("off", quiet=True)
-            full = None
-            if have_native:
-                full = {"off": (op("off", quiet=True, vr=True) or {}).get("shell"),
-                        "on": (op("on", quiet=True, vr=True, native="auto") or {}).get("shell")}
-            restore = _st_restore(lab)
-            storage = _st_js(r"""JSON.stringify((() => { const out = {}; const rx = /lgs/i;
-              const scan = (name, w) => { try { out[name] = [...Object.keys(w.localStorage), ...Object.keys(w.sessionStorage)].filter((k) => rx.test(k)); } catch (e) { out[name] = 'n/a'; } };
-              scan('shared', window);
-              for (const p of g_PopupManager.m_mapPopups.values()) { try { scan(String(p.m_strName).replace(/_uid\d+$/, ''), p.window); } catch (_) {} }
-              return out; })())""")
+            with _WriteAudit() as audit:
+                for _ in range(2):
+                    op("on", quiet=True, flags={"rt.stubs": True})
+                    op("off", quiet=True)
+                full = None
+                if have_native:
+                    was = _st_shell_mode()
+                    # back in the mode it was found in, never "auto" (review R1 m9; PLAN §7.1)
+                    full = {"shellBefore": was, "off": (op("off", quiet=True, vr=True) or {}).get("shell"),
+                            "on": (op("on", quiet=True, vr=True, native=(was if was in ("on", "off") else "off"))
+                                   or {}).get("shell")}
+                    if was is None:             # it was stopped when we came: stopped again
+                        import lgs_shell
+                        full["stoppedAgain"] = lgs_shell.stop()
+                restore = _st_restore(lab)
+            storage = _st_js(r"""(async () => { const out = {}; const rx = /lgs|glass/i;
+              const scan = async (name, w) => {
+                const hits = [];
+                try { hits.push(...[...Object.keys(w.localStorage), ...Object.keys(w.sessionStorage)].filter((k) => rx.test(k))); } catch (e) { hits.push('storage n/a'); }
+                try { if (w.indexedDB && w.indexedDB.databases) hits.push(...(await w.indexedDB.databases()).map((d) => 'idb:' + d.name).filter((k) => rx.test(k))); } catch (e) { /* none */ }
+                try { hits.push(...String(w.document.cookie || '').split(';').map((c) => c.split('=')[0].trim()).filter((k) => rx.test(k)).map((k) => 'cookie:' + k)); } catch (e) { /* none */ }
+                out[name] = hits;
+              };
+              await scan('shared', window);
+              for (const p of g_PopupManager.m_mapPopups.values()) { try { await scan(String(p.m_strName).replace(/_uid\d+$/, ''), p.window); } catch (_) {} }
+              return JSON.stringify(out); })()""")
         elapsed = time.time() - t1
         if elapsed < 8:
             time.sleep(8 - elapsed)
         test = _persist_scan(mark_t)
+        after = window(mark_a, PERSIST_AFTER_S)  # after: nothing of ours runs
     finally:
         if have_native:
             fcntl.flock(native, fcntl.LOCK_UN)
         native.close()
         fcntl.flock(syncl, fcntl.LOCK_UN)
         syncl.close()
-        for m in (mark_c, mark_t):
+        for m in (mark_c, mark_t, mark_a):
             try:
                 os.remove(m)
             except OSError:
                 pass
-    new = sorted(test - control)
-    allowed, known, unexplained = [], [], []
+    background = sorted((test & (control | after)))
+    new = sorted(test - control - after)
+    ours_written = sorted(audit.paths)
+    audit_bad = [p for p in ours_written if not AUDIT_ALLOWED.match(p)]
+    allowed, known, unexplained, checked = [], [], [], []
     for p in new:
         if any(rx.match(p) for rx in PERSIST_ALLOWED):
             allowed.append(p)
+            continue
+        if PERSIST_CONTENT_CHECKED.match(p):
+            mark = _content_marker(p)
+            if mark:
+                unexplained.append(f"{p}  [Glass Shell marker {mark!r}]")
+            else:
+                checked.append(p)
             continue
         why = next((w for rx, w in PERSIST_KNOWN if rx.match(p)), None)
         if why:
@@ -1272,36 +1594,83 @@ def st_rt6(lab, ctx):
     autostart = [n for d in ("~/.config/autostart", "~/.config/systemd/user") for n in
                  (os.listdir(os.path.expanduser(d)) if os.path.isdir(os.path.expanduser(d)) else [])
                  if "lgs" in n or "glass" in n]
-    stor_bad = {k: v for k, v in (storage or {}).items() if v and v != "n/a"}
-    ok = not unexplained and not ours and not units and not autostart and not stor_bad
-    return ok, {"controlS": round(t1 - t0, 1), "newInTestWindow": len(new), "allowed": allowed[:40],
+    stor_bad = {k: v for k, v in (storage or {}).items() if v and v != "n/a" and v != ["storage n/a"]}
+    # A unit file (not the transient runtime unit) or an autostart entry would survive a reboot.
+    persistent_units = [ln for ln in units.splitlines() if ln.strip() and " transient" not in ln]
+    ours_bad = [p for p in ours if not re.search(r"/__pycache__/[\w.-]+\.pyc$", p)]
+    ok = not unexplained and not ours_bad and not persistent_units and not autostart and not stor_bad and not audit_bad
+    return ok, {"newInTestWindow": len(new), "background": len(background), "allowed": allowed[:40],
                 "known": known[:40], "unexplained": unexplained, "underGlassShell": ours,
-                "unitFiles": units or None, "autostart": autostart, "webStorage": stor_bad or "none",
+                "steamStorageContentChecked": checked[:40],
+                "windowsS": {"before": 8, "after": PERSIST_AFTER_S},
+                "auditOurProcess": {"written": ours_written[:60], "outsideAllowed": audit_bad},
+                "unitFiles": units or None, "persistentUnits": persistent_units, "autostart": autostart,
+                "webStorage": stor_bad or "none",
                 "fullCliCycle": full if have_native else "skipped: native.lock busy", "restore": restore}
 
 
+IDLE_MS_PER_S = 1.0
+
+
+def _median(xs):
+    xs = sorted(xs)
+    n = len(xs)
+    return None if not n else (xs[n // 2] if n % 2 else (xs[n // 2 - 1] + xs[n // 2]) / 2)
+
+
 def st_rt7(lab, ctx):
-    """perf main on /library/tab/AllGames: theme only vs theme + runtime (idle),
-    three alternated pairs. Pass: runtime fps >= 95 % of theme-only, mean extra
-    long frames (> 34 ms) per run within the theme-only A/A spread (min 1), and
-    the runtime's own idle work < 0.1 ms per second."""
+    """perf main on /library/tab/AllGames: theme only ("css") vs theme + the
+    default runtime, idle ("rt"), in ABBA order (css rt rt css ...) so drift
+    cancels, 4 pairs; a second round of 4 pairs is pooled in when the first
+    fails (the device is shared: compiles, other agents' steps).
+    Pass: median rt fps >= 95 % of median css fps; median long frames (> 34 ms)
+    per run at most the css median + its A/A spread (min 1); the runtime's own
+    idle work (its 250 ms tick, measured in the page) under IDLE_MS_PER_S,
+    i.e. under 0.1 % of one core."""
     runs, idle = [], None
+
+    def one(mode):
+        nonlocal idle
+        r = op("on", quiet=True, rt=(mode == "rt"))
+        asyncio.run(lab.capture("main", "/tmp/lgs/p1-perf.png", 0.8))
+        i0 = (_st_status() or {}).get("idle") if mode == "rt" else None
+        p = _jsonish(lab.lab_js("L.perf('main', 3000)", timeout=60))
+        runs.append(dict(p, mode=mode, runtime=(r.get("runtime") or {}).get("runtime")))
+        if mode == "rt" and i0:
+            i1 = (_st_status() or {}).get("idle") or {}
+            dt = max(0.001, (i1.get("t", 0) - i0["t"]) / 1000)
+            rate = round((i1.get("tickMsTotal", 0) - i0["tickMsTotal"]) / dt, 4)
+            idle = {"ticks": i1.get("ticks", 0) - i0["ticks"], "seconds": round(dt, 2),
+                    "tickMsPerSecond": max(rate, (idle or {}).get("tickMsPerSecond", 0))}
+
+    def verdict():
+        cf = [r["fps"] for r in runs if r["mode"] == "css"]
+        rf = [r["fps"] for r in runs if r["mode"] == "rt"]
+        cl = [r["long"] for r in runs if r["mode"] == "css"]
+        rl = [r["long"] for r in runs if r["mode"] == "rt"]
+        spread = max(1, max(cl) - min(cl))
+        ratio = _median(rf) / max(0.1, _median(cf))
+        extra = _median(rl) - _median(cl)
+        idle_ok = bool(idle) and idle.get("tickMsPerSecond", IDLE_MS_PER_S) < IDLE_MS_PER_S
+        return (ratio >= 0.95 and extra <= spread and idle_ok), {
+            "fpsMedian": {"css": _median(cf), "rt": _median(rf)}, "fpsRatio": round(ratio, 3),
+            "fpsPerRun": {"css": cf, "rt": rf},
+            "longPerRun": {"css": cl, "rt": rl, "medianExtra": extra, "aaSpread": spread},
+            "p95Max": {"css": max(r["p95"] for r in runs if r["mode"] == "css"),
+                       "rt": max(r["p95"] for r in runs if r["mode"] == "rt")},
+            "runtimeIdle": idle, "idleBudgetMsPerS": IDLE_MS_PER_S}
+
+    rounds = 0
     with lab.Lock():
         route = lab.lab_js("L.route()")
         lab.lab_js("L.nav('/library/tab/AllGames')")
         time.sleep(1.5)
-        for mode in ("css", "rt") * 3:
-            r = op("on", quiet=True, rt=(mode == "rt"))
-            asyncio.run(lab.capture("main", "/tmp/lgs/p1-perf.png", 0.8))
-            i0 = (_st_status() or {}).get("idle") if mode == "rt" else None
-            p = _jsonish(lab.lab_js("L.perf('main', 3000)", timeout=60))
-            runs.append(dict(p, mode=mode, runtime=(r.get("runtime") or {}).get("runtime")))
-            if mode == "rt" and i0:
-                i1 = (_st_status() or {}).get("idle") or {}
-                dt = max(0.001, (i1.get("t", 0) - i0["t"]) / 1000)
-                rate = round((i1.get("tickMsTotal", 0) - i0["tickMsTotal"]) / dt, 4)
-                idle = {"ticks": i1.get("ticks", 0) - i0["ticks"], "seconds": round(dt, 2),
-                        "tickMsPerSecond": max(rate, (idle or {}).get("tickMsPerSecond", 0))}
+        for rounds in (1, 2):
+            for mode in ("css", "rt", "rt", "css") * 2:
+                one(mode)
+            ok, res = verdict()
+            if ok:
+                break
         try:
             os.remove("/tmp/lgs/p1-perf.png")
         except OSError:
@@ -1309,34 +1678,246 @@ def st_rt7(lab, ctx):
         if route and route != "/library/tab/AllGames":
             lab.lab_js(f"L.nav({json.dumps(route)})")
         restore = _st_restore(lab)
+    return ok, dict(res, rounds=rounds, runs=runs, routeRestored=route, restore=restore)
 
-    def agg(mode):
-        rs = [r for r in runs if r["mode"] == mode]
-        return {"fps": round(sum(r["fps"] for r in rs) / len(rs), 1), "median": max(r["median"] for r in rs),
-                "p95": max(r["p95"] for r in rs), "long": sum(r["long"] for r in rs),
-                "frames": sum(r["frames"] for r in rs)}
-    css, rt = agg("css"), agg("rt")
-    cl = [r["long"] for r in runs if r["mode"] == "css"]
-    rl = [r["long"] for r in runs if r["mode"] == "rt"]
-    spread = max(1, max(cl) - min(cl))
-    extra = (sum(rl) - sum(cl)) / len(rl)
-    idle_ok = bool(idle) and idle.get("tickMsPerSecond", 1) < 0.1
-    ok = rt["fps"] >= 0.95 * css["fps"] and extra <= spread and idle_ok
-    return ok, {"themeOnly": css, "themeAndRuntime": rt, "fpsRatio": round(rt["fps"] / css["fps"], 3),
-                "longPerRun": {"css": cl, "rt": rl, "meanExtra": round(extra, 2), "aaSpread": spread},
-                "runtimeIdle": idle, "runs": runs, "routeRestored": route, "restore": restore}
+
+HOOKS_JS = r"""(async () => {
+  const R = __LGS_RT, out = {}, W = (ms) => new Promise((r) => setTimeout(r, ms));
+  const html = () => R.windows.main().html;
+  const cls = () => ({ pad: html().classList.contains('lgs-input-pad'), laser: html().classList.contains('lgs-input-laser'),
+    vr: html().getAttribute('data-lgs-vr-mode'), mode: R.input ? R.input.mode : null });
+  out.inputInstalled = R.has('input');
+  out.live = cls();
+  let r = R.test.input.set('pad', { vrMode: 'gamepad', ttlMs: 1500 });
+  out.pad = Object.assign({ applied: r.applied, get: R.test.input.get() }, cls());
+  r = R.test.input.set('laser', { vrMode: 'laser', ttlMs: 1500 });
+  out.laser = Object.assign({ applied: r.applied, get: R.test.input.get() }, cls());
+  await W(1900);
+  out.expired = Object.assign({ get: R.test.input.get() }, cls());
+  out.withInside = await R.test.flags.with({ 'rt.stubs': false }, async (rt) => rt.module('rt.stub.a').state);
+  out.withAfter = R.module('rt.stub.a').state;
+  const tok = R.test.flags.push({ 'rt.stubs': false }, { ttlMs: 1200 });
+  await R.settled();
+  out.pushed = { state: R.module('rt.stub.a').state, token: typeof tok };
+  await W(1500); await R.settled();
+  out.ttlExpired = { state: R.module('rt.stub.a').state, overlays: R.test.flags.list().length };
+  out.actionsOn = R.test.actions.enabled();
+  out.echo = await R.action('echo', { text: 'p1-rt' }, { src: 'main' });
+  out.bridge = R.status().bridge;
+  out.exposed = R.status().exposed;
+  return JSON.stringify(out);
+})()"""
+
+
+def st_rth(lab, ctx):
+    """P1 build item 2, live: the test hooks (input-mode stub through P3's
+    rt.input.stub, TTL expiry, flags.with / push TTL, action logger on inside a
+    locked step), rt.expose (stub c, P3's members) and a daemon action round
+    trip (echo) with the bridge it rides on. Not a PLAN acceptance id."""
+    with lab.Lock():
+        op("on", quiet=True)
+        mods = {m["name"]: m for m in (_st_status() or {}).get("modules", [])}
+        flags = {"rt.stubs": True}
+        if (mods.get("input") or {}).get("flag"):
+            flags[mods["input"]["flag"]] = True
+        op("on", quiet=True, flags=flags)
+        res = _jsonish(_st_js(HOOKS_JS, 60))
+        restore = _st_restore(lab)
+    res = res or {}
+    live, pad, laser, exp = res.get("live") or {}, res.get("pad") or {}, res.get("laser") or {}, res.get("expired") or {}
+    echo = res.get("echo") or {}
+    daemon = _st_shell_mode()
+    checks = {
+        "inputInstalled": res.get("inputInstalled") is True,
+        "padStub": pad.get("applied") and pad.get("get") == "pad" and pad.get("pad") and not pad.get("laser")
+        and pad.get("mode") == "pad" and pad.get("vr") == "gamepad",
+        "laserStub": laser.get("applied") and laser.get("get") == "laser" and laser.get("laser") and not laser.get("pad")
+        and laser.get("mode") == "laser" and laser.get("vr") == "laser",
+        "stubExpired": exp.get("get") is None and {k: exp.get(k) for k in ("pad", "laser", "mode")}
+        == {k: live.get(k) for k in ("pad", "laser", "mode")},
+        "flagsWith": res.get("withInside") == "off" and res.get("withAfter") == "installed",
+        "flagsPushTtl": (res.get("pushed") or {}).get("state") == "off"
+        and (res.get("ttlExpired") or {}).get("state") == "installed" and (res.get("ttlExpired") or {}).get("overlays") == 0,
+        "actionLoggerOnInStep": res.get("actionsOn") is True,
+        "exposed": (res.get("exposed") or {}).get("rtStubC") == "rt.stub.c",
+        "daemonEcho": (echo.get("ok") and (echo.get("result") or {}).get("echo") == "p1-rt")
+        or (daemon is None and echo.get("error") == "no-daemon"),
+    }
+    return all(bool(v) for v in checks.values()), {"checks": checks, "result": res, "daemon": daemon, "restore": restore}
+
+
+INDEX_STATE_JS = r"""JSON.stringify((() => {
+  const ix = window.__LGS_INDEX, core = window.__LGS, ch = window.webpackChunksteamui || [];
+  const st = core ? core.status() : null;
+  return { cached: !!(ix && ix.selector), size: ix ? ix.size : null, ok: ix ? ix.ok : null, current: ix && ix.current ? ix.current() : null,
+    enabled: !!(st && st.enabled), version: st ? st.version : null, classModules: st ? st.classModules : null,
+    unresolved: st ? st.unresolved.length : null, index: st ? st.index : null, runtime: window.__LGS_RT ? window.__LGS_RT.status().runtime : null,
+    probeRecords: ch.filter((c) => c && Array.isArray(c[0]) && typeof c[0][0] === 'symbol' && c[0][0].description === 'lgs-index').length };
+})())"""
+PLANT_BAD_INDEX_JS = ("(() => { window.__LGS_INDEX = { selector: () => ({ err: 'unresolved' }), resolve: () => ({ err: 'unresolved' }),"
+                      " size: 3, mods: [], byKey: new Map() }; return 1; })()")
+
+
+def _log_lines_since(t0, pattern):
+    """lgs.log lines written since t0 (HH:MM:SS stamps, same day) that match pattern."""
+    stamp = time.strftime("%H:%M:%S", time.localtime(t0 - 1))
+    out = []
+    for path in (LOG + ".1", LOG):
+        try:
+            with open(path, encoding="utf-8", errors="replace") as f:
+                out += [ln.rstrip() for ln in f if ln[:8] >= stamp and re.search(pattern, ln)]
+        except OSError:
+            pass
+    return out
+
+
+def st_rti(lab, ctx):
+    """Review R1 M1, live: (a) a harvest forced short (floor 100000 modules) waits with
+    backoff, logs each attempt, gives up after the bound and changes nothing (theme,
+    version and runtime as before); (b) a bad cached index (3 modules, the 06:50
+    incident) is rebuilt by the next "on"; (c) also by off + on; no probe chunk record
+    is left in Steam's webpack array. Not a PLAN id."""
+    out = {}
+    with lab.Lock():
+        op("on", quiet=True)
+        base = _st_js(INDEX_STATE_JS)
+        t0 = time.time()
+        forced = op("on", quiet=True, wait=12, min_modules=100000)
+        out["forced"] = {"result": {k: forced.get(k) for k in ("enabled", "version", "index", "runtime")},
+                         "seconds": round(time.time() - t0, 1), "after": _st_js(INDEX_STATE_JS),
+                         "log": _log_lines_since(t0, r"index: (attempt|gave up)")}
+        _st_js(PLANT_BAD_INDEX_JS)
+        op("on", quiet=True)
+        out["rebuilt"] = _st_js(INDEX_STATE_JS)
+        _st_js(PLANT_BAD_INDEX_JS)
+        op("off", quiet=True)
+        op("on", quiet=True)
+        out["offOn"] = _st_js(INDEX_STATE_JS)
+        out["restore"] = _st_restore(lab)
+    out["base"] = base
+    f, fa = out["forced"]["result"], out["forced"]["after"]
+
+    def good(x):
+        return bool(x) and x.get("cached") and x.get("ok") is True and (x.get("size") or 0) >= MIN_CLASS_MODULES \
+            and x.get("enabled") and x.get("unresolved") == base.get("unresolved") and x.get("probeRecords") == 0
+    checks = {
+        "baseHealthy": good(base),
+        "forcedGaveUp": (f.get("index") or {}).get("state") == "gave-up" and (f.get("index") or {}).get("attempts", 0) >= 3,
+        "forcedBackoffLogged": len([ln for ln in out["forced"]["log"] if "attempt" in ln]) >= 3
+        and any("gave up" in ln for ln in out["forced"]["log"]),
+        "forcedChangedNothing": bool(fa.get("enabled")) and fa.get("version") == base.get("version")
+        and fa.get("runtime") == base.get("runtime") and not fa.get("cached"),
+        "forcedWithinBound": out["forced"]["seconds"] < 12 + 10,
+        "badCacheRebuilt": good(out["rebuilt"]),
+        "offOnRecovers": good(out["offOn"]),
+    }
+    return all(bool(v) for v in checks.values()), dict(out, checks=checks)
+
+
+TOAST_PROBE_JS = r"""(async () => {
+  const W = (ms) => new Promise((r) => setTimeout(r, ms));
+  const doc = SteamUIStore.WindowStore.VRGamepadUIMainWindowInstance.BrowserWindow.document, win = doc.defaultView;
+  // theme on: show it here (animations sampled at 40 ms); theme off: lgs.py showed the "Off" toast just before
+  if (window.__LGS) window.__LGS.toast('Liquid Glass  ·  On');
+  else for (let i = 0; i < 20 && !doc.getElementById('lgs-toast'); i++) await W(50);
+  await W(40);
+  const t = doc.getElementById('lgs-toast');
+  if (!t) return JSON.stringify({ present: false });
+  // every animation while it runs (the materialize lasts 250 ms)
+  const anims = [t, ...t.children].flatMap((el) => el.getAnimations()).map((a) => {
+    const k = a.effect.getKeyframes(), tm = a.effect.getTiming();
+    return { props: [...new Set(k.flatMap((f) => Object.keys(f).filter((x) => !['offset', 'computedOffset', 'easing', 'composite'].includes(x))))],
+      duration: tm.duration, easing: String(tm.easing).slice(0, 24) };
+  });
+  await W(560);   // at rest
+  const cs = win.getComputedStyle(t), r = t.getBoundingClientRect();
+  // plain values now: the declaration is live and empties once the toast is removed
+  const look = { radius: cs.borderTopLeftRadius, border: cs.borderTopWidth, outline: cs.outlineStyle, boxShadow: cs.boxShadow,
+    backdrop: cs.backdropFilter, bg: cs.backgroundColor, opacity: cs.opacity };
+  // small controls of the top rows (they start above the toast) that it would cover
+  const covers = [...doc.querySelectorAll('button, input, [role="button"], [role="tab"], [tabindex], .Focusable')].filter((e) => {
+    if (e === t || t.contains(e)) return false;
+    const q = e.getBoundingClientRect();
+    return q.width > 0 && q.height > 0 && q.height <= 120 && q.top < r.top && q.bottom > r.top && q.right > r.left && q.left < r.right;
+  }).map((e) => e.tagName.toLowerCase() + '.' + [...e.classList].slice(0, 2).join('.'));
+  const t1 = performance.now();
+  while (doc.getElementById('lgs-toast') && performance.now() - t1 < 4000) await W(50);
+  return JSON.stringify(Object.assign({ present: true, rect: { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) },
+    view: { w: win.innerWidth, h: win.innerHeight }, cls: t.className, mat: t.getAttribute('data-lgs-mat'), anims,
+    reduce: win.matchMedia('(prefers-reduced-motion: reduce)').matches, covers, goneAfterMs: Math.round(600 + performance.now() - t1) }, look));
+})()"""
+
+
+def st_rtt(lab, ctx):
+    """Review R1 M3, live: the on/off toast is panel glass without a ring (no
+    spread-only box-shadow, no border or outline), radius 30, 320 x 76, clear of
+    the top row's controls, and moves on P5's tokens: materialize 250 ms linear +
+    translate on snappy (488 ms) with content 250 ms; under Reduce Motion one
+    opacity fade of 180 ms (P10's MediaHold emulates the media feature). Removed
+    by its own timer. Not a PLAN id."""
+    out = {}
+    with lab.Lock():
+        op("on", quiet=True)
+        for media in ([], ["reduce"]):
+            name = "reduce" if media else "normal"
+            hold = lab.MediaHold(media) if media else None
+            if hold:
+                hold.start()
+            try:
+                out[name] = _jsonish(_st_js(TOAST_PROBE_JS, 30))
+            finally:
+                if hold:
+                    hold.stop()
+        # theme off: the "Off" toast with the literal fallbacks (no theme tokens, no E3 edge)
+        op("off", quiet=True)
+        op("toast", text="Liquid Glass  ·  Off")
+        out["themeOff"] = _jsonish(_st_js(TOAST_PROBE_JS, 30))
+        out["restore"] = _st_restore(lab)
+    n, rd, to = out.get("normal") or {}, out.get("reduce") or {}, out.get("themeOff") or {}
+    ring = re.compile(r"(^|,\s*)(rgba?\([^)]*\)\s+)?0px 0px 0px [0-9.]+px")
+    na = n.get("anims") or []
+
+    def props(a):
+        return set(a.get("props") or [])
+    checks = {
+        "present": bool(n.get("present")),
+        "noRing": not ring.search(n.get("boxShadow") or "") and n.get("border") == "0px" and n.get("outline") == "none",
+        "panelGlass": "lgs-glass" in (n.get("cls") or "") and n.get("mat") == "panel",
+        "radius30": n.get("radius") == "30px",
+        "size320x76": (n.get("rect") or {}).get("w") == 320 and (n.get("rect") or {}).get("h") == 76,
+        "clearOfTopRow": n.get("covers") == [],
+        "motionTokens": any(a.get("duration") == 250 and "opacity" in props(a) and "scale" in props(a) for a in na)
+        and any(a.get("duration") == 488 and "translate" in props(a) for a in na)
+        and all(a.get("duration") in (250, 350, 488) for a in na),
+        "reduceFadeOnly": bool(rd.get("present")) and rd.get("reduce") is True and bool(rd.get("anims"))
+        and all(props(a) == {"opacity"} and a.get("duration") == 180 for a in rd.get("anims") or []),
+        "opaqueAtRest": n.get("opacity") == "1" and "blur" in (n.get("backdrop") or ""),
+        "themeOffSameLook": bool(to.get("present")) and all(to.get(k) == n.get(k) for k in ("radius", "border", "outline", "bg", "backdrop", "boxShadow"))
+        and (to.get("rect") or {}).get("w") == 320 and (to.get("rect") or {}).get("h") == 76,
+        "removed": (n.get("goneAfterMs") or 99999) <= 2700 and (rd.get("goneAfterMs") or 99999) <= 2700,
+    }
+    return all(bool(v) for v in checks.values()), dict(out, checks=checks)
 
 
 SELFTESTS = [("RT-1", st_rt1), ("RT-2", st_rt2), ("RT-3", st_rt3), ("RT-4", st_rt4),
-             ("RT-5", st_rt5), ("RT-6", st_rt6), ("RT-7", st_rt7)]
+             ("RT-5", st_rt5), ("RT-6", st_rt6), ("RT-7", st_rt7), ("RT-H", st_rth),
+             ("RT-I", st_rti), ("RT-T", st_rtt)]
 
 
 def selftest_main(args, opts):
     sys.dont_write_bytecode = True
+    # --mode=pad|laser (or "--mode pad"): every locked step runs with the lab's input-mode stub
+    argv = sys.argv[1:]
+    mode = next((a.split("=", 1)[1] for a in argv if a.startswith("--mode=")), None)
+    if "--mode" in argv and argv.index("--mode") + 1 < len(argv):
+        mode = argv[argv.index("--mode") + 1]
+    args = [a for a in args if a not in ("pad", "laser")]
     want = {a.strip().upper() for a in (args[0].split(",") if args else []) if a.strip()}
     sys.path.insert(0, os.path.join(ROOT, "lab"))
     sys.modules.setdefault("lgs", sys.modules[__name__])   # one lgs module for us and the lab
     import lab as labmod
+    if mode in ("pad", "laser"):
+        labmod.STEP["mode"] = mode
     try:
         build = labmod.steam_build()
     except Exception:  # noqa: BLE001
@@ -1346,6 +1927,8 @@ def selftest_main(args, opts):
         if want and tid not in want:
             continue
         t0 = time.time()
+        print(f"START {tid} {time.strftime('%H:%M:%S')}", flush=True)   # a line before any lock wait (review R1 m7)
+        shell0 = _st_shell_mode()
         try:
             ok, detail = fn(labmod, ctx)
             res = {"id": tid, "pass": bool(ok), "detail": detail}
@@ -1359,11 +1942,22 @@ def selftest_main(args, opts):
                     res["restore"] = _st_restore(labmod)
             except BaseException as e2:  # noqa: BLE001
                 res["restore"] = f"error: {e2!r}"
+        # The daemon exits by itself after 3 s of theme off (P8); a test's off phases can
+        # trigger that. A unit running when the test began runs again, in the same mode.
+        if shell0 in ("on", "off"):
+            time.sleep(1.2)                  # one daemon poll: a teardown it decided on has begun
+        shell1 = _st_shell_mode()
+        if shell0 in ("on", "off") and shell1 is None:
+            try:
+                res["shellRestarted"] = _shell_start(shell0)
+            except Exception as e:  # noqa: BLE001
+                res["shellRestarted"] = f"error: {e!r}"
+        res["shell"] = {"before": shell0, "after": _st_shell_mode()}
         res["seconds"] = round(time.time() - t0, 1)
         results.append(res)
         print(f"{'PASS' if res['pass'] else 'FAIL'} {tid} ({res['seconds']} s)", flush=True)
-    out = {"date": time.strftime("%Y-%m-%dT%H:%M:%S"), "steamBuild": build, "results": results,
-           "pass": all(r["pass"] for r in results)}
+    out = {"date": time.strftime("%Y-%m-%dT%H:%M:%S"), "steamBuild": build, "mode": mode or "live",
+           "results": results, "pass": all(r["pass"] for r in results)}
     os.makedirs("/tmp/lgs", exist_ok=True)
     with open(SELFTEST_OUT, "w", encoding="utf-8") as f:
         json.dump(out, f, indent=1)

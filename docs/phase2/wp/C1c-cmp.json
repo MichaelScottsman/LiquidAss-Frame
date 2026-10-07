@@ -1,0 +1,52 @@
+{
+ "_doc": "C1c (PLAN-1c-3, G-MOCK): live selectors for the five C1c mockups. Pre snippets are the inventory shell §0.2 / library §0.3 recipes (look only; menus and dialogs auto-close, no item is ever chosen). T1 menus stay centred until C1c's T2 anchors them (WN §5.1.3), so x/y deltas of menus are expected until M3.",
+ "surface": "main",
+ "mockScale": 1,
+ "mockups": {
+  "window-nav-menu": {
+   "pre": "(async()=>{const MM=SteamUIStore.WindowStore.VRGamepadUIMainWindowInstance.ModalManager; for(let i=0;i<40&&MM.m_rgModals.length;i++) await new Promise(r=>setTimeout(r,250)); L.nav('/library/tab/AllGames'); await new Promise(r=>setTimeout(r,1500)); const W=L.surface('main');let q;webpackChunksteamui.push([[Symbol()],{},r=>q=r]);const cm=q('377').XX.GetContextMenuManager(W);const pre=new Set(cm.GetAllMenus());L.q('main','%{CSSGrid} %{LibraryItemBox}').dispatchEvent(new W.CustomEvent('vgp_onmenu',{bubbles:true,cancelable:true,detail:{button:14,source:0,is_repeat:false}}));await new Promise(r=>setTimeout(r,1000));const mine=cm.GetAllMenus().filter(m=>!pre.has(m));setTimeout(()=>mine.forEach(m=>m.Hide()),20000);/*EXTRA*/return 'opened '+mine.length})()\n",
+   "map": {
+    "menu": "%{*BasicContextMenuModal>contextMenuContents}",
+    "row-install": "%{*BasicContextMenuModal>contextMenuItem}",
+    "cancel": "%{*BasicContextMenuModal>contextMenuItem}@last",
+    "legend": "#Footer"
+   }
+  },
+  "window-nav-sort": {
+   "pre": "(async()=>{const MM=SteamUIStore.WindowStore.VRGamepadUIMainWindowInstance.ModalManager; for(let i=0;i<40&&MM.m_rgModals.length;i++) await new Promise(r=>setTimeout(r,250)); L.nav('/library/tab/AllGames'); await new Promise(r=>setTimeout(r,1500)); const W=L.surface('main');let q;webpackChunksteamui.push([[Symbol()],{},r=>q=r]);const cm=q('377').XX.GetContextMenuManager(W);const pre=new Set(cm.GetAllMenus());L.q('main','%{CSSGrid} %{LibraryItemBox}').dispatchEvent(new W.CustomEvent('vgp_onoptions',{bubbles:true,cancelable:true,detail:{button:4,source:0,is_repeat:false}}));await new Promise(r=>setTimeout(r,1000));const mine=cm.GetAllMenus().filter(m=>!pre.has(m));setTimeout(()=>mine.forEach(m=>m.Hide()),20000);/*EXTRA*/return 'opened '+mine.length})()\n",
+   "map": {
+    "menu": "%{*BasicContextMenuModal>contextMenuContents}",
+    "cancel": "%{*BasicContextMenuModal>contextMenuItem}@last",
+    "legend": "#Footer"
+   }
+  },
+  "window-nav-power": {
+   "pre": "(async()=>{const MM=SteamUIStore.WindowStore.VRGamepadUIMainWindowInstance.ModalManager;for(let i=0;i<40&&MM.m_rgModals.length;i++) await new Promise(r=>setTimeout(r,250));let req; webpackChunksteamui.push([[Symbol()],{},r=>req=r]);const J=req(62540),Mn=req(12711),CM=req(377),n=()=>{};L.nav(\"/library/tab/AllGames\"); await new Promise(r=>setTimeout(r,1400));const before=MM.m_rgModals.length; const inst=req(79100).d4(L.surface('main').document.documentElement,()=>{},false);setTimeout(()=>{try{inst.Hide()}catch(e){} for(const m of MM.m_rgModals.slice(before).reverse()) MM.RemoveModal(m)},20000);await new Promise(r=>setTimeout(r,1000));return 1;})()",
+   "map": {
+    "menu": "%{*BasicContextMenuModal>contextMenuContents}",
+    "row-focus": "%{*BasicContextMenuModal>contextMenuContents} > .gpfocus",
+    "cancel": "%{*BasicContextMenuModal>contextMenuItem}@last",
+    "legend": "#Footer"
+   }
+  },
+  "window-nav-alert": {
+   "pre": "(async()=>{const MM=SteamUIStore.WindowStore.VRGamepadUIMainWindowInstance.ModalManager;for(let i=0;i<40&&MM.m_rgModals.length;i++) await new Promise(r=>setTimeout(r,250));let req; webpackChunksteamui.push([[Symbol()],{},r=>req=r]);const J=req(62540),Mn=req(12711),CM=req(377),n=()=>{};L.nav(\"/library/tab/AllGames\"); await new Promise(r=>setTimeout(r,1400));const D=req(30583),M=req(12302); const inst=await M.pg(J.jsx(D.o0,{strTitle:'Install Tidebreaker?',strDescription:'18.4 GB will be downloaded to Internal Storage. You can keep using Steam while it installs. (Lab dialog: no action.)',strOKButtonText:'Install',strCancelButtonText:'Cancel',onOK:()=>{},onCancel:()=>{}}), L.surface('main'));window.__c1cInst=inst; setTimeout(()=>{try{inst.Close()}catch(e){}},20000);await new Promise(r=>setTimeout(r,900));return 1;})()",
+   "map": {
+    "alert": "%{*GamepadDialogContent_InnerWidth>GamepadDialogContent}",
+    "alert-title": ".DialogHeader",
+    "alert-body": ".DialogBodyText",
+    "btn-ok": ".DialogButton.Primary",
+    "btn-cancel": ".DialogButton.Secondary",
+    "scrim": ".ModalOverlayBackground",
+    "legend": "#Footer"
+   }
+  },
+  "window-nav-sheet": {
+   "pre": "(async()=>{const MM=SteamUIStore.WindowStore.VRGamepadUIMainWindowInstance.ModalManager;for(let i=0;i<40&&MM.m_rgModals.length;i++) await new Promise(r=>setTimeout(r,250));let req; webpackChunksteamui.push([[Symbol()],{},r=>req=r]);const J=req(62540),Mn=req(12711),CM=req(377),n=()=>{};L.nav('/zoo/modals'); await new Promise(r=>setTimeout(r,1600));const w=L.surface('main'),d=w.document; const b=[...d.querySelectorAll('button,.DialogButton,[role=button]')].find(e=>e.textContent.trim()===\"Scroll Panel Test\");b.scrollIntoView({block:'nearest'}); const r=b.getBoundingClientRect(),o={bubbles:true,cancelable:true,view:w,clientX:r.x+r.width/2,clientY:r.y+r.height/2,button:0};const before=MM.m_rgModals.length; for(const t of ['pointerdown','mousedown','pointerup','mouseup','click']){const E=t.startsWith('pointer')?w.PointerEvent:w.MouseEvent; b.dispatchEvent(new E(t,Object.assign({pointerType:'mouse',isPrimary:true},o)))}await new Promise(r=>setTimeout(r,900));const added=MM.m_rgModals.slice(before); setTimeout(()=>{for(const m of added.reverse()) MM.RemoveModal(m)},20000);return added.length;})()",
+   "map": {
+    "sheet": "%{*GamepadDialogContent>ModalPosition} > div.Panel:not(%{*GamepadDialogContent>ModalClickToDismiss})",
+    "scrim": ".ModalOverlayBackground"
+   }
+  }
+ }
+}

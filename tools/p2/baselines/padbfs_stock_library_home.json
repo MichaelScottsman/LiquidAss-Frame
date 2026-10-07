@@ -1,0 +1,1340 @@
+{
+ "route": "/library/home",
+ "build": "11094443",
+ "date": "2026-10-07T06:01:50",
+ "step": {
+  "flags": {},
+  "mode": null,
+  "stock": true
+ },
+ "init": {
+  "entry": {
+   "el": "%{LibraryItemBox} %{Landscape} %{InRecentGames}",
+   "text": "#2110c350",
+   "rect": [
+    29,
+    105,
+    565,
+    264
+   ],
+   "route": "/library/home",
+   "key": "%{LibraryItemBox}|#2110c350#0"
+  },
+  "route": "/library/home"
+ },
+ "entry": {
+  "el": "%{LibraryItemBox} %{Landscape} %{InRecentGames}",
+  "text": "#2110c350",
+  "rect": [
+   29,
+   105,
+   565,
+   264
+  ],
+  "route": "/library/home",
+  "key": "%{LibraryItemBox}|#2110c350#0"
+ },
+ "nodes": [
+  {
+   "id": 0,
+   "el": "%{LibraryItemBox} %{Landscape} %{InRecentGames}",
+   "text": "#2110c350",
+   "rect": [
+    29,
+    105,
+    565,
+    264
+   ],
+   "route": "/library/home",
+   "key": "%{LibraryItemBox}|#2110c350#0"
+  },
+  {
+   "id": 1,
+   "el": "%{GamepadTabbedPage>Tab} %{GamepadTabbedPage>Selected} %{HasAddon}",
+   "text": "#8ce7e058",
+   "rect": [
+    472,
+    331,
+    115,
+    34
+   ],
+   "route": "/library/home",
+   "key": "%{GamepadTabbedPage>Tab}|#8ce7e058#0"
+  },
+  {
+   "id": 2,
+   "el": "%{LibraryItemBox} %{PortraitImage>Portrait} %{InRecentGames}",
+   "text": "#b54182a3",
+   "rect": [
+    582,
+    105,
+    176,
+    264
+   ],
+   "route": "/library/home",
+   "key": "%{LibraryItemBox}|#b54182a3#0"
+  },
+  {
+   "id": 3,
+   "el": "%{SearchBox} %{SearchAndTitleContainer>Visible} %{WhiteBackground}",
+   "text": "#b52b36b7",
+   "rect": [
+    148,
+    0,
+    1128,
+    40
+   ],
+   "route": "/library/home",
+   "key": "%{SearchBox}|#b52b36b7#0"
+  },
+  {
+   "id": 4,
+   "el": "%{SeasonalSale} %{SeasonalSale>Loaded} Panel",
+   "text": "#66f20ac3",
+   "rect": [
+    36,
+    342,
+    1208,
+    215
+   ],
+   "route": "/library/home",
+   "key": "%{SeasonalSale}|#66f20ac3#0"
+  },
+  {
+   "id": 5,
+   "el": "%{GamepadTabbedPage>Tab} %{GamepadTabbedPage>Selected} %{HasAddon}",
+   "text": "#223635cc",
+   "rect": [
+    589,
+    52,
+    86,
+    34
+   ],
+   "route": "/library/home",
+   "key": "%{GamepadTabbedPage>Tab}|#223635cc#0"
+  },
+  {
+   "id": 6,
+   "el": "%{GamepadTabbedPage>Tab} %{GamepadTabbedPage>Selected} %{RightAddon}",
+   "text": "#e37d21ed",
+   "rect": [
+    676,
+    52,
+    132,
+    34
+   ],
+   "route": "/library/home",
+   "key": "%{GamepadTabbedPage>Tab}|#e37d21ed#0"
+  },
+  {
+   "id": 7,
+   "el": "%{LibraryItemBox} %{PortraitImage>Portrait} %{InRecentGames}",
+   "text": "#d4115f71",
+   "rect": [
+    581,
+    104,
+    177,
+    266
+   ],
+   "route": "/library/home",
+   "key": "%{LibraryItemBox}|#d4115f71#0"
+  },
+  {
+   "id": 8,
+   "el": "%{RecentlyCompletedItem} Panel Focusable",
+   "text": "#f6163f1b",
+   "rect": [
+    36,
+    594,
+    300,
+    106
+   ],
+   "route": "/library/home",
+   "key": "%{RecentlyCompletedItem}|#f6163f1b#0"
+  },
+  {
+   "id": 9,
+   "el": "%{PrimaryAchievement} %{Achieved} %{Container>Featured}",
+   "text": "#f1dd0e14",
+   "rect": [
+    438,
+    239,
+    295,
+    76
+   ],
+   "route": "/library/home",
+   "key": "%{PrimaryAchievement}|#f1dd0e14#0"
+  },
+  {
+   "id": 10,
+   "el": "%{WidgetHeaderCtn>DiscoveryQueueWidgetCtn} %{DiscoveryQueueWidget} %{Initialized}",
+   "text": "#16a93ec4",
+   "rect": [
+    105,
+    538,
+    1220,
+    151
+   ],
+   "route": "/library/home",
+   "key": "%{WidgetHeaderCtn>DiscoveryQueueWidgetCtn}|#16a93ec4#0"
+  },
+  {
+   "id": 11,
+   "el": "Focusable gpfocus gpfocuswithin",
+   "text": "#f320ab62",
+   "rect": [
+    52,
+    291,
+    236,
+    135
+   ],
+   "route": "/library/home",
+   "key": "a|#f320ab62#1"
+  },
+  {
+   "id": 12,
+   "el": "%{LibraryItemBox} %{PortraitImage>Portrait} %{InRecentGames}",
+   "text": "#a9715745",
+   "rect": [
+    581,
+    104,
+    177,
+    266
+   ],
+   "route": "/library/home",
+   "key": "%{LibraryItemBox}|#a9715745#0"
+  },
+  {
+   "id": 13,
+   "el": "%{GameCapsule} Panel Focusable",
+   "text": "#144edb25",
+   "rect": [
+    26,
+    564,
+    228,
+    136
+   ],
+   "route": "/library/home",
+   "key": "%{GameCapsule}|#144edb25#0"
+  },
+  {
+   "id": 14,
+   "el": "%{RecentlyCompletedItem} Panel Focusable",
+   "text": "#8fd9ce2e",
+   "rect": [
+    348,
+    383,
+    300,
+    106
+   ],
+   "route": "/library/home",
+   "key": "%{RecentlyCompletedItem}|#8fd9ce2e#0"
+  },
+  {
+   "id": 15,
+   "el": "Panel Focusable gpfocus",
+   "text": "#fa416490",
+   "rect": [
+    195,
+    522,
+    200,
+    94
+   ],
+   "route": "/library/home",
+   "key": "Panel|#fa416490#1"
+  },
+  {
+   "id": 16,
+   "el": "%{PrimaryAchievement} %{Achieved} %{Container>Featured}",
+   "text": "#2fbfcf09",
+   "rect": [
+    372,
+    299,
+    356,
+    76
+   ],
+   "route": "/library/home",
+   "key": "%{PrimaryAchievement}|#2fbfcf09#0"
+  },
+  {
+   "id": 17,
+   "el": "Focusable gpfocus gpfocuswithin",
+   "text": "#f320ab62",
+   "rect": [
+    48,
+    281,
+    236,
+    135
+   ],
+   "route": "/library/home",
+   "key": "a|#f320ab62#0"
+  },
+  {
+   "id": 18,
+   "el": "%{LibraryItemBox} %{PortraitImage>Portrait} %{InRecentGames}",
+   "text": "#57e3e71a",
+   "rect": [
+    582,
+    105,
+    177,
+    265
+   ],
+   "route": "/library/home",
+   "key": "%{LibraryItemBox}|#57e3e71a#0"
+  },
+  {
+   "id": 19,
+   "el": "%{RecentlyCompletedItem} Panel Focusable",
+   "text": "#a6a4c73c",
+   "rect": [
+    660,
+    383,
+    300,
+    106
+   ],
+   "route": "/library/home",
+   "key": "%{RecentlyCompletedItem}|#a6a4c73c#0"
+  },
+  {
+   "id": 20,
+   "el": "%{PrimaryAchievement} %{Achieved} %{Container>Featured}",
+   "text": "#53a1fa6f",
+   "rect": [
+    95,
+    624,
+    386,
+    76
+   ],
+   "route": "/library/home",
+   "key": "%{PrimaryAchievement}|#53a1fa6f#0"
+  },
+  {
+   "id": 21,
+   "el": "Panel Focusable gpfocus",
+   "text": "#fa416490",
+   "rect": [
+    279,
+    414,
+    200,
+    94
+   ],
+   "route": "/library/home",
+   "key": "Panel|#fa416490#3"
+  },
+  {
+   "id": 22,
+   "el": "Panel Focusable gpfocus",
+   "text": "#fa416490",
+   "rect": [
+    495,
+    439,
+    200,
+    94
+   ],
+   "route": "/library/home",
+   "key": "Panel|#fa416490#5"
+  },
+  {
+   "id": 23,
+   "el": "%{PrimaryAchievement} %{Achieved} %{Container>Featured}",
+   "text": "#49e73ebe",
+   "rect": [
+    739,
+    216,
+    373,
+    76
+   ],
+   "route": "/library/home",
+   "key": "%{PrimaryAchievement}|#49e73ebe#0"
+  },
+  {
+   "id": 24,
+   "el": "%{LibraryItemBox} %{PortraitImage>Portrait} %{InRecentGames}",
+   "text": "#6a9826a9",
+   "rect": [
+    581,
+    104,
+    177,
+    266
+   ],
+   "route": "/library/home",
+   "key": "%{LibraryItemBox}|#6a9826a9#0"
+  },
+  {
+   "id": 25,
+   "el": "Panel Focusable gpfocus",
+   "text": "#fa416490",
+   "rect": [
+    533,
+    414,
+    200,
+    94
+   ],
+   "route": "/library/home",
+   "key": "Panel|#fa416490#7"
+  },
+  {
+   "id": 26,
+   "el": "%{LibraryItemBox} %{PortraitImage>Portrait} %{InRecentGames}",
+   "text": "#bb9d9688",
+   "rect": [
+    582,
+    105,
+    177,
+    265
+   ],
+   "route": "/library/home",
+   "key": "%{LibraryItemBox}|#bb9d9688#0"
+  },
+  {
+   "id": 27,
+   "el": "Panel Focusable gpfocus",
+   "text": "#fa416490",
+   "rect": [
+    533,
+    354,
+    200,
+    94
+   ],
+   "route": "/library/home",
+   "key": "Panel|#fa416490#9"
+  },
+  {
+   "id": 28,
+   "el": "%{LibraryItemBox} %{PortraitImage>Portrait} %{InRecentGames}",
+   "text": "#17cd75bd",
+   "rect": [
+    581,
+    104,
+    177,
+    265
+   ],
+   "route": "/library/home",
+   "key": "%{LibraryItemBox}|#17cd75bd#0"
+  },
+  {
+   "id": 29,
+   "el": "Panel Focusable gpfocus",
+   "text": "#fa416490",
+   "rect": [
+    533,
+    354,
+    200,
+    94
+   ],
+   "route": "/library/home",
+   "key": "Panel|#fa416490#11"
+  },
+  {
+   "id": 30,
+   "el": "%{LibraryItemBox} %{PortraitImage>Portrait} %{InRecentGames}",
+   "text": "#e1f251df",
+   "rect": [
+    582,
+    105,
+    176,
+    264
+   ],
+   "route": "/library/home",
+   "key": "%{LibraryItemBox}|#e1f251df#0"
+  },
+  {
+   "id": 31,
+   "el": "Panel Focusable gpfocus",
+   "text": "#fa416490",
+   "rect": [
+    533,
+    354,
+    200,
+    94
+   ],
+   "route": "/library/home",
+   "key": "Panel|#fa416490#13"
+  },
+  {
+   "id": 32,
+   "el": "%{LibraryItemBox} %{PortraitImage>Portrait} %{InRecentGames}",
+   "text": "#1fd7cfc2",
+   "rect": [
+    581,
+    104,
+    178,
+    267
+   ],
+   "route": "/library/home",
+   "key": "%{LibraryItemBox}|#1fd7cfc2#0"
+  },
+  {
+   "id": 33,
+   "el": "%{LibraryItemBox} %{PortraitImage>Portrait} %{InRecentGames}",
+   "text": "#3b4cb2c3",
+   "rect": [
+    582,
+    105,
+    176,
+    264
+   ],
+   "route": "/library/home",
+   "key": "%{LibraryItemBox}|#3b4cb2c3#0"
+  },
+  {
+   "id": 34,
+   "el": "%{LibraryItemBox} %{PortraitImage>Portrait} %{InRecentGames}",
+   "text": "#cc98f383",
+   "rect": [
+    581,
+    104,
+    177,
+    266
+   ],
+   "route": "/library/home",
+   "key": "%{LibraryItemBox}|#cc98f383#0"
+  },
+  {
+   "id": 35,
+   "el": "%{LibraryItemBox} %{PortraitImage>Portrait} %{InRecentGames}",
+   "text": "#3ee395b4",
+   "rect": [
+    581,
+    104,
+    177,
+    266
+   ],
+   "route": "/library/home",
+   "key": "%{LibraryItemBox}|#3ee395b4#0"
+  },
+  {
+   "id": 36,
+   "el": "%{LibraryItemBox} %{PortraitImage>Portrait} %{InRecentGames}",
+   "text": "#4f6a4761",
+   "rect": [
+    582,
+    105,
+    177,
+    265
+   ],
+   "route": "/library/home",
+   "key": "%{LibraryItemBox}|#4f6a4761#0"
+  },
+  {
+   "id": 37,
+   "el": "%{LibraryItemBox} %{PortraitImage>Portrait} %{InRecentGames}",
+   "text": "#3aee7718",
+   "rect": [
+    581,
+    104,
+    177,
+    266
+   ],
+   "route": "/library/home",
+   "key": "%{LibraryItemBox}|#3aee7718#0"
+  },
+  {
+   "id": 38,
+   "el": "%{LibraryItemBox} %{PortraitImage>Portrait} %{InRecentGames}",
+   "text": "#92e5a838",
+   "rect": [
+    581,
+    104,
+    178,
+    267
+   ],
+   "route": "/library/home",
+   "key": "%{LibraryItemBox}|#92e5a838#0"
+  },
+  {
+   "id": 39,
+   "el": "%{LibraryItemBox} %{PortraitImage>Portrait} %{InRecentGames}",
+   "text": "#82a3375c",
+   "rect": [
+    581,
+    104,
+    178,
+    267
+   ],
+   "route": "/library/home",
+   "key": "%{LibraryItemBox}|#82a3375c#0"
+  },
+  {
+   "id": 40,
+   "el": "%{LibraryItemBox} %{PortraitImage>Portrait} %{InRecentGames}",
+   "text": "#deba4416",
+   "rect": [
+    581,
+    104,
+    177,
+    266
+   ],
+   "route": "/library/home",
+   "key": "%{LibraryItemBox}|#deba4416#0"
+  },
+  {
+   "id": 41,
+   "el": "%{LibraryItemBox} %{PortraitImage>Portrait} %{InRecentGames}",
+   "text": "#74fca863",
+   "rect": [
+    726,
+    104,
+    178,
+    267
+   ],
+   "route": "/library/home",
+   "key": "%{LibraryItemBox}|#74fca863#0"
+  },
+  {
+   "id": 42,
+   "el": "%{LibraryItemBox} %{PortraitImage>Portrait} %{InRecentGames}",
+   "text": "#492651c8",
+   "rect": [
+    910,
+    104,
+    178,
+    267
+   ],
+   "route": "/library/home",
+   "key": "%{LibraryItemBox}|#492651c8#0"
+  },
+  {
+   "id": 43,
+   "el": "%{TextBoxCarouselContents} %{BasicGameCarouselItemMediaContainer} Panel",
+   "text": "#7a57a0fc",
+   "rect": [
+    1089,
+    108,
+    172,
+    258
+   ],
+   "route": "/library/home",
+   "key": "%{TextBoxCarouselContents}|#7a57a0fc#0"
+  }
+ ],
+ "edges": {
+  "0": {
+   "down": 1,
+   "right": 2,
+   "up": 3,
+   "left": "exit:frame.menu.76640005.76640005"
+  },
+  "1": {
+   "down": 4,
+   "right": 5,
+   "up": 0,
+   "left": 6
+  },
+  "2": {
+   "down": 1,
+   "right": 7,
+   "up": 3,
+   "left": 0
+  },
+  "3": {
+   "down": 2,
+   "right": "edge",
+   "up": "edge",
+   "left": "exit:frame.menu.76640005.76640005"
+  },
+  "4": {
+   "down": 8,
+   "right": "edge",
+   "up": 1,
+   "left": "exit:frame.menu.76640005.76640005"
+  },
+  "5": {
+   "down": 9,
+   "right": 6,
+   "up": 2,
+   "left": 1
+  },
+  "6": {
+   "down": 10,
+   "right": 1,
+   "up": 2,
+   "left": 5
+  },
+  "7": {
+   "down": 6,
+   "right": 12,
+   "up": 3,
+   "left": 2
+  },
+  "8": {
+   "down": 13,
+   "right": 14,
+   "up": 4,
+   "left": "exit:frame.menu.76640005.76640005"
+  },
+  "9": {
+   "down": 15,
+   "right": 16,
+   "up": 5,
+   "left": "exit:frame.menu.76640005.76640005"
+  },
+  "10": {
+   "down": "edge",
+   "right": "edge",
+   "up": 6,
+   "left": "exit:frame.menu.76640005.76640005"
+  },
+  "12": {
+   "down": 10,
+   "right": 18,
+   "up": 3,
+   "left": 7
+  },
+  "13": {
+   "down": "untakeable"
+  },
+  "14": {
+   "down": 13,
+   "right": 19,
+   "up": 4,
+   "left": 8
+  },
+  "15": {
+   "down": 20,
+   "right": 21,
+   "up": 9,
+   "left": "exit:frame.menu.76640005.76640005"
+  },
+  "16": {
+   "down": 22,
+   "right": 23,
+   "up": 5,
+   "left": 9
+  },
+  "18": {
+   "down": 16,
+   "right": 24,
+   "up": 3,
+   "left": 12
+  },
+  "19": {
+   "down": "untakeable"
+  },
+  "20": {
+   "down": "untakeable"
+  },
+  "21": {
+   "down": 20,
+   "right": 22,
+   "up": 16,
+   "left": 15
+  },
+  "22": {
+   "down": 20,
+   "right": 25,
+   "up": 16,
+   "left": 21
+  },
+  "23": {
+   "down": 25,
+   "right": "edge",
+   "up": 5,
+   "left": 16
+  },
+  "24": {
+   "down": 23,
+   "right": 26,
+   "up": 3,
+   "left": 18
+  },
+  "25": {
+   "down": 20,
+   "right": 27,
+   "up": 23,
+   "left": 22
+  },
+  "26": {
+   "down": 25,
+   "right": 28,
+   "up": 3,
+   "left": 24
+  },
+  "27": {
+   "down": 20,
+   "right": 29,
+   "up": 23,
+   "left": 25
+  },
+  "28": {
+   "down": 27,
+   "right": 30,
+   "up": 3,
+   "left": 26
+  },
+  "29": {
+   "down": 20,
+   "right": 31,
+   "up": 23,
+   "left": 27
+  },
+  "30": {
+   "down": 29,
+   "right": 32,
+   "up": 3,
+   "left": 28
+  },
+  "31": {
+   "down": 20,
+   "right": 31,
+   "up": 23,
+   "left": 29
+  },
+  "32": {
+   "down": 31,
+   "right": 33,
+   "up": 3,
+   "left": 30
+  },
+  "33": {
+   "down": 23,
+   "right": 34,
+   "up": 3,
+   "left": 32
+  },
+  "34": {
+   "down": 5,
+   "right": 35,
+   "up": 3,
+   "left": 33
+  },
+  "35": {
+   "down": 5,
+   "right": 36,
+   "up": 3,
+   "left": 34
+  },
+  "36": {
+   "down": 5,
+   "right": 37,
+   "up": 3,
+   "left": 35
+  },
+  "37": {
+   "down": 5,
+   "right": 38,
+   "up": 3,
+   "left": 36
+  },
+  "38": {
+   "down": 5,
+   "right": 39,
+   "up": 3,
+   "left": 37
+  },
+  "39": {
+   "down": 5,
+   "right": 40,
+   "up": 3,
+   "left": 38
+  },
+  "40": {
+   "down": 5,
+   "right": 41,
+   "up": 3,
+   "left": 39
+  },
+  "41": {
+   "down": 5,
+   "right": 42,
+   "up": 3,
+   "left": 40
+  },
+  "42": {
+   "down": 5,
+   "right": 43,
+   "up": 3,
+   "left": 41
+  },
+  "43": {
+   "down": 5,
+   "right": "edge",
+   "up": 3,
+   "left": 42
+  }
+ },
+ "routes": [
+  "/library/home"
+ ],
+ "irreversible": [
+  {
+   "from": 6,
+   "dir": "down",
+   "to": 10,
+   "back": 11
+  },
+  {
+   "from": 10,
+   "dir": "up",
+   "to": 6,
+   "back": 17
+  },
+  {
+   "from": 12,
+   "dir": "down",
+   "to": 10,
+   "back": 11
+  },
+  {
+   "from": 18,
+   "dir": "down",
+   "to": 16,
+   "back": 5
+  },
+  {
+   "from": 21,
+   "dir": "down",
+   "to": 20,
+   "back": 15
+  },
+  {
+   "from": 22,
+   "dir": "down",
+   "to": 20,
+   "back": 15
+  },
+  {
+   "from": 24,
+   "dir": "down",
+   "to": 23,
+   "back": 5
+  },
+  {
+   "from": 25,
+   "dir": "down",
+   "to": 20,
+   "back": 21
+  },
+  {
+   "from": 26,
+   "dir": "down",
+   "to": 25,
+   "back": 23
+  },
+  {
+   "from": 27,
+   "dir": "down",
+   "to": 20,
+   "back": 22
+  },
+  {
+   "from": 28,
+   "dir": "down",
+   "to": 27,
+   "back": 23
+  },
+  {
+   "from": 29,
+   "dir": "down",
+   "to": 20,
+   "back": 25
+  },
+  {
+   "from": 30,
+   "dir": "down",
+   "to": 29,
+   "back": 23
+  },
+  {
+   "from": 31,
+   "dir": "down",
+   "to": 20,
+   "back": 27
+  },
+  {
+   "from": 32,
+   "dir": "down",
+   "to": 31,
+   "back": 23
+  },
+  {
+   "from": 33,
+   "dir": "down",
+   "to": 23,
+   "back": 5
+  }
+ ],
+ "untested": [],
+ "universe": 72,
+ "unreached": [
+  {
+   "el": "%{Arrows} Panel Focusable",
+   "text": "#60740ba7",
+   "rect": [
+    36,
+    447,
+    32,
+    32
+   ]
+  },
+  {
+   "el": "%{Arrows} Panel Focusable",
+   "text": "#60740ba7",
+   "rect": [
+    1212,
+    447,
+    32,
+    32
+   ]
+  },
+  {
+   "el": "Panel Focusable",
+   "text": "#df31fc8a",
+   "rect": [
+    36,
+    1043,
+    28,
+    28
+   ]
+  },
+  {
+   "el": "Panel Focusable",
+   "text": "#2744613d",
+   "rect": [
+    64,
+    1043,
+    28,
+    28
+   ]
+  },
+  {
+   "el": "Panel Focusable",
+   "text": "#1ffe3057",
+   "rect": [
+    284,
+    1043,
+    28,
+    28
+   ]
+  },
+  {
+   "el": "Panel Focusable",
+   "text": "#df31fc8a",
+   "rect": [
+    532,
+    1043,
+    28,
+    28
+   ]
+  },
+  {
+   "el": "Panel Focusable",
+   "text": "#1ffe3057",
+   "rect": [
+    780,
+    1043,
+    28,
+    28
+   ]
+  },
+  {
+   "el": "Panel Focusable",
+   "text": "#1ffe3057",
+   "rect": [
+    1028,
+    1043,
+    28,
+    28
+   ]
+  },
+  {
+   "el": "Panel Focusable",
+   "text": "#2744613d",
+   "rect": [
+    1276,
+    1043,
+    28,
+    28
+   ]
+  },
+  {
+   "el": "Panel Focusable",
+   "text": "#df31fc8a",
+   "rect": [
+    1304,
+    1043,
+    28,
+    28
+   ]
+  },
+  {
+   "el": "%{Seen>MarketingMessage} %{Seen} Panel",
+   "text": "#1f647f0a",
+   "rect": [
+    36,
+    1129,
+    200,
+    210
+   ]
+  },
+  {
+   "el": "%{EventActorAvatar} Panel Focusable",
+   "text": "#df31fc8a",
+   "rect": [
+    51,
+    575,
+    36,
+    36
+   ]
+  },
+  {
+   "el": "%{AchievementHoverContainer} Panel Focusable",
+   "text": "#f1dd0e14",
+   "rect": [
+    71,
+    639,
+    69,
+    64
+   ]
+  },
+  {
+   "el": "%{AchievementHoverContainer} Panel Focusable",
+   "text": "#5bab61eb",
+   "rect": [
+    377,
+    639,
+    69,
+    64
+   ]
+  },
+  {
+   "el": "%{AchievementHoverContainer} Panel Focusable",
+   "text": "#49e73ebe",
+   "rect": [
+    745,
+    639,
+    69,
+    64
+   ]
+  },
+  {
+   "el": "Panel Focusable",
+   "text": "#717a4cc1",
+   "rect": [
+    47,
+    727,
+    1187,
+    32
+   ]
+  },
+  {
+   "el": "%{EventActorAvatar} Panel Focusable",
+   "text": "#e21142d7",
+   "rect": [
+    51,
+    808,
+    36,
+    36
+   ]
+  },
+  {
+   "el": "Panel Focusable",
+   "text": "#fa416490",
+   "rect": [
+    749,
+    856,
+    200,
+    94
+   ]
+  },
+  {
+   "el": "Panel Focusable",
+   "text": "#fa416490",
+   "rect": [
+    965,
+    856,
+    200,
+    94
+   ]
+  },
+  {
+   "el": "Panel Focusable",
+   "text": "#fa416490",
+   "rect": [
+    1181,
+    856,
+    200,
+    94
+   ]
+  },
+  {
+   "el": "Panel Focusable",
+   "text": "#fa416490",
+   "rect": [
+    1397,
+    856,
+    200,
+    94
+   ]
+  },
+  {
+   "el": "Panel Focusable",
+   "text": "#fa416490",
+   "rect": [
+    1613,
+    856,
+    200,
+    94
+   ]
+  },
+  {
+   "el": "%{EventActorAvatar} Panel Focusable",
+   "text": "#e21142d7",
+   "rect": [
+    51,
+    1008,
+    36,
+    36
+   ]
+  },
+  {
+   "el": "%{AchievementHoverContainer} Panel Focusable",
+   "text": "#53a1fa6f",
+   "rect": [
+    71,
+    1072,
+    69,
+    64
+   ]
+  },
+  {
+   "el": "Panel Focusable",
+   "text": "#717a4cc1",
+   "rect": [
+    47,
+    1160,
+    1187,
+    32
+   ]
+  },
+  {
+   "el": "%{EventActorAvatar} Panel Focusable",
+   "text": "#df31fc8a",
+   "rect": [
+    51,
+    1210,
+    36,
+    36
+   ]
+  },
+  {
+   "el": "%{AchievementHoverContainer} Panel Focusable",
+   "text": "#e2189eb8",
+   "rect": [
+    71,
+    1274,
+    69,
+    64
+   ]
+  },
+  {
+   "el": "Panel Focusable",
+   "text": "#717a4cc1",
+   "rect": [
+    47,
+    1362,
+    1187,
+    32
+   ]
+  },
+  {
+   "el": "%{EventActorAvatar} Panel Focusable",
+   "text": "#2744613d",
+   "rect": [
+    51,
+    1443,
+    36,
+    36
+   ]
+  },
+  {
+   "el": "Panel Focusable",
+   "text": "#be5b87e2",
+   "rect": [
+    63,
+    1491,
+    200,
+    94
+   ]
+  },
+  {
+   "el": "Panel Focusable",
+   "text": "#be5b87e2",
+   "rect": [
+    279,
+    1491,
+    200,
+    94
+   ]
+  },
+  {
+   "el": "Panel Focusable",
+   "text": "#be5b87e2",
+   "rect": [
+    495,
+    1491,
+    200,
+    94
+   ]
+  },
+  {
+   "el": "%{EventActorAvatar} Panel Focusable",
+   "text": "#e21142d7",
+   "rect": [
+    51,
+    1643,
+    36,
+    36
+   ]
+  },
+  {
+   "el": "%{StoreGameCapsule} Panel Focusable",
+   "text": "#5f816543",
+   "rect": [
+    47,
+    1683,
+    1187,
+    144
+   ]
+  },
+  {
+   "el": "Panel Focusable",
+   "text": "#5f816543",
+   "rect": [
+    47,
+    1827,
+    1187,
+    32
+   ]
+  },
+  {
+   "el": "%{FetchMoreContainer} DialogButton _DialogLayout",
+   "text": "#b1175e6d",
+   "rect": [
+    560,
+    1876,
+    160,
+    28
+   ]
+  }
+ ],
+ "b": {
+  "before": {
+   "route": "/library/home",
+   "modals": 0,
+   "menus": 0
+  },
+  "after": {
+   "route": "/zoo/sliders",
+   "modals": 0,
+   "menus": 0
+  },
+  "effect": "route /library/home -> /zoo/sliders"
+ },
+ "moves": 309,
+ "replayed": 8,
+ "seconds": 59.8,
+ "truncated": false,
+ "pass": false,
+ "redacted": true
+}

@@ -245,19 +245,39 @@
   }
 
   // ------------------------------------------------------------ geometry (live)
+  // Steam's page of a dashboard frame. Page ids are handed out at run time
+  // (Steam was page 3 at first, page 4 after its overlay re-registered), so
+  // find it by its summon key, never by number.
+  const STEAM_KEY = 'valve.steam.gamepadui.main';
+  function steamPage() {
+    try {
+      for (const f of (W.FrameStore && FrameStore.frames) || []) {
+        for (const p of (f && f.pages) || []) {
+          if (p && p.m_sSummonOverlayKey === STEAM_KEY) {
+            const id = String(p.mountableID || ('frame:' + f.m_unFrameID + ':page:' + p.m_unPageID + ':mountable'));
+            return { frame: f, page: p, mountable: id, active: !!(f.activePage && f.activePage === p) };
+          }
+        }
+      }
+    } catch (_) { /* no FrameStore */ }
+    return null;
+  }
+
   let geomCache = null, geomAt = 0;
   function geom() {
     const now = Date.now();
     if (geomCache && now - geomAt < 1000) return geomCache;
     let S = 0.369, H0 = 1.5, r = 1, src = 'default';
     try {
+      const sp = steamPage();
       const fr = W.FrameStore && FrameStore.frames;
-      const f = fr && (fr.find((x) => /page:3/.test(x.activePage && x.activePage.mountableID)) || fr[0]);
+      const f = sp ? sp.frame : (fr && fr[0]);
+      const pg = sp ? sp.page : (f && f.activePage);
       const s = num(W.DashboardStore && DashboardStore.dashboardScale, 0);
       if (s > 0) { S = s; src = 'live'; }
       if (f) {
         H0 = num(f.size && f.size.mainPanelHeightOverride, 1.5) || 1.5;
-        const lh = num(f.activePage && f.activePage.size && f.activePage.size.latestMeasuredPanelLocalHeight, 0);
+        const lh = num(pg && pg.size && pg.size.latestMeasuredPanelLocalHeight, 0);
         if (lh > 0) r = lh / H0;
       }
     } catch (_) { /* defaults */ }
@@ -361,6 +381,8 @@
     for (const [k, p] of st.pops) { z[k] = r6(chanAt(p.c, now)[0]); n++; }
     for (const [k, d] of st.dims) { z['dim:' + k] = r6(chanAt(d.c, now)[0]); n++; }
     for (const [k, c] of ov.chans) { z['ov:' + k] = r6(chanAt(c, now)[0]); n++; }
+    if (win.dimC.moving || win.dimC.target !== 1) { z['win:dim'] = r6(chanAt(win.dimC, now)[0]); n++; }
+    if (win.recC.moving || win.recC.target !== 0) { z['win:recede'] = r6(chanAt(win.recC, now)[0]); n++; }
     if (!n) return;
     st.timeline.push({ t: now, final: !!final, z });
     if (st.timeline.length > TIMELINE_MAX) st.timeline.splice(0, st.timeline.length - TIMELINE_MAX);
@@ -498,7 +520,8 @@
   function updateItem(it, d) {
     const sig = sigOf(d);
     if (sig === it.sig) return false;
-    if (wrapColor(d) && !it.wrap) return 'rebuild';
+    // a wrapper appears or goes (dim on / off): new nodes, swapped in one push
+    if (!!wrapColor(d) !== !!it.wrap) return 'rebuild';
     it.sig = sig;
     it.d = d;
     if (it.top) it.top.__lgsProps = { 'parent-overlay-key': d.parentKey };
@@ -508,7 +531,7 @@
       if (it.xf.getAttribute('translation') !== t) it.xf.setAttribute('translation', t);
     }
     it.panel.__lgsProps = panelProps(d);
-    if (it.wrap && !d.dimKey) it.wrap.__lgsProps = { color: wrapColor(d) || [1, 1, 1] };
+    if (it.wrap && !d.dimKey) it.wrap.__lgsProps = { color: wrapColor(d) };
     return true;
   }
 
@@ -1017,6 +1040,8 @@
         try { build(st.lastSpec); rebuilt = true; st.rebuilds++; } catch (e) { note('rebuild: ' + e.message); }
       }
       if (ov.rules.length || ov.internal.size || winRules().length) { rebuilt = true; schedulePush(); }
+      // a value that was moving when the watchdog fired finishes its spring
+      if (anyMoving(Date.now())) startAnim();
     }
     return beat(rebuilt);
   }
@@ -1049,11 +1074,14 @@
     return null;
   }
 
+  // t1: the vsg-transform parent of the mountedscenegraph of Steam's page.
   function t1Node() {
+    const sp = steamPage();
     for (const m of document.querySelectorAll('vsg-node[vsg-type=mountedscenegraph]')) {
       let id = '';
       try { id = String(m.buildNode({}, m)[1].properties.mountable_id || ''); } catch (_) { continue; }
-      if (/frame:\d+:page:3:mountable$/.test(id) && m.parentElement && m.parentElement.tagName === 'VSG-TRANSFORM') return m.parentElement;
+      const hit = sp ? (id === sp.mountable || id.endsWith('::' + sp.mountable)) : /frame:\d+:page:3:mountable$/.test(id);
+      if (hit && m.parentElement && m.parentElement.tagName === 'VSG-TRANSFORM') return m.parentElement;
     }
     return null;
   }
@@ -1447,6 +1475,7 @@
       anim: { active: animCount(), frames: st.anim.frames, finals: st.anim.finals, pops: st.pops.size, dims: st.dims.size },
       overrides: { seq: ov.seq, rules: ov.rules.map((r) => r.id), internal: [...ov.internal.keys()], applied: ov.applied, missing: ov.missing, suspended: ov.suspended, elements: ov.recs.size, errors: ov.errors.slice() },
       window: windowStatus(),
+      steamPage: (() => { const sp = steamPage(); return sp ? { mountable: sp.mountable, active: sp.active, t1: !!t1Node() } : null; })(),
       sgids: sgidCheck(),
       errors: st.errors.slice(),
     };

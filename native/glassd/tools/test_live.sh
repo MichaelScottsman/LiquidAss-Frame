@@ -4,8 +4,10 @@
 # footer capsule). Test prefix, private out dir, no dumps. Then SIGUSR2
 # overlay-loss recovery, and the exit after three losses in 30 s.
 G=${GLASSD:-$(cd "$(dirname "$0")/.." && pwd)/glassd}
-D=/tmp/lgs-fx
+D=/tmp/lgs/p9-fx/live  # rule 7: test state only under /tmp/lgs
+rm -rf $D
 mkdir -p $D
+trap 'rm -rf "$D"; rmdir /tmp/lgs/p9-fx 2>/dev/null' EXIT
 cat > $D/spec.json <<'EOF'
 {"seq": 3, "dial": 0.5, "surfaces": [
  {"name": "main", "overlayKey": "valve.steam.gamepadui.main", "texW": 1920, "texH": 1080, "radius": 48, "material": "window",

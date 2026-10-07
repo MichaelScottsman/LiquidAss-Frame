@@ -64,6 +64,8 @@ The build needs `openvr.h` v2.15.6 (with `IVRIPCResourceManagerClient::ImportDma
 | `--dump-view` | | With `--dump`: also write `DIR/<name>-view.png`, what the wearer would see: the room around the surface (with `--test-backdrop` the procedural room itself, as sharp as passthrough), the cover and the slabs at their depths |
 | `--bench` | | Render every frame at `--fps` (GPU timing in the status line) |
 | `--phase M` | | Pin every cover and slab at materialize progress M (0..1), for dumps (see *Phase*) |
+| `--selftest phase` | | Offline: the materialize ramps against `native/shared/motion_tokens.h` at 1 ms steps (no SteamVR); exit 0 = pass |
+| `--view-content none\|hero\|hero-art` | none | With `--dump-view`: `hero` draws a stand-in page in front of the cover (opaque art with the popped rects cut out, and the popped crops at their depths), to judge hole treatments off axis; `hero-art` the same without the cut-outs (the reference `tools/test_holes.py` measures against) |
 
 - `kill -USR1 <pid>` writes the room map and every surface to the `--dump` paths. Without them it writes to `/tmp/lgs/glassd-dump/`.
 - `kill -USR2 <pid>` (test aid) treats every overlay as lost: it destroys and recreates them, as after a compositor hiccup.
@@ -88,6 +90,19 @@ The fields follow NATIVE.md: `seq`, `dial`, `surfaces[]` with `name`, `overlayKe
   - `phaseMs`: a linear ramp of that many ms (a full 0 to 1 sweep) instead of the default curve; `0` jumps.
   - top level `reduceMotion: true`: ramps become a 180 ms coverage fade with every optical term at its target.
   - The curves, the optics ramp and the rules for covers are in [`docs/phase2/glassd-material.md`](../../docs/phase2/glassd-material.md) (*Materialize*). To take a slab away with a dematerialize, set its `phase` to 0, wait for the ramp (350 ms, or 514 ms for `thick`), then remove it.
+
+### glassd.json v3 (Phase 2)
+
+The v3 fields are specified in [`docs/phase2/contracts/glassd.md`](../../docs/phase2/contracts/glassd.md), which is the reference; in short:
+
+- **`surfaces[].plates`** (≤ 32): opaque per-shape glass at the cover's depth, each with its own `material` (`window`, `panel`, `liquid`, `thick`, `clear`, or `dim`, a flat dark plate), `phase`/`appear`/`phaseMs`, `tint`, `fill`, `occluder` (brightness × .55, no light terms, no shadow) and `shadow`. Drawn in the backdrop region after the cover, in spec order, so a windowless route (`shapes: []`) can have glass discs and tiles without a window. Slabs see plates behind them. A plate **over a cover** sees that cover behind it (glass over glass, like a slab; its optics sit 2 mm in front of the cover), so it reads as raised, lighter window glass with its own bezel, not a rim of bent room (R1).
+- **Slabs:** `material: "none"` (a cell, nothing drawn), `tint` (green Play, blue Install), `hole` (the popped element's contact shadow clipped to its crop rect, plus a `fill` tone or, better, `edges`: the tones just outside each edge of the crop, so the sliver a pop reveals off axis continues what surrounds it and reads as the control's shadow; over such a fill the shadow follows the control's rounded shape and fades out at the crop's edge, so the crop rect never shows as an outline), `ox`/`oy` (a moved crop's world point).
+- **Depths are scene units:** `dz`, `coverDz` and mask `dz` are multiplied by top-level `unitM` (metres per unit, default 0.369). v2 read `dz` as metres.
+- **Masks:** surface `masks` (rects in that surface's px, may lie outside it) and top-level `masks` (world quads) are cut out of the room map like the surfaces; ≤ 24 mask quads in all, beyond that the map waits rather than integrate UI.
+- `coverDz` (the cover and plates' optical depth; K-G6 keyboard platter behind its keys), `scaleFrom: "overlay"` (trust a popup's own transform).
+- **Room dim** (G7, SM-D6, optional): top-level `roomDim` (0..0.9, animated on `sheet-in` / `sheet-out`) folds into every cover's and plate's backdrop dimming; a slab with `material: "dim"` is a flat dark cell (`fill`, default black .30, 8 px feather) that the scene graph can stretch behind the window.
+- Colours: `[r, g, b(, a)]` 0..1, `#rgb[a]`, `#rrggbb[aa]`, `rgb(r g b / a)`, `rgba(r, g, b, a)`, or the names `green`, `blue`, `red`, `scrim`. An unparsable colour is ignored and logged once per value.
+- The output adds `version: 3`, `caps` (what this binary supports; the daemon sends a field only when its cap is listed) and per surface `plates`, `droppedPlates` (the first 32; `counts` has them all) and `counts`. `caps` includes `holeEdges` from R1 on.
 
 ### Output: `glassd-out.json`
 
@@ -194,7 +209,7 @@ One fullscreen draw per piece of glass: first the cover (the union of its shapes
 - **Shape.** Signed distance and its analytic gradient from the nearest of up to 8 rounded rects (the union's outline).
 - **World point.** On the surface quad: the element offset plus `dz` for slabs.
 - **Bezel.** A squircle `h = (1 − (1 − t)⁴)^¼` over the bezel width (never wider than the corner radius, so corners stay smooth). Its slope tilts the normal.
-- **What is behind.** The view ray (head pose predicted 20 ms ahead), bent by the bezel like a prism (Snell at the curved face and the flat back, n = 1.5, toward the thick side), meets the room sphere, or for a slab the **cover behind it**: the cover's quarter-resolution pass (below; mipmapped, transparent border), so a slab on the window shows window glass, and an ornament straddling the window's edge shows that edge through its own bezel. The interior is not bent. Frost is a mip level (4 rotated taps), lower in the lens band so the bend shows; R and B bend 2 % less and more (dispersion), with the same filter.
+- **What is behind.** The view ray (head pose predicted 20 ms ahead), bent by the bezel like a prism (Snell at the curved face and the flat back, n = 1.5, toward the thick side), meets the room sphere, or for a slab (and a plate over a cover) the **cover behind it**: the cover's quarter-resolution pass (below; mipmapped, transparent border), so a slab on the window shows window glass, and an ornament straddling the window's edge shows that edge through its own bezel. The copy is read with nine taps (the centre and a ring of eight) at a finer mip, so a small plate behind a slab blurs round, never into a square (R1). The interior is not bent. Frost is a mip level (4 rotated taps), lower in the lens band so the bend shows; R and B bend 2 % less and more (dispersion), with the same filter.
 - **Tone.** The frosted room is pulled toward a luminance band around L 80 of 255 (DESIGN2 §6.3), keeping a material-dependent share of the room's swing and all of its hue, then mixed toward a neutral of the same luminance by the tint. Glass over glass adds half its tint and sits slightly lighter. The lens band keeps more of the room (a polished bevel).
 - **Unknown room** (the map's alpha): one mip more frost, a little more tint toward the known room's mean hue, a stronger top-down sheen.
 - **Light.** One key light fixed in the world (from above, about 20° left of vertical, a little in front), the same for every surface:
@@ -202,9 +217,9 @@ One fullscreen draw per piece of glass: first the cover (the union of its shapes
   - a weaker transmitted highlight on the opposite (lower-right) rim;
   - Fresnel reflection of the room on the grazing outer bezel, weighted toward the lit side;
   - a top-down sheen across the shape.
-- **Shade.** A soft darkened band inside the edge, strongest away from the light (E4); occlusion just inside the lower edge (E5); on a cover, the soft shadows of the slabs in front of it (offset and softness grow with `dz`; only for slabs whose element held still for 150 ms, never under the slab itself); outside a cover's shapes, where the texture has room, an optional contact shadow.
+- **Shade.** A soft darkened band inside the edge, strongest away from the light (E4); occlusion just inside the lower edge (E5); on a cover, the soft shadows of the slabs in front of it (offset 0.3 × `dz`, i.e. VP P-48's 0.4 CSS px per mm, softness 3 mm + 0.4 × `dz`; only for slabs whose element held still for 150 ms, never under the slab itself); outside a cover's shapes, where the texture has room, an optional contact shadow.
 - **Output.** Antialiased coverage × the materialize alpha, premultiplied, sRGB-encoded.
-- **Two passes for covers.** The interior is very low frequency, so pass 1 renders the cover at 1/4 resolution (RGBA16F, linear, premultiplied by coverage) and pass 2 runs the whole shader only within the edge band (the bezel or 1.6 × the darkened band, plus 1.5 low-resolution texels; about 54 Steam px on the window) and reads pass 1 inside it. Pass 1, mipmapped, is also what slabs see behind them. `--debug-view` renders covers in one pass.
+- **Two passes for covers.** The interior is very low frequency, so pass 1 renders the cover at 1/4 resolution (RGBA16F, linear, premultiplied by coverage) and pass 2 runs the whole shader only within the edge band (the bezel or 1.6 × the darkened band, plus 1.5 low-resolution texels; about 54 Steam px on the window) and reads pass 1 inside it (level 0 explicitly: an implicit level in that branch read the copy's unbuilt mips as black dashes inside the corners of a cover without slabs, R1). Pass 1, mipmapped, is also what slabs see behind them. `--debug-view` renders covers in one pass.
 
 Material widths are converted to pixels with the **main window's** metres per pixel for every surface (see *Geometry*).
 
@@ -271,10 +286,11 @@ The previous version streamed for its whole lifetime: v4l2cam 18% even while hid
 | Leaks over that churn | vrcompositor fds and dmabufs and glassd's fds and RSS (60 MB) flat; material v2 over 900 changes: glassd 86 fds and 64 MB before and after |
 | Materialize timing (`tools/test_phase.sh`) | 0.10 s after `phase` 0 → 1: liquid slabs 0.41 (linear 250 ms), window and menu 0.36 (sheet-in spring; closed form 0.358); 0.38 s: spring 0.956 (closed form 0.953) |
 | Feed | mmap with 2 buffers, about 90 frames/s delivered while streaming, 30/s kept |
+| **v3 Phase 2 scenes** (`tools/test_bench.sh 15`, test room, 72 fps, GPU clock median 903 MHz in every scene) | Home 19 plates + 1 slab 0.86 ms (p90 1.19); library cover + plate + 3 slabs 1.35 ms; Control Center 4 plates 0.96 ms; keyboard 1.59 ms (p90 3.65). All ≤ 2.5 ms (GL-3). R1 build (nine-tap cover copy, plates over a cover see it): library 1.72 ms, keyboard 1.98 ms, Home 1.03 ms, Control Center 1.00 ms at 903 MHz; the nine taps cost about 0.3 ms in the slab-heavy scenes (a five-tap variant saved 0.15 ms but left a visible X in a slab over a plate) |
 
 ## Verifying without the headset
 
-All tools use a test key prefix and private output paths, so they run next to a live daemon. Build them with `build.sh`; run them on the Frame.
+All tools use a test key prefix and private output paths, so they run next to a live daemon. Build them with `build.sh`; run them on the Frame. Their fixtures live under `/tmp/lgs/p9-fx/<test>/` (RAM, removed on any exit; the Python tests write no `__pycache__`).
 
 | Tool | Checks |
 |---|---|
@@ -287,7 +303,11 @@ All tools use a test key prefix and private output paths, so they run next to a 
 | `build/feedprobe [sessions ms gap buffers]` | How the loopback behaves on short attaches (stale first buffer, time to the first fresh frame). Prints numbers only |
 | `build/inview` | Where Steam's window and bar corners land in the feed (u, v) for the current head pose. Prints numbers only |
 | `tools/test_phase.sh` | Materialize timing: flips every piece of glass from `phase` 0 to 1 and back, logs the displayed phase at fixed delays (no camera, nothing shown) |
-| `tools/test_material.sh [DIR] [args]` | The material over the procedural test room (no camera, so the dumps may be kept): `tools/test_material.json` (the window with a circle, a capsule, a primary capsule, a menu, a side ornament and a toolbar straddling its bottom edge, plus a bar of liquid capsules below it) over `room`, `room-hole` (the room behind the UI unknown), `stripes` (a lensing chart) and `room-offaxis` (eye 0.35 m right, 0.1 m up). Writes `DIR/<backdrop>/{main,bar}.png` and `…-view.png`. Extra args go to glassd, e.g. `--phase 0.35` or `--debug-view 1` |
+| `tools/test_shapes.py` (v3 part, GL-1) | 35 plates of six materials on a windowless surface: 32 drawn and listed, 3 dropped and listed; plates opaque, gaps empty; the occluder ≈ .55 of its twin; the `dim` plate translucent; a hole's fill only inside its crop; a `none` cell empty; a green-tinted slab green. R1: no opaque near-black texel in a window cover without slabs; a surface mask and a world mask each hide more of the room map (`room-hole`); a slab's cell changes with `coverDz` |
+| `tools/test_holes.py` (GL-2, R1) | The hero stand-in's holes in numbers: renders `tools/test_holes.json` with and without the cut-outs, head-on and off axis, and measures each sliver's dL against the art it hides, beside the control (shape), in the crop's corners and along its edge (rim). PASS with edge tones: no bracket, no rim line, a shadow never lighter than the art |
+| `tools/test_bench.sh [SECONDS]` (GL-3) | GPU median per frame for the Phase 2 scenes in `tools/bench/` (Home 19 plates + 1 slab, library, Control Center 4 plates, keyboard) over the test room; PASS ≤ 2.5 ms |
+| `tools/test_fake.py` (GL-6) | `native/spike/fakeglassd` against the v3 contract: output fields and caps, plate limits, the painted plates, holes, tints and `none` cells |
+| `tools/test_material.sh [DIR] [args]` | The material over the procedural test room (no camera, so the dumps may be kept): `tools/test_material.json` (the window with a circle, a capsule, a primary capsule, a menu, a side ornament and a toolbar straddling its bottom edge, plus a bar of liquid capsules below it) over `room`, `room-hole` (the room behind the UI unknown), `stripes` (a lensing chart) and `room-offaxis` (eye 0.35 m right, 0.1 m up). Writes `DIR/<backdrop>/{main,bar}.png` and `…-view.png`. Extra args go to glassd, e.g. `--phase 0.35` or `--debug-view 1`. v3 (GL-2): `holes{,-offaxis}` (`tools/test_holes.json` with `--view-content hero`: tinted Play with a hole, cluster circles with holes, a blue primary, a moved crop without a hole) and `plates{,-offaxis}` (`tools/test_plates.json`: windowless Home, 19 plates, the focused cell over its occluder plate); R1: `platecover{,-offaxis}` (`tools/test_platecover.json`: plates over the window cover) |
 
 ```sh
 mkdir -p /tmp/lgs/t

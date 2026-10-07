@@ -2,7 +2,7 @@
 
 Owner: **P3**. Files: `device/rt/04-input.js`, `05-attention.js`, `06-states.js`, `07-tooltip.js` (and the retired prototype `device/proto/input_mode.js`). Sources: PLAN §1.4, §1.13, §2.3 P3; IM (`capabilities/input-mode.md`); CTL §4, §11; VP P-01 to P-12; D2 §10.
 
-**Status:** see the "Status" section of `docs/phase2/wp/P3.md`. Interfaces below are stable from M1; behaviour lands at M3. Anything marked *(M3)* is a stub that does nothing until then.
+**Status:** see the "Status" section of `docs/phase2/wp/P3.md`. Interfaces below are stable from M1 and **live from M3** (2026-10-07, evidence in `wp/P3.md`; IN-7 as written is a recorded deviation, P3-D4, §4.1). This file only grows; behaviour changes are listed in §8.
 
 Everything runs in **SharedJSContext** (P1's bundle). Nothing is persisted. Every class, attribute, listener, node and wrapper listed here is removed by `remove()` (G-REMOVE, RT-4).
 
@@ -18,8 +18,9 @@ Everything runs in **SharedJSContext** (P1's bundle). Nothing is persisted. Ever
 | `tooltip` | `07-tooltip.js` | `input`, `attention` | `wp.p3` |
 
 - Each file calls `__LGS_RT.define({name, deps, flag, install(rt), remove()})` (P1, `contracts/runtime.md`). If `__LGS_RT` is absent (runtime not loaded) the file does nothing.
-- **`wp.p3`** gates the whole package. Off: none of the APIs below exist on `rt`, and no class is set anywhere. Tests turn it on with `--flags wp.p3` (P10). Recommended default once P3 reaches M3: **on** (V1 decides in `defaults.json`).
+- **`wp.p3`** gates the whole package. Off: none of the APIs below exist on `rt`, and no class is set anywhere. Tests turn it on with `--flags wp.p3` (P10), together with their own flag (`--flags wp.p3,wp.c2a`); a module that lists `attention` in `deps` stays `blocked` while `wp.p3` is off. Recommended default now that P3 is at M3: **on** (V1 decides in `defaults.json`; REQ P3->V1).
 - **`haptics`** (S17, default off). `rt.haptic()` is a dry run unless this flag is exactly `true`. No test turns it on.
+- **`tipQuick`** (default off; P3-D4, PLAN §1.17 rule). Off: tooltip timing per PLAN §1.13 / D2 §11 (in **after** 0.8 s, out **starts** 0.2 s after leave). On: the P3 card's literal IN-7 timing (fully in **at** 0.8 s, gone ≤ 0.25 s after leave). Read live; changing it re-registers the tooltip owners (§4.1).
 - **Consumers** either list `'input'` / `'attention'` / … in their own `deps` (P1 then skips them while P3 is off), or feature-test: `if (rt.input) …`. Never call Steam's getters for the input mode yourself (PLAN §1.4: one accessor).
 
 ---
@@ -33,8 +34,8 @@ Everything runs in **SharedJSContext** (P1's bundle). Nothing is persisted. Ever
 | `html.lgs-input-pad` / `html.lgs-input-laser` | exactly one of the two | `FocusNavController.NavigationSource` (1 GAMEPAD, 2 KEYBOARD_SIMULATOR → pad; 3 MOUSE, 4 TOUCH, 5/6 pads → laser; 0 UNKNOWN → SteamVR's mode) | Every state look: hover, focus, press, light spot |
 | `html[data-lgs-vr-mode]` | `"gamepad"` / `"laser"`; absent when SteamVR's mode is unknown | `vrGamepadInput.IsInGamepadNav` | Steam's mode-dependent nodes (the laser-only Sort/Filter pill), glyph badges (gamepad only, VP P-26) |
 
-- All popups share one mode (it is a SharedJSContext singleton, IM §2.4). A new popup is painted at creation and again at +250 ms and +1 s.
-- Painting is synchronous inside Steam's change notification, so the class flips in the same task as Steam's own `.gpfocus` removal.
+- All popups share one mode (it is a SharedJSContext singleton, IM §2.4). A new popup is painted as soon as P1's window registry reports it (`rt.windows.track`: once its `<body>` exists; P1's 2 s reconcile catches any window a callback missed). Without P1's registry (prototype path only) P3 hooks `g_PopupManager` itself and paints at creation, +250 ms and +1 s.
+- Painting is synchronous inside Steam's change notification, so the class flips in the same task as Steam's own `.gpfocus` removal. Measured: all 10 live popups flip on the first CDP laser move and back on the first pad press (IN-1).
 
 **CSS rules for every area (P4 and contexts):**
 
@@ -56,12 +57,17 @@ html:not(.lgs-input-pad) X:hover        { /* hover look */ }
 | `rt.input.mode` | `'pad'` or `'laser'` (the stubbed value while a stub is active) |
 | `rt.input.vrMode` | `'gamepad'`, `'laser'` or `'none'` |
 | `rt.input.source` | `'gamepad'`, `'keyboard-sim'`, `'mouse'`, `'touch'`, `'lpad'`, `'rpad'` or `'unknown'` |
-| `rt.input.state()` | `{mode, vrMode, source, stub: null \| {mode, vrMode, until}, live: {mode, vrMode, source}, windows, sound: {bus, uiSoundsEnabled}, haptics: {armed, available}}` |
+| `rt.input.state()` | `{mode, vrMode, source, stub: null \| {mode, vrMode, until}, live: {mode, vrMode, source}, windows, subscriptions: {navigationSource, vrOverlayFocus, mobxReaction}, sound: {bus, enum, uiSoundsEnabled}, haptics: {armed, available}}` |
 | `rt.input.onChange(fn)` | Returns `off()`. `fn(state, previous, reason)` runs when `mode` or `vrMode` changes. `reason`: `'source'`, `'vr-mode'`, `'vr-overlay-focus'`, `'poll'`, `'stub'`. Exceptions in `fn` are logged and swallowed |
 | `rt.input.stub(mode, {vrMode, ttlMs} = {})` | **Test hook.** Forces `mode` (`'pad'` / `'laser'`) and optionally `vrMode` in **our** classes, attribute and `rt.input` values only. Steam's getters, `NavigationSource` and `vrGamepadInput` are never touched (HA AT-14d, WN AT-24, IN-2). Fires `onChange` with reason `'stub'`. Expires after `ttlMs` (default 120 000). Returns `restore()`. `rt.input.stub(null)` clears it. P1's `rt.test` input-mode stub and P10's `--mode laser\|pad` call this |
 | `rt.input.windows()` | The live Steam popup windows P3 has hooked (array of `Window`) |
+| `rt.input.surfaceOf(win)` | That window's kind as P1 reports it (`main`, `bar`, `barpopup`, …) |
+| `rt.input.soundId(event)` | The `ENavSound` number `rt.sound(event)` would request, without playing anything |
 | `rt.sound(event, {immediate} = {})` | Plays a Steam UI sound through Steam's own bus (§5). Also `rt.input.sound` |
 | `rt.haptic(kind, elOrWindow)` | Dry-run haptic plan (§6). Also `rt.input.haptic` |
+| `rt.input.test.index(fake)` | **Test hook.** P3's own `%{Token}` resolution uses `fake.selector(tok)` instead of P1's class index (to simulate an index that is still incomplete); `null` restores it. The theme and other modules are not affected. Cleared on removal |
+
+`rt.input`, `rt.sound`, `rt.haptic` (and `rt.attend`, `rt.attention`, `rt.states`, `rt.tooltip` below) are published with P1's `rt.expose`, so P1 deletes them whenever the package is removed or fails to install.
 
 ---
 
@@ -70,7 +76,7 @@ html:not(.lgs-input-pad) X:hover        { /* hover look */ }
 Hover never moves Steam's focus [PROVEN, IM D-7], so every delayed reveal (Home card ramp and name plates, tooltips, the More circle, the frozen target) is fed by this one state machine:
 
 - **gamepad mode:** `vgp_onfocus` / `vgp_onblur` on the element (capture listeners on each popup document), or a T3 component's `onGamepadFocus` / `onGamepadBlur` through `rt.attention.feed`;
-- **laser mode:** `mouseover` / `mouseout` (trusted CDP or real laser events) plus dwell; a dwell timer fires only if the element still matches `:hover`.
+- **laser mode:** `mouseover` / `mouseout` plus dwell. A dwell or step timer fires only if the pointer is still on the element: for **trusted** events (the real laser, CDP `Input.dispatchMouseEvent`) that means it still matches `:hover`; for **untrusted** events (the lab's synthetic `L.hover`, which cannot set `:hover`) it means the last `mouseover` target in that document is still inside it. So `L.hover` drives attention, dwell and tooltips in a lab step with `--mode laser` (IN-3b); CSS keyed on `.lgs-dwell:hover` still needs real (CDP) hover.
 
 ### 2.1 Global laser dwell (no registration needed)
 
@@ -78,24 +84,25 @@ Hover never moves Steam's focus [PROVEN, IM D-7], so every delayed reveal (Home 
 - Default `dwellSelector`: `.Panel, button, [role="button"], [role="tab"], a[href], [data-lgs-dwell]`. Not `.Focusable` (Steam removes it under the laser). Elements larger than half the window (page containers) are skipped.
 - Cleared at once when the pointer leaves the element, when the mode becomes pad, and on removal. A sweep faster than one target per 80 ms sets none (IN-3).
 - One element per window at a time. P6's reporter keys laser lifts on `.lgs-dwell:hover`.
+- If Steam re-renders the element under a still laser before the 80 ms are up (library cards swap a child on hover) and Chromium has not yet sent the new `mouseover` (measured up to 420 ms late), the card now under the laser (from the document's `:hover` chain) gets the dwell on time.
 
 ### 2.2 `rt.attend(target, opts)` → handle
 
-`target` is an `Element`, a selector string (`%{Token}` allowed, resolved through Steam's class index) or a predicate `fn(el) → bool`. A selector matches the event target or its closest ancestor; registrations are delegated, so virtualized rows that recycle need no re-registration.
+`target` is an `Element`, a selector string (`%{Token}` allowed, resolved through Steam's class index; resolved on use and retried at most once a second until every token resolves, so a registration made while P1's index is still incomplete starts working once it is complete) or a predicate `fn(el) → bool`. A selector matches the event target or its closest ancestor; registrations are delegated, so virtualized rows that recycle need no re-registration.
 
 | Option | Default | Meaning |
 |---|---|---|
 | `dwellMs` | `80` | Continuous attention before `dwell` fires |
 | `steps` | `[]` | Further thresholds in ms (e.g. `[400, 800]` for Home's name plate and card). Each fires `step` and sets a class |
 | `padImmediate` | `false` | Gamepad focus fires `dwell` and every step at once (for GP's `data-lgs-tip-pad="now"` style reveals) |
-| `leaveMs` | `0` | Grace before `leave`. Attention returning to the same element within it cancels the leave and keeps the timers (Home's 0.3 s hysteresis) |
+| `leaveMs` | `0` | Grace before `leave`. Attention returning to the same element within it cancels the leave and keeps the timers (Home's 0.3 s hysteresis). `0`: `leave` fires in the same task as the event (no timer). The laser's leave (and grace) starts at the attended element's own `mouseout`, not at the next element's `mouseover`, which Steam's handlers can hold back by about 70 ms |
 | `surfaces` | all | Restrict to popup kinds, e.g. `['main']` (names as `rt.windows` reports them; `main` always works) |
 | `classes` | `true` | Set the classes below on the attended element |
 | `onEnter(el, ev)`, `onDwell(el, ev)`, `onStep(el, ms, ev)`, `onLeave(el, ev)` | — | Callbacks. `ev = {source: 'laser' \| 'pad' \| 'feed', t, win}`. Exceptions are logged and swallowed |
 
 **Classes** (only with `classes: true`): `lgs-attend` from enter to leave; `lgs-attend-<ms>` from each threshold (`dwellMs` and every step) to leave, e.g. `lgs-attend-800`.
 
-**Order guarantee:** `enter` → `dwell` → `step`… → `leave`, at most one `leave` per `enter`. A mode switch ends every active attention of the old input with `leave` (no grace).
+**Order guarantee:** `enter` → `dwell` → `step`… → `leave`, at most one `leave` per `enter`. A mode switch ends every active attention of the old input with `leave` (no grace). When another input enters an element that is already attended (e.g. the laser arrives on an element a T3 component fed), the attention continues and now belongs to that input, whose leave ends it.
 
 **Handle:** `{off(), active() → [{el, since, source, reached: [ms…]}]}`. `off()` fires no `leave` and removes its classes.
 
@@ -107,6 +114,7 @@ Hover never moves Steam's focus [PROVEN, IM D-7], so every delayed reveal (Home 
 | `rt.attention.feed(el, 'enter' \| 'leave', source = 'feed')` | Drive registrations from a T3 component's `onGamepadFocus` / `onGamepadBlur` (HA AT-8(d)). Registrations whose target matches `el` behave as if attention arrived or left |
 | `rt.attention.dwellSelector` | Read/write string (§2.1) |
 | `rt.attention.dwellMs` | `80` (read-only) |
+| `rt.attention.dwellState()`, `rt.attention.registrations()` | Diagnostics for tests: the dwell per surface (`{surface, on, ms, cls}`), and the number of live `rt.attend` registrations |
 
 ---
 
@@ -124,8 +132,11 @@ All listeners are passive, capture phase, on each popup document. P3 **never** c
 
 | Member | Does |
 |---|---|
-| `rt.states.spotSelector`, `rt.states.pressSelector` | Read/write selector strings |
-| `rt.states.stats()` | `{spotWrites, pressed, focusIn}` counters, for IN-4/IN-5 |
+| `rt.states.spotSelector`, `rt.states.pressSelector` | Read/write selector strings (`%{Token}` allowed) |
+| `rt.states.addSpotHost(selector)` | An area's own spot host (e.g. a card's outer box whose CSS draws the spot), tried before the default list. Returns `off()` |
+| `rt.states.stats()` | Counters for IN-4/IN-5: `{spotWrites, spotClears, pressed, released, safetyClears, focusIn, ringCheck, disabledFocus}` |
+| `rt.states.selectors()` | Diagnostics: `{spot, press, disabled, ring, hosts}`, each `{sel, resolved}`. Every `%{Token}` selector here (`%{FocusRing}`, the gamepaddialog `Disabled` classes, area selectors) is resolved lazily and retried until P1's class index has all its tokens |
+| `rt.states.test.feed(type, target, detail)` | **Test hook.** Runs P3's own handler for `vgp_onbuttondown` / `vgp_onbuttonup` / `vgp_onfocus` / `vgp_onblur` on a fake event object; nothing is dispatched to Steam. Returns `{prevented, stopped}` (always false: P3 never cancels) |
 
 ---
 
@@ -135,15 +146,18 @@ All listeners are passive, capture phase, on each popup document. P3 **never** c
 
 - **Owners:** any element in a Steam window with a `data-lgs-tip` attribute (`""`, `"below"`, `"above"`), plus anything registered with `rt.tooltip.register`. Areas set the attribute from their own T2 code (C1a Back circle, GP action cluster with `"above"`, …).
 - **Text:** `data-lgs-tip-text`, else `aria-label`, else `title`. One line, ≤ 32 characters is the owner's job. Controls with visible text get no tooltip (VP P-12); `register(…, {force: true})` overrides the check for text that our CSS hides (E-BACK).
-- **Timing (PLAN §1.13):** in after **0.8 s** of attention (laser hover or gamepad focus), out **0.2 s** after leave or blur, in both modes. `data-lgs-tip-pad="now"` shows at once under gamepad focus. Materialize 250 ms, dematerialize 350 ms; Reduce Motion: 150 ms fade.
-- **Node:** one `div.lgs-tip` per window document (`role="tooltip"`, `aria-hidden="true"`, `pointer-events: none`, `position: fixed`, `z-index: 7100`), label in `.lgs-tip-label`. Placement 12 px below the owner (above with `"above"`, or when the owner's bottom is below y 600), clamped 24 px inside the window. State: `data-state="in" | "out"`, `data-placement="below" | "above"`.
-- **Look:** a thick-glass capsule 48 px tall, 20 px Semibold, from P4 tokens, in a per-window `<style id="lgs-tip-style">` of low specificity (`:where()`), so theme CSS can override it. No border, no outline.
+- **Timing (PLAN §1.13, D2 §11 "After 0.8 s, materialize 250 ms | 0.2 s, dematerialize 350 ms", MO §4.17):** the materialize **starts** after **0.8 s** of attention (laser hover or gamepad focus), the leave **starts 0.2 s** after leave or blur, in both modes; attention that returns within those 0.2 s keeps the tooltip (no flicker from laser jitter). `data-lgs-tip-pad="now"` shows at once under gamepad focus. Materialize 250 ms (`--lgs-motion-mat-in`), dematerialize 350 ms (`--lgs-motion-mat-out`); Reduce Motion: P5's opacity-only versions (≤ 180 ms). Measured on computed opacity (2026-10-07, `wp/P3.md` IN-7): glass visible from about 820 ms, label at 0.5 by about 985 ms and 0.9 by about 1050 ms; the leave starts at about 207 ms, the label is gone at about 395 ms and the capsule at about 560 to 610 ms (node `hidden`).
+  - **P3-D4 (deviation from the P3 card's IN-7, pending the coordinator):** IN-7 asks for "the label at 900 ms; gone ≤ 250 ms after leaving". This timing cannot meet that: the label is at about 0.07 at 900 ms, and the capsule is still fully there at 250 ms. P3 keeps PLAN §1, D2, MO and Apple's sample as the default, where 0.8 s and 0.2 s are **delays**.
+  - **Flag `tipQuick`** gives the card's literal timing instead. The materialize starts at 0.55 s, so the tooltip is fully in at 0.8 s. There is no leave grace (`leaveMs` 0), and the dematerialize runs on `--lgs-d-reduce` (180 ms). Attention that returns to the same owner while the tooltip is leaving brings it straight back (`data-resume`, no animation). Measured: the label is at 1.0 at 900 ms, and the capsule is gone about 190 to 220 ms after leaving, for both inputs.
+- **Node:** one `div.lgs-tip.lgs-edge[data-lgs-mat="thick"]` per window document (`role="tooltip"`, `aria-hidden="true"`, `pointer-events: none`, `position: fixed`, `z-index: 7100`), label in `.lgs-tip-label`. Placement 12 px below the owner (above with `"above"`, or when the owner's bottom is below y 600), clamped 24 px inside the window. State: `data-state="in" | "out" | "hidden"`, `data-placement="below" | "above"`; inline `left`, `top` and `--lgs-maxside` (P5's materialize swell).
+- **Look:** a thick-glass capsule `--lgs-tooltip-h` (48 px) tall, `--lgs-fs-subhead` (20 px) Semibold, 20 px side padding: P4's `--lgs-mat-thick-bg`, `--lgs-mat-thick-blur`, `--lgs-mat-thick-shade` and a 5 mm CSS shadow (CTL §11), edges from P4's edge hook on `::before` (E3 arcs; High Contrast gets P4's 2 px stroke). Motion: P5's `lgs-mat-glass-in/out` on the capsule and `lgs-mat-content-in/out` on the label. All of it in a per-window `<style id="lgs-tip-style">` of zero specificity (`:where()`, literal values only as fallbacks), so theme CSS can override any of it. No border, no outline. Live shot `shots/p2_p3_tooltip_live.png`, compared with the mockup in `shots/p2_cmp_p3_tooltip.png`.
 
 | Member | Does |
 |---|---|
 | `rt.tooltip.register(target, {text, placement, padNow, force, surfaces})` | `target` as in `rt.attend`. `text`: a string, an attribute name prefixed `@` (`'@aria-label'`), or `fn(el) → string`. Returns `off()` |
-| `rt.tooltip.state()` | `{shown: [{surface, text, rect}], owners, barWrapper}` |
+| `rt.tooltip.state()` | `{shown: [{surface, state, text, placement, rect, shownAt, why}], owners, barWrapper, mapTooltips, count, timing: {quick, startMs, inMs, graceMs, outMs}}` |
 | `rt.tooltip.hideAll()` | Hides every in-window tooltip at once |
+| `rt.tooltip.show(el)`, `rt.tooltip.hide(el)` | **Test hooks:** show an owner's tooltip now (no attention; same checks and look), and start its leave |
 
 ### 4.2 Bar tooltips (Steam's `tooltip` popup)
 
@@ -187,10 +201,18 @@ Calls Steam's sound bus (`PlayNavSound(eSound, bImmediate)`, found by needles; f
 - no `lgs-input-*`, `data-lgs-vr-mode`, `lgs-dwell`, `lgs-attend*`, `lgs-pressed`, `lgs-focus-in`, `lgs-ring-check`, `lgs-focus-disabled` on any node of any window; no inline `--hx` / `--hy`;
 - no `.lgs-tip` node and no `#lgs-tip-style`;
 - `vrPooledPopupStore.ShowTooltip` identical to Steam's original;
-- subscriber counts back to baseline: `NavigationSource` subscribers, `vrGamepadInput` navigation-type callbacks, `g_PopupManager` created/destroyed callbacks, the MobX reaction disposed.
+- subscriber counts back to baseline: `NavigationSource` subscribers, `vrGamepadInput` navigation-type callbacks, `g_PopupManager` created/destroyed callbacks, the MobX reaction disposed;
+- no chunk record of ours in `webpackChunksteamui` (Steam's require is taken once per page load and the record is spliced out at once);
+- no P3 member on `__LGS_RT` (published through `rt.expose`).
+
+The same holds after a **partial** install (runtime.md §1 rule 2): every module sets its `remove` before its first subscription, and each Steam subscription registers its undo the moment it is made (also with P1's tracked `rt.cleanup`).
+
+**Memory:** P3 never keeps a page alive. Class marks are held through a `WeakMap` and `WeakRef`s. The last pointer target, the spot host and the tooltip's last owner are weak references. Strong references exist only for the current dwell, a press (≤ 400 ms), a focus entry (≤ 400 ms), the focused disabled element and the owner of a shown tooltip, and each is dropped at the next input event. Live check: the leak test in `wp/P3.md`.
 
 ## 8. Changes
 
 | Date | Change |
 |---|---|
 | 2026-10-07 | M1: first version |
+| 2026-10-07 | M3: behaviour live. §1.1 paint timing through P1's registry; §1.2 `surfaceOf`, `soundId`, fuller `state()`; §2 untrusted (lab) hover drives attention; §2.3 diagnostics; §3 `addSpotHost`, `test.feed`, fuller `stats()`; §4 node classes, P4 material and P5 motion, test hooks |
+| 2026-10-07 | Review R1 fixes. §0 flag `tipQuick`. §1.2 `rt.expose`, `rt.input.test.index`. §2.1 dwell survives a re-render under a still laser. §2.2 lazy `%{Token}` targets; `leaveMs: 0` leaves in the same task; the laser's leave starts at `mouseout`; re-entry by another input hands the attention over. §3 `selectors()`, lazy tokens. §4.1 timing measured on opacity, deviation P3-D4, `tipQuick`, `state().timing`. §7 chunk record, partial installs, memory |

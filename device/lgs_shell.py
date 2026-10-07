@@ -35,14 +35,19 @@ In both modes it also (docs/phase2/contracts/daemon.md):
   - injects SteamVR page scripts device/vr/<page>.<name>.js and removes them
     again.
 
-Nothing persists: the unit is transient (systemd-run --collect), it exits when
-the Steam theme goes off, and on exit it removes every node, class and file it
-made. If it dies without cleaning up, lgs-native clears itself within 3 s and
-the scene-graph nodes within 12 s (heartbeat watchdogs).
+Nothing persists: the unit is transient (systemd-run --collect) and writes no
+bytecode (python3 -B); lgs off stops it at once. A theme off without lgs off
+(a lab --stock step) makes it dormant: native layer, glassd, reporter and scene
+graph off, SteamVR page theming kept; it resumes when the theme is back and
+exits after shellThemeGraceS (600 s), at once after a Steam restart, or after
+120 s without Steam (contracts/daemon.md §1). On exit it removes every node,
+class, binding global and file it made. If it dies without cleaning up,
+lgs-native clears itself within 3 s and the scene-graph nodes within 12 s
+(heartbeat watchdogs).
 
   lgs_shell.py start [--native|--css|--auto] [--glassd PATH|none]
                      [--glassd-args "ARGS"] [--feed] [--stay]
-                     [--test-report PATH]
+                     [--test-report PATH] [--assume-caps CAPS]
                                             start the unit; lgs on does this.
                                             --native opts in to the native layer
                                             (from this command glassd gets
@@ -50,29 +55,34 @@ the scene-graph nodes within 12 s (heartbeat watchdogs).
                                             --glassd-args is given); --css is CSS
                                             only; neither (or --auto) keeps a
                                             running unit and resolves "auto" for
-                                            a new one. --stay, for lab tests
-                                            only, keeps it dormant instead of
-                                            exiting while the theme is off.
+                                            a new one. --stay (lab tests and
+                                            native-session only): dormant up to
+                                            STAY_MAX_S while the theme is off,
+                                            and native only for STAY_MAX_S.
                                             --test-report (lab) replaces the
                                             reporter with a report JSON file.
   lgs_shell.py stop                         stop it (clean teardown)
   lgs_shell.py status                       unit + live daemon status (JSON)
-  lgs_shell.py selftest NAME                lab checks: actions (offline), dm3,
-                                            dm4, dm5, dm6 (contract §11)
+  lgs_shell.py selftest NAME                lab checks: actions (offline), dm1,
+                                            dm2, dm3, dm4, dm5, dm6, grace,
+                                            plates (contract §11)
   lgs_shell.py daemon [--native] [--glassd PATH|none] ...
                                             the unit's process (foreground)
 """
-import asyncio
-import collections
-import hashlib
-import json
-import os
-import signal
-import subprocess
 import sys
-import time
-import traceback
-import urllib.request
+
+sys.dont_write_bytecode = True     # no __pycache__ next to the code (hard rule 7); the unit also runs -B
+import asyncio  # noqa: E402
+import collections  # noqa: E402
+import hashlib  # noqa: E402
+import json  # noqa: E402
+import os  # noqa: E402
+import signal  # noqa: E402
+import subprocess  # noqa: E402
+import time  # noqa: E402
+import traceback  # noqa: E402
+import urllib.request  # noqa: E402
+import weakref  # noqa: E402
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, HERE)
@@ -104,7 +114,8 @@ REPORTER = "__LGS_LAYERS"          # global installed by lgs_layers.js
 STEAM_MAIN_KEY = "valve.steam.gamepadui.main"
 DAEMON_BEAT_S = 2.0                # bridge 'daemon' heartbeat; its ttlMs is 3x this
 GEOM_POLL_S = 1.0                  # systemui geometry and page poll
-GEOM_DUMP_S = 5.0                  # DumpLaserOverlays (a compositor round trip) at most this often
+GEOM_DUMP_S = 15.0                 # DumpLaserOverlays (a ~100 ms compositor round trip) as a safety net this often;
+GEOM_DUMP_AFTER = (1.0, 3.0, 6.0)  # ... and these many s after the frame menu's node changed (the dump lags it)
 ACTION_TICK_S = 1.0                # plugin scan and tick
 RAMP_IN_MS = {"window": 735, "thick": 735}     # GM §5.2: covers and thick ride sheet-in (settles ~0.73 s)
 RAMP_OUT_MS = {"window": 514, "thick": 514}    # sheet-out (~0.51 s)
@@ -117,7 +128,7 @@ SLAB_V3 = {"tint": "tint", "hole": "holes", "ox": "offset", "oy": "offset"}
 SLAB_V2 = ("phase", "appear", "phaseMs")
 PLATE_KEYS = ("id", "x", "y", "w", "h", "r", "material", "phase", "appear", "phaseMs", "tint", "fill",
               "occluder", "shadow")
-TOP_V3 = {"unitM": "unitM", "masks": "masks"}
+TOP_V3 = {"unitM": "unitM", "masks": "masks", "roomDim": "roomDim"}
 COVER_DZ, BASE_DZ = 0.001, 0.002   # metres toward the viewer (NATIVE.md)
 SG_MAX_PUSH_HZ = 15                # lgs_sg.js scheduler pushes per second, at most
 SPEC_MIN_INTERVAL = 1 / SG_MAX_PUSH_HZ
@@ -131,7 +142,13 @@ STILL_S = 0.15                     # a layer pops once its rect has been still t
 STILL_PX = 2.0                     # ... within this many texture px
 OVERLAP_CLIP_PX = 2.5              # overlaps this thin are trimmed off, wider ones skip the layer
 SLAB_SIZE_TOL_PX = 2.5             # glassd slab vs element x backdropScale
-THEME_OFF_POLLS = 3                # Steam theme seen off this many polls (1 s) -> exit
+THEME_OFF_POLLS = 3                # Steam theme seen off this many polls (1 s) -> dormant (or exit)
+THEME_OFF_GRACE_S = 600            # ... dormant this long before exiting (flag shellThemeGraceS; 0 = exit)
+STAY_MAX_S = 2400                  # --stay: dormant at most this long, and native at most this long after start
+                                   # (glass.py's native-session client gives up after 2400 s; a unit older than
+                                   # that has lost its client, e.g. a usage-limit cut-off)
+STEAM_GONE_S = 120                 # Steam's devtools unreachable this long -> exit (also with --stay)
+STEAM_SLOW_MAX = 3                 # evaluations timing out in a row before the Steam socket is dropped
 GLASSD_MAX_CRASHES = 5             # within GLASSD_CRASH_WINDOW s -> give up (CSS only)
 GLASSD_CRASH_WINDOW = 120
 GLASSD_TEMP_EXIT = 75              # EX_TEMPFAIL from glassd: SteamVR gone, lock held; not a crash
@@ -141,6 +158,8 @@ MAIN_QUAD_W = 0.98                 # main window's nominal world width (m), NATI
 MAIN_QUAD_TOL = 0.12               # glassd's quadW off by more than this: main stays CSS only
 BUG_LIMIT, BUG_WINDOW = 5, 120     # unexpected exceptions in one loop before it is fatal
 SPEC_LOG_MIN_S = 1.0               # "systemui: spec" log lines at most this often
+START_LOCK = "/tmp/lgs/shell-start.lock"   # serializes start() (two `lgs on` at once; RAM)
+TEST_EXT_DIR = "/tmp/lgs/shell-ext-test"   # lab: RAM plugins (kinds echo / read only), selftest dm4
 
 
 def _net_errors():
@@ -371,6 +390,8 @@ def _pdeathsig():
 class CDP:
     """A persistent devtools websocket: concurrent calls plus event handlers."""
 
+    live = weakref.WeakSet()       # open sockets, closed at the daemon's exit (no aiohttp warnings)
+
     def __init__(self, name, ws_url):
         self.name = name
         self.ws_url = ws_url
@@ -385,6 +406,7 @@ class CDP:
     async def open(self):
         import aiohttp
         self.http = aiohttp.ClientSession()
+        CDP.live.add(self)
         try:
             self.ws = await self.http.ws_connect(self.ws_url, max_msg_size=0)
         except BaseException:
@@ -448,6 +470,7 @@ class CDP:
 
     async def close(self):
         self.closed = True
+        CDP.live.discard(self)
         try:
             if self.ws is not None:
                 await self.ws.close()
@@ -557,6 +580,22 @@ BRIDGE_MISSING_JS = r"""
   return names.filter((n) => { try { return b.get(n) === undefined; } catch (_) { return true; } });
 })
 """
+# Our CDP binding globals out of SharedJSContext: Runtime.removeBinding does not
+# delete the function a closed session installed (G-REMOVE, review R1 M1). Only
+# native-code functions (bindings); a test's own JS stand-in is left alone.
+# Returns the names deleted, joined ('' when none).
+DELETE_BINDINGS_JS = r"""
+(function (names) {
+  const out = [];
+  for (const n of names) {
+    const f = window[n];
+    if (typeof f === 'function' && /\[native code\]/.test(Function.prototype.toString.call(f))) {
+      try { delete window[n]; out.push(n); } catch (_) { /* non-configurable */ }
+    }
+  }
+  return out.join(',');
+})
+"""
 # Steam tick: theme on, Reduce Motion
 STEAM_TICK_JS = ("JSON.stringify([!!(window.__LGS && window.__LGS.state && window.__LGS.state.enabled), "
                  "!!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)])")
@@ -585,6 +624,9 @@ GEOM_JS = r"""
       const p = el.buildNode({}, el)[1].properties;
       g.frameMenu = { key: p.key, mpp: p['meters-per-pixel'], uv: [p.uv_min[0], p.uv_min[1], p.uv_max[0], p.uv_max[1]],
                       visible: p.visibility === 0 || p.visibility === undefined };
+      // what can change the laser panel's size: a change re-dumps (not published)
+      out.fmSig = JSON.stringify(['key', 'uv_min', 'uv_max', 'meters-per-pixel', 'visibility', 'scale-index',
+                                  'frame-resize-scale-factor', 'origin', 'curvature'].map((k) => p[k]));
       if (wantDump && window.OverlayStore && OverlayStore.DumpLaserOverlays) {
         const d = await OverlayStore.DumpLaserOverlays();
         const ov = d && d.overlays || {};
@@ -706,6 +748,14 @@ def _num(v, lo=-1e7, hi=1e7):
     return f if lo <= f <= hi and f == f else None
 
 
+def _nums(v, n, lo=-1e7, hi=1e7):
+    """A list of exactly n finite numbers (floats), else None."""
+    if not isinstance(v, (list, tuple)) or len(v) != n:
+        return None
+    out = [_num(x, lo, hi) for x in v]
+    return None if None in out else out
+
+
 def _round(f):
     return round(f, 4) if f != int(f) else int(f)
 
@@ -763,7 +813,25 @@ def clean_plate(p, i):
     return out
 
 
-def clean_hole(h, clip=None):
+def clean_edges(e):
+    """hole.edges (contracts/glassd.md §1.4, cap holeEdges): {top, right, bottom,
+    left}, each a colour or a list of 1-8 colours; unparsable colours and empty
+    edges are dropped. None when nothing is left."""
+    if not isinstance(e, dict):
+        return None
+    out = {}
+    for k in ("top", "right", "bottom", "left"):
+        v = e.get(k)
+        if isinstance(v, list) and v and not (len(v) in (3, 4) and all(_num(x) is not None for x in v)):
+            cs = [c for c in (clean_color(x) for x in v[:8]) if c is not None]
+            if cs:
+                out[k] = cs
+        elif v is not None and clean_color(v) is not None:
+            out[k] = clean_color(v)
+    return out or None
+
+
+def clean_hole(h, clip=None, edges=False):
     if h is True:
         return {"clip": [_round(round(v, 2)) for v in clip]} if clip else True
     if not isinstance(h, dict):
@@ -774,6 +842,8 @@ def clean_hole(h, clip=None):
             out[k] = _round(_num(h[k], lo, hi))
     if "fill" in h and clean_color(h["fill"]) is not None:
         out["fill"] = clean_color(h["fill"])
+    if edges and clean_edges(h.get("edges")) is not None:     # REQ P9->P8, only with glassd's holeEdges cap
+        out["edges"] = clean_edges(h["edges"])
     c = h.get("clip")
     if isinstance(c, list) and len(c) == 4 and all(_num(v) is not None for v in c):
         out["clip"] = [_round(round(_num(v), 2)) for v in c]
@@ -846,6 +916,11 @@ class Shell:
         self.steam_ok = False
         self.theme_on = None
         self.theme_off_polls = 0
+        self.dormant_since = None             # theme off, waiting up to the grace for it to come back
+        self.steam_target_id = None           # SharedJSContext's target id: a new one = Steam restarted
+        self.steam_restarted = False          # ... and the theme has not been seen on since
+        self.steam_lost_at = None             # Steam's devtools unreachable since
+        self.slow_evals = 0                   # Steam evaluations that timed out (connection kept)
         self.report = None
         self.report_at = 0.0
         self.reports = 0
@@ -890,6 +965,7 @@ class Shell:
         self.g_temp_exits = 0
         self.g_last_exit = None
         self.g_given_up = False
+        self.g_kill_reason = None             # 'dormant' while we stop glassd on purpose
         self.g_frames = False
         self.gout = None
         self.gout_mtime = None
@@ -906,6 +982,7 @@ class Shell:
         self.vr_pages = {}
         self.vrx_status = {}                  # page -> {script name: state}
         self.vrx_failed = {}                  # (page, name) -> version that threw
+        self.vrx_sig, self.vrx_scripts = None, {}   # page script files: (folder, name, mtime) list, parsed
         # flags (defaults.json < /tmp/lgs/flags.json)
         self.flagreader = FlagReader()
         self.rt_flags = {}
@@ -917,7 +994,7 @@ class Shell:
         self.bridge_runtime = None            # True / False once checked
         self.bridge_beat_at = 0.0
         # actions
-        self.registry = shell_ext.Registry(self)
+        self.registry = shell_ext.Registry(self, test_dir=TEST_EXT_DIR)   # + RAM test plugins (echo / read)
         self.registry.add_builtin("sgwindow", {
             "args": {"dim": {"type": "num", "min": 0, "max": 1, "optional": True},
                      "recede": {"type": "num", "min": 0, "max": 0.3, "optional": True},
@@ -940,8 +1017,10 @@ class Shell:
         self.page = None
         self.geom_err = None
         self.geom_at = 0.0
-        self.dump_at = 0.0
+        self.geom_dump_at = 0.0               # last DumpLaserOverlays read (status geomDumpAt; DM-3 waits for one)
         self.geom_ok = False
+        self.vr_conns = {}                    # SteamVR page target id -> CDP (kept open; m4)
+        self.vr_http = None                   # aiohttp session for 8090's /json/list (keep-alive)
         # glassd.json v3 and the materialize policy
         self.items_first = {}                 # (surface, kind, id) -> time first written
         self.items_last = {}                  # (surface, kind, id) -> last item written (for its fade-out)
@@ -959,6 +1038,8 @@ class Shell:
 
     # ---------------------------------------------------------------- state
     def mode(self):
+        if self.dormant_since is not None:     # theme off without lgs off: waiting for it (contract §1)
+            return "dormant"
         if not self.native_enabled:
             return f"css-only ({self.css_reason})"
         if self.native_ok():
@@ -990,6 +1071,15 @@ class Shell:
         return bool(self.native_possible() and self.glassd_running() and self.glassd_ready()
                     and self.steam_ok and self.theme_on)
 
+    def native_why(self):
+        """Why native_ok() is false (logs and status), or None."""
+        for ok, why in ((self.native_possible(), "native off"), (self.glassd_running(), "glassd not running"),
+                        (self.glassd_ready(), "glassd not ready"), (self.steam_ok, "steam not connected"),
+                        (self.theme_on, "theme off")):
+            if not ok:
+                return why
+        return None
+
     def current_report(self):
         if self.report is not None:
             return self.report
@@ -1014,7 +1104,7 @@ class Shell:
     def caps(self):
         """glassd's v3 features (glassd-out.json caps); empty for a v2 binary."""
         c = (self.gout or {}).get("caps")
-        caps = set(c) if isinstance(c, list) else set()
+        caps = {x for x in c if isinstance(x, str)} if isinstance(c, list) else set()
         return caps | self.assume_caps       # lab only (--assume-caps): test the writer against an older glassd
 
     def refresh_flags(self):
@@ -1049,9 +1139,30 @@ class Shell:
             return {k: self.window_req[k] for k in ("dim", "recede", "motion") if k in self.window_req}
         return None
 
+    def theme_grace_s(self):
+        """How long to stay dormant while the Steam theme is off (flag
+        shellThemeGraceS, 0..3600 s; 0 = exit after THEME_OFF_POLLS as in Phase 1).
+        A --stay unit (lab, native-session) waits STAY_MAX_S whatever the flag."""
+        if self.stay:
+            return STAY_MAX_S
+        v = _num(self.rt_flags.get("shellThemeGraceS"), 0, 3600)
+        return THEME_OFF_GRACE_S if v is None else v
+
+    def check_stay_limit(self):
+        """A --stay unit is native for at most STAY_MAX_S: after that its
+        native-session client is gone for sure (it gives up after 2400 s), so
+        the native layer ends and the unit follows the normal rules (contract §1)."""
+        if self.stay and time.time() - self.since >= STAY_MAX_S:
+            self.stay = False
+            self.note(f"--stay limit: running {STAY_MAX_S} s; its client is gone. Native layer off, normal "
+                      "theme-off rules from now on")
+            self.disable_native(f"--stay limit ({STAY_MAX_S} s) reached")
+
     def sg_wanted(self):
         """lgs_sg.js belongs in systemui: native mode, or (CSS only) an active
         transform override or a window state (P7's REQ, contracts/sg.md §1)."""
+        if self.dormant_since is not None:   # theme off: Steam's own panels until it is back
+            return False
         return self.native_possible() or bool(self.sg_rules) or self.window_state() is not None
 
     def daemon_value(self):
@@ -1127,6 +1238,7 @@ class Shell:
             "bridge": {"runtime": self.bridge_runtime,
                        "sent": {k: round(time.time() - t, 1) for k, (_, t) in self.bridge_sent.items()}},
             "geom": self.geom, "page": self.page, "geomError": self.geom_err,
+            "geomDumpAt": round(self.geom_dump_at, 2) if self.geom_dump_at else None,
             "actions": dict(self.registry.status(), replies=list(self.replies), trustedCtx=self.trusted_ctx),
             "vrScripts": self.vrx_status,
             "sgRules": {"active": [r.get("id") for r in self.sg_rules], "errors": self.sg_rule_errors,
@@ -1139,7 +1251,10 @@ class Shell:
                        "gpu_ms": g.get("gpu_ms"), "surfaces": sorted((g.get("surfaces") or {}).keys()),
                        "configSeq": self.gseq, "version": g.get("version"), "caps": sorted(self.caps()),
                        "fading": len(self.fading)},
+            "dormant": ({"since": round(self.dormant_since, 1), "graceS": self.theme_grace_s(),
+                         "stay": self.stay} if self.dormant_since is not None else None),
             "steam": {"connected": self.steam_ok, "themeOn": self.theme_on, "reporter": self.reporter_state,
+                      "restarted": self.steam_restarted, "slowEvals": self.slow_evals,
                       "reports": self.reports, "reportSeq": (self.report or {}).get("seq"),
                       "reportAgeS": round(time.time() - self.report_at, 1) if self.report_at else None,
                       "dashboardHidden": self.dash_hidden,
@@ -1161,9 +1276,11 @@ class Shell:
         }
 
     # ---------------------------------------------------------------- glassd.json
-    def ramp_ms(self, material, out):
+    def ramp_ms(self, material, out, kind="slab"):
         if self.reduce_motion:
             return RAMP_REDUCED_MS
+        if material == "dim" and kind == "slab":     # a dim slab rides sheet-in / sheet-out (glassd §1.4)
+            material = "thick"
         if out:
             return RAMP_OUT_MS.get(material, RAMP_OUT_DEFAULT_MS)
         return RAMP_IN_MS.get(material, RAMP_IN_DEFAULT_MS)
@@ -1178,28 +1295,37 @@ class Shell:
         for s in rep.get("surfaces", []):
             if not isinstance(s, dict) or not s.get("name") or not s.get("overlayKey"):
                 continue
-            name = str(s["name"])
+            name = str(s["name"])[:64]
+            # every number type-checked (contract §7): a bad field drops its item, never the daemon
+            texW, texH, radius = _num(s.get("texW") or 0, 0, 16384), _num(s.get("texH") or 0, 0, 16384), \
+                _num(s.get("radius") or 0, 0, 8192)
+            if texW is None or texH is None or radius is None or not isinstance(s["overlayKey"], str):
+                continue
             slabs = []
-            for L in s.get("layers") or []:
-                try:
-                    w, h = float(L["w"]), float(L["h"])
-                except (KeyError, TypeError, ValueError):
+            for L in s.get("layers") if isinstance(s.get("layers"), list) else []:
+                if not isinstance(L, dict) or L.get("id") is None:
                     continue
-                if w < 2 or h < 2 or L.get("id") is None:
+                w, h = _num(L.get("w"), 0, 16384), _num(L.get("h"), 0, 16384)
+                r, x, y = _num(L.get("r") or 0, 0, 8192), _num(L.get("x") or 0), _num(L.get("y") or 0)
+                dz = _num(L.get("dz") or 0, -1, 1)
+                if None in (w, h, r, x, y, dz) or w < 2 or h < 2:
                     continue
-                mat = L.get("material") if isinstance(L.get("material"), str) else "liquid"
+                mat = L.get("material")[:16] if isinstance(L.get("material"), str) else "liquid"
                 if mat == "none" and "none" not in caps:
                     continue          # an older glassd would draw glass over art: the element stays flat
-                sl = {"id": str(L["id"]), "w": round(w), "h": round(h), "r": round(float(L.get("r") or 0)),
+                if mat == "dim" and "dimSlab" not in caps:
+                    continue          # ... or glass where a dark room-dim cell was asked for
+                sl = {"id": str(L["id"])[:64], "w": round(w), "h": round(h), "r": round(r),
                       "material": mat or "liquid",
                       # for glassd's slab world point:
-                      "x": round(float(L.get("x") or 0)), "y": round(float(L.get("y") or 0)),
-                      "dz": float(L.get("dz") or 0)}
+                      "x": round(x), "y": round(y), "dz": dz}
                 clean_phase_fields(L, sl)
                 if "tint" in caps and clean_color(L.get("tint")) is not None:
                     sl["tint"] = clean_color(L["tint"])
+                if mat == "dim" and clean_color(L.get("fill")) is not None:
+                    sl["fill"] = clean_color(L["fill"])
                 if "holes" in caps and L.get("hole") not in (None, False):
-                    hole = clean_hole(L["hole"], self.pop_clips.get((name, sl["id"])))
+                    hole = clean_hole(L["hole"], self.pop_clips.get((name, sl["id"])), edges="holeEdges" in caps)
                     if hole is not None:
                         sl["hole"] = hole
                 if "offset" in caps:
@@ -1207,19 +1333,21 @@ class Shell:
                         if _num(L.get(k)) is not None:
                             sl[k] = _round(round(_num(L[k]), 2))
                 slabs.append(sl)
-            surf = {"name": name, "overlayKey": s["overlayKey"],
-                    "texW": round(float(s.get("texW") or 0)), "texH": round(float(s.get("texH") or 0)),
-                    "radius": round(float(s.get("radius") or 0)), "material": material_for(s),
+            mat_s = material_for(s)
+            surf = {"name": name, "overlayKey": s["overlayKey"][:128],
+                    "texW": round(texW), "texH": round(texH), "radius": round(radius),
+                    "material": mat_s[:16] if isinstance(mat_s, str) else "panel",
                     "visible": bool(s.get("visible", True)), "slabs": slabs}
             # the cover's rounded shapes (bar segments, a popup's card); glassd
             # covers the whole texture with `radius` when absent
             if isinstance(s.get("shapes"), list):
                 shapes = []
                 for sh in s["shapes"]:
-                    try:
-                        shapes.append({k: round(float(sh.get(k) or 0)) for k in ("x", "y", "w", "h", "r")})
-                    except (AttributeError, TypeError, ValueError):
+                    if not isinstance(sh, dict):
                         continue
+                    vals = {k: _num(sh.get(k) or 0) for k in ("x", "y", "w", "h", "r")}
+                    if None not in vals.values():
+                        shapes.append({k: round(v) for k, v in vals.items()})
                 surf["shapes"] = shapes
             clean_phase_fields(s, surf)            # the cover's own phase: passed through, never set by P8
             q = clean_quad(s.get("quad")) if s.get("quad") is not None else None
@@ -1227,6 +1355,8 @@ class Shell:
                 surf["quad"] = q
             plates = [p for p in (clean_plate(p, i) for i, p in enumerate(s.get("plates") or [])
                                   if isinstance(s.get("plates"), list)) if p]
+            if "dim" not in caps:     # a dim plate is a flat dark tone: never glass instead
+                plates = [p for p in plates if p.get("material") != "dim"]
             if plates and "plates" in caps:
                 surf["plates"] = plates[:32]
             elif plates and isinstance(surf.get("shapes"), list):
@@ -1259,7 +1389,7 @@ class Shell:
                 continue
             if key[0] not in shown:            # its surface closed or hid: nothing to fade on
                 continue
-            until = now + self.ramp_ms(it.get("material"), True) / 1000
+            until = now + self.ramp_ms(it.get("material"), True, key[1]) / 1000
             self.fading[key] = ({k: v for k, v in it.items() if k != "appear"} | {"phase": 0}, until)
         for key, (it, until) in list(self.fading.items()):
             surf = by_name.get(key[0])
@@ -1275,11 +1405,13 @@ class Shell:
             cfg["unitM"] = self.geom["unitM"]
         if "masks" in caps and rep.get("masks") is not None:
             cfg["masks"] = clean_masks(rep.get("masks"), world=True)
+        if "roomDim" in caps and _num(rep.get("roomDim"), 0, 0.9) is not None:
+            cfg["roomDim"] = _round(_num(rep["roomDim"], 0, 0.9))
         return cfg
 
     def write_glassd_json(self, force=False):
-        if not self.native_possible():
-            return False
+        if not self.native_possible() or (self.dormant_since is not None and not self.glassd_running()):
+            return False             # dormant: glassd is stopped and its files are gone until the theme is back
         cfg = self.glassd_config()
         full = json.dumps(cfg, sort_keys=True)
         moving = ("x", "y", "dz", "ox", "oy")
@@ -1305,7 +1437,7 @@ class Shell:
         for s in rep.get("surfaces") or []:
             if not isinstance(s, dict):
                 continue
-            for L in s.get("layers") or []:
+            for L in s.get("layers") if isinstance(s.get("layers"), list) else []:
                 try:
                     k = (str(s.get("name")), str(L["id"]))
                     r = (float(L["x"]), float(L["y"]), float(L["w"]), float(L["h"]))
@@ -1336,9 +1468,8 @@ class Shell:
         """glassd's world width of the main quad, if it reports one (quadW), far
         from nominal: the user resized the window. Until crops are verified to
         follow a resize, main then stays CSS only."""
-        try:
-            q = float(g.get("quadW"))
-        except (TypeError, ValueError):
+        q = _num(g.get("quadW"), 0.01, 100)
+        if q is None:
             return False
         bad = abs(q / MAIN_QUAD_W - 1) > MAIN_QUAD_TOL
         if bad != bool(self.resized_noted):
@@ -1366,36 +1497,45 @@ class Shell:
             return dict({"M": None, "surfaces": []}, **self.spec_top())
         rep = self.current_report() or {"surfaces": []}
         clips = {}
-        gsurf = (self.gout or {}).get("surfaces") or {}
+        gsurf = (self.gout or {}).get("surfaces")
+        gsurf = gsurf if isinstance(gsurf, dict) else {}
         now = time.time()
         out = []
         wake = None
-        for s in rep.get("surfaces", []):
-            if not isinstance(s, dict):
+        for s in rep.get("surfaces") if isinstance(rep.get("surfaces"), list) else []:
+            if not isinstance(s, dict) or not isinstance(s.get("name"), str) or not isinstance(s.get("overlayKey"), str):
                 continue
-            g = gsurf.get(s.get("name"))
-            if not g or not s.get("overlayKey") or not s.get("visible", True):
+            g = gsurf.get(s["name"])
+            if not isinstance(g, dict) or not s.get("visible", True):
                 continue
             if s.get("name") == "main" and self.main_resized(g):
                 continue
-            try:
-                texW, texH = float(s["texW"]), float(s["texH"])
-                scale = float(g.get("backdropScale") or 0.75)
-                gW, gH = float(g["texW"]), float(g["texH"])
-                backdrop = [float(v) for v in g["backdrop"]]
-            except (KeyError, TypeError, ValueError):
+            texW, texH = _num(s.get("texW"), 1, 16384), _num(s.get("texH"), 1, 16384)
+            scale = _num(g.get("backdropScale") or 0.75, 0.05, 4)
+            gW, gH = _num(g.get("texW"), 1, 16384), _num(g.get("texH"), 1, 16384)
+            backdrop = _nums(g.get("backdrop"), 4)
+            if None in (texW, texH, scale, gW, gH) or backdrop is None:
                 continue
-            slabs = g.get("slabs") or {}
-            popped, taken = [], []
-            for L in s.get("layers") or []:
-                try:
-                    lid = str(L["id"])
-                    x, y, w, h = float(L["x"]), float(L["y"]), float(L["w"]), float(L["h"])
-                except (KeyError, TypeError, ValueError):
+            slabs = g.get("slabs") if isinstance(g.get("slabs"), dict) else {}
+            popped, taken, dims = [], [], []
+            for L in s.get("layers") if isinstance(s.get("layers"), list) else []:
+                if not isinstance(L, dict) or L.get("id") is None:
                     continue
-                uv = slabs.get(lid)
-                if not uv or len(uv) != 4:
+                lid = str(L["id"])[:64]
+                x, y, w, h = (_num(L.get(k)) for k in ("x", "y", "w", "h"))
+                if None in (x, y, w, h):
+                    continue
+                uv = _nums(slabs.get(lid), 4)
+                if uv is None:
                     continue           # no slab yet: the element stays flat in the base (with its CSS glass)
+                if L.get("material") == "dim":
+                    # a room-dim cell (glassd §1.4): no element to crop; P7 places
+                    # the cell (behind the window, scaled up). Older lgs_sg.js ignore it.
+                    dz = _num(L.get("dz") or 0, -1, 1)
+                    if dz is not None:
+                        dims.append({"id": lid, "x": round(x, 2), "y": round(y, 2), "w": round(w, 2),
+                                     "h": round(h, 2), "dz": dz, "slab": uv})
+                    continue
                 # glassd draws a slab at the element's size x backdropScale; if
                 # the element was resized since, wait for the new slab.
                 if abs((uv[2] - uv[0]) * gW - w * scale) > SLAB_SIZE_TOL_PX or \
@@ -1436,9 +1576,12 @@ class Shell:
                             rect[3] = t[1]
                 if conflict or rect[2] - rect[0] < 2 or rect[3] - rect[1] < 2:
                     continue
+                dz = _num(L.get("dz") or 0.012, -1, 1)
+                if dz is None:
+                    continue
                 taken.append(tuple(rect))
                 p = {"id": lid, "x": round(x, 2), "y": round(y, 2), "w": round(w, 2), "h": round(h, 2),
-                     "dz": float(L.get("dz") or 0.012), "slab": [float(v) for v in uv]}
+                     "dz": dz, "slab": uv}
                 if clipped:
                     p["clip"] = [round(v, 2) for v in rect]
                     clips[(str(s.get("name")), lid)] = p["clip"]
@@ -1467,12 +1610,14 @@ class Shell:
             for (sname, kind, sid), (it, until) in self.fading.items():
                 if sname != s.get("name") or kind != "slab":
                     continue
-                uv = slabs.get(sid)
-                if uv and len(uv) == 4:
+                uv = _nums(slabs.get(sid), 4)
+                if uv is not None:
                     outs.append({"id": sid, "x": it.get("x"), "y": it.get("y"), "w": it.get("w"), "h": it.get("h"),
-                                 "dz": it.get("dz"), "slab": [float(v) for v in uv], "until": int(until * 1000)})
+                                 "dz": it.get("dz"), "slab": uv, "until": int(until * 1000)})
             if outs:
                 sp["slabsOut"] = outs
+            if dims:
+                sp["dimSlabs"] = dims
             out.append(sp)
         self.wake_at = wake
         self.pop_clips = clips
@@ -1492,30 +1637,32 @@ class Shell:
         if time.time() - self.sg_beat_at > SG_BEAT_FRESH_S or b.get("expired") or not b.get("attached") \
                 or not b.get("push"):
             return [], {}, {}, []
-        gsurf = (self.gout or {}).get("surfaces") or {}
-        names = {s.get("overlayKey"): s.get("name") for s in (self.current_report() or {}).get("surfaces", [])
-                 if isinstance(s, dict)}
+        gsurf = (self.gout or {}).get("surfaces")
+        gsurf = gsurf if isinstance(gsurf, dict) else {}
+        names = {s["overlayKey"]: s["name"] for s in (self.current_report() or {}).get("surfaces", [])
+                 if isinstance(s, dict) and isinstance(s.get("overlayKey"), str) and isinstance(s.get("name"), str)}
         spec = {s["steamKey"]: {p["id"] for p in s["popped"]} for s in self.spec_sent_obj.get("surfaces", [])}
         now = time.time()
         now_ms = now * 1000
         keys, acks, plates, covers = [], {}, {}, []
-        for key, sm in (b.get("surf") or {}).items():
-            if key not in spec:
+        surf = b.get("surf") if isinstance(b.get("surf"), dict) else {}
+        for key, sm in surf.items():
+            if key not in spec or not isinstance(sm, dict):
                 continue
             name = names.get(key)
-            g = gsurf.get(name) or {}
-            at = sm.get("coverAt") or 0
+            g = gsurf.get(name) if isinstance(gsurf.get(name), dict) else {}
+            at = _num(sm.get("coverAt") or 0) or 0
             if not at or now_ms - at < SHOWN_MS:
                 continue
             # plates: drawn by glassd (listed in its output), in the cover's
             # region (pushed), and their materialize ramp has had time to end
             pl = []
-            for pid in g.get("plates") or []:
+            for pid in g.get("plates") if isinstance(g.get("plates"), list) else []:
                 first = self.items_first.get((name, "plate", str(pid)))
                 if first is None or (name, "plate", str(pid)) in self.fading:
                     continue
                 item = self.items_last.get((name, "plate", str(pid))) or {}
-                if now - max(first, at / 1000) >= (self.ramp_ms(item.get("material"), False) + SHOWN_MS) / 1000:
+                if now - max(first, at / 1000) >= (self.ramp_ms(item.get("material"), False, "plate") + SHOWN_MS) / 1000:
                     pl.append(str(pid))
             has_cover = g.get("cover") != 0
             if not has_cover and not pl:     # glassd draws no glass for it
@@ -1525,8 +1672,9 @@ class Shell:
                 covers.append(key)
             if pl:
                 plates[key] = sorted(pl)
-            acks[key] = sorted(i for i, t in (sm.get("pops") or {}).items()
-                               if t and now_ms - t >= SHOWN_MS and i in spec[key])
+            pops = sm.get("pops") if isinstance(sm.get("pops"), dict) else {}
+            acks[key] = sorted(i for i, t in pops.items()
+                               if _num(t) and now_ms - _num(t) >= SHOWN_MS and i in spec[key])
         return sorted(keys), acks, plates, sorted(covers)
 
     # ---------------------------------------------------------------- Steam
@@ -1749,10 +1897,34 @@ class Shell:
         while not self.stopping:
             delay = 2
             try:
-                t = await self.steam_target()
+                try:
+                    t = await self.steam_target()
+                except NET_ERRORS:
+                    # Steam gone (quit, restarting): nothing of ours is left in it;
+                    # wait a while for it, then exit (never outlive a Steam restart)
+                    self.steam_lost_at = self.steam_lost_at or time.time()
+                    if time.time() - self.steam_lost_at >= STEAM_GONE_S:     # --stay too (review R1 M3)
+                        log(f"steam: unreachable for {STEAM_GONE_S} s; exiting")
+                        self.request_stop("steam gone", strip_vr=True)
+                        return
+                    raise
+                self.steam_lost_at = None
+                if self.steam_target_id and t.get("id") != self.steam_target_id:
+                    # a new SharedJSContext: Steam (or its UI) restarted. Until
+                    # the theme is seen on again, theme off means exit at once.
+                    self.steam_restarted = True
+                    log("steam: SharedJSContext is a new target (Steam restarted or its UI reloaded)")
+                self.steam_target_id = t.get("id")
                 self.steam = await CDP("steam", t["webSocketDebuggerUrl"]).open()
                 self.steam.handlers["Runtime.bindingCalled"] = self.on_binding
-                await self.steam.send("Runtime.addBinding", {"name": BINDING})
+                # lgsLayers only when a reporter can be injected (native mode);
+                # a leftover one from an older unit is removed (G-REMOVE, review R1 M1)
+                if self.native_possible():
+                    await self.steam.send("Runtime.addBinding", {"name": BINDING})
+                else:
+                    r = await self.steam.eval(f"({DELETE_BINDINGS_JS})({json.dumps([BINDING])})", 10)
+                    if r:
+                        log(f"steam: removed a leftover binding global {r}")
                 await self.steam.send("Runtime.addBinding", {"name": ACTION_BINDING})
                 self.steam_ok = True
                 self.trusted_ctx, self.bridge_sent = None, {}
@@ -1761,71 +1933,110 @@ class Shell:
                 self.refresh_flags()
                 if self.native_possible() and not self.test_report:
                     await self.inject_reporter()
-                tick = 0
+                tick, slow = 0, 0
                 while not self.stopping and not self.steam.closed:
-                    r = await self.steam.eval(STEAM_TICK_JS, 10)
-                    on, rm = json.loads(r) if isinstance(r, str) else (False, False)
-                    if bool(rm) != self.reduce_motion:
-                        self.reduce_motion = bool(rm)
-                        log(f"steam: Reduce Motion {'on' if rm else 'off'}")
-                        self.changed.set()
-                    if self.refresh_flags() and self.native_possible() and self.reporter_version \
-                            and not self.test_report:
-                        await self.inject_reporter()        # the depth profile changed
-                    self.theme_on = bool(on)
-                    self.theme_off_polls = 0 if on else self.theme_off_polls + 1
-                    if self.theme_off_polls == THEME_OFF_POLLS and self.stay:
-                        log("steam: theme is off; dormant (--stay) until it is back")
-                    if self.theme_off_polls >= THEME_OFF_POLLS and not self.stay:
-                        log("steam: theme is off; tearing down")
-                        self.request_stop("steam theme off", strip_vr=True)
-                        return
-                    # reporter installed later, changed on disk, or lost (page reload);
-                    # stopped again when native mode ended (CSS only)
-                    if tick % 3 == 0 and not self.native_possible() and self.reporter_version:
-                        r = await self.steam.eval(REPORTER_STOP_JS, 10)
-                        log(f"steam: native layer off; reporter stopped ({r})")
-                        self.reporter_version, self.reporter_state = None, "stopped (css only)"
-                        self.report, self.fallback = None, None
-                    elif self.native_possible() and self.test_report:
-                        self.read_test_report()
-                    elif self.native_possible() and os.path.exists(LAYERS_JS):
-                        if tick % 3 == 0 and self.reporter_key() != self.reporter_version:
-                            await self.inject_reporter()
-                        elif self.reporter_state == "stopped (reporter)":
-                            log("steam: reporter stopped; re-injecting")
-                            await self.inject_reporter()
-                        elif self.reporter_state in ("injected", "reporting", "foreign"):
-                            rs = await self.steam.eval(REPORTER_PING_JS, 10)   # every tick: its heartbeat
-                            if rs in ("absent", "stopped", "error") and tick % 3 == 0:
-                                # page reloaded, it stopped itself (no pings or
-                                # heartbeat while we stalled), or someone stopped it
-                                log(f"steam: reporter {rs}; re-injecting")
-                                await self.inject_reporter()
-                            elif rs == "foreign" and self.reporter_state != "foreign":
-                                self.note("steam: another lgs_layers instance (other binding) is running; "
-                                          "not replacing it; no layer reports meanwhile")
-                                self.reporter_state = "foreign"
-                            elif rs == "ok" and self.reporter_state == "foreign":
-                                self.reporter_state = "injected"
-                    # no reporter (or it never reported): glass for the main window only
-                    if not self.native_possible() or self.test_report:
-                        pass
-                    elif self.report is None and (self.reporter_state == "missing"
-                                                  or time.time() - self.reporter_injected_at > 10):
-                        size = await self.steam.eval(MAIN_SIZE_JS, 10)
-                        fb = None
-                        if size:
-                            fb = {"seq": 0, "surfaces": [{"name": "main", "overlayKey": "valve.steam.gamepadui.main",
-                                                          "visible": True, "texW": size[0], "texH": size[1],
-                                                          "radius": 48, "layers": []}]}
-                        if fb != self.fallback:
-                            self.fallback = fb
+                    try:
+                        r = await self.steam.eval(STEAM_TICK_JS, 10)
+                        on, rm = json.loads(r) if isinstance(r, str) else (False, False)
+                        if bool(rm) != self.reduce_motion:
+                            self.reduce_motion = bool(rm)
+                            log(f"steam: Reduce Motion {'on' if rm else 'off'}")
                             self.changed.set()
-                    elif self.report is not None:
-                        self.fallback = None
-                    self.write_glassd_json()
-                    await self.bridge_tick()
+                        if self.refresh_flags() and self.native_possible() and self.reporter_version \
+                                and not self.test_report:
+                            await self.inject_reporter()        # the depth profile changed
+                        self.theme_on = bool(on)
+                        self.theme_off_polls = 0 if on else self.theme_off_polls + 1
+                        if on:
+                            self.steam_restarted = False
+                            if self.dormant_since is not None:
+                                log(f"steam: theme is back after {time.time() - self.dormant_since:.0f} s; resuming")
+                                self.dormant_since = None
+                                self.native_force, self.bridge_sent = True, {}
+                                self.changed.set()
+                        self.check_stay_limit()
+                        if self.theme_off_polls >= THEME_OFF_POLLS:
+                            # A theme off without `lgs off` (which stops us first) is a
+                            # test toggling it (lab --stock, P1's selftests) or a Steam
+                            # restart: stay dormant for the grace, exit on a restart.
+                            # --stay only lengthens the grace (STAY_MAX_S): a Steam
+                            # restart ends a --stay unit too (review R1 M3).
+                            grace = self.theme_grace_s()
+                            if self.steam_restarted or grace <= 0 or (
+                                    self.dormant_since is not None and time.time() - self.dormant_since >= grace):
+                                log("steam: theme is off" + (" after a Steam restart" if self.steam_restarted else
+                                                             f" (dormant {grace:.0f} s)" if grace > 0 else "")
+                                    + "; tearing down")
+                                self.request_stop("steam theme off", strip_vr=True)
+                                return
+                            if self.dormant_since is None:
+                                self.dormant_since = time.time()
+                                log(f"steam: theme is off; dormant for up to {grace:.0f} s"
+                                    + (" (--stay)" if self.stay else "")
+                                    + " (native layer, glassd and reporter off; lgs off stops the daemon at once)")
+                                self.changed.set()
+                        # reporter installed later, changed on disk, or lost (page reload);
+                        # stopped again when native mode ended (CSS only) or while dormant
+                        if (tick % 3 == 0 or self.dormant_since is not None) and self.reporter_version and (
+                                not self.native_possible() or self.dormant_since is not None):
+                            r = await self.steam.eval(REPORTER_STOP_JS, 10)
+                            log(f"steam: {'dormant' if self.native_possible() else 'native layer off'}; "
+                                f"reporter stopped ({r})")
+                            self.reporter_version = None
+                            self.reporter_state = "stopped (dormant)" if self.native_possible() else "stopped (css only)"
+                            self.report, self.fallback = None, None
+                        elif self.dormant_since is not None:
+                            pass
+                        elif self.native_possible() and self.test_report:
+                            self.read_test_report()
+                        elif self.native_possible() and os.path.exists(LAYERS_JS):
+                            if tick % 3 == 0 and self.reporter_key() != self.reporter_version:
+                                await self.inject_reporter()
+                            elif self.reporter_state == "stopped (reporter)":
+                                log("steam: reporter stopped; re-injecting")
+                                await self.inject_reporter()
+                            elif self.reporter_state in ("injected", "reporting", "foreign"):
+                                rs = await self.steam.eval(REPORTER_PING_JS, 10)   # every tick: its heartbeat
+                                if rs in ("absent", "stopped", "error") and tick % 3 == 0:
+                                    # page reloaded, it stopped itself (no pings or
+                                    # heartbeat while we stalled), or someone stopped it
+                                    log(f"steam: reporter {rs}; re-injecting")
+                                    await self.inject_reporter()
+                                elif rs == "foreign" and self.reporter_state != "foreign":
+                                    self.note("steam: another lgs_layers instance (other binding) is running; "
+                                              "not replacing it; no layer reports meanwhile")
+                                    self.reporter_state = "foreign"
+                                elif rs == "ok" and self.reporter_state == "foreign":
+                                    self.reporter_state = "injected"
+                        # no reporter (or it never reported): glass for the main window only
+                        if not self.native_possible() or self.test_report or self.dormant_since is not None:
+                            pass
+                        elif self.report is None and (self.reporter_state == "missing"
+                                                      or time.time() - self.reporter_injected_at > 10):
+                            size = await self.steam.eval(MAIN_SIZE_JS, 10)
+                            fb = None
+                            if size:
+                                fb = {"seq": 0, "surfaces": [{"name": "main", "overlayKey": "valve.steam.gamepadui.main",
+                                                              "visible": True, "texW": size[0], "texH": size[1],
+                                                              "radius": 48, "layers": []}]}
+                            if fb != self.fallback:
+                                self.fallback = fb
+                                self.changed.set()
+                        elif self.report is not None:
+                            self.fallback = None
+                        self.write_glassd_json()
+                        await self.bridge_tick()
+                        slow = 0
+                    except (asyncio.TimeoutError, TimeoutError):
+                        # Steam's JS thread busy (another agent's audit, a runtime
+                        # reload): one late answer is not a lost connection. Closing
+                        # the socket here took the native layer down for 2-4 s.
+                        slow += 1
+                        if self.steam.closed or slow >= STEAM_SLOW_MAX:
+                            raise
+                        if slow == 1:
+                            self.slow_evals += 1
+                            log("steam: an evaluation timed out (Steam busy?); connection kept")
                     tick += 1
                     await asyncio.sleep(1.0)
             except asyncio.CancelledError:
@@ -1833,6 +2044,8 @@ class Shell:
             except NET_ERRORS as e:
                 if not self.stopping:
                     self.note(f"steam: {e!r}")
+                    if self.steam_ok:
+                        delay = 0.5      # a connection that worked: try again at once
             except Exception as e:  # noqa: BLE001 - see bug()
                 if not self.stopping:
                     delay = self.bug("steam", e)
@@ -1992,7 +2205,8 @@ class Shell:
             now = time.time()
             if now - self.spec_logged_at >= SPEC_LOG_MIN_S:
                 more = f" (+{self.spec_log_skipped} more)" if self.spec_log_skipped else ""
-                log(f"systemui: spec -> {self.spec_summary}{more}")
+                why = "" if spec["surfaces"] else f" [{self.native_why() or 'no surface ready'}]"
+                log(f"systemui: spec -> {self.spec_summary}{more}{why}")
                 self.spec_logged_at, self.spec_log_sig, self.spec_log_skipped = now, sig, 0
             else:
                 self.spec_log_skipped += 1
@@ -2022,7 +2236,10 @@ class Shell:
                 next_beat, next_status = 0.0, 0.0
                 while not self.stopping and not self.sysui.closed:
                     now = time.time()
-                    until = min(next_beat, now + 0.5, self.wake_at or now + 0.5)
+                    # wake for a layer that becomes still and for a fade-out that ends
+                    # (its phase-0 item leaves glassd.json and slabsOut on time)
+                    fade_end = min((u for _, u in self.fading.values()), default=now + 0.5) + 0.01
+                    until = min(next_beat, now + 0.5, self.wake_at or now + 0.5, fade_end)
                     try:
                         await asyncio.wait_for(self.changed.wait(), max(0.02, until - now))
                     except asyncio.TimeoutError:
@@ -2116,7 +2333,12 @@ class Shell:
             now = time.time()
             if now - last_check >= 1.0:
                 last_check = now
-                await self.supervise_glassd(now)
+                try:
+                    await self.supervise_glassd(now)
+                except asyncio.CancelledError:
+                    raise
+                except Exception as e:  # noqa: BLE001 - see bug()
+                    await asyncio.sleep(self.bug("glassd supervisor", e))
             try:
                 m = os.stat(GLASSD_OUT).st_mtime_ns
             except OSError:
@@ -2140,7 +2362,7 @@ class Shell:
                 log("glassd: output fresh again")
             was_ready = self.glassd_ready()
             self.gout = d
-            if not self.g_frames and (float(d.get("fps") or 0) > 0 or int(d.get("frames") or 0) > 0):
+            if not self.g_frames and ((_num(d.get("fps") or 0) or 0) > 0 or (_num(d.get("frames") or 0) or 0) > 0):
                 self.g_frames = True
                 log(f"glassd: producing frames (fps {d.get('fps')}, gpu {d.get('gpu_ms')} ms); native mode")
             if was_ready != self.glassd_ready():
@@ -2149,7 +2371,9 @@ class Shell:
             self.changed.set()
 
     async def supervise_glassd(self, now):
-        """Once a second: binary removed -> CSS only; output stale -> restart."""
+        """Once a second: binary removed -> CSS only; dormant -> glassd stopped
+        (glassd_loop starts it again when the theme is back); output stale ->
+        restart."""
         if not self.native_possible():
             if self.glassd_running():
                 await self.kill_glassd()
@@ -2160,6 +2384,14 @@ class Shell:
         if not os.access(self.glassd_path, os.X_OK):
             self.disable_native("glassd binary removed")
             await self.kill_glassd()
+            return
+        if self.dormant_since is not None:
+            # theme off without lgs off: nothing to draw, so no camera reader and
+            # no render loop while we wait (review R1 M2); not counted as a crash
+            if self.glassd_running():
+                await self.kill_glassd("dormant")
+                remove_glassd_files()
+                self.gjson_full = self.gjson_struct = None
             return
         if not self.glassd_running():
             return
@@ -2195,8 +2427,9 @@ class Shell:
             if not os.access(self.glassd_path, os.X_OK):
                 self.disable_native("glassd binary removed")
                 return
-            # glassd needs SteamVR and something to cover
-            if not (self.sysui_ok and self.steam_ok and self.theme_on and self.current_report()):
+            # glassd needs SteamVR and something to cover (and the theme on: not dormant)
+            if not (self.sysui_ok and self.steam_ok and self.theme_on and self.dormant_since is None
+                    and self.current_report()):
                 await asyncio.sleep(1)
                 continue
             for p in (GLASSD_OUT,):
@@ -2230,6 +2463,11 @@ class Shell:
             self.changed.set()
             if self.stopping or not self.native_possible():
                 return
+            if self.g_kill_reason == "dormant":    # we stopped it: wait for the theme (top of the loop)
+                self.g_kill_reason = None
+                temp_streak = 0
+                continue
+            self.g_kill_reason = None
             self.g_restarts += 1
             if rc == GLASSD_TEMP_EXIT:        # SteamVR went away, or another glassd holds the lock
                 self.g_temp_exits += 1
@@ -2249,10 +2487,15 @@ class Shell:
                 return
             await asyncio.sleep(min(30, 2 ** len(self.g_crashes)))
 
-    async def kill_glassd(self):
+    async def kill_glassd(self, reason=None):
+        """SIGTERM glassd (SIGKILL after 4 s). reason 'dormant' = on purpose,
+        not a crash (glassd_loop does not count it nor back off)."""
         p = self.gproc
         if not p or p.returncode is not None:
             return
+        self.g_kill_reason = reason
+        if reason:
+            log(f"glassd: stopping it ({reason})")
         try:
             p.terminate()
             await asyncio.wait_for(p.wait(), 4)
@@ -2291,11 +2534,13 @@ class Shell:
 
     async def geom_loop(self):
         """Read-only geometry and page from systemui, in both modes, published
-        on the bridge when they change (polled 1/s; DumpLaserOverlays every 5 s
-        or right after another value changed)."""
+        on the bridge when they change (polled 1/s). DumpLaserOverlays (the
+        frame menu's panel size) runs 1, 3 and 6 s after the frame menu's node
+        or another value changed (the dump lags the node), and every
+        GEOM_DUMP_S as a safety net."""
         loop = asyncio.get_running_loop()
         conn = None
-        last_dump, dump_due = 0.0, True
+        last_dump, dumps_at, fm_sig = 0.0, [0.0], None
         while not self.stopping:
             delay = 3
             try:
@@ -2305,20 +2550,29 @@ class Shell:
                 t = await self.sysui_target()
                 conn = await CDP("systemui-geom", t["webSocketDebuggerUrl"]).open()
                 self.geom_ok = True
+                dumps_at = [0.0]                            # a fresh connection: dump at once
                 while not self.stopping and not conn.closed:
                     now = time.time()
-                    want = dump_due or now - last_dump >= GEOM_DUMP_S
+                    want = now - last_dump >= GEOM_DUMP_S or any(a <= now for a in dumps_at)
                     r = await conn.eval(f"({GEOM_JS})({'true' if want else 'false'})", 10)
                     d = json.loads(r) if isinstance(r, str) else {}
                     if want:
-                        last_dump, dump_due = now, False
+                        last_dump = now
+                        dumps_at = [a for a in dumps_at if a > now]
+                        if isinstance(d.get("geom"), dict) and ((d["geom"].get("frameMenu") or {}).get("dumped")
+                                                                 or not d["geom"].get("frameMenu")):
+                            self.geom_dump_at = now
+                    if d.get("fmSig") != fm_sig:
+                        if fm_sig is not None:
+                            dumps_at = [now + a for a in GEOM_DUMP_AFTER]   # the panel may have changed size
+                        fm_sig = d.get("fmSig")
                     self.geom_err = d.get("err")
                     if isinstance(d.get("geom"), dict):
                         g = self.round_geom(d["geom"], self.geom)
                         old = {k: v for k, v in (self.geom or {}).items() if k != "at"}
                         if g != old:
-                            if self.geom is not None and not want:
-                                dump_due = True             # something moved: re-read the laser panel too
+                            if self.geom is not None and not want and not dumps_at:
+                                dumps_at = [now + a for a in GEOM_DUMP_AFTER]   # something moved: the panel too
                             if (self.geom or {}).get("unitM") != g.get("unitM"):
                                 self.changed.set()          # glassd's unitM and the spec follow
                             self.geom = dict(g, at=int(now * 1000))
@@ -2356,7 +2610,6 @@ class Shell:
     async def vr_scripts_for(self, t, scripts):
         """Install, refresh or remove the page scripts of one SteamVR page."""
         name = t.get("title") or t.get("url")
-        ws = t["webSocketDebuggerUrl"]
         flags = self.rt_flags
         st = self.vrx_status.setdefault(name, {})
         mine = {n: s for n, s in scripts.items() if s["page"] == name}
@@ -2367,11 +2620,11 @@ class Shell:
             for n in [n for n in st if n not in mine]:
                 del st[n]
             return
-        r = await eval_once(ws, f"({VRX_PROBE_JS})({json.dumps({n: s['version'] for n, s in want.items()})})", 10)
+        r = await self.vr_page_eval(t, f"({VRX_PROBE_JS})({json.dumps({n: s['version'] for n, s in want.items()})})", 10)
         probe = json.loads(r) if isinstance(r, str) else {}
         extra = [n for n, v in probe.items() if v == "extra"]
         if extra:
-            await eval_once(ws, f"({VRX_REMOVE_JS})({json.dumps(extra)})", 10)
+            await self.vr_page_eval(t, f"({VRX_REMOVE_JS})({json.dumps(extra)})", 10)
             log(f"vr: {name}: page scripts removed {extra}")
             for n in extra:
                 st[n] = "flag-off" if n in mine else "removed"
@@ -2387,7 +2640,7 @@ class Shell:
             if self.vrx_failed.get((name, n)) == s["version"]:
                 continue
             ctx = {"name": n, "page": name, "version": s["version"], "flags": dict(flags)}
-            res = await eval_once(ws, vrx_install_js(n, s["version"], ctx, s["src"]), 15)
+            res = await self.vr_page_eval(t, vrx_install_js(n, s["version"], ctx, s["src"]), 15)
             st[n] = res if isinstance(res, str) else str(res)
             if st[n].startswith("error"):
                 self.vrx_failed[(name, n)] = s["version"]
@@ -2414,16 +2667,72 @@ class Shell:
         return out
 
     # ---------------------------------------------------------------- SteamVR page theming
+    async def vr_list(self):
+        """SteamVR's page targets (8090 /json/list) over one kept-alive HTTP
+        session (no new TCP connection per poll; review R1 m4), or None while
+        SteamVR's devtools are unreachable."""
+        import aiohttp
+        if self.vr_http is None or self.vr_http.closed:
+            self.vr_http = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=3))
+        try:
+            async with self.vr_http.get(lgs_vr.VR_CDP + "/json/list") as r:
+                ts = await r.json(content_type=None)
+        except NET_ERRORS:
+            return None
+        return [t for t in ts if isinstance(t, dict) and t.get("type") == "page"
+                and t.get("webSocketDebuggerUrl")] if isinstance(ts, list) else None
+
+    async def vr_page_eval(self, t, expr, timeout=10):
+        """Evaluate in a SteamVR page over its kept socket (opened on first
+        use; dropped when it fails, times out or the page goes). A JS error
+        keeps the socket."""
+        tid = t.get("id") or t["webSocketDebuggerUrl"]
+        c = self.vr_conns.get(tid)
+        if c is None or c.closed:
+            c = await CDP("vr:" + str(t.get("title") or tid), t["webSocketDebuggerUrl"]).open()
+            self.vr_conns[tid] = c
+        try:
+            return await c.eval(expr, timeout)
+        except RuntimeError as e:
+            if c.closed or not str(e).startswith("JS: "):
+                self.vr_conns.pop(tid, None)
+                await c.close()
+            raise
+        except BaseException:
+            self.vr_conns.pop(tid, None)
+            await c.close()
+            raise
+
+    def vr_scripts_cached(self):
+        """vr_scripts(), re-read only when a file in its folders changed."""
+        sig = []
+        for folder in VR_SCRIPT_DIRS:
+            try:
+                for n in sorted(os.listdir(folder)):
+                    if n.endswith(".js"):
+                        sig.append((folder, n, os.stat(os.path.join(folder, n)).st_mtime_ns))
+            except OSError:
+                continue
+        if sig != self.vrx_sig:
+            self.vrx_sig, self.vrx_scripts = sig, vr_scripts()
+        return self.vrx_scripts
+
+    async def vr_conns_close(self, keep=()):
+        for tid in [k for k in self.vr_conns if k not in keep]:
+            await self.vr_conns.pop(tid).close()
+
     async def vr_theme_loop(self):
-        loop = asyncio.get_running_loop()
         sig, full, probe = None, None, None
         while not self.stopping:
             await asyncio.sleep(lgs_vr.POLL)
             if os.path.exists(VR_PAUSE):     # lab "--theme off" on a vr: page (page scripts stripped with it)
                 self.vrx_status = {}
+                await self.vr_conns_close()
                 continue
             try:
-                if not await loop.run_in_executor(None, lgs_vr.available):
+                ts = await self.vr_list()
+                if ts is None:
+                    await self.vr_conns_close()
                     continue
                 s = lgs_vr.signature()
                 if s != sig:
@@ -2435,13 +2744,14 @@ class Shell:
                     self.vr_version = p["version"]
                     log(f"vr: theme {p['version']} ({len(p['css'])} bytes)")
                 pages = {}
-                scripts = vr_scripts()
-                for t in await loop.run_in_executor(None, lgs_vr.targets):
-                    name = t["title"] or t["url"]
+                scripts = self.vr_scripts_cached()
+                await self.vr_conns_close(keep={t.get("id") or t["webSocketDebuggerUrl"] for t in ts})
+                for t in ts:
+                    name = t.get("title") or t.get("url")
                     try:
-                        r = await eval_once(t["webSocketDebuggerUrl"], probe, 10)
+                        r = await self.vr_page_eval(t, probe, 10)
                         if r == "need":
-                            r = await eval_once(t["webSocketDebuggerUrl"], full, 30)
+                            r = await self.vr_page_eval(t, full, 30)
                             log(f"vr: {name}: {r}")
                         pages[name] = r
                         if r in ("ok", "applied"):         # page scripts go in after the page's theme
@@ -2502,6 +2812,12 @@ class Shell:
             return
         self.torn = True
         loop = asyncio.get_running_loop()
+        try:      # the kept SteamVR page sockets and 8090 HTTP session (teardown uses fresh ones)
+            await self.vr_conns_close()
+            if self.vr_http is not None:
+                await self.vr_http.close()
+        except Exception as e:  # noqa: BLE001
+            log(f"teardown: closing page sockets: {e!r}")
         # 0. plugins undo what they did (e.g. a deep link switched SteamVR's
         #    frame page), then the SteamVR page scripts come out
         try:
@@ -2539,12 +2855,12 @@ class Shell:
                 # the bridge learns the daemon is gone at once (not after its TTL)
                 gone = dict(self.daemon_value(), mode="stopped", native=False, actions=[], steamvr=False, ttlMs=0)
                 await s.eval(f"({BRIDGE_SET_JS})({json.dumps([['daemon', gone]])})", 5)
-                # the inert binding functions: gone, so callers see no daemon
-                await s.eval(f"(() => {{ for (const n of ['{ACTION_BINDING}']) {{ try {{ delete window[n]; }} "
-                             "catch (_) {} } return 0; })()", 5)
+                # the inert binding functions (both: removeBinding leaves them):
+                # gone, so callers see no daemon and nothing of ours stays (G-REMOVE)
+                rb = await s.eval(f"({DELETE_BINDINGS_JS})({json.dumps([BINDING, ACTION_BINDING])})", 5)
             finally:
                 await s.close()
-            log(f"teardown: lgs-native {r}, reporter {rr}")
+            log(f"teardown: lgs-native {r}, reporter {rr}, binding globals deleted [{rb}]")
         except Exception as e:  # noqa: BLE001
             log(f"teardown: steam: {e!r}")
         # 3. glassd
@@ -2590,6 +2906,9 @@ class Shell:
         if self.stop_task is None:
             self.request_stop("all loops ended")
         await self.stop_task
+        for c in list(CDP.live):          # sockets a cancelled task left open
+            await c.close()
+        await asyncio.sleep(0)
         log("lgs-shell exited")
         return self.exit_code
 
@@ -2694,7 +3013,24 @@ def start(glassd=GLASSD_BIN, stay=False, glassd_args=None, native=None, test_rep
     then defaults.json, else CSS only). A unit that is stopping is waited for
     and then started fresh. stay=True (lab testing only) keeps it running,
     dormant, while the Steam theme is off. test_report (lab) replaces the
-    reporter with a report JSON file."""
+    reporter with a report JSON file.
+
+    Serialized by START_LOCK: two `lgs on` at once (one lock-free) made the
+    loser's systemd-run fail with "already loaded" although a unit ran (review
+    R1 m5); if the lock cannot be had in 60 s, it goes on and treats that
+    error as running."""
+    try:
+        lk = FileLock(START_LOCK, 60).__enter__()
+    except (OSError, TimeoutError):
+        lk = None
+    try:
+        return _start(glassd, stay, glassd_args, native, test_report, assume_caps)
+    finally:
+        if lk is not None:
+            lk.__exit__()
+
+
+def _start(glassd, stay, glassd_args, native, test_report, assume_caps):
     req = "auto" if native is None else native_word(native)
     try:
         os.remove(VR_PAUSE)
@@ -2706,7 +3042,8 @@ def start(glassd=GLASSD_BIN, stay=False, glassd_args=None, native=None, test_rep
     def daemon_args(nat):
         return ["--glassd", (glassd if nat and glassd else "none")] + (["--native"] if nat else []) + \
             (["--stay"] if stay else []) + (["--glassd-args", " ".join(glassd_args)] if nat and glassd_args else []) + \
-            (["--test-report", os.path.abspath(test_report)] if test_report else []) +             (["--assume-caps", ",".join(assume_caps)] if assume_caps else [])
+            (["--test-report", os.path.abspath(test_report)] if test_report else []) + \
+            (["--assume-caps", ",".join(assume_caps)] if assume_caps else [])
 
     state, pid = settle()
     if state in ("active", "activating", "reloading"):
@@ -2714,22 +3051,30 @@ def start(glassd=GLASSD_BIN, stay=False, glassd_args=None, native=None, test_rep
         cur = "--native" in argv
         running = core_args(argv[argv.index("daemon") + 1:]) if "daemon" in argv else None
         # an explicit request restarts a unit that runs differently
-        if req == "auto" or running == daemon_args(req == "on"):
-            st = read_json(STATUS) or {}
+        st = read_json(STATUS) or {}
+        stay_over = req == "on" and st.get("pid") == pid and \
+            str((st.get("native") or {}).get("reason") or "").startswith("--stay limit")
+        if (req == "auto" or running == daemon_args(req == "on")) and not stay_over:
             if cur and st.get("pid") == pid and not (st.get("native") or {}).get("enabled", True):
                 return f"running (native requested; {st.get('mode')})"
             return "running (native)" if cur else "running (css only)"
-        stop()
+        stop()          # (a --stay unit past its limit is restarted for a new explicit native request)
         settle()
     nat, src, reason = resolve_native(req)
     subprocess.run(["systemctl", "--user", "reset-failed", UNIT], capture_output=True, env=user_env())
     cmd = ["systemd-run", "--user", "--unit", UNIT, "--collect", "--quiet",
-           "-p", "KillMode=mixed", "-p", "TimeoutStopSec=15",
+           "-p", "KillMode=mixed", "-p", "TimeoutStopSec=15", "-E", "PYTHONDONTWRITEBYTECODE=1",
            "--description=Glass Shell: native glass layer + SteamVR page theming (transient)",
-           "/usr/bin/python3", "-u", os.path.realpath(__file__), "daemon"] + daemon_args(nat) + \
+           "/usr/bin/python3", "-B", "-u", os.path.realpath(__file__), "daemon"] + daemon_args(nat) + \
         ["--req", req, "--src", src]
     r = subprocess.run(cmd, capture_output=True, text=True, env=user_env())
     if r.returncode != 0:
+        if "already loaded" in r.stderr or "already exists" in r.stderr:
+            # another start won a race (one without the start lock): a unit runs
+            state, pid = settle()
+            if state in ("active", "activating", "reloading"):
+                cur = "--native" in daemon_argv(pid)
+                return "running (native, started concurrently)" if cur else "running (css only, started concurrently)"
         return f"failed: {r.stderr.strip()}"
     if nat and not (glassd and os.access(glassd, os.X_OK)):
         return "started (css only: native requested but no glassd binary)"
@@ -2761,7 +3106,7 @@ def brief(st):
         return {"unit": st.get("unit")}
     g, s, u = st.get("glassd", {}), st.get("steam", {}), st.get("systemui", {})
     a, geo = st.get("actions") or {}, st.get("geom") or {}
-    return {"unit": "active", "mode": st.get("mode"), "native": st.get("native"),
+    return {"unit": "active", "mode": st.get("mode"), "native": st.get("native"), "dormant": st.get("dormant"),
             "glassd": {k: g.get(k) for k in ("running", "ready", "pid", "restarts", "fps", "gpu_ms", "surfaces",
                                               "caps")},
             "layers": {"source": s.get("source"), "reporter": s.get("reporter"), "surfaces": s.get("surfaces")},
@@ -2869,6 +3214,23 @@ def _main_native():
         return None
 
 
+def _bindings():
+    """typeof the daemon's binding globals in SharedJSContext."""
+    try:
+        return json.loads(_steam_js(f"JSON.stringify({{{BINDING}: typeof window.{BINDING}, "
+                                    f"{ACTION_BINDING}: typeof window.{ACTION_BINDING}}})", 5))
+    except Exception as e:  # noqa: BLE001
+        return {"error": repr(e)}
+
+
+def _alive(pid):
+    try:
+        os.kill(int(pid), 0)
+        return True
+    except (OSError, TypeError, ValueError):
+        return False
+
+
 def _sg_items():
     try:
         r = _vr_js("systemui", "window.__LGS_SG ? JSON.stringify((s => ({items: s.items, expired: s.expired}))"
@@ -2943,11 +3305,21 @@ def _selftest_dm1(check, args):
     finally:
         os.kill(pid, sg.SIGCONT)
     t1 = time.time()
-    back = _wait(lambda: _main_native() is True and ((_sg_items() or {}).get("items") or 0) > 0, 15, 0.2)
-    t_back = round(time.time() - t1, 1)
+    t_nb = t_sb = None
+    while time.time() - t1 < 15 and (t_nb is None or t_sb is None):
+        si = _sg_items() or {}
+        if t_sb is None and (si.get("items") or 0) > 0 and si.get("expired") is False:   # rebuilt, not just kept
+            t_sb = round(time.time() - t1, 1)
+        if t_nb is None and _main_native() is True:
+            t_nb = round(time.time() - t1, 1)
+        time.sleep(0.1)
+    back = t_nb is not None and t_sb is not None
+    t_back = max(t_nb, t_sb) if back else None
+    print(f"NOTE after SIGCONT: nodes back {t_sb} s, lgs-native back {t_nb} s", flush=True)
     check("freeze: lgs-native off within 4.5 s", t_off is not None and t_off <= 4.5, t_off)
     check("freeze: nodes off between 11 and 14 s", t_nodes is not None and 11 <= t_nodes <= 14, t_nodes)
     check("freeze: both back within 3 s of SIGCONT", bool(back) and t_back <= 3, t_back)
+    check("freeze: lgs-native back within 1.5 s of SIGCONT (NAT: about 1 s)", t_nb is not None and t_nb <= 1.5, t_nb)
     # (b) teardown order
     since = time.strftime("%Y-%m-%d %H:%M:%S")
     time.sleep(1)
@@ -2962,6 +3334,9 @@ def _selftest_dm1(check, args):
           _main_native() is False and not (_sg_items() or {}).get("items")
           and not os.path.exists(GLASSD_JSON) and not os.path.exists(GLASSD_OUT),
           f"{_main_native()} {_sg_items()} {os.path.exists(GLASSD_JSON)}")
+    gl = _bindings()
+    check("after stop: no lgsLayers / lgsAction global in Steam (G-REMOVE)", gl == {"lgsLayers": "undefined",
+                                                                                  "lgsAction": "undefined"}, gl)
     # (c) restart backoff and give-up (5 crashes in 120 s)
     st = _native_start(_report_window(W, H))
     check("native again", st.get("mode") == "native", st.get("mode"))
@@ -2999,7 +3374,7 @@ def _selftest_dm2(check, args):
     """glassd.json v3: plates, holes, tints, masks, coverDz, unitM, materialize
     and fades, with fakeglassd (and --assume-caps when its caps lack them)."""
     W, H = _main_size()
-    rep = {"seq": 1, "v": 3, "dash": True, "profile": "default",
+    rep = {"seq": 1, "v": 3, "dash": True, "profile": "default", "roomDim": 0.3,
            "masks": [{"O": [-0.6, 1.4, -1.2], "U": [0.2, 0, 0], "V": [0, -0.5, 0]}],
            "surfaces": [{
                "name": "main", "overlayKey": STEAM_MAIN_KEY, "visible": True, "texW": W, "texH": H, "radius": 81,
@@ -3012,8 +3387,17 @@ def _selftest_dm2(check, args):
                "layers": [{"id": "p8-play", "x": 320, "y": 820, "w": 420, "h": 120, "r": 60, "dz": 0.0407,
                            "material": "liquid", "tint": "rgb(48 199 89 / 0.55)", "hole": {"fill": "rgb(18 20 26 / 0.9)"}},
                           {"id": "p8-info", "x": 780, "y": 830, "w": 100, "h": 100, "r": 50, "dz": 0.0271,
-                           "material": "none", "hole": True, "tint": [0.1, 0.45, 1.0, 0.5]}]}]}
-    caps = ["plates", "holes", "tint", "masks", "coverDz", "none", "offset", "unitM", "dim"]
+                           "material": "none", "hole": True, "tint": [0.1, 0.45, 1.0, 0.5]},
+                          {"id": "p8-roomdim", "x": 1700, "y": 900, "w": 64, "h": 64, "r": 0, "dz": -0.05,
+                           "material": "dim", "fill": [0, 0, 0, 0.4]}]},
+               # the keyboard surface (K-G6 platter behind the keys; K-G2 scale), hidden: glassd.json only
+               {"name": "keyboard", "overlayKey": "valve.steam.gamepadui.keyboard", "visible": False,
+                "texW": 1500, "texH": 540, "radius": 48, "material": "panel",
+                "shapes": [{"x": 0, "y": 0, "w": 1500, "h": 540, "r": 48}], "coverDz": -0.027, "scaleFrom": "overlay",
+                "layers": []}]}
+    caps = ["plates", "holes", "tint", "masks", "coverDz", "none", "offset", "unitM", "dim", "scaleFrom", "roomDim",
+            "dimSlab"]
+    os.makedirs(TEST_DUMP, exist_ok=True)       # fakeglassd writes into it, it does not create it
     st = _native_start(rep, caps=caps, gargs=["--dump", TEST_DUMP])
     check("native mode with fakeglassd", st.get("mode") == "native", st.get("mode"))
     out = read_json(GLASSD_OUT) or {}
@@ -3035,10 +3419,29 @@ def _selftest_dm2(check, args):
           and (sl.get("p8-info") or {}).get("tint") == [0.1, 0.45, 1, 0.5], sl.get("p8-info"))
     check("surface masks and coverDz", m.get("masks") == [{"x": -300, "y": 0, "w": 200, "h": H, "dz": 0.03}]
           and m.get("coverDz") == 0.001, (m.get("masks"), m.get("coverDz")))
-    check("top-level world masks, unitM = live geometry, reduceMotion",
+    check("top-level world masks, unitM = live geometry, reduceMotion, roomDim",
           g.get("masks") == [{"O": [-0.6, 1.4, -1.2], "U": [0.2, 0, 0], "V": [0, -0.5, 0]}]
-          and g.get("unitM") == (status().get("geom") or {}).get("unitM") and g.get("reduceMotion") is False,
-          {k: g.get(k) for k in ("masks", "unitM", "reduceMotion")})
+          and g.get("unitM") == (status().get("geom") or {}).get("unitM") and g.get("reduceMotion") is False
+          and g.get("roomDim") == 0.3, {k: g.get(k) for k in ("masks", "unitM", "reduceMotion", "roomDim")})
+    check("dim slab (room-dim cell) with its fill", (sl.get("p8-roomdim") or {}).get("material") == "dim"
+          and (sl.get("p8-roomdim") or {}).get("fill") == [0, 0, 0, 0.4], sl.get("p8-roomdim"))
+    kb = next((s for s in g.get("surfaces", []) if s.get("name") == "keyboard"), {})
+    check("keyboard surface: coverDz -0.027, scaleFrom overlay, cover shape, hidden",
+          kb.get("coverDz") == -0.027 and kb.get("scaleFrom") == "overlay" and kb.get("visible") is False
+          and len(kb.get("shapes") or []) == 1, kb)
+    out = read_json(GLASSD_OUT) or {}
+    om = (out.get("surfaces") or {}).get("main") or {}
+    check("fakeglassd drew the plates (glassd-out plates)", om.get("plates") == ["p8-disc", "p8-card", "p8-dim"]
+          and (om.get("counts") or {}).get("holes") == 2, {k: om.get(k) for k in ("plates", "counts")})
+    sp = _wait(lambda: (lambda s: s if s and s.get("items") else None)(_sg_items()), 10, 0.5)
+    check("scene graph built from the v3 spec", bool(sp), sp)
+    import shutil
+    try:      # the first scene's textures (procedural: fakeglassd paints no camera image)
+        for fn in os.listdir(TEST_DUMP):
+            if fn.endswith(".png") and not fn.startswith("first-"):
+                shutil.copy(os.path.join(TEST_DUMP, fn), os.path.join(TEST_DUMP, "first-" + fn))
+    except OSError:
+        pass
     # fades: the disc plate and the play slab leave
     time.sleep(1.0)
     rep2 = json.loads(json.dumps(rep))
@@ -3054,18 +3457,167 @@ def _selftest_dm2(check, args):
         return next((x for x in mm.get(kind) or [] if x.get("id") == iid), None)
     faded = _wait(lambda: (lambda d: d if (item(d, "plates", "p8-disc") or {}).get("phase") == 0
                            and (item(d, "slabs", "p8-play") or {}).get("phase") == 0 else None)(read_json(GLASSD_JSON)),
-                  3, 0.05)
-    check("leaving plate and slab written with phase 0", bool(faded), str(read_json(GLASSD_JSON))[:300])
+                  6, 0.02)      # the test report is re-read on the 1 s Steam tick; a busy Steam slows it
+    t_faded = time.time()
+    check("leaving plate and slab written with phase 0", bool(faded),
+          f"{round(t_faded - t0, 2)} s after the report changed (--test-report is re-read once a second)"
+          if faded else str(read_json(GLASSD_JSON))[:300])
     gone = _wait(lambda: (lambda d: d if item(d, "plates", "p8-disc") is None and item(d, "slabs", "p8-play") is None
-                          and item(d, "plates", "p8-card") else None)(read_json(GLASSD_JSON)), 4, 0.05)
-    t_gone = round(time.time() - t0, 2)
-    check("then removed (350 ms ramp + the next write, ≤ 1.6 s)", bool(gone) and t_gone <= 1.6, t_gone)
+                          and item(d, "plates", "p8-card") else None)(read_json(GLASSD_JSON)), 4, 0.02)
+    t_gone = round(time.time() - t_faded, 2)
+    check("then removed after the 350 ms out-ramp (≤ 0.35 + 0.3 s)", bool(gone) and 0.3 <= t_gone <= 0.65, t_gone)
     try:
         pngs = sorted(os.listdir(TEST_DUMP))
     except OSError:
         pngs = []
-    print(f"NOTE fakeglassd dumps (procedural, no camera): {pngs}", flush=True)
+    print(f"NOTE fakeglassd dumps (procedural, no camera): {pngs}"
+          + ("" if "--keep-dump" in args else " (deleted after the test; --keep-dump keeps them)"), flush=True)
     check("fakeglassd --dump wrote textures", bool(pngs), pngs)
+
+
+
+FM_DUMP_JS = ("(async()=>{const d=await OverlayStore.DumpLaserOverlays();const o=d.overlays||{};"
+              "const k=Object.keys(o).find(n=>/frame\\.menu/.test(n));const p=k&&o[k].scene_graph_panel;"
+              "return JSON.stringify(p?{fWidth:p.fWidth,fHeight:p.fHeight}:null)})()")
+
+
+def _selftest_dm3(check, args):
+    """Geometry against the SP §1.2 snippet, and the frame menu's panel against
+    a DumpLaserOverlays of our own: atomic (review R1 m3), i.e. the daemon's own
+    dump came after ours and the panel did not change between our two dumps."""
+    st = status()
+    g = st.get("geom") or {}
+    ref = json.loads(_vr_js("systemui", SP12_SNIPPET))
+    for k, rk, tol in (("S", "S", 6e-5), ("H0", "H0", 6e-5), ("r", "r", 6e-5), ("Hm", "Hw", 6e-5),
+                       ("unitM", "unitToM", 6e-5), ("mmPerCssPx", "mmPerCssPx", 6e-5), ("dashDist", "dashDist", 6e-4)):
+        check(f"geom.{k} = snippet {rk}", _close(g.get(k), ref.get(rk), tol), f"{g.get(k)} vs {ref.get(rk)}")
+    got = None
+    for attempt in range(3):
+        d0 = json.loads(_vr_js("systemui", FM_DUMP_JS, 15))
+        t0 = time.time()
+        s1 = _wait(lambda: (lambda x: x if (x.get("geomDumpAt") or 0) > t0 else None)(status()), GEOM_DUMP_S + 6, 0.5)
+        d1 = json.loads(_vr_js("systemui", FM_DUMP_JS, 15))
+        if s1 and d0 == d1:
+            got = (s1, d1, round(s1["geomDumpAt"] - t0, 1), attempt + 1)
+            break
+        print(f"NOTE frame menu panel changed during the step ({d0} -> {d1}) or no daemon dump ({bool(s1)}); again",
+              flush=True)
+    if got is None:
+        check("frame menu stable over one daemon dump (3 tries)", False, "panel kept changing or no daemon dump")
+    elif got[1] is None:
+        check("frame menu present in DumpLaserOverlays", False, "no frame menu panel")
+    else:
+        s1, dump, lag, tries = got
+        fm = (s1.get("geom") or {}).get("frameMenu") or {}
+        print(f"NOTE daemon dump {lag} s after ours (try {tries}); our dumps before and after it equal", flush=True)
+        check("frameMenu.fHeight = DumpLaserOverlays (same step)", _close(fm.get("fHeight"), dump.get("fHeight"), 6e-5),
+              f"{fm.get('fHeight')} vs {dump.get('fHeight')}")
+        check("frameMenu.fWidth = DumpLaserOverlays (same step)", _close(fm.get("fWidth"), dump.get("fWidth"), 6e-5),
+              f"{fm.get('fWidth')} vs {dump.get('fWidth')}")
+        check("frameMenu.clipCssH = fHeight / mpp / 1.5",
+              _close(fm.get("clipCssH"), float(dump["fHeight"]) / float(fm.get("mpp") or 1) / 1.5, 0.11),
+              f"{fm.get('clipCssH')} mpMm {fm.get('mpMm')}")
+        st = s1
+    steam = json.loads(_vr_js("systemui", "JSON.stringify((()=>{const sf=FrameStore.frames.find(x=>x.m_mapPages&&"
+                                          "[...x.m_mapPages.values()].some(p=>p.m_sSummonOverlayKey==="
+                                          "'valve.steam.gamepadui.main'));return sf&&sf.activePage&&"
+                                          "sf.activePage.m_sSummonOverlayKey})())"))
+    page = st.get("page") or {}
+    check("page.summonKey = FrameStore", page.get("summonKey") == steam, f"{page.get('summonKey')} vs {steam}")
+    check("page.steam", page.get("steam") == (steam == STEAM_MAIN_KEY))
+    g = st.get("geom") or {}
+    rt = _steam_js("(() => { const R = window.__LGS_RT, b = R && R.bridge; if (!b || !b.get) return null;"
+                   " return JSON.stringify({geom: b.get('geom'), page: b.get('page'), daemon: b.get('daemon')}); })()")
+    if rt is None:
+        print("NOTE bridge: no __LGS_RT.bridge in Steam (runtime off); bridge delivery not checked", flush=True)
+    else:
+        b = json.loads(rt)
+        check("bridge geom = published geom", (b.get("geom") or {}).get("r") == g.get("r")
+              and (b.get("geom") or {}).get("S") == g.get("S")
+              and ((b.get("geom") or {}).get("frameMenu") or {}).get("fWidth") == (g.get("frameMenu") or {}).get("fWidth"),
+              str(b.get("geom"))[:160])
+        check("bridge page = published page", (b.get("page") or {}).get("summonKey") == page.get("summonKey"))
+        d = b.get("daemon") or {}
+        check("bridge daemon heartbeat fresh", d and time.time() * 1000 - d.get("at", 0) < d.get("ttlMs", 0),
+              str(d)[:160])
+
+
+P8_FIX_JS = r"""
+(function (on) {
+  for (const p of g_PopupManager.m_mapPopups.values()) {
+    if (!/^VR_uid/.test(p.m_strName)) continue;
+    const d = p.window.document;
+    let f = d.getElementById('lgs-p8-fix');
+    if (f) f.remove();
+    if (!on) return 'removed';
+    f = d.createElement('div');
+    f.id = 'lgs-p8-fix';
+    f.setAttribute('data-lgs-plate', 'liquid');
+    f.setAttribute('data-lgs-plate-id', 'p8-live');
+    f.style.cssText = 'position:fixed;left:220px;top:180px;width:160px;height:160px;border-radius:80px;' +
+      'pointer-events:none;z-index:2147483647;background:rgba(255,255,255,0.08)';
+    d.body.appendChild(f);
+    return 'added';
+  }
+  return 'no main window';
+})
+"""
+P8_FIX_STATE_JS = ("(() => { for (const p of g_PopupManager.m_mapPopups.values()) if (/^VR_uid/.test(p.m_strName)) {"
+                   " const f = p.window.document.getElementById('lgs-p8-fix'); return JSON.stringify({fix: !!f,"
+                   " ack: !!(f && f.hasAttribute('data-lgs-plate-ack'))}); } return null; })()")
+
+
+def _selftest_plates(check, args):
+    """The real reporter (P6 v3) with fakeglassd: options passed, a plate from a
+    fixture element goes to glassd.json, is acked (data-lgs-plate-ack), fades
+    out when the element goes; motion.js is prepended to lgs_sg.js."""
+    print("start native (reporter, fakeglassd):",
+          start(glassd=FAKEGLASSD, stay=True, glassd_args=[], native="on"), flush=True)
+    st = _wait(lambda: (lambda s: s if s.get("mode") == "native" and (s.get("steam") or {}).get("reports") else None)(
+        status()), 45, 0.5) or status()
+    check("native with the real reporter reporting", st.get("mode") == "native"
+          and (st.get("steam") or {}).get("source") == "reporter", (st.get("mode"), (st.get("steam") or {}).get("reporter")))
+    # the reporter deletes __LGS_LAYERS_OPTS once read: its status() shows what it got
+    ro = _steam_js("(() => { const L = window.__LGS_LAYERS, s = L && L.status ? L.status() : {};"
+                   " return JSON.stringify({v: s.v, fragments: s.fragments, profile: s.profile, geom: s.geom,"
+                   " ackMode: s.ackMode}); })()")
+    ro = json.loads(ro) if ro else {}
+    frags = sorted(os.path.basename(f) for f in json_files(LAYERS_DIR))
+    got = ro.get("fragments") or []          # a fragment whose flag is off may be left out
+    check("reporter v3 got theme/layers fragments, profile, geom (= ours) and ackMode", (ro.get("v") or 0) >= 3
+          and got and set(got) <= set(frags) and frags[0] in got and ro.get("profile") in ("default", "wearer")
+          and (ro.get("geom") or {}).get("src") in ("opts", "bridge")      # both are ours; P6 prefers the live bridge
+          and _close((ro.get("geom") or {}).get("S"), (status().get("geom") or {}).get("S"), 1e-4)
+          and ro.get("ackMode") is True, (ro, frags))
+    mot = _vr_js("systemui", "typeof globalThis.__LGS_MOTION")
+    check("motion.js prepended to lgs_sg.js (__LGS_MOTION in vr:systemui)", mot == "object", mot)
+    try:
+        check("plate fixture added to the main window", _steam_js(f"({P8_FIX_JS})(true)") == "added")
+
+        def plate(d):
+            m = next((s for s in (d or {}).get("surfaces", []) if s.get("name") == "main"), {})
+            return next((p for p in m.get("plates") or [] if p.get("id") == "p8-live"), None)
+        t0 = time.time()
+        p = _wait(lambda: plate(read_json(GLASSD_JSON)), 6, 0.1)
+        check("its plate reaches glassd.json (materialize)", p and p.get("appear") == "materialize"
+              and p.get("w", 0) > 200, p)
+        drawn = _wait(lambda: "p8-live" in (((read_json(GLASSD_OUT) or {}).get("surfaces") or {}).get("main") or {})
+                      .get("plates", []), 5, 0.1)
+        check("fakeglassd draws it (glassd-out plates)", bool(drawn))
+        ack = _wait(lambda: (json.loads(_steam_js(P8_FIX_STATE_JS) or "{}") or {}).get("ack"), 6, 0.2)
+        t_ack = round(time.time() - t0, 2)
+        check("plate acked: data-lgs-plate-ack on the element (after its 250 ms ramp + 350 ms)", bool(ack)
+              and t_ack >= 0.6, t_ack)
+        pa = _wait(lambda: (lambda m: m if any("p8-live" in v for v in m.values()) else None)(
+            (status().get("steam") or {}).get("plateAcks") or {}), 5, 0.5)
+        check("status lists the plate ack", bool(pa), pa)
+        _steam_js(f"({P8_FIX_JS})(false)")
+        faded = _wait(lambda: (plate(read_json(GLASSD_JSON)) or {}).get("phase") == 0, 4, 0.05)
+        check("element removed: its plate fades (phase 0)", bool(faded))
+        gone = _wait(lambda: plate(read_json(GLASSD_JSON)) is None, 3, 0.05)
+        check("then leaves glassd.json", bool(gone))
+    finally:
+        _steam_js(f"({P8_FIX_JS})(false)")
 
 
 def selftest(args):
@@ -3079,9 +3631,13 @@ def selftest(args):
         print(("PASS " if ok else "FAIL ") + n + (f"  [{info}]" if info != "" else ""), flush=True)
 
     if name == "actions":
+        import shutil
         import tempfile
-        p, f, res = shell_ext.selftest(tempfile.mkdtemp(prefix="lgs-p8-", dir="/tmp/lgs" if os.path.isdir("/tmp/lgs")
-                                                        else None))
+        tmp = tempfile.mkdtemp(prefix="lgs-p8-", dir="/tmp/lgs" if os.path.isdir("/tmp/lgs") else None)
+        try:
+            p, f, res = shell_ext.selftest(tmp)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
         for n, ok, info in res:
             check(n, ok, "" if ok else info)
     elif name == "dm6":
@@ -3089,7 +3645,7 @@ def selftest(args):
         check("auto resolves to CSS only without a gate pass", (not nat) if src == "builtin" else True,
               f"{nat} {src} {reason}")
         if "--live" in args:
-            with FileLock("/tmp/lgs/native.lock", 1800), FileLock("/tmp/lgs/lab-vr.lock", 240):
+            with FileLock("/tmp/lgs/native.lock", 1800), FileLock("/tmp/lgs/lab.lock", 600),                     FileLock("/tmp/lgs/lab-vr.lock", 240):
                 print("stop:", stop(), flush=True)
                 print("start(auto):", start(native="auto"), flush=True)
                 st = _wait(lambda: (status() if status().get("unit") == "active" and
@@ -3100,45 +3656,8 @@ def selftest(args):
                       and nat_st.get("requested") == "auto", f"{st.get('mode')} / {nat_st}")
                 check("a running unit is kept by start(auto)", start(native="auto").startswith("running"))
     elif name == "dm3":
-        st = status()
-        g = st.get("geom") or {}
-        ref = json.loads(_vr_js("systemui", SP12_SNIPPET))
-        for k, rk, tol in (("S", "S", 6e-5), ("H0", "H0", 6e-5), ("r", "r", 6e-5), ("Hm", "Hw", 6e-5),
-                           ("unitM", "unitToM", 6e-5), ("mmPerCssPx", "mmPerCssPx", 6e-5), ("dashDist", "dashDist", 6e-4)):
-            check(f"geom.{k} = snippet {rk}", _close(g.get(k), ref.get(rk), tol), f"{g.get(k)} vs {ref.get(rk)}")
-        dump = json.loads(_vr_js("systemui", "(async()=>{const d=await OverlayStore.DumpLaserOverlays();"
-                                             "const o=d.overlays||{};const k=Object.keys(o).find(n=>/frame\\.menu/.test(n));"
-                                             "return JSON.stringify(k?o[k].scene_graph_panel:null)})()", 15))
-        fm = g.get("frameMenu") or {}
-        if dump:
-            check("frameMenu.fHeight = DumpLaserOverlays", _close(fm.get("fHeight"), dump.get("fHeight"), 6e-5),
-                  f"{fm.get('fHeight')} vs {dump.get('fHeight')}")
-            check("frameMenu.fWidth = DumpLaserOverlays", _close(fm.get("fWidth"), dump.get("fWidth"), 6e-5),
-                  f"{fm.get('fWidth')} vs {dump.get('fWidth')}")
-            check("frameMenu.clipCssH = fHeight / mpp / 1.5",
-                  _close(fm.get("clipCssH"), float(dump["fHeight"]) / float(fm.get("mpp") or 1) / 1.5, 0.11),
-                  f"{fm.get('clipCssH')} mpMm {fm.get('mpMm')}")
-        else:
-            check("frame menu present in DumpLaserOverlays", False, "no frame menu panel")
-        steam = json.loads(_vr_js("systemui", "JSON.stringify((()=>{const sf=FrameStore.frames.find(x=>x.m_mapPages&&"
-                                              "[...x.m_mapPages.values()].some(p=>p.m_sSummonOverlayKey==="
-                                              "'valve.steam.gamepadui.main'));return sf&&sf.activePage&&"
-                                              "sf.activePage.m_sSummonOverlayKey})())"))
-        page = st.get("page") or {}
-        check("page.summonKey = FrameStore", page.get("summonKey") == steam, f"{page.get('summonKey')} vs {steam}")
-        check("page.steam", page.get("steam") == (steam == STEAM_MAIN_KEY))
-        rt = _steam_js("(() => { const R = window.__LGS_RT, b = R && R.bridge; if (!b || !b.get) return null;"
-                       " return JSON.stringify({geom: b.get('geom'), page: b.get('page'), daemon: b.get('daemon')}); })()")
-        if rt is None:
-            print("NOTE bridge: no __LGS_RT.bridge in Steam (runtime off); bridge delivery not checked", flush=True)
-        else:
-            b = json.loads(rt)
-            check("bridge geom = published geom", (b.get("geom") or {}).get("r") == g.get("r")
-                  and (b.get("geom") or {}).get("S") == g.get("S"), str(b.get("geom"))[:120])
-            check("bridge page = published page", (b.get("page") or {}).get("summonKey") == page.get("summonKey"))
-            d = b.get("daemon") or {}
-            check("bridge daemon heartbeat fresh", d and time.time() * 1000 - d.get("at", 0) < d.get("ttlMs", 0),
-                  str(d)[:160])
+        with FileLock("/tmp/lgs/lab-vr.lock", 240):     # it reads systemui and runs DumpLaserOverlays there
+            _selftest_dm3(check, args)
     elif name == "dm4":
         if _steam_js("typeof window.lgsAction") != "function":
             check("lgsAction binding present", False, "typeof window.lgsAction != function")
@@ -3217,25 +3736,74 @@ def selftest(args):
                     os.remove(TEST_SCRIPT)
                 except OSError:
                     pass
-    elif name in ("dm1", "dm2"):
+    elif name == "grace":
+        # theme off without `lgs off` (lab --stock, P1's selftests): dormant, not gone
+        with FileLock("/tmp/lgs/lab.lock", 600), FileLock("/tmp/lgs/lab-vr.lock", 240):
+            st0 = status()
+            pid0 = st0.get("pid")
+            check("unit active before", st0.get("unit") == "active" and not st0.get("dormant"), st0.get("mode"))
+            was_on = lgs.is_on()
+            try:
+                if was_on:
+                    lgs.op("off", quiet=True)
+                d = _wait(lambda: (lambda s: s if s.get("dormant") else None)(status()), 12, 0.5) or {}
+                check("theme off: dormant, same pid", d.get("pid") == pid0 and (d.get("dormant") or {}).get("graceS"),
+                      f"{d.get('pid')} vs {pid0} {d.get('dormant')}")
+                time.sleep(3)
+                s2 = status()
+                check("still running 8 s after the theme went off", s2.get("unit") == "active" and s2.get("pid") == pid0,
+                      f"{s2.get('unit')} {s2.get('pid')}")
+                check("dormant: no scene graph in systemui", not (_sg_items() or {}).get("items"), _sg_items())
+            finally:
+                if was_on:
+                    lgs.op("on", quiet=True)
+            r = _wait(lambda: (lambda s: s if s.get("unit") == "active" and not s.get("dormant") else None)(status()),
+                      10, 0.5) or {}
+            check("theme back: resumed (not dormant, same pid)", r.get("pid") == pid0, f"{r.get('pid')} {r.get('dormant')}")
+            back = _wait(lambda: _steam_js("typeof window.lgsAction") == "function", 5)
+            check("action binding present after resume", bool(back))
+            rt = _wait(lambda: _steam_js("(() => { const R = window.__LGS_RT, b = R && R.bridge; const d = b && b.get && "
+                                         "b.get('daemon'); return d ? Date.now() - d.at < d.ttlMs : null; })()") is True, 8)
+            if _steam_js("!!(window.__LGS_RT && window.__LGS_RT.bridge)"):
+                check("bridge daemon heartbeat fresh after resume", bool(rt))
+            pages = (status().get("steamvrPages") or {}).get("pages") or {}
+            check("SteamVR pages themed", pages and all(v in ("ok", "applied") for v in pages.values()), pages)
+    elif name in ("dm1", "dm2", "plates"):
         if not os.access(FAKEGLASSD, os.X_OK):
             print(f"BLOCKED: no fakeglassd at {FAKEGLASSD} (python glass.py native-build fake)")
             return 3
-        with FileLock("/tmp/lgs/native.lock", 1800):
+        # native.lock for the native session; lab-vr.lock too, since systemui's
+        # scene graph changes (and is frozen) under other agents' vr: steps
+        import contextlib
+        # plates edits the Steam main window (a fixture): lab.lock as well
+        with FileLock("/tmp/lgs/native.lock", 1800),                 (FileLock("/tmp/lgs/lab.lock", 600) if name == "plates" else contextlib.nullcontext()),                 FileLock("/tmp/lgs/lab-vr.lock", 240):
             try:
-                (_selftest_dm1 if name == "dm1" else _selftest_dm2)(check, args)
+                {"dm1": _selftest_dm1, "dm2": _selftest_dm2, "plates": _selftest_plates}[name](check, args)
             finally:
                 # always back to CSS only (lgs on --css), then wait for it
                 print("back to css:", start(native="off"), flush=True)
                 back = _wait(lambda: (status().get("mode") or "").startswith("css-only"), 30)
                 check("back to CSS only", back, status().get("mode"))
+                time.sleep(2)
+                left = {"reporter": _steam_js("typeof window.__LGS_LAYERS"),
+                        "motion": _vr_js("systemui", "typeof globalThis.__LGS_MOTION"),
+                        "sg": _vr_js("systemui", "typeof window.__LGS_SG"), "glassd.json": os.path.exists(GLASSD_JSON)}
+                check("nothing native left (reporter, __LGS_MOTION, __LGS_SG, glassd.json)",
+                      left["motion"] == "undefined" and left["glassd.json"] is False
+                      and (left["sg"] == "undefined" or not (_sg_items() or {}).get("items")), left)
+                gl = _bindings()
+                check("CSS-only unit: no lgsLayers global, lgsAction present", gl.get(BINDING) == "undefined"
+                      and gl.get(ACTION_BINDING) == "function", gl)
                 for p in (TEST_REPORT,):
                     try:
                         os.remove(p)
                     except OSError:
                         pass
+                if "--keep-dump" not in args:
+                    import shutil
+                    shutil.rmtree(TEST_DUMP, ignore_errors=True)
     else:
-        print("selftest NAME: actions | dm1 | dm2 | dm3 | dm4 | dm5 [--stop] | dm6 [--live]")
+        print("selftest NAME: actions | dm1 | dm2 [--keep-dump] | dm3 | dm4 | dm5 [--stop] | dm6 [--live] | grace | plates")
         return 2
     ok = all(r["pass"] for r in results)
     print(json.dumps({"selftest": name, "passed": sum(r["pass"] for r in results), "failed":

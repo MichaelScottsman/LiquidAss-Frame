@@ -15,12 +15,14 @@ forced hidden, test key prefix, private out dir; nothing visible).
 import json
 import os
 import random
+import shutil
 import signal
 import subprocess
 import sys
 import time
 
-D = "/tmp/lgs-fx"
+D = "/tmp/lgs/p9-fx/atlas"  # rule 7: test state only under /tmp/lgs; removed on any exit
+PROC = None
 SPEC = D + "/spec.json"
 OUT = D + "/out.json"
 BIN = os.environ.get("GLASSD") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "glassd")
@@ -101,8 +103,9 @@ def main():
     C = pid("vrcompositor")
     write_spec({"seq": 1, "dial": 0.5, "surfaces": [surf(A)]})
     log = open(D + "/glassd.log", "w")
-    g = subprocess.Popen([BIN, "--spec", SPEC, "--out", OUT, "--key-prefix", PREFIX, "--no-feed", "--dash", "off"],
-                         stdout=log, stderr=subprocess.STDOUT)
+    global PROC
+    g = PROC = subprocess.Popen([BIN, "--spec", SPEC, "--out", OUT, "--key-prefix", PREFIX, "--no-feed", "--dash", "off"],
+                                stdout=log, stderr=subprocess.STDOUT)
     o1, lat1 = wait_seq(1, 15)
     m1 = o1["surfaces"]["main"]
     print("spec A:", json.dumps(m1), f"latency {lat1:.3f}")
@@ -174,10 +177,18 @@ def main():
     print("\n".join([l for l in txt if "atlas" in l or "stays flat" in l][:12]))
     print("layout lines:", sum(1 for l in txt if l.startswith("layout ")))
     print("\n".join(txt[-4:]))
-    for f in os.listdir(D):
-        os.remove(os.path.join(D, f))
-    os.rmdir(D)
 
 
 if __name__ == "__main__":
-    main()
+    shutil.rmtree(D, ignore_errors=True)
+    try:
+        main()
+    finally:
+        if PROC and PROC.poll() is None:  # an exception left glassd running: stop it
+            PROC.terminate()
+            PROC.wait(10)
+        shutil.rmtree(D, ignore_errors=True)
+        try:
+            os.rmdir(os.path.dirname(D))  # /tmp/lgs/p9-fx, when no other P9 test runs
+        except OSError:
+            pass

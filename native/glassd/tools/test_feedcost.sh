@@ -3,8 +3,10 @@
 # without glassd, while glassd believes the dashboard is hidden (one-frame
 # shots) or visible (streaming). Test prefix, private out dir, no dumps.
 G=${GLASSD:-$(cd "$(dirname "$0")/.." && pwd)/glassd}
-OUT=/tmp/lgs-fx
+OUT=/tmp/lgs/p9-fx/feedcost  # rule 7: test state only under /tmp/lgs
+rm -rf $OUT
 mkdir -p $OUT
+trap 'rm -rf "$OUT"; rmdir /tmp/lgs/p9-fx 2>/dev/null' EXIT
 V=$(pgrep -x V4L2Cam | head -1)
 C=$(pgrep -x vrcompositor | head -1)
 ticks() { awk '{print $14+$15}' /proc/$1/stat; }

@@ -32,6 +32,8 @@
 
   let rt = null;   // P1's scoped runtime for this module
   let S = null;    // state of the current install
+  let aliased = null;  // the api we exposed as RT.react
+  let jsxMod = null, reactMod = null;  // Steam's jsx runtime and React exports (patchedLeft checks)
 
   // ------------------------------------------------------------ small utilities
   function fnSrc(v) {
@@ -110,16 +112,19 @@
     }],
     // "#GameAction_<action>" label (module 18488): label(action, count)
     ActionLabel: [['"#GameActionPlural_"', '"#GameAction_"'], (ex) => pick(ex, (v, s) => typeof v === 'function' && has(s, '"#GameActionPlural_"', '"#GameAction_"'))],
+    // The bar's CSS module (12031 in 11094443): its hashed class names, so the statusPill target does
+    // not depend on the theme's class index.
+    BarClasses: [['QuickAccessButton:"'], (ex) => (ex && typeof ex.QuickAccessButton === 'string' ? ex : null)],
     // The VR gamepad UI message service (module 92102): p.SteamVR.DashboardDesktopWindowClicked
     VRMessages: [['"VRGamepadUIMessages"', 'm_SteamVR_ClientMethods'], (ex) => pick(ex, (v) => typeof v === 'object' && v.SteamVR && typeof v.SteamVR.DashboardDesktopWindowClicked === 'function')],
   };
 
   function newState() {
     return {
-      req: null, src: null, factories: 0, M: null, where: {}, counts: {}, ready: false, error: null, scanMs: null,
+      req: null, src: null, srcTimer: null, factories: 0, M: null, where: {}, counts: {}, ready: false, error: null, scanMs: null,
       broken: new Set(), RouteType: null, ui: null,
       switchPatches: [], routes: new Map(), overrides: new Map(), unlisten: null, winOff: null,
-      targets: new Map(), handles: new Map(), touched: new Set(),
+      targets: new Map(), handles: new Map(), touched: new Set(), typeMap: new Map(), jsxHook: null,
       menus: new Set(), modals: new Set(),
       actionLog: [], actionSubs: new Set(), forceTest: false,
     };
@@ -151,26 +156,32 @@
     S.factories = out.length;
     return out;
   }
-  // One pass over the cached sources; require only modules whose source has every needle,
-  // smallest first (a module nobody loaded yet would run its top-level code on require).
-  // The prefilter is one regex of every distinct needle (one pass over each source, about 2.3x faster than
-  // one includes() per finder on 21 MB of source); every candidate is then confirmed with includes(), so a
-  // needle hidden inside another needle's match can only cost a candidate, never produce a wrong one.
+  // One pass over the cached sources; require only modules whose source has every needle, smallest
+  // first (a module nobody loaded yet would run its top-level code on require).
+  // Each finder is searched by ONE anchor needle (its longest: string search skips ahead by the pattern's
+  // length), source-major so each source is scanned while it is hot; only the anchor's modules are then
+  // checked for the other needles. Measured on the Frame (build 11094443, a busy device): 143-165 ms
+  // against 466-494 ms for one alternation regex of every needle, which V8 runs alternative by
+  // alternative over 21 MB of two-byte source.
   function findIn(spec) {
     const src = sources();
     const req = getReq();
     const cand = {}, size = {};
-    for (const k in spec) cand[k] = [];
-    const all = [...new Set(Object.values(spec).flatMap((v) => v[0]))].sort((a, b) => b.length - a.length);
-    const re = new RegExp(all.map((x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'g');
-    for (const [id, s] of src) {
-      re.lastIndex = 0;
-      let m, found = null;
-      while ((m = re.exec(s))) (found || (found = new Set())).add(m[0]);
-      if (!found) continue;
-      for (const k in spec) {
-        const nd = spec[k][0];
-        if (!nd.some((n) => found.has(n))) continue;
+    const anchorOf = {};
+    for (const k in spec) {
+      cand[k] = [];
+      anchorOf[k] = spec[k][0].reduce((x, y) => (y.length > x.length ? y : x));
+    }
+    const anchors = [...new Set(Object.values(anchorOf))];
+    const byAnchor = new Map(anchors.map((x) => [x, []]));
+    for (let i = 0; i < src.length; i++) {
+      const s = src[i][1];
+      for (const x of anchors) if (s.includes(x)) byAnchor.get(x).push(i);
+    }
+    for (const k in spec) {
+      const nd = spec[k][0];
+      for (const i of byAnchor.get(anchorOf[k])) {
+        const [id, s] = src[i];
         if (nd.every((n) => s.includes(n))) { cand[k].push(id); size[id] = s.length; }
       }
     }
@@ -212,6 +223,8 @@
       let f = fiberOf(n);
       if (!f) continue;
       while (f.return) f = f.return;
+      // A DOM node's fiber pointer can be the alternate; walk the committed tree (FiberRoot.current).
+      if (f.tag === 3 && f.stateNode && f.stateNode.current) f = f.stateNode.current;
       return f;
     }
     throw new Error('lgs-react: no React fiber in the main window');
@@ -238,6 +251,11 @@
     });
     return out;
   }
+  // The first DOM node a fiber renders (depth-first through its children).
+  function firstHost(f) {
+    for (let c = f && f.child, i = 0; c && i < 200; c = c.child, i++) if (c.tag === 5) return c.stateNode;
+    return null;
+  }
   function closestFiber(el, pred) {
     for (let f = fiberOf(el); f; f = f.return) {
       const p = f.memoizedProps;
@@ -247,6 +265,7 @@
   }
   const fiber = {
     of: fiberOf,
+    firstHost,
     root: () => hostRoot(),
     walk: (visit) => walk(visit),
     findAll: (pred, opts) => findFibers(pred, opts && opts.max),
@@ -269,8 +288,18 @@
   }
 
   // ------------------------------------------------------------ ready(): the one scan, fail closed
+  // Kill switch: the flag `react` set to an off value turns every T3 feature off (callers fail to
+  // install and fall back to T1). Unset means on. Not sticky: it is read on every ready().
+  function killed() {
+    try {
+      if (!rt || !rt.flags || typeof rt.flags.get !== 'function') return false;
+      const v = rt.flags.get('react');
+      return v !== undefined && !rt.flags.enabled('react');
+    } catch (_) { return false; }
+  }
   function ready() {
     if (!S) throw new Error('lgs-react: module not installed');
+    if (killed()) throw new Error('lgs-react: flag react is off (T3 off)');
     if (S.ready) return true;
     if (S.error) throw S.error;
     const t0 = performance.now();
@@ -286,10 +315,12 @@
       S.RouteType = sib ? sib.type : (r.mods.Router && r.mods.Router.Route);
       if (!S.RouteType) throw new Error('lgs-react: no <Route> element type (fail closed; T3 off)');
       S.M = r.mods; S.where = r.where; S.counts = r.counts;
+      jsxMod = r.mods.jsx; reactMod = r.mods.React;
       S.ui = makeUI(r.mods);
       S.ready = true;
       S.scanMs = Math.round(performance.now() - t0);
       logI(`ready in ${S.scanMs} ms (${S.factories} factories)`);
+      dropSourcesLater();
       return true;
     } catch (e) {
       S.error = e instanceof Error ? e : new Error(String(e));
@@ -300,6 +331,17 @@
     }
   }
   const need = () => { ready(); return S.M; };
+  // The source cache serves callers' own finders (find()) during their install; it is dropped 60 s
+  // after the last use (a later find() scans again).
+  const SRC_KEEP_MS = 60000;
+  function dropSourcesLater() {
+    if (!S) return;
+    if (S.srcTimer) { try { S.srcTimer(); } catch (_) { /* cleared */ } S.srcTimer = null; }
+    const st = S;
+    try {
+      if (rt && typeof rt.setTimeout === 'function') st.srcTimer = rt.setTimeout(() => { st.src = null; st.srcTimer = null; }, SRC_KEEP_MS);
+    } catch (_) { st.srcTimer = null; }
+  }
 
   // ------------------------------------------------------------ route matching
   function compile(path) {
@@ -337,10 +379,15 @@
         const p = c && c.props && c.props.path;
         const o = typeof p === 'string' ? st.overrides.get(p) : null;
         if (!o) return c;
-        return React.cloneElement(c, { children: jsx(st.ui.ErrorBoundary, {
-          name: 'override ' + p, fallback: c.props.children === undefined ? null : c.props.children,
-          children: jsx(OverrideHost, { o, steam: c.props.children, loc }),
-        }) });
+        const orig = c.props.children;
+        const host = (steam, routeProps) => jsx(st.ui.ErrorBoundary, {
+          name: 'override ' + p, fallback: steam === undefined ? null : steam,
+          children: jsx(OverrideHost, { o, steam, loc, routeProps }),
+        });
+        // Steam's route wrappers (Pc, Jh) call a function child with the route props (achievements);
+        // keep that form so Steam's own children get them too.
+        if (typeof orig === 'function') return React.cloneElement(c, { children: (rp) => host(orig(rp), rp) });
+        return React.cloneElement(c, { children: host(orig, null) });
       });
     }
     if (st.routes.size) {
@@ -353,8 +400,10 @@
     return list;
   }
   function OverrideHost(props) {
-    const { o, steam, loc } = props;
-    return o.fn(steam, { match: match(loc.pathname, o.path, false), location: loc });
+    const { o, steam, loc, routeProps } = props;
+    const m = (routeProps && routeProps.match) || match(loc.pathname, o.path, false);
+    const out = o.fn(steam === undefined ? null : steam, { match: m, location: loc });
+    return out === undefined ? null : out;
   }
   function RouteHost(props) {
     const { r, loc } = props;
@@ -403,7 +452,12 @@
         try { if ((S.routes.size || S.overrides.size) && onOurPath(loc.pathname)) patchSwitch(); } catch (e) { logE('re-patch failed', errMsg(e)); }
         refreshTargets('navigation');
       });
-      try { if (rt.windows && typeof rt.windows.onAdd === 'function') S.winOff = rt.windows.onAdd(() => refreshTargets('window')); } catch (_) { S.winOff = null; }
+      // New popup windows, and pooled popups shown again (P1: "+" list, bar menus), may mount patched
+      // components afresh.
+      const offs = [];
+      try { if (rt.windows && typeof rt.windows.onAdd === 'function') offs.push(rt.windows.onAdd(() => refreshTargets('window'))); } catch (_) { /* older runtime */ }
+      try { if (rt.windows && typeof rt.windows.onShow === 'function') offs.push(rt.windows.onShow(() => refreshTargets('window shown'))); } catch (_) { /* older runtime */ }
+      S.winOff = offs.length ? () => { for (const off of offs) { try { off(); } catch (_) { /* gone */ } } } : null;
     } else if (!any && S.unlisten) {
       try { S.unlisten(); } catch (_) { /* gone */ }
       S.unlisten = null;
@@ -470,7 +524,8 @@
   };
 
   // ------------------------------------------------------------ patches by props shape (SR §3.2)
-  const baseFn = (f) => (f && f[MARK] && f.__lgsOrig ? f.__lgsOrig : f);
+  // Our trampolines keep __lgsOrig for life (an inert one, with no layers left, has an empty MARK).
+  const baseFn = (f) => (f && f.__lgsOrig ? f.__lgsOrig : f);
   // What to patch for a fiber: a shared holder (memo .type, forwardRef .render, class prototype.render)
   // and/or the live fibers' own type.
   function describe(f) {
@@ -518,15 +573,21 @@
   }
   function swapLiveFibers(T) {
     let n = 0;
-    walk((f) => {
-      if (f.tag !== 0 && f.tag !== 15) return;
-      if (typeof f.type !== 'function' || baseFn(f.type) !== T.orig) return;
-      if (f.type !== T.installed) { f.type = T.installed; n++; }
-      if (f.alternate && typeof f.alternate.type === 'function' && baseFn(f.alternate.type) === T.orig && f.alternate.type !== T.installed) f.alternate.type = T.installed;
-    });
+    const fix = (f) => {
+      if (!f || (f.tag !== 0 && f.tag !== 15)) return false;
+      let changed = false;
+      if (typeof f.type === 'function' && baseFn(f.type) === T.orig && f.type !== T.installed) { f.type = T.installed; changed = true; }
+      // A bare function mounted while patched has our trampoline as elementType (jsx substitution);
+      // give it the original back on removal so Steam's next element reuses the fiber.
+      if (!T.layers.length && T.tramp && f.elementType === T.tramp) { f.elementType = T.orig; changed = true; }
+      return changed;
+    };
+    walk((f) => { if (fix(f)) n++; fix(f.alternate); });
     T.live = n;
     return n;
   }
+  // One stable trampoline per target for its whole life, so the type React sees never changes while
+  // layers come and go (no remounts); it calls the current composition of the layers.
   function installTarget(T) {
     let fn = T.orig;
     for (const L of T.layers) {
@@ -534,16 +595,50 @@
       if (typeof w !== 'function') throw new Error(`lgs-react: patch ${L.id}: wrap() must return a function`);
       fn = w;
     }
-    if (T.layers.length) {
-      const composed = fn;
-      const tramp = function LgsPatched() { return composed.apply(this, arguments); };
-      tramp[MARK] = T.layers.map((L) => L.id).join(',');
+    T.composed = fn;
+    if (!T.tramp) {
+      const tramp = function LgsPatched() { return T.composed.apply(this, arguments); };
       tramp.__lgsOrig = T.orig;
-      fn = tramp;
+      if (T.orig.displayName) tramp.displayName = T.orig.displayName;
+      T.tramp = tramp;
     }
-    T.installed = fn;
-    if (T.holder) { T.holder[T.key] = fn; S.touched.add(T); }
+    T.tramp[MARK] = T.layers.map((L) => L.id).join(',');
+    T.installed = T.layers.length ? T.tramp : T.orig;
+    if (T.holder) { T.holder[T.key] = T.installed; S.touched.add(T); }
+    if (T.kind === 'fn') {
+      if (T.layers.length) S.typeMap.set(T.orig, T.tramp); else S.typeMap.delete(T.orig);
+      syncJsxHook();
+    }
     if (T.fiberType) swapLiveFibers(T);
+  }
+  // A bare function component has no shared holder, and a remount would bring its original type back.
+  // While one is patched, Steam's element factories (jsx, jsxs, createElement) substitute our trampoline
+  // for it: one Map lookup per element, nothing else. Removed when the last such patch goes.
+  function syncJsxHook() {
+    const want = S.typeMap.size > 0;
+    if (want && !S.jsxHook) {
+      const J = S.M.jsx, R = S.M.React, map = S.typeMap;
+      const oj = J.jsx, ojs = J.jsxs, oce = R.createElement;
+      const sub = (t) => (typeof t === 'function' ? (map.get(t) || t) : t);
+      const nj = function (t, p, k) { return oj(sub(t), p, k); };
+      const njs = function (t, p, k) { return ojs(sub(t), p, k); };
+      const nce = function (t) { if (typeof t === 'function' && map.has(t)) { const a = Array.prototype.slice.call(arguments); a[0] = map.get(t); return oce.apply(this, a); } return oce.apply(this, arguments); };
+      for (const f of [nj, njs, nce]) f[MARK] = 'jsx';
+      J.jsx = nj; J.jsxs = njs; R.createElement = nce;
+      S.jsxHook = { J, R, oj, ojs, oce, nj, njs, nce };
+    } else if (!want && S.jsxHook) {
+      unhookJsx();
+    }
+  }
+  function unhookJsx() {
+    const h = S && S.jsxHook;
+    if (!h) return 0;
+    let n = 0;
+    if (h.J.jsx === h.nj) { h.J.jsx = h.oj; n++; }
+    if (h.J.jsxs === h.njs) { h.J.jsxs = h.ojs; n++; }
+    if (h.R.createElement === h.nce) { h.R.createElement = h.oce; n++; }
+    S.jsxHook = null;
+    return n;
   }
   function refreshTargets(why) {
     if (!S || !S.ready) return;
@@ -618,11 +713,64 @@
         let sys = null; try { sys = S.M.RoutePaths.Settings.System(); } catch (_) { return false; }
         return p.pages.some((pg) => pg && pg.route === sys);
       },
-      statusPill: null,
-      appButtons: null,
+      // The bar's status pill (Quick Access button; CC3): a function component with no props whose first
+      // DOM node is %{QuickAccessButton}. It renders Steam's bar popup button ({refBarPopupHandle,
+      // popupContents, onPopupVisibilityChange, tooltip, ...}); a wrap may change that element's props.
+      statusPill: (p, f) => {
+        if (!f || f.tag !== 0 || Object.keys(p).length !== 0) return false;
+        const el = firstHost(f);
+        if (!el || !el.classList) return false;
+        const cls = S && S.M && S.M.BarClasses ? S.M.BarClasses.QuickAccessButton : null;
+        if (cls) return el.classList.contains(cls);
+        let sel = null; try { sel = rt.sel('%{QuickAccessButton}'); } catch (_) { return false; }
+        return !!el.matches(sel);
+      },
+      // The game page's action row (GP §4.12): the forwardRef that renders %{AppButtons} (Play, Steam
+      // Input, the gear) as a Focusable row inside its output. Its parent PlaySection has the same props
+      // plus onNav; the row's own source names its CSS module class ActionRow.
+      appButtons: (p, f) => !!f && f.tag === 11 && 'overview' in p && 'details' in p && 'onGameInfoToggle' in p
+        && 'bShowingLaunchDetails' in p && !('onNav' in p) && fnSrc(f.type).includes('.ActionRow'),
     },
     list() { return S ? [...S.handles.values()].map((h) => ({ id: h.id, count: h.count, live: h.live, kinds: h.kinds, pending: h._pending })) : []; },
+    // Force one render of every live instance a handle patched, so the patch shows at once.
+    // class: forceUpdate(); mobx observer: the observer's own path (new stateVersion + onStoreChange,
+    // what mobx does when an observable it reads changes). A plain function component cannot be forced
+    // from outside; it is counted as skipped and shows the patch at its next own render.
+    rerender(h) {
+      need();
+      if (!h || !Array.isArray(h._targets)) throw new Error('lgs-react: patch.rerender: not a patch handle');
+      const out = { forced: 0, skipped: 0, how: {} };
+      const mine = (f, T) => {
+        switch (T.kind) {
+          case 'fwd': return f.tag === 11 && f.type === T.holder;
+          case 'class': return f.tag === 1 && f.type && f.type.prototype === T.holder;
+          default: return (f.tag === 0 || f.tag === 15) && typeof f.type === 'function' && baseFn(f.type) === T.orig;
+        }
+      };
+      const fibers = [];
+      walk((f) => { for (const T of h._targets) if (mine(f, T)) { fibers.push(f); break; } });
+      for (const f of fibers) {
+        const how = forceFiber(f);
+        if (how) { out.forced++; out.how[how] = (out.how[how] || 0) + 1; } else out.skipped++;
+      }
+      return out;
+    },
   };
+  function forceFiber(f) {
+    try {
+      if (f.tag === 1 && f.stateNode && typeof f.stateNode.forceUpdate === 'function') { f.stateNode.forceUpdate(); return 'class'; }
+      for (let hk = f.memoizedState, i = 0; hk && i < 80; hk = hk.next, i++) {
+        const s = hk.memoizedState;
+        const adm = s && typeof s === 'object' ? s.current : null;
+        if (adm && typeof adm === 'object' && typeof adm.onStoreChange === 'function' && 'stateVersion' in adm && adm.reaction) {
+          adm.stateVersion = Symbol('lgs-rerender');
+          adm.onStoreChange();
+          return 'observer';
+        }
+      }
+    } catch (e) { logE('rerender failed', errMsg(e)); }
+    return null;
+  }
 
   // ------------------------------------------------------------ localization (PLAN §1.15)
   function loc(token, ...args) {
@@ -667,7 +815,8 @@
         style: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '32px', height: '100%', color: '#fff' },
         children: [
           title ? jsx('div', { style: { fontSize: '32px', fontWeight: 600 }, children: title }, 't') : null,
-          jsx(M.DialogButton, { autoFocus: true, onClick: back, style: { minWidth: '200px', minHeight: '60px', borderRadius: '30px', fontSize: '24px', fontWeight: 600 }, children: text('#Button_Back', 'Back') }, 'b'),
+          // A visionOS capsule sized to its label (60 tall, at least 240 wide), not a full-width bar.
+          jsx(M.DialogButton, { autoFocus: true, onClick: back, style: { width: 'auto', minWidth: '240px', minHeight: '60px', padding: '0 48px', borderRadius: '30px', fontSize: '24px', fontWeight: 600 }, children: text('#Button_Back', 'Back') }, 'b'),
         ] }) });
     }
     function Page(props) {
@@ -812,6 +961,12 @@
   };
 
   // ------------------------------------------------------------ actions (HA §14, PLAN §2.3 P2, RX-7)
+  function eventWindow(ev) {
+    try {
+      const t = ev && (ev.currentTarget || (ev.nativeEvent && ev.nativeEvent.currentTarget));
+      return (t && t.ownerDocument && t.ownerDocument.defaultView) || null;
+    } catch (_) { return null; }
+  }
   function untrustedPointer(ev) {
     const ne = ev && (ev.nativeEvent || ev);
     if (!ne || typeof ne !== 'object' || typeof ne.isTrusted !== 'boolean') return false;
@@ -877,7 +1032,9 @@
         const ov = i.overview;
         return {
           detail: { action: i.action, label: i.label, name: i.name },
-          run: () => { const f = M.AppActions.runAction(i.action, ov, CLIENT, LAUNCH_SOURCE_LIBRARY, mainWin()); if (typeof f === 'function') f(); },
+          // Steam's tile menu passes the window of the clicked element (event.currentTarget's
+          // ownerDocument.defaultView); without an event, the main window.
+          run: () => { const f = M.AppActions.runAction(i.action, ov, CLIENT, LAUNCH_SOURCE_LIBRARY, eventWindow(ev) || mainWin()); if (typeof f === 'function') f(); },
         };
       });
     },
@@ -920,9 +1077,18 @@
     let n = 0;
     const isOurs = (t) => !!t && ((typeof t === 'function' && t[MARK]) || (typeof t === 'object' && ((t.type && t.type[MARK]) || (t.render && t.render[MARK]))));
     try {
-      walk((f) => { if (isOurs(f.type)) n++; if (f.alternate && isOurs(f.alternate.type)) n++; });
+      walk((f) => {
+        if (isOurs(f.type) || isOurs(f.elementType)) n++;
+        if (f.alternate && (isOurs(f.alternate.type) || isOurs(f.alternate.elementType))) n++;
+      });
     } catch (_) { /* no window */ }
     for (const T of touched || []) { try { if (T.holder && T.holder[T.key] && T.holder[T.key][MARK]) n++; } catch (_) { /* gone */ } }
+    // Steam's element factories (the jsx substitution for bare function components).
+    try {
+      const J = jsxMod, R = reactMod;
+      if (J && ((J.jsx && J.jsx[MARK]) || (J.jsxs && J.jsxs[MARK]))) n++;
+      if (R && R.createElement && R.createElement[MARK]) n++;
+    } catch (_) { /* gone */ }
     return n;
   }
   function status() {
@@ -938,6 +1104,9 @@
     out.routes = [...st.routes.keys()];
     out.overrides = [...st.overrides.keys()];
     out.patches = patch.list();
+    // Our functions live anywhere (fibers, holders, Steam's element factories); 0 when nothing is registered.
+    out.patchedLeft = st.ready ? countPatchedLeft([...st.touched]) : 0;
+    out.jsxHooked = !!st.jsxHook;
     try { out.actions = Object.assign(actions.mode(), { logged: st.actionLog.length }); } catch (_) { /* no runtime */ }
     return out;
   }
@@ -959,6 +1128,7 @@
     const touched = [...st.touched];
     for (const T of st.targets.values()) { T.layers = []; try { installTarget(T); rep.restored++; } catch (e) { logE('restore failed', errMsg(e)); } }
     st.targets.clear(); st.handles.clear();
+    rep.restored += unhookJsx();
     rep.restored += unpatchSwitch();
     if (st.unlisten) { try { st.unlisten(); } catch (_) { /* gone */ } st.unlisten = null; }
     if (st.winOff) { try { st.winOff(); } catch (_) { /* gone */ } st.winOff = null; }
@@ -987,7 +1157,7 @@
         S = Object.assign(newState(), keep);
         return true;
       },
-      find(spec) { need(); return findIn(spec); },
+      find(spec) { need(); const r = findIn(spec); dropSourcesLater(); return r; },
       util,
       fiber,
       routes,
@@ -1016,6 +1186,23 @@
       test: {
         breakFinder(name) { if (!S) return false; if (name) S.broken.add(name); else S.broken.clear(); return [...S.broken]; },
         countPatchedLeft: () => countPatchedLeft(S ? [...S.touched] : []),
+        // The module's own removal (what lgs off runs), then a fresh, unscanned state as after lgs on.
+        // Every handle anyone holds is dead afterwards: tests only, with no other T3 module enabled.
+        cycle() {
+          const keep = S ? { actionLog: S.actionLog } : {};
+          const rep = removeAll();
+          S = Object.assign(newState(), keep);
+          return rep;
+        },
+        // Simulates React remounting the route switch (the patch is lost): the original type goes back
+        // on the live switch fiber; self-healing must re-patch it on the next navigation into our paths.
+        dropSwitchPatch() {
+          if (!S || !S.ready) return 0;
+          let n = 0;
+          for (const p of S.switchPatches) for (const f of [p.fiber, p.fiber.alternate]) if (f && f.type === p.patched) { f.type = p.orig; n++; }
+          S.switchPatches = [];
+          return n;
+        },
       },
     };
     return api;
@@ -1024,12 +1211,35 @@
   RT.define({
     name: 'react',
     deps: [],
+    // The kill switch (contract §1): P1's BUILTIN_FLAGS has react: true; an off value removes this module,
+    // so every module that depends on it is blocked and its area falls back to T1.
+    flag: 'react',
     install(scope) {
       rt = scope || RT;
       S = newState();
-      return makeApi();
+      const api = makeApi();
+      // `rt.react` (contract §0): an alias of rt.use('react') on the runtime object, so every module's
+      // scoped rt (Object.create of it) and lab steps (__LGS_RT.react) see it. Removed with the module.
+      // P1's rt.expose does this (tracked, deleted on removal); the getter is the fallback for a runtime
+      // without it.
+      aliased = null;
+      let exposed = false;
+      try { if (typeof rt.expose === 'function') { rt.expose('react', api); exposed = true; } } catch (e) { logE('rt.expose(react) failed', errMsg(e)); }
+      if (!exposed) {
+        try {
+          if (!Object.prototype.hasOwnProperty.call(RT, 'react')) {
+            Object.defineProperty(RT, 'react', { configurable: true, enumerable: false, get: () => api });
+            aliased = api;
+          }
+        } catch (_) { aliased = null; }
+      }
+      return api;
     },
     remove() {
+      if (aliased) {
+        try { const d = Object.getOwnPropertyDescriptor(RT, 'react'); if (d && d.get && d.get() === aliased) delete RT.react; } catch (_) { /* runtime gone */ }
+        aliased = null;
+      }
       const rep = removeAll();
       rt = null;
       return { patchedLeft: rep.patchedLeft || 0, restored: rep.restored || 0, routeBefore: rep.routeBefore || null, routeAfter: rep.routeAfter || null };

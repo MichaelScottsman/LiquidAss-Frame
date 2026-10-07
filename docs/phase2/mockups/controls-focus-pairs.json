@@ -1,0 +1,105 @@
+{
+ "_doc": "G-FOCUS pairs for glass.py focus (C4a test C6 / PLAN-4a-1). Write one route's list to a file, then: python glass.py focus main --route /zoo/<route> --pairs FILE --mode pad --flags wp.p3 --keep",
+ "routes": {
+  "buttons": [
+   {
+    "name": "P-14 single-control row (button) focus vs rest",
+    "min": 40,
+    "a": {
+     "state": "L.gpTake('main','button.DialogButton')",
+     "sel": "%{*GamepadDialogContent>Field}:has(button.DialogButton)"
+    },
+    "b": {
+     "state": "L.gpTake('main','%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}')",
+     "sel": "%{*GamepadDialogContent>Field}:has(button.DialogButton)"
+    }
+   },
+   {
+    "name": "disabled+focus vs disabled (row)",
+    "min": 10,
+    "a": {
+     "state": "L.gpTake('main','button.DialogButton.Disabled')",
+     "sel": "%{*GamepadDialogContent>Field}%{*GamepadDialogContent>Disabled}"
+    },
+    "b": {
+     "state": "L.gpTake('main','%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}')",
+     "sel": "%{*GamepadDialogContent>Field}%{*GamepadDialogContent>Disabled}"
+    }
+   }
+  ],
+  "toggles": [
+   {
+    "name": "P-14 single-control row (switch off) focus vs rest",
+    "min": 40,
+    "a": {
+     "state": "L.gpTake('main','%{*GamepadDialogContent>Toggle}:not(%{*GamepadDialogContent>On})')",
+     "sel": "%{*GamepadDialogContent>Field}:has(%{*GamepadDialogContent>Toggle}:not(%{*GamepadDialogContent>On}):not(%{*GamepadDialogContent>Disabled}))"
+    },
+    "b": {
+     "state": "L.gpTake('main','%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}')",
+     "sel": "%{*GamepadDialogContent>Field}:has(%{*GamepadDialogContent>Toggle}:not(%{*GamepadDialogContent>On}):not(%{*GamepadDialogContent>Disabled}))"
+    }
+   },
+   {
+    "name": "P-16 glow band around a focused on switch",
+    "min": 20,
+    "a": {
+     "state": "L.gpTake('main','%{*GamepadDialogContent>Toggle}%{*GamepadDialogContent>On}')",
+     "sel": "%{*GamepadDialogContent>Toggle}%{*GamepadDialogContent>On}",
+     "band": [
+      8,
+      16
+     ]
+    },
+    "b": {
+     "state": "L.gpTake('main','%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}')",
+     "sel": "%{*GamepadDialogContent>Toggle}%{*GamepadDialogContent>On}",
+     "band": [
+      8,
+      16
+     ]
+    }
+   },
+   {
+    "name": "disabled+focus vs disabled (switch row)",
+    "min": 10,
+    "a": {
+     "state": "L.gpTake('main','%{*GamepadDialogContent>Toggle}%{*GamepadDialogContent>Disabled}')",
+     "sel": "%{*GamepadDialogContent>Field}%{*GamepadDialogContent>Disabled}"
+    },
+    "b": {
+     "state": "L.gpTake('main','%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}')",
+     "sel": "%{*GamepadDialogContent>Field}%{*GamepadDialogContent>Disabled}"
+    }
+   }
+  ],
+  "dropdowns": [
+   {
+    "name": "P-14 single-control row (pop-up) focus vs rest",
+    "min": 40,
+    "a": {
+     "state": "L.gpTake('main','%{DropDownControlButton}')",
+     "sel": "%{*GamepadDialogContent>Field}:has(%{DropDownControlButton})"
+    },
+    "b": {
+     "state": "L.gpTake('main','%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}')",
+     "sel": "%{*GamepadDialogContent>Field}:has(%{DropDownControlButton})"
+    }
+   }
+  ],
+  "sliders": [
+   {
+    "name": "P-14 slider row focus vs rest",
+    "min": 40,
+    "a": {
+     "state": "L.gpTake('main','%{*SliderControlPanelGroup>SliderControlAndNotches}')",
+     "sel": "%{*GamepadDialogContent>Field}:has(%{*SliderControlPanelGroup>SliderControlAndNotches})"
+    },
+    "b": {
+     "state": "L.gpTake('main','%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}')",
+     "sel": "%{*GamepadDialogContent>Field}:has(%{*SliderControlPanelGroup>SliderControlAndNotches})"
+    }
+   }
+  ]
+ }
+}

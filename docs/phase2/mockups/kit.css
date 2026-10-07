@@ -22,36 +22,70 @@
   font-display: swap;
 }
 
-/* ===================================================================== tokens (DESIGN2 §16) */
+/* ===================================================================== tokens (DESIGN2 §16)
+   Parity with the theme (FD-3): every --lg-X that has a theme token --lgs-X (theme/00-tokens.nowrap.css,
+   theme/02-motion.nowrap.css) holds the same value. Check: python docs/phase2/fontkit.py --parity.
+   Kit-only tokens (--lg-fill-hover, --lg-fill-focus, --lg-fill-selected, the kit's material stand-ins)
+   are derived from parity tokens or simulate glassd (T5). Contract: docs/phase2/contracts/tokens.md. */
 :root {
   /* type */
-  --lg-font: "LGS Inter", "Motiva Sans", "Noto Sans", system-ui, sans-serif;
+  --lg-font: "LGS Inter", "Motiva Sans", Arial, sans-serif;
   /* vibrancy on glass: label / secondary / tertiary / quaternary */
   --lg-text-1: rgb(255 255 255 / .96);
   --lg-text-2: rgb(255 255 255 / .70);
   --lg-text-3: rgb(255 255 255 / .50);
   --lg-text-4: rgb(255 255 255 / .32);
   --lg-text-on-selected: #0d0e12;
+  --lg-text-on-selected-2: rgb(13 14 18 / .60);
+  --lg-text-on-tint: #fff;
+  --lg-text-on-color: #0d0e12;
+  --lg-text-danger: rgb(255 130 125);
+  --lg-text-room-shadow: 0 1px 3px rgb(0 0 0 / .55), 0 0 12px rgb(0 0 0 / .35);
+  --lg-fs-xl1: 64px;  --lg-fs-xl2: 52px;  --lg-fs-large: 46px;  --lg-fs-title1: 38px;
+  --lg-fs-title2: 30px;  --lg-fs-title3: 28px;  --lg-fs-headline: 24px;  --lg-fs-body: 24px;
+  --lg-fs-callout: 22px;  --lg-fs-subhead: 20px;  --lg-fs-footnote: 18px;  --lg-fs-caption: 18px;
 
-  /* sizes (CSS px of the main window; 1 pt = 4/3 px) */
+  /* sizes (CSS px of the main window; 1 pt = 4/3 px; PLAN §1.3) */
   --lg-hit: 80px;          /* 60 pt: minimum hit region and centre spacing */
   --lg-btn: 60px;          /* 44 pt regular button */
   --lg-btn-lg: 70px;       /* 52 pt primary action */
   --lg-btn-xl: 86px;       /* 64 pt hero action */
   --lg-btn-sm: 44px;       /* 32 pt: only alone, with an 80 px clear hit region */
-  --lg-row: 72px;          /* list / sidebar / menu row (80 px pitch with an 8 px gap) */
-  --lg-row-gap: 8px;
+  --lg-btn-mini: 38px;
+  --lg-btn-pad: 24px;
+  --lg-play-w: 280px;  --lg-play-h: 80px;
+  --lg-symbol: 26px;  --lg-symbol-row: 24px;  --lg-target-gap: 24px;
+  --lg-row: 72px;          /* free-standing row (80 px pitch with an 8 px gap) */
+  --lg-row-platter: 80px;  /* contiguous rows in a platter */
+  --lg-row-gap: 8px;  --lg-row-inset: 6px;  --lg-sep-inset: 26px;
   --lg-field: 64px;        /* search and text fields */
+  --lg-seg: 64px;  --lg-seg-item: 56px;  --lg-seg-min-w: 140px;
+  --lg-switch-w: 66px;  --lg-switch-h: 40px;  --lg-check: 40px;  --lg-slider: 64px;
   --lg-ornament: 84px;     /* horizontal ornament: 60 px buttons + 12 px padding */
+  --lg-ornament-overlap: 28px;  --lg-ornament-y: 628px;  --lg-ornament-max-w: 960px;
   --lg-inset: 24px;        /* content inset from a glass edge */
   --lg-inset-text: 40px;   /* text columns and grids */
   --lg-gap: 24px;          /* between groups, stacked buttons, grid items */
+  --lg-header: 108px;
+  --lg-glass-h: 656px;  --lg-glass-h-full: 720px;   /* window / window-full (PLAN §1.2) */
+  --lg-search-w: 520px;  --lg-search-w-nested: 640px;
+  --lg-more: 60px;  --lg-more-hit: 80px;  --lg-glyph: 30px;
+  --lg-home-disc: 120px;  --lg-home-pitch-x: 224px;  --lg-home-pitch-y: 188px;
+  --lg-menu-row: 72px;  --lg-menu-row-gap: 6px;  --lg-menu-row-compact: 60px;  --lg-menu-pitch-compact: 64px;
+  --lg-menu-min-w: 320px;  --lg-menu-max-w: 592px;  --lg-menu-header: 40px;
+  --lg-alert-w: 640px;  --lg-sheet-max-w: 960px;
+  --lg-tooltip-h: 48px;  --lg-toast-w: 320px;  --lg-toast-h: 76px;
+  --lg-badge-h: 28px;  --lg-page-dot: 12px;  --lg-page-dot-pitch: 24px;
+  --lg-m-popup: .90;  --lg-m-bar: .83;  --lg-m-kb: .74;
+  --lg-m-vr-frame: 1.33;  --lg-m-vr-page: 1.44;  --lg-m-vr-bind: 1.87;
 
   /* radii: concentric (child = parent - padding) */
   --lg-r-window: 54px;     /* 60 px corner circle inset 24 px: 30 + 24 */
   --lg-r-sheet: 44px;
+  --lg-r-tile: 44px;
   --lg-r-menu: 32px;
   --lg-r-platter: 30px;    /* 54 - 24 */
+  --lg-r-toast: 30px;
   --lg-r-row: 24px;        /* 32 - 8 */
   --lg-r-card: 20px;
   --lg-r-small: 14px;
@@ -70,20 +104,62 @@
   --lg-tint-play: rgb(48 209 88 / .88);     /* Play keeps Steam green */
   --lg-tint-primary: rgb(0 145 255 / .86);
   --lg-tint-danger: rgb(255 66 69 / .84);
+  --lg-fill-danger: rgb(255 66 69 / .92);
 
   /* fills on glass (never glass on glass) */
   --lg-fill-thin: rgb(255 255 255 / .10);      /* raised: buttons at rest */
+  --lg-raised-bg: linear-gradient(180deg, rgb(255 255 255 / .06), rgb(255 255 255 / 0) 60%), rgb(255 255 255 / .10);
+  --lg-raised-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / .22), 0 1px 2px rgb(0 0 0 / .10);
   --lg-fill-nav: rgb(255 255 255 / .18);       /* navigation selection: tab, sidebar row */
-  --lg-fill-hover: rgb(255 255 255 / .08);     /* added on hover */
-  --lg-fill-focus: rgb(255 255 255 / .14);     /* added on gamepad focus */
   --lg-fill-regular: rgb(0 0 0 / .14);         /* recessed: sidebar, grouped platters */
   --lg-fill-thick: rgb(0 0 0 / .30);           /* recessed: fields, slider tracks */
-  --lg-fill-selected: rgb(255 255 255 / .94);  /* toggled / selected button, open-menu source, segment */
+  --lg-recessed-shadow: inset 0 2px 5px rgb(0 0 0 / .30);
+  --lg-selected-fill: rgb(255 255 255 / .94);  /* toggled / selected button, open-menu source, segment */
+  --lg-scrim: rgb(0 0 0 / .35);
+  --lg-field-focus: 0 0 0 3px rgb(255 255 255 / .55), 0 0 16px rgb(255 255 255 / .22);
+  --lg-separator: rgb(255 255 255 / .08);
+
+  /* states (PLAN §1.4; the theme's 04-states.css draws the same layer) */
+  --lg-hover-add: .08;
+  --lg-hover-spot: .12;
+  --lg-focus-add: .32;
+  --lg-focus-spot: .16;
+  --lg-focus-arc: .55;
+  --lg-focus-first: .60;
+  --lg-within-add: .06;
+  --lg-press-add: .06;
+  --lg-press-spot: .22;
+  --lg-press-grow: 6;
+  --lg-press-max: 1.06;
+  --lg-white-glow-blur: 22px;
+  --lg-white-glow-spread: 8px;
+  --lg-white-glow-a: .55;
+  --lg-white-glow: 0 0 var(--lg-white-glow-blur) var(--lg-white-glow-spread) rgb(255 255 255 / var(--lg-white-glow-a));
+  --lg-dis-content: .40;
+  --lg-dis-focus-add: .10;
+  --lg-card-lift: 1.05;
+  --lg-disc-lift: 1.10;
+  --lg-nav-weight: 600;
+  --lg-sel-arc: inset 0 1.5px 1.5px -1px rgb(255 255 255 / .45);
+  /* kit-only names, derived from the parity tokens above (older mockups use them) */
+  --lg-fill-hover: rgb(255 255 255 / var(--lg-hover-add));     /* added on hover */
+  --lg-fill-focus: rgb(255 255 255 / var(--lg-focus-add));     /* added on gamepad focus */
+  --lg-fill-selected: var(--lg-selected-fill);
 
   /* light: one key light, above and 20 deg left of vertical (DESIGN2 §6.2) */
   --lg-light: 340deg;
+  --lg-rim-window: .78;  --lg-rim-panel: .90;  --lg-rim-liquid: 1.10;
+  --lg-rim-thick: .85;  --lg-rim-clear: 1.20;  --lg-rim-control: 1;
+  --lg-rim-w-window: 2px;  --lg-rim-w: 1.5px;
+  --lg-shadow-5mm: 0 2px 6px rgb(0 0 0 / .30);
+  --lg-shadow-10mm: 0 4px 12px rgb(0 0 0 / .30);
+  --lg-shadow-15mm: 0 6px 18px rgb(0 0 0 / .30);
+  --lg-shadow-25mm: 0 10px 30px rgb(0 0 0 / .28);
+  --lg-shadow-30mm: 0 12px 36px rgb(0 0 0 / .32);
+  --lg-shadow-contact: 0 6px 18px rgb(0 0 0 / .35);
+  --lg-media-dim: rgb(0 0 0 / .35);
 
-  /* motion tokens (liquid-glass-motion.md §3.2-3.3; static mockups only show end states) */
+  /* motion tokens (P5's theme/02-motion.nowrap.css; static mockups only show end states) */
   --lg-ease-b0: linear(0, .005 1.2%, .020 2.3%, .084 5.2%, .159 7.7%, .461 16.9%, .556 20.2%, .639 23.5%, .709 26.9%, .767 30.2%, .817 33.7%, .861 37.6%, .900 42.1%, .930 46.9%, .954 52.4%, .971 58.6%, .991 73.8%, 1);
   --lg-ease-b15: linear(0, .006 1.3%, .024 2.7%, .054 4.2%, .093 5.7%, .188 8.7%, .518 18.2%, .613 21.4%, .696 24.5%, .767 27.7%, .825 30.9%, .872 34.1%, .913 37.6%, .945 41.4%, .970 45.6%, .988 50.3%, 1.000 55.8%, 1.006 67.9%, 1);
   --lg-d-hover-in: 294ms;
@@ -124,8 +200,10 @@ body { width: 1920px; height: 1080px; overflow: hidden; font-family: var(--lg-fo
     0 calc(var(--dz, 0) * .4px) calc(var(--dz, 0) * 1.2px) rgb(0 0 0 / calc(var(--sh-a, .28) * min(1, var(--dz, 0))));
 }
 /* E3: specular arcs from the key light. A gradient ring cut out with mask-composite; the
-   conic has gaps on both sides, so it never closes into an outline. The linear layer keeps a
-   faint top edge on wide shapes so the arc does not collapse into the corner. */
+   conic has gaps on both sides, so it never closes into an outline. A radial lobe at 26 % of
+   the width keeps light on wide shapes so the arc does not collapse into the corner (WN D-15,
+   DESIGN2 A4; the same recipe as theme/03-material.css; it replaced a linear top layer that
+   read as a full-width line). */
 .lgk-glass::before {
   content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 3;
   padding: var(--rim-w, 1.5px);
@@ -138,7 +216,10 @@ body { width: 1920px; height: 1080px; overflow: hidden; font-family: var(--lg-fo
       transparent 214deg, transparent 288deg,
       rgb(255 255 255 / calc(.22 * var(--rim, 1))) 322deg,
       rgb(255 255 255 / calc(.62 * var(--rim, 1))) 360deg),
-    linear-gradient(180deg, rgb(255 255 255 / calc(.30 * var(--rim, 1))) 0, transparent 26%);
+    radial-gradient(70% 120% at 26% 0%,
+      rgb(255 255 255 / calc(.18 * var(--rim, 1))) 0,
+      rgb(255 255 255 / calc(.06 * var(--rim, 1))) 46%,
+      transparent 75%);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor; mask-composite: exclude;
 }
@@ -164,7 +245,9 @@ body { width: 1920px; height: 1080px; overflow: hidden; font-family: var(--lg-fo
 /* liquid: ornaments, tab bars, toolbars, floating controls (thinner, more lensing) */
 .lgk-glass[data-mat="liquid"] {
   --de-w: 6px; --de-a: .12; --rim: 1.1;
-  --lgk-target-luma: .38; --lgk-contrast: .82;
+  /* .30, not .38: with its sheen and tint, liquid glass that carries labels must land in L 70-90
+     over bright rooms too (REQ C1a: .38 rendered L 128-140 over the lounge curtain) */
+  --lgk-target-luma: .30; --lgk-contrast: .82;
   background: linear-gradient(180deg, rgb(255 255 255 / .12), rgb(255 255 255 / .03) 55%), rgb(80 80 86 / .12);
   -webkit-backdrop-filter: blur(12px) saturate(1.7) contrast(var(--lgk-contrast)) brightness(var(--lgk-adapt, .9));
   backdrop-filter: blur(12px) saturate(1.7) contrast(var(--lgk-contrast)) brightness(var(--lgk-adapt, .9));
@@ -244,30 +327,44 @@ body { width: 1920px; height: 1080px; overflow: hidden; font-family: var(--lg-fo
 .lgk-btn.xl { --s: var(--lg-btn-xl); font-size: 28px; }
 .lgk-btn.sm { --s: var(--lg-btn-sm); font-size: 20px; }
 .lgk-btn.primary { background: linear-gradient(180deg, rgb(255 255 255 / .18), rgb(255 255 255 / 0) 55%), var(--lg-tint-primary); }
-.lgk-btn.play { background: linear-gradient(180deg, rgb(255 255 255 / .18), rgb(255 255 255 / 0) 55%), var(--lg-tint-play); }
+.lgk-btn.play { background: linear-gradient(180deg, rgb(255 255 255 / .18), rgb(255 255 255 / 0) 55%), var(--lg-tint-play); color: var(--lg-text-on-color); }   /* dark label on green (CC §7) */
 .lgk-btn.danger-label { color: var(--lg-red); }
-/* states. The illumination layer (::after) carries hover light, focus glow and press glow;
-   it never draws an outline (DESIGN2 §10). */
+/* states. The illumination layer (::after) carries hover light, focus light and press glow;
+   it never draws an outline (DESIGN2 §10). Same values and normal compositing as the theme's
+   04-states.css (PLAN §1.4): hover + .08 and a .12 spot at the pointer; gamepad focus + .28,
+   a .16 spot in the upper third and the arc; press + .06 and a .22 spot spreading to 120 %. */
 .lgk-btn::after, .lgk-row::after, .lgk-tab::after, .lgk-seg > *::after {
   content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
-  mix-blend-mode: plus-lighter; opacity: 0;
+  opacity: 0;
   background:
-    radial-gradient(circle at var(--hx, 50%) var(--hy, 30%), rgb(255 255 255 / var(--spot, .12)) 0, rgb(255 255 255 / 0) var(--spot-r, 75%)),
-    rgb(255 255 255 / var(--lift, 0));
+    radial-gradient(circle at var(--hx, 50%) var(--hy, 30%), rgb(255 255 255 / var(--spot, var(--lg-hover-spot))) 0, rgb(255 255 255 / 0) var(--spot-r, 75%)),
+    linear-gradient(rgb(255 255 255 / var(--lift, 0)), rgb(255 255 255 / var(--lift, 0)));
 }
-.is-hover::after { opacity: 1; --lift: .08; }
-.is-focus::after { opacity: 1; --lift: .14; --spot: .16; }
-.is-pressed::after { opacity: 1; --lift: .06; --spot: .22; --spot-r: 120%; }
-.lgk-btn.is-pressed { scale: min(1.06, calc(1 + 6 / var(--maxside, 80))); }
+.is-hover::after { opacity: 1; --lift: var(--lg-hover-add); }
+.is-focus::after { opacity: 1; --lift: var(--lg-focus-add); --spot: var(--lg-focus-spot); --hx: 50%; --hy: 30%; }
+.is-pressed::after { opacity: 1; --lift: var(--lg-press-add); --spot: var(--lg-press-spot); --spot-r: 120%; }
+/* navigation rows (sidebar, list, tab bar): hover is the light spot only (SM-D13, SET T-SEL) */
+.is-nav-row.is-hover::after, .lgk-tab.is-hover::after { --lift: 0; }
+/* white and coloured fills: focus is the outer glow, never a fill or a ring (VP P-16) */
+.is-selected.is-focus::after, .is-onfill.is-focus::after { --lift: 0; --spot: 0; box-shadow: var(--lg-white-glow); }
+.is-selected.is-hover::after, .is-onfill.is-hover::after { --lift: 0; --spot: 0; box-shadow: 0 0 var(--lg-white-glow-blur) var(--lg-white-glow-spread) rgb(255 255 255 / calc(var(--lg-white-glow-a) * .5)); }
+/* disabled + focus: fill .10, arc at 60 %, no spot (CTL C-D15) */
+.is-disabled.is-focus { opacity: 1; color: rgb(255 255 255 / calc(.96 * var(--lg-dis-content))); }
+.is-disabled.is-focus::after { --lift: var(--lg-dis-focus-add); --spot: 0; }
+.lgk-btn.is-pressed { scale: min(var(--lg-press-max), calc(1 + var(--lg-press-grow) / var(--maxside, 80))); }
 /* a focused control "lifts into glass": it gets its own specular arc (no ring) */
 .lgk-btn.is-focus::before, .lgk-row.is-focus::before, .lgk-tab.is-focus::before {
   content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; padding: 1.5px;
   background: conic-gradient(from var(--lg-light), rgb(255 255 255 / .75) 0deg, rgb(255 255 255 / .2) 40deg, transparent 75deg, transparent 145deg, rgb(255 255 255 / .22) 180deg, transparent 215deg, transparent 285deg, rgb(255 255 255 / .2) 320deg, rgb(255 255 255 / .75) 360deg);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
 }
-.is-selected { background: var(--lg-fill-selected) !important; color: var(--lg-text-on-selected) !important; }
-.is-selected .v2, .is-selected .v3 { color: rgb(13 14 18 / .6); }
-.is-nav-selected { background: var(--lg-fill-nav); }
+/* the control's own specular top arc, lit under focus (the theme's --lgs-focus-arc) */
+.lgk-btn.is-focus, .lgk-row.is-focus, .lgk-tab.is-focus { box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / var(--lg-focus-arc)); }
+.is-disabled.is-focus { box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / calc(var(--lg-focus-arc) * .6)); }
+.is-selected { background: var(--lg-selected-fill) !important; color: var(--lg-text-on-selected) !important; }
+.is-selected .v2, .is-selected .v3 { color: var(--lg-text-on-selected-2); }
+/* navigation selected: white .18 pill + specular top arc + Semibold label (PLAN §1.4) */
+.is-nav-selected { background: var(--lg-fill-nav); box-shadow: var(--lg-sel-arc); font-weight: var(--lg-nav-weight); }
 .is-disabled { opacity: .4; }
 
 /* controller glyph badge: teaches the gamepad mapping on visible buttons (DESIGN2 §10.4) */
@@ -294,7 +391,7 @@ body { width: 1920px; height: 1080px; overflow: hidden; font-family: var(--lg-fo
 .lgk-search .ph { flex: 1; font: 500 24px/1 var(--lg-font); color: rgb(255 255 255 / .55); white-space: nowrap; overflow: hidden; }
 .lgk-search > .lgk-i { --is: 26px; color: rgb(255 255 255 / .62); }
 .lgk-search .lgk-btn { --s: var(--lg-btn-sm); background: transparent; color: rgb(255 255 255 / .62); }
-.lgk-search.is-focus { box-shadow: inset 0 2px 5px rgb(0 0 0 / .26), 0 0 0 3px rgb(255 255 255 / .55), 0 0 16px rgb(255 255 255 / .22); }
+.lgk-search.is-focus { box-shadow: inset 0 2px 5px rgb(0 0 0 / .26), var(--lg-field-focus); }
 
 /* tab bar ornament (vertical, leading edge, <= 6 tabs; DESIGN2 §7.2) */
 .lgk-tabbar { display: flex; flex-direction: column; align-items: stretch; gap: 20px; padding: 12px; width: var(--lg-ornament); }
@@ -326,8 +423,8 @@ body { width: 1920px; height: 1080px; overflow: hidden; font-family: var(--lg-fo
 .lgk-slider > .fill > .lgk-i { --is: 28px; margin-left: 22px; }
 
 /* menus (thick glass; rows 72 px, radius 24 = 32 - 8; DESIGN2 §9.9) */
-.lgk-menu { padding: 8px; display: flex; flex-direction: column; gap: 6px; min-width: 320px; box-sizing: border-box; }
-.lgk-menu .hdr { display: flex; align-items: center; height: 56px; padding: 0 20px; font: 700 22px/1 var(--lg-font); color: var(--lg-text-2); }
+.lgk-menu { padding: 8px; display: flex; flex-direction: column; gap: var(--lg-menu-row-gap); min-width: var(--lg-menu-min-w); box-sizing: border-box; }
+.lgk-menu .hdr { display: flex; align-items: center; height: var(--lg-menu-header); padding: 0 20px; font: 700 22px/1 var(--lg-font); color: var(--lg-text-2); }
 .lgk-menu .lgk-row { padding: 0 20px 0 16px; }
 .lgk-menu .lgk-row .lead { width: 28px; display: grid; place-items: center; --is: 24px; flex: none; }
 .lgk-menu .gap { height: 8px; }
@@ -336,11 +433,11 @@ body { width: 1920px; height: 1080px; overflow: hidden; font-family: var(--lg-fo
 .lgk-art { background: #333 center / cover no-repeat; }
 .lgk-poster { position: absolute; border-radius: var(--lg-r-card); box-shadow: 0 6px 18px rgb(0 0 0 / .30); overflow: hidden; }
 .lgk-poster.is-focus, .lgk-poster.is-hover {
-  scale: 1.05; z-index: 2;
+  scale: var(--lg-card-lift); z-index: 2;
   box-shadow: 0 18px 44px rgb(0 0 0 / .48), 0 0 30px 2px rgb(255 255 255 / .22);
 }
 .lgk-poster.is-focus::after, .lgk-poster.is-hover::after {   /* tvOS-style specular sheen on the art */
-  content: ""; position: absolute; inset: 0; border-radius: inherit; mix-blend-mode: plus-lighter; pointer-events: none;
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
   background: linear-gradient(155deg, rgb(255 255 255 / .22) 0, rgb(255 255 255 / .05) 30%, transparent 55%);
 }
 .lgk-home-icon { position: absolute; border-radius: 50%; overflow: hidden;

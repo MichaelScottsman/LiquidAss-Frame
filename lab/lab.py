@@ -59,7 +59,7 @@ def helpers():
     with open(os.path.join(HERE, "lab_helpers.js"), encoding="utf-8") as f:
         lab = f.read()
     extra = ""
-    for name in ("lab_p2.js", "lab_gates.js", "lab_bfs.js"):
+    for name in ("lab_p2.js", "lab_gates.js", "lab_bfs.js", "lab_motion.js", "lab_conf.js"):
         p = os.path.join(HERE, name)
         if os.path.exists(p):
             with open(p, encoding="utf-8") as f:
@@ -152,25 +152,54 @@ class Lock:
         self.files = []
         self.step = None
         self.surface = surface
+        self.nested = False
+
+    def _release(self):
+        for f in reversed(self.files):
+            try:
+                fcntl.flock(f, fcntl.LOCK_UN)
+            finally:
+                f.close()
+        self.files = []
 
     def __enter__(self):
-        Lock.depth += 1
-        if Lock.depth > 1:
+        # Exception-safe (review R1 M4): if taking a lock or applying the step options raises (a lock busy for
+        # 240 s, a CDP error), what was applied is undone, the files already taken are released and the depth
+        # counter is put back before the exception goes on, so the next `with Lock()` locks again.
+        if Lock.depth > 0:
+            Lock.depth += 1
+            self.nested = True
             return self
-        for p in self.paths:
-            self.files.append(flock_wait(p, 240, "lock"))
-        if not self.vr:
+        Lock.depth = 1
+        try:
+            purge_stale_hv()
+            for p in self.paths:
+                self.files.append(flock_wait(p, 240, "lock"))
+            if not self.vr:
+                try:
+                    lab_js("L.mark()")
+                except Exception:  # noqa: BLE001 - the step must still run
+                    pass
+            self.step = Step(STEP, vr=self.vr, surface=self.surface)
+            self.step.apply()
+        except BaseException:
             try:
-                lab_js("L.mark()")
-            except Exception:  # noqa: BLE001 - the step must still run
-                pass
-        self.step = Step(STEP, vr=self.vr, surface=self.surface)
-        self.step.apply()
+                if self.step:
+                    self.step.undo()
+            except Exception as e:  # noqa: BLE001
+                print(f"lab: step undo after a failed lock entry: {e}", file=sys.stderr)
+            finally:
+                self.step = None
+                try:
+                    self._release()
+                finally:
+                    Lock.depth = 0
+            raise
         return self
 
     def __exit__(self, *a):
-        Lock.depth -= 1
-        if Lock.depth > 0:
+        if self.nested:
+            Lock.depth = max(0, Lock.depth - 1)
             return
         try:
             if not self.keep and not self.vr:
@@ -181,18 +210,170 @@ class Lock:
             pass
         finally:
             try:
+                if HOVERED:
+                    cdp_unhover()
+            except Exception:  # noqa: BLE001 - the step options must still be undone
+                pass
+            try:
                 if self.step:
                     self.step.undo()
             finally:
-                for f in reversed(self.files):
-                    fcntl.flock(f, fcntl.LOCK_UN)
-                    f.close()
-                self.files = []
+                self.step = None
+                try:
+                    self._release()
+                finally:
+                    Lock.depth = 0
+
+
+# ---------------------------------------------------------------- room frames (LAB never-list)
+HV_GLOB_DIR = "/tmp/lgs"
+
+
+def purge_stale_hv(max_age=60):
+    """Delete headset-view frames (/tmp/lgs/hv-*.png, room imagery) older than max_age s: a glass.py that died
+    between hvgrab and its fetch must not leave one behind (review R1 M5). Run at every lock entry."""
+    n = 0
+    now = time.time()
+    try:
+        names = os.listdir(HV_GLOB_DIR)
+    except OSError:
+        return 0
+    for nm in names:
+        if nm.startswith("hv-") and nm.endswith(".png"):
+            p = os.path.join(HV_GLOB_DIR, nm)
+            try:
+                if now - os.path.getmtime(p) > max_age:
+                    os.remove(p)
+                    n += 1
+            except OSError:
+                pass
+    return n
+
+
+# ---------------------------------------------------------------- real laser hover (CDP)
+# L.hover dispatches untrusted events, so CSS :hover never applies. A real hover is a CDP
+# Input.dispatchMouseEvent on the surface's own target (REQ C1c->P10). Every surface hovered in a
+# step gets the pointer sent to (1400, 900) main-window texture px at the lock exit (IM 9).
+
+HOVERED = set()
+
+
+def cdp_mouse(surface, x, y):
+    t = target_for(surface)
+
+    async def go():
+        async with lgs.Session(t["webSocketDebuggerUrl"]) as s:
+            await s.send("Input.dispatchMouseEvent", {"type": "mouseMoved", "x": float(x), "y": float(y),
+                                                      "button": "none", "pointerType": "mouse"}, 10)
+    asyncio.run(go())
+
+
+HOVER_RECT_JS = r"""
+(() => {
+  const el = L.q(%s, %s);
+  if (!el) return null;
+  el.scrollIntoView && el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  const r = el.getBoundingClientRect(), w = L.surface(%s);
+  return { x: r.x + r.width / 2, y: r.y + r.height / 2, dpr: w.devicePixelRatio, w: w.innerWidth, h: w.innerHeight };
+})()
+"""
+
+
+def cdp_hover(surface, sel, dwell_ms=0):
+    """Move the real (CDP) pointer to the centre of sel in surface; held until the lock exit or unhover."""
+    surface = surface or "main"
+    js = HOVER_RECT_JS % (json.dumps(surface), json.dumps(sel), json.dumps(surface))
+    r = lab_js(js, surface=surface if surface.startswith("vr:") else None)
+    if not r:
+        raise RuntimeError(f"hover: nothing matches {sel} in {surface}")
+    cdp_mouse(surface, r["x"], r["y"])
+    HOVERED.add(surface)
+    if dwell_ms:
+        time.sleep(dwell_ms / 1000.0)
+    return r
+
+
+def cdp_unhover():
+    for s in list(HOVERED):
+        try:
+            dims = lab_js(f"[L.surface({json.dumps(s)}).devicePixelRatio, L.surface({json.dumps(s)}).innerWidth, "
+                          f"L.surface({json.dumps(s)}).innerHeight]", surface=s if s.startswith("vr:") else None)
+            dpr, w, h = dims
+            cdp_mouse(s, min(1400 / dpr, w - 1), min(900 / dpr, h - 1))
+        except Exception:  # noqa: BLE001 - a closed popup
+            pass
+        HOVERED.discard(s)
+
+
+def hover_spec(spec):
+    """'SEL[,MS]' -> (SEL, MS)."""
+    sel, _, ms = spec.rpartition(",")
+    if sel and ms.strip().isdigit():
+        return sel, int(ms)
+    return spec, 0
+
+
+def run_pre(pre, surface=None):
+    """A command's --pre: JS, or '@hover SEL[,MS]' for a real CDP hover. Then the step's --hover, if any."""
+    out = None
+    if pre:
+        if pre.startswith("@hover "):
+            sel, ms = hover_spec(pre[7:].strip())
+            out = cdp_hover(surface or "main", sel, ms or 300)
+        else:
+            out = lab_js(pre, surface=surface if surface and surface.startswith("vr:") else None)
+    if STEP.get("hover"):
+        sel, ms = hover_spec(STEP["hover"])
+        cdp_hover(surface or "main", sel, ms or 300)
+    return out
 
 
 # ---------------------------------------------------------------- step options
 
 FLAGS_FILE = "/tmp/lgs/flags.json"
+FLAGS_LOCK = "/tmp/lgs/flags.lock"
+
+
+class flags_file_lock:
+    """Short flock around a read-modify-write of FLAGS_FILE (independent of the lab locks)."""
+
+    def __enter__(self):
+        self.f = flock_wait(FLAGS_LOCK, 30, "flags.lock")
+        return self
+
+    def __exit__(self, *a):
+        try:
+            fcntl.flock(self.f, fcntl.LOCK_UN)
+        finally:
+            self.f.close()
+
+
+def read_flags_file():
+    """The session flags object, or None when there is no file."""
+    try:
+        with open(FLAGS_FILE, encoding="utf-8") as f:
+            txt = f.read()
+    except OSError:
+        return None
+    try:
+        v = json.loads(txt) if txt.strip() else {}
+    except ValueError:
+        return {}
+    return v if isinstance(v, dict) else {}
+
+
+def write_flags_file(obj):
+    """Write the session flags (an empty object removes the file, as P1's `lgs flags` does)."""
+    if not obj:
+        try:
+            os.remove(FLAGS_FILE)
+        except OSError:
+            pass
+        return
+    tmp = FLAGS_FILE + f".{os.getpid()}"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(obj, f, indent=1, sort_keys=True)
+    os.replace(tmp, FLAGS_FILE)
 
 STEP_JS_FLAGS = r"""
 (async () => {
@@ -379,14 +560,27 @@ class Step:
         self.flags = dict(opts.get("flags") or {})
         self.mode = opts.get("mode")
         self.media = list(opts.get("media") or [])
+        self.stock = bool(opts.get("stock"))
+        self.stock_was_on = False
         self.vr = vr
         self.file_prev = None
         self.file_written = False
+        self.own_prev = {}
         self.hold = None
         self.report = {}
         self.actions = False
 
     def apply(self):
+        if self.stock and not self.vr:
+            # --stock: the stock UI for this step (theme off), given back at the lock exit.
+            try:
+                self.stock_was_on = lgs.is_on()
+                if self.stock_was_on:
+                    lgs.op("off", quiet=True)
+                    time.sleep(0.4)
+                self.report["stock"] = "theme off" + ("" if self.stock_was_on else " (was off)")
+            except Exception as e:  # noqa: BLE001
+                self.report["stock"] = f"error: {e}"
         if not self.vr:
             try:
                 r = lgs.run_js("SharedJSContext", STEP_JS_ACTIONS % ("true", "true"), 10)
@@ -394,25 +588,21 @@ class Step:
             except Exception:  # noqa: BLE001 - never block a step on it
                 pass
         if not (self.flags or self.mode or self.media):
+            if self.report:
+                self.report["native"] = native_on()
+                print("step: " + "  ".join(f"{k}={v}" for k, v in self.report.items()), file=sys.stderr)
             return
         if self.flags:
-            try:
-                with open(FLAGS_FILE, encoding="utf-8") as f:
-                    self.file_prev = f.read()
-            except OSError:
-                self.file_prev = None
-            merged = {}
-            if self.file_prev:
-                try:
-                    merged = json.loads(self.file_prev)
-                except ValueError:
-                    merged = {}
-            merged.update(self.flags)
-            tmp = FLAGS_FILE + f".{os.getpid()}"
-            with open(tmp, "w", encoding="utf-8") as f:
-                json.dump(merged, f)
-            os.replace(tmp, FLAGS_FILE)
-            self.file_written = True
+            # The flags file has its own lock (review R1 m1): a lab.lock step and a lab-vr.lock step can both
+            # be running; each one records only its own keys' previous values and restores only those.
+            with flags_file_lock():
+                cur = read_flags_file()
+                self.file_prev = None if cur is None else dict(cur)
+                cur = dict(cur or {})
+                self.own_prev = {k: (k in cur, cur.get(k)) for k in self.flags}
+                cur.update(self.flags)
+                write_flags_file(cur)
+                self.file_written = True
             via = "file only (vr step)" if self.vr else lab_js(STEP_JS_FLAGS % json.dumps(self.flags))
             self.report["flags"] = f"{json.dumps(self.flags)} via {via} + {FLAGS_FILE}"
         if self.mode:
@@ -422,6 +612,7 @@ class Step:
             self.hold = MediaHold(self.media, vr_surface=self.surface if self.vr else None)
             n = self.hold.start()
             self.report["media"] = f"{','.join(self.media)} on {n} targets"
+        self.report["native"] = native_on()
         print("step: " + "  ".join(f"{k}={v}" for k, v in self.report.items()), file=sys.stderr)
 
     def undo(self):
@@ -443,23 +634,53 @@ class Step:
                 except Exception as e:  # noqa: BLE001
                     errs.append(f"flags: {e}")
             if self.file_written:
+                prev = {}
                 try:
-                    if self.file_prev is None:
-                        os.remove(FLAGS_FILE)
-                    else:
-                        tmp = FLAGS_FILE + f".{os.getpid()}"
-                        with open(tmp, "w", encoding="utf-8") as f:
-                            f.write(self.file_prev)
-                        os.replace(tmp, FLAGS_FILE)
+                    with flags_file_lock():
+                        cur = dict(read_flags_file() or {})
+                        for k, (had, v) in self.own_prev.items():
+                            if had:
+                                cur[k] = v
+                            else:
+                                cur.pop(k, None)
+                        write_flags_file(cur)          # empty -> no file (as P1's `lgs flags`)
+                        prev = cur
+                    self.file_written = False
                 except OSError as e:
                     errs.append(f"flags file: {e}")
+                # A runtime reload during the step (another agent's `lgs on`, which takes no lab lock) bakes the
+                # step's file into the runtime's session layer: give the runtime the restored content (REQ P2->P10).
+                if not self.vr:
+                    try:
+                        lab_js("(() => { const rt = window.__LGS_RT; if (!rt || !rt.flags || typeof rt.flags.setSession !== 'function') "
+                               "return 'no runtime'; rt.flags.setSession(" + json.dumps(prev) + "); return 'session set'; })()")
+                    except Exception as e:  # noqa: BLE001
+                        errs.append(f"flags session: {e}")
         if self.actions:
             try:
                 lgs.run_js("SharedJSContext", STEP_JS_ACTIONS % ("false", "false"), 10)
             except Exception as e:  # noqa: BLE001
                 errs.append(f"action logger: {e}")
+        if self.stock_was_on:
+            try:
+                lgs.op("on", quiet=True)
+            except Exception as e:  # noqa: BLE001
+                errs.append(f"theme on: {e}")
         if errs:
             print("step undo: " + "; ".join(errs), file=sys.stderr)
+
+
+def native_on():
+    """'on' / 'off' / 'unknown': the native layer's state (lgs_shell.status), for evidence labels (review R1 m2)."""
+    try:
+        import lgs_shell
+        st = lgs_shell.status()
+    except Exception:  # noqa: BLE001
+        return "unknown"
+    nat = st.get("native") if isinstance(st, dict) else None
+    if isinstance(nat, dict):
+        return "on" if nat.get("enabled") else "off"
+    return "on" if nat else "off"
 
 
 def steam_build():
@@ -531,7 +752,7 @@ def flag(args, name):
     return False
 
 
-STEP = {"flags": {}, "mode": None, "media": []}
+STEP = {"flags": {}, "mode": None, "media": [], "stock": False, "hover": None}
 
 
 def parse_step(args):
@@ -557,6 +778,11 @@ def parse_step(args):
         if mode not in ("laser", "pad"):
             raise SystemExit("lab: --mode laser|pad")
         STEP["mode"] = mode
+    if flag(args, "--stock"):
+        STEP["stock"] = True
+    hv = opt(args, "--hover")       # SEL[,MS]: a real CDP hover after the command's pre (REQ C1c->P10)
+    if hv:
+        STEP["hover"] = hv
     media = opt(args, "--media")
     if media:
         for m in media.split(","):
@@ -604,6 +830,7 @@ def main(argv):
         keep = flag(args, "--keep")
         where = opt(args, "--in")
         with Lock(keep=keep, surface=where):
+            run_pre(None, where)
             v = lab_js(args[0], surface=where)
         print(v if isinstance(v, str) else json.dumps(v, indent=1))
     elif cmd == "eval":
@@ -631,8 +858,8 @@ def main(argv):
                 if route:
                     lab_js(f"L.nav({json.dumps(route)})")
                     time.sleep(1.2)
-                if pre:
-                    print("pre:", lab_js(pre, surface=surface if surface.startswith("vr:") else None))
+                if pre or STEP.get("hover"):
+                    print("pre:", run_pre(pre, surface))
                     time.sleep(0.6)
                 asyncio.run(capture(surface, out, settle))
                 if go_back:
@@ -666,6 +893,7 @@ def main(argv):
                   f"(scroller {r['scroller']})")
     elif cmd == "audit":
         route = opt(args, "--route")
+        stock_route = opt(args, "--stock-route")
         pre = opt(args, "--pre")
         as_json = flag(args, "--json")
         surface = args[0]
@@ -673,14 +901,23 @@ def main(argv):
             if route:
                 lab_js(f"L.nav({json.dumps(route)})")
                 time.sleep(1.2)
-            if pre:
-                print("pre:", lab_js(pre, surface=surface if surface.startswith("vr:") else None))
+            if pre or STEP.get("hover"):
+                print("pre:", run_pre(pre, surface))
                 time.sleep(0.6)
             set_theme("off", surface)
             time.sleep(0.4)
+            if stock_route:          # Phase 2 (P10): our route themed vs another route stock (REQ C2a->P10 #4)
+                lab_js(f"L.nav({json.dumps(stock_route)})")
+                time.sleep(1.2)
             lab_js(f"(window.__LGS_AUDIT = L.snap({json.dumps(surface)}), 1)", surface=surface)
             set_theme("on", surface)
             time.sleep(0.8)
+            if stock_route:
+                lab_js(f"L.nav({json.dumps(route)})")
+                time.sleep(1.2)
+                if pre:
+                    run_pre(pre, surface)
+                    time.sleep(0.6)
             res = lab_js(f"L.diff(window.__LGS_AUDIT, L.snap({json.dumps(surface)}))", surface=surface)
         if as_json:
             print(json.dumps(res, indent=1))

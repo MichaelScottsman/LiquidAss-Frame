@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Image measures for the Phase 2 gates (P10, contracts/lab.md sections 3, 4).
 
-  python glass.py edge PNG Y X0 X1 [--inner 10] [--json]
+  python glass.py edge PNG Y X0 X1 [--inner 10] [--luma 601|709] [--json]
       Top-edge profile of a glass slab whose top edge is at row Y between columns X0..X1
       (WN 8.2, AT-23, G-OUTLINE): dL = max over rows Y..Y+2 minus the glass `inner` px
       inside; 8 segment means; ratio = darkest quarter / brightest quarter. Pass <= 0.35.
@@ -12,9 +12,9 @@
       band:x0,y0,x1,y1,d0,d1 (the ring d0..d1 px outside the rect, VP P-16).
       Pass: dL >= MIN (default 40).
 
-Luma: 601 = 0.299 R + 0.587 G + 0.114 B (VP section 6 SHOT, the default for focus),
-709 = 0.2126 R + 0.7152 G + 0.0722 B (window-nav-measure.py, the default for edge so
-WN 8.2's table reproduces).
+Luma: 601 = 0.299 R + 0.587 G + 0.114 B (VP section 6 SHOT; the default for both, as in
+window-nav-measure.py revision 3), 709 = 0.2126 R + 0.7152 G + 0.0722 B (--luma 709: revision 2 of
+window-nav-measure.py, which WN 8.2's table was measured with).
 """
 import json
 import sys
@@ -22,6 +22,7 @@ import sys
 import numpy as np
 from PIL import Image
 
+NO_EDGE_DL = 8.0     # below this brightest-quarter dL the top edge shows no line at all
 W601 = (0.299, 0.587, 0.114)
 W709 = (0.2126, 0.7152, 0.0722)
 
@@ -78,8 +79,11 @@ def edge(L, y, x0, x1, inner=10):
     hi, lo = max(q), min(q)
     ratio = (max(lo, 0) / hi) if hi > 0 else 0.0
     segs = [round(float(s.mean()), 1) for s in np.array_split(d, 8)]
+    # An outline must be visible to be an outline (VP P-42): with the brightest quarter under 8 dL there is no
+    # edge line at all, so the ratio means nothing (REQ C1c->P10 b, C4a->P10: flat fills gave ratio ~1).
+    visible = hi >= NO_EDGE_DL
     return {"segments": segs, "brightest": round(hi, 1), "darkest": round(lo, 1), "ratio": round(ratio, 3),
-            "pass": ratio <= 0.35}
+            "edge": "visible" if visible else "none", "pass": (ratio <= 0.35) or not visible}
 
 
 def pairs(L, specs, inset=0):
@@ -112,7 +116,7 @@ def main_edge(argv):
     if as_json:
         argv.remove("--json")
     inner = int(opt(argv, "--inner", 10))
-    weights = W601 if opt(argv, "--luma", "709") == "601" else W709
+    weights = W709 if opt(argv, "--luma", "601") == "709" else W601
     if len(argv) < 4:
         print(__doc__)
         return 2
@@ -123,7 +127,7 @@ def main_edge(argv):
     else:
         print("segments", r["segments"])
         print(f"brightest quarter {r['brightest']:.1f}  darkest quarter {r['darkest']:.1f}  ratio {r['ratio']:.2f}  ->",
-              "PASS" if r["pass"] else "FAIL")
+              "PASS" if r["pass"] else "FAIL", "" if r["edge"] == "visible" else "(no visible edge)")
     return 0 if r["pass"] else 1
 
 

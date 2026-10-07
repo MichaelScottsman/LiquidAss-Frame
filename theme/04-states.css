@@ -108,7 +108,8 @@
       /* the control's own specular arc, lit under focus (60 % when disabled) */
       inset 0 1.5px 1.5px -1px rgb(255 255 255 / calc(var(--lgs-focus-arc) * var(--lgs-focus) * (1 - .4 * var(--lgs-dis)) * var(--_lgs-fadd))),
       /* white and coloured fills: a blurred outer glow, never a ring (VP P-16) */
-      0 0 18px 2px rgb(255 255 255 / calc(.30 * max(var(--lgs-focus), .5 * var(--lgs-hover)) * var(--_lgs-glow)));
+      0 0 var(--lgs-white-glow-blur) var(--lgs-white-glow-spread)
+        rgb(255 255 255 / calc(var(--lgs-white-glow-a) * max(var(--lgs-focus), .5 * var(--lgs-hover)) * var(--_lgs-glow)));
     /* out: fade (441 ms); press out 90 ms linear */
     transition:
       --lgs-hover var(--lgs-ill-d-out) var(--lgs-ill-ease),
@@ -159,29 +160,37 @@
 /* The only focus cue for radio segments, check boxes, recording-mode cards,
    links and scroll panels. Geometry stays inline (Steam's); only paint and
    its flash / grow / 20x pulse change: nothing runs at rest. */
-& %{FocusRing}, & %{FocusRing}::before, & %{FocusRing}::after {
+/* Written as "&.lgs-on" (html.lgs-on.lgs-on, specificity 0,3,1) so the plate
+   beats Phase 1's ring in 10-primitives.css section 10 ("outline: 2px solid
+   ... !important", 0,2,1, later in the bundle), measured live on Settings >
+   Notifications: no ring (VP P-17) even before C4a's rewrite drops it. */
+&.lgs-on %{FocusRing}, &.lgs-on %{FocusRing}::before, &.lgs-on %{FocusRing}::after {
   animation: none !important;
 }
-& %{FocusRing} {
+&.lgs-on %{FocusRing} {
   outline-color: transparent !important;
   border-radius: min(var(--lgs-r-row), 50%) !important;
   background:
     radial-gradient(circle at 50% 30%, rgb(255 255 255 / var(--lgs-focus-spot)), rgb(255 255 255 / 0) 75%),
     rgb(255 255 255 / .12) !important;
-  box-shadow: 0 0 18px 2px rgb(255 255 255 / .22);
+  /* the glow is the only cue where the ring sits on a white (selected) radio
+     segment: CTL's 18/2/.22 measured +8 L in P-16's band there, so the plate
+     takes the white-glow token at 3/4 spread and 4/5 alpha (22/6/.44) */
+  box-shadow: 0 0 var(--lgs-white-glow-blur) calc(var(--lgs-white-glow-spread) * .75)
+    rgb(255 255 255 / calc(var(--lgs-white-glow-a) * .8));
   opacity: 1 !important;
 }
-/* never in laser mode: a stale ring must not paint a focus look (VP P-02) */
-&.lgs-input-laser %{FocusRing} {
-  background: transparent !important;
-  box-shadow: none;
+/* never in laser mode: the laser lights what it points at, not Steam's
+   focus, and a stale ring must not paint a focus look (VP P-02, CTL §4.5) */
+&.lgs-on.lgs-input-laser %{FocusRing} {
+  opacity: 0 !important;
 }
 /* check circles (P3 tags the ring): a bloom 12 px larger than the circle */
-& %{FocusRing}.lgs-ring-check {
+&.lgs-on %{FocusRing}.lgs-ring-check {
   background: transparent !important;
   box-shadow: none;
 }
-& %{FocusRing}.lgs-ring-check::before {
+&.lgs-on %{FocusRing}.lgs-ring-check::before {
   content: "";
   position: absolute;
   inset: -12px;
@@ -212,7 +221,14 @@
       box-shadow: inset 0 0 0 2px rgb(255 255 255 / calc(.70 * var(--lgs-focus) * (1 - .43 * var(--lgs-dis))));
     }
   }
-  & %{FocusRing} {
+  /* white and coloured fills: an inner white stroke vanishes on white, so
+     focus is the stroke outside, behind a 3 px dark gap */
+  @container style(--lgs-ill: white) {
+    *::after {
+      box-shadow: 0 0 0 3px rgb(11 13 16 / calc(.94 * var(--lgs-focus))), 0 0 0 5px rgb(255 255 255 / calc(.90 * var(--lgs-focus)));
+    }
+  }
+  &.lgs-on %{FocusRing} {
     background: rgb(255 255 255 / .30) !important;
     box-shadow: inset 0 0 0 2px rgb(255 255 255 / .70);
   }

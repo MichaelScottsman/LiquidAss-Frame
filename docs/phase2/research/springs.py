@@ -237,6 +237,11 @@ MAT_RESOLVE = 0.92                   # small glass: glass channel resolved by 92
 MAT_CONTENT_IN = 0.35                # content channel 35-100 % (MO C1)
 MAT_CONTENT_OUT = 0.55               # content gone by 55 % (MO C1)
 COVER_M = 0.30                       # glassd coverage alpha = smoothstep(0, .3, m) (MO 9, GM 5.3)
+# Large glass in CSS (> 600 px: alerts, sheets) may not ramp its blur (MO R8), so its opacity is the
+# whole glass channel: it follows the perceived glassd optics ramp (light 0-.6 with frost/tint .2-.92,
+# about min(1, m / .8)) instead of glassd's quick coverage alpha, which in CSS made the slab pop in
+# within 30 % of the time. Matches window-nav-motion.html (alert 1.3 g, sheet 1.25 p). wp/P5.md D-P5-8.
+LARGE_COVER = 0.80
 SHEET_CONTENT_IN = (0.25, 0.70)      # MO 4.8
 MORPH_CONTENT_IN = (0.15, 0.50)      # MO 4.6
 # glassd materialize optics ramp, ranges of m (MO 9, GM 5.3)
@@ -282,7 +287,14 @@ def linear_of(fn, tol=0.004, n=1200):
     y = fn(f)
     pts = list(zip(f.tolist(), y.tolist()))
     pts[0], pts[-1] = (0.0, 0.0), (1.0, 1.0)
-    return fmt_points(rdp(pts, tol))
+    s = rdp(pts, tol)
+    # A ramp that has arrived stays there: the plateau's first point is exactly 1, so
+    # an opacity ramp never rests at .998 for the rest of the animation (MO-3 samples).
+    for i in range(1, len(s) - 1):
+        p, v = s[i]
+        if abs(v - 1) < tol and bool(np.all(np.abs(y[f >= p] - 1) < tol)):
+            s[i] = (p, 1.0)
+    return fmt_points(s)
 
 
 def tail_of(fn, eps=5e-4):
@@ -346,8 +358,9 @@ def motion_data():
         "covOut": tail_of(lambda f: 1 - smooth01((1 - np.clip((f - MAT_CONTENT_OUT) / (1 - MAT_CONTENT_OUT), 0, 1)) / COVER_M)),
         "toastGlass": ramp_to(MAT_RESOLVE * toast_r),
         "toastCov": linear_of(lambda f: smooth01(np.minimum(1, f / (MAT_RESOLVE * toast_r)) / COVER_M)),
-        "sheetCovIn": linear_of(lambda f: smooth01(step(w0, z0, f * T0) / COVER_M)),
-        "sheetCovOut": tail_of(lambda f: 1 - smooth01((1 - step(w0, z0, f * T0)) / COVER_M)),
+        "largeCovIn": linear_of(lambda f: np.minimum(1, np.minimum(1, f / MAT_RESOLVE) / LARGE_COVER)),
+        "sheetCovIn": linear_of(lambda f: np.minimum(1, step(w0, z0, f * T0) / LARGE_COVER)),
+        "sheetCovOut": tail_of(lambda f: 1 - np.minimum(1, (1 - step(w0, z0, f * T0)) / LARGE_COVER)),
         "sheetContent": ramp_to((SHEET_CONTENT_IN[1] - SHEET_CONTENT_IN[0]) / (1 - SHEET_CONTENT_IN[0])),
         "morphContent": ramp_to((MORPH_CONTENT_IN[1] - MORPH_CONTENT_IN[0]) / (1 - MORPH_CONTENT_IN[0])),
         "matOut": f"linear(0, 0 {pct(MAT_CONTENT_OUT)}, 1)",
@@ -398,10 +411,11 @@ KEYFRAMES = r"""
   100% { scale: calc(1 + clamp(.01, 12 / var(--lgs-maxside, 80), .15));
          background-color: transparent; backdrop-filter: blur(0px) saturate(1); box-shadow: none; opacity: 0; }
 }
-/* Large glass (> 600 px: alerts): coverage and swell only, no blur ramp (R8). */
+/* Large glass (> 600 px: alerts): no blur ramp (R8), so opacity carries the
+   whole glass channel, min(1, g / .8); the swell rides the glass (C2). */
 @keyframes lgs-mat-large-in {
   0% { scale: calc(1 + clamp(.01, 12 / var(--lgs-maxside, 640), .15)); animation-timing-function: @glassIn@; }
-  0% { opacity: 0; animation-timing-function: @covIn@; }
+  0% { opacity: 0; animation-timing-function: @largeCovIn@; }
 }
 /* Content channel of small glass: hidden until 35 %, sharpens last (C1). */
 @keyframes lgs-mat-content-in {
@@ -420,7 +434,8 @@ KEYFRAMES = r"""
   0% { translate: 0 var(--lgs-toast-dy, -8px); }
 }
 /* Sheet (MO 4.8), called on sheet-in (735 ms, b0): scale .97 -> 1 rides the
-   spring; coverage is smoothstep(0, .3, spring). Large: no blur ramp. */
+   spring; opacity carries the glass channel, min(1, spring / .8), because a
+   large slab may not ramp its blur (R8). Dismiss: the mirror, after a hold. */
 @keyframes lgs-sheet-in {
   0% { scale: var(--lgs-sheet-s0, .97); }
   0% { opacity: 0; animation-timing-function: @sheetCovIn@; }
@@ -769,7 +784,7 @@ JS = r"""/* device/shared/motion.js: Glass Shell motion library (package P5).
     }
     return true;
   }
-  const allowedEasings = Object.values(DATA.curves).concat(Object.values(DATA.composites));
+  const allowedEasings = Object.values(DATA.curves).concat(Object.values(DATA.composites).filter((s) => /^linear\(/.test(s)));
   const allowedLinear = allowedEasings.map(parseLinear);
   const allowedBezier = Object.values(DATA.beziers).map((s) => s.match(/-?[\d.]+/g).map(Number));
   const allowedDurations = [...new Set(Object.values(tokens).map((t) => t.ms).concat(Object.values(reduceMs)))].sort((a, b) => a - b);
@@ -794,6 +809,15 @@ JS = r"""/* device/shared/motion.js: Glass Shell motion library (package P5).
     if (cls.length) s += '.' + cls.join('.');
     return s + (pseudo || '');
   }
+  // A scroll-driven animation (animation-timeline: a scroll() / view() / named scroll timeline,
+  // e.g. lgs-edge-in, MO 4.13) tracks the scroll position, not time: it is "running" for as long
+  // as its scroller exists, yet nothing moves while the scroll is still. Probe P5-K4 (wp/P5.md).
+  function isScrollDriven(a) {
+    const tl = a && a.timeline;
+    if (!tl) return false;
+    const n = (tl.constructor && tl.constructor.name) || '';
+    return /^(Scroll|View)Timeline$/.test(n) || (typeof tl.source !== 'undefined' && typeof tl.axis !== 'undefined');
+  }
   function audit(doc) {
     doc = doc || (root && root.document);
     const out = [];
@@ -802,12 +826,13 @@ JS = r"""/* device/shared/motion.js: Glass Shell motion library (package P5).
       if (!e) continue;
       const tm = e.getTiming();
       const kind = (a.constructor && a.constructor.name) || 'Animation';
+      const scroll = isScrollDriven(a);
       let easings = [tm.easing];
       if (kind === 'CSSAnimation' && e.getKeyframes) easings = [...new Set(e.getKeyframes().map((f) => f.easing))];
       out.push({ name: a.animationName || a.transitionProperty || a.id || '', kind,
         target: describe(e.target, e.pseudoElement), duration: tm.duration, delay: tm.delay, easings,
-        iterations: tm.iterations, fill: tm.fill, playState: a.playState,
-        tokenDuration: isTokenDuration(+tm.duration), tokenEasing: easings.every(isTokenEasing) });
+        iterations: tm.iterations, fill: tm.fill, playState: a.playState, scroll,
+        tokenDuration: scroll || isTokenDuration(+tm.duration), tokenEasing: easings.every(isTokenEasing) });
     }
     return out;
   }
@@ -821,7 +846,7 @@ JS = r"""/* device/shared/motion.js: Glass Shell motion library (package P5).
     ramps: Object.freeze(DATA.ramps.map((r) => Object.freeze({ name: r[0], a: r[1], b: r[2] }))),
     spring, sample, velocity, settle, timing, css, create, reduced,
     allowed: Object.freeze({ durations: Object.freeze(allowedDurations), easings: Object.freeze(allowedEasings.slice()) }),
-    isTokenEasing, isTokenDuration, audit,
+    isTokenEasing, isTokenDuration, isScrollDriven, audit,
     remove() { try { if (root && root.__LGS_MOTION === api) delete root.__LGS_MOTION; } catch (e) { /* frozen global */ } },
   };
   return Object.freeze(api);
@@ -1015,6 +1040,8 @@ out.misc.css = M.css('snappy');
 out.misc.tokenEasing = [M.isTokenEasing('linear(0 0%, 1 92%, 1 100%)'), M.isTokenEasing(M.curves.b15),
   M.isTokenEasing('ease'), M.isTokenEasing('cubic-bezier(0.311, 0.589, 0.077, 1.118)'), M.isTokenDuration(488),
   M.isTokenDuration(300)];
+out.misc.scroll = [M.isScrollDriven({timeline: {source: null, axis: 'block'}}), M.isScrollDriven({timeline: {currentTime: 5}}),
+  M.isScrollDriven({timeline: null}), M.isScrollDriven(null)];
 console.log(JSON.stringify(out));
 """
 
@@ -1078,7 +1105,9 @@ def test_js():
     print(f"reduce: to(15) -> value {m['reduceJump'][0]}, done {m['reduceJump'][1]}; timing(snappy) "
           f"{m['timing']['duration']} ms; reduce {m['timingReduce']['duration']} ms b0={m['timingReduce']['easing'] == D['curves']['b0']}")
     print(f"css('snappy') = {m['css']}; isTokenEasing/Duration checks {m['tokenEasing']} (expect T,T,F,T,T,F)")
+    print(f"isScrollDriven(scroll timeline, document timeline, none, null) = {m['scroll']} (expect T,F,F,F)")
     bad += m["reduceJump"] != [15, True] or m["tokenEasing"] != [True, True, False, True, True, False]
+    bad += m["scroll"] != [True, False, False, False]
     print(f"{bad} failure(s)")
     return bad
 
@@ -1203,6 +1232,187 @@ CEF_JS = r"""(async () => {
 })()"""
 
 
+# Visual filmstrip (--live film): miniature scenes of our own nodes in the main window, each P5
+# keyframe called as contracts/motion.md section 2 says, paused at window-nav-motion.html's sample
+# points; set A = the storyboard's 5 rows, set B = small glass, toast, focus, toggle (MO 3.4, 4.x).
+FILM_JS = r"""(() => {
+  // P5 visual filmstrip: miniature scenes in the main window, every P5 keyframe called as
+  // contracts/motion.md section 2 says, paused at f = 0, .15, .35, .5, .75, 1 of the row's time
+  // (window-nav-motion.html's sample points). Our own nodes only; removed by a timer and by the caller.
+  const SET = '@@SET@@';
+  const w = L.surface('main'), d = w.document;
+  const old = d.getElementById('lgs-p5-film'); if (old) old.remove();
+  const F = [0, 0.15, 0.35, 0.5, 0.75, 1];
+  const POST = ['#3b2a8f,#ff6f91', '#0f5e4f,#64d6a6', '#5b0f87,#ff3cac', '#0e4a6b,#2fb7e6', '#7a1e12,#ff7b39'];
+  const posters = (y) => POST.map((g, i) => `<div style="position:absolute; left:${42 + i * 244}px; top:${y}px; width:220px; height:330px; border-radius:20px; background:linear-gradient(160deg, ${g})"></div>`).join('');
+  const bars = (n, x, y, wd, gap, first) => Array.from({ length: n }, (_, k) =>
+    `<div style="position:absolute; left:${x}px; top:${y + k * gap}px; width:${k === 0 && first ? first : wd}px; height:22px; border-radius:11px; background:rgb(255 255 255 / ${k === 0 ? .85 : .38})"></div>`).join('');
+  const win = (inner, under) => `<div style="position:absolute; left:0; top:0; width:1280px; height:656px; border-radius:54px; overflow:hidden; background:rgb(38 38 44)">
+      ${under || ''}${posters(212)}${posters(566)}
+      <div style="position:absolute; left:24px; top:24px; width:60px; height:60px; border-radius:50%; background:rgb(255 255 255 / .12)"></div>
+      <div style="position:absolute; left:100px; top:40px; width:150px; height:30px; border-radius:15px; background:rgb(255 255 255 / .8)"></div>
+      ${inner || ''}</div>`;
+  const glass = (st, cls, inner, anim) => `<div class="lgs-glass" data-lgs-mat="thick" style="position:absolute; ${st}; animation:${anim}">${inner}</div>`;
+  const content = (anim, html) => `<div style="position:absolute; inset:0; animation:${anim}">${html}</div>`;
+
+  const ROWS = {
+    A: [
+      { t: 'Menu: morph-open', ms: 607, crop: { x: 200, y: 90, s: 0.194 }, html: () => win(
+          `<div style="position:absolute; left:286px; top:212px; width:220px; height:330px; border-radius:20px; box-shadow:0 0 26px 3px rgb(255 255 255 / .2)"></div>
+           <div style="position:absolute; left:436px; top:222px; width:60px; height:60px; border-radius:50%; background:rgb(255 255 255 / .94)"></div>`) +
+          glass('left:522px; top:124px; width:400px; height:502px; border-radius:32px; --sx:0px; --sy:98px; --sw:60px; --sh:60px; --sr:30px; --lgs-morph-r:32px', '',
+            content('lgs-morph-content var(--lgs-d-morph-open) linear backwards',
+              `<div style="position:absolute; left:20px; top:42px; width:360px; height:56px; border-radius:22px; background:rgb(0 145 255 / .86)"></div>${bars(5, 20, 118, 220, 64)}`),
+            'lgs-morph var(--lgs-d-morph-open) var(--lgs-ease-b0) backwards') },
+      { t: 'Alert: present', ms: 441, crop: { x: 93, y: 0, s: 0.17 }, html: () => win('') +
+          `<div style="position:absolute; left:0; top:0; width:1280px; height:656px; border-radius:54px; background:rgb(0 0 0 / .35); animation:lgs-fade-in var(--lgs-motion-fade) backwards"></div>` +
+          glass('left:320px; top:198px; width:640px; height:261px; border-radius:44px; --lgs-maxside:640', '',
+            content('lgs-mat-content-in var(--lgs-motion-mat-in) backwards',
+              `${bars(3, 36, 38, 560, 40, 300)}<div style="position:absolute; left:36px; top:171px; width:276px; height:60px; border-radius:30px; background:rgb(0 145 255 / .86)"></div>
+               <div style="position:absolute; left:328px; top:171px; width:276px; height:60px; border-radius:30px; background:rgb(255 255 255 / .10)"></div>`),
+            'lgs-mat-large-in var(--lgs-motion-mat-in) backwards') },
+      { t: 'Sheet: present', ms: 735, crop: { x: 93, y: 0, s: 0.17 }, html: () => win('') +
+          `<div style="position:absolute; left:0; top:0; width:1280px; height:656px; border-radius:54px; background:rgb(0 0 0 / .35); animation:lgs-fade-in var(--lgs-motion-fade) backwards"></div>` +
+          glass('left:160px; top:108px; width:960px; height:472px; border-radius:44px', '',
+            content('lgs-sheet-content-in var(--lgs-motion-sheet-in) backwards',
+              `<div style="position:absolute; left:24px; top:24px; width:60px; height:60px; border-radius:50%; background:rgb(255 255 255 / .12)"></div>${bars(4, 44, 122, 300, 90, 420)}
+               <div style="position:absolute; left:40px; top:300px; width:156px; height:60px; border-radius:30px; background:rgb(255 255 255 / .94)"></div>`),
+            'lgs-sheet-in var(--lgs-motion-sheet-in) backwards') },
+      { t: 'Sheet: dismiss', ms: 514, crop: { x: 93, y: 0, s: 0.17 }, html: () => win('') +
+          `<div style="position:absolute; left:0; top:0; width:1280px; height:656px; border-radius:54px; background:rgb(0 0 0 / .35); animation:lgs-fade-out var(--lgs-motion-fade) forwards"></div>` +
+          glass('left:160px; top:108px; width:960px; height:472px; border-radius:44px', '',
+            content('lgs-sheet-content-out var(--lgs-motion-sheet-out) forwards',
+              `<div style="position:absolute; left:24px; top:24px; width:60px; height:60px; border-radius:50%; background:rgb(255 255 255 / .12)"></div>${bars(4, 44, 122, 300, 90, 420)}
+               <div style="position:absolute; left:40px; top:300px; width:156px; height:60px; border-radius:30px; background:rgb(255 255 255 / .94)"></div>`),
+            'lgs-sheet-out var(--lgs-motion-sheet-out) forwards') },
+      { t: 'Route change', ms: 702, crop: { x: 93, y: 0, s: 0.17 }, html: () =>
+          `<div style="position:absolute; left:0; top:0; width:1280px; height:656px; border-radius:54px; overflow:hidden; background:rgb(38 38 44)">
+             <div style="position:absolute; inset:0; animation:lgs-page-out var(--lgs-motion-page-out) forwards">${posters(212)}${posters(566)}</div>
+             <div style="position:absolute; inset:0; --lgs-page-dx:16px; animation:lgs-page-in var(--lgs-motion-page) var(--lgs-delay-page) backwards">
+               <div style="position:absolute; inset:0; border-radius:54px; background:linear-gradient(120deg, #0f5e4f, #64d6a6 60%, #03201c)"></div>
+               <div style="position:absolute; left:48px; top:330px; width:420px; height:100px; border-radius:20px; background:rgb(255 255 255 / .85)"></div></div>
+             <div style="position:absolute; left:24px; top:24px; width:60px; height:60px; border-radius:50%; background:rgb(255 255 255 / .12)"></div>
+             <div style="position:absolute; left:100px; top:40px; width:150px; height:30px; border-radius:15px; background:rgb(255 255 255 / .8)"></div></div>` },
+    ],
+    B: [
+      { t: 'Small glass: materialize', ms: 250, crop: { x: 380, y: 230, s: 0.45 }, html: () => win('') +
+          glass('left:500px; top:300px; width:280px; height:56px; border-radius:28px; --lgs-maxside:280', '',
+            content('lgs-mat-content-in var(--lgs-motion-mat-in) backwards',
+              `<div style="position:absolute; left:28px; top:17px; width:224px; height:22px; border-radius:11px; background:rgb(255 255 255 / .9)"></div>`),
+            'lgs-mat-glass-in var(--lgs-motion-mat-in) backwards') },
+      { t: 'Small glass: dematerialize', ms: 350, crop: { x: 380, y: 230, s: 0.45 }, html: () => win('') +
+          glass('left:500px; top:300px; width:280px; height:56px; border-radius:28px; --lgs-maxside:280', '',
+            content('lgs-mat-content-out var(--lgs-d-mat-out) linear forwards',
+              `<div style="position:absolute; left:28px; top:17px; width:224px; height:22px; border-radius:11px; background:rgb(255 255 255 / .9)"></div>`),
+            'lgs-mat-glass-out var(--lgs-motion-mat-out) forwards') },
+      { t: 'Toast: in', ms: 488, crop: { x: 820, y: 0, s: 0.4 }, html: () => win('') +
+          glass('left:916px; top:28px; width:320px; height:76px; border-radius:38px; --lgs-maxside:320; --lgs-toast-dy:-8px', '',
+            content('lgs-mat-content-in var(--lgs-motion-mat-in) backwards',
+              `<div style="position:absolute; left:14px; top:14px; width:48px; height:48px; border-radius:50%; background:rgb(0 145 255 / .9)"></div>${bars(2, 76, 16, 140, 26, 200)}`),
+            'lgs-toast-in var(--lgs-motion-snappy) backwards') },
+      { t: 'Focus: first frame', ms: 294, crop: { x: 440, y: 250, s: 0.6 }, html: () => win('') +
+          `<div style="position:absolute; left:520px; top:300px; width:240px; height:64px; border-radius:32px; background:rgb(255 255 255 / .14)">
+             <div style="position:absolute; inset:0; border-radius:32px; background:rgb(255 255 255 / .9); animation:lgs-focus-in var(--lgs-motion-hover-in) backwards"></div>
+             <div style="position:absolute; left:40px; top:21px; width:160px; height:22px; border-radius:11px; background:rgb(20 20 24 / .9)"></div></div>` },
+      { t: 'Toggle: knob lift', ms: 488, crop: { x: 560, y: 290, s: 1.0 }, html: () => win('') +
+          `<div style="position:absolute; left:600px; top:330px; width:64px; height:38px; border-radius:19px; background:rgb(48 209 88)">
+             <div style="position:absolute; left:30px; top:4px; width:30px; height:30px; border-radius:50%; background:#fff; box-shadow:0 2px 6px rgb(0 0 0 / .3);
+                         --lgs-shift-x:-26px; animation:lgs-knob-lift var(--lgs-d-snappy) linear, lgs-shift-in var(--lgs-motion-snappy) backwards"></div></div>` },
+    ],
+  }[SET];
+
+  const stage = d.createElement('div');
+  stage.id = 'lgs-p5-film';
+  stage.style.cssText = 'position:fixed; inset:0; z-index:2147483000; background:#15161a; color:#fff; font:600 11px/1.2 sans-serif; pointer-events:none; overflow:hidden;';
+  const TW = 186, TH = 110, X0 = 110, RH = 140;
+  let h = '';
+  ROWS.forEach((r, i) => {
+    const y = 8 + i * RH;
+    h += `<div style="position:absolute; left:8px; top:${y}px; width:96px; font:700 12px/1.25 sans-serif">${r.t}<div style="font:500 11px/1.3 sans-serif; opacity:.7; margin-top:4px">${r.ms} ms</div></div>`;
+    F.forEach((f, k) => {
+      const x = X0 + k * (TW + 8), c = r.crop;
+      h += `<div class="p5tile" data-row="${i}" data-f="${f}" style="position:absolute; left:${x}px; top:${y}px; width:${TW}px; height:${TH}px; border-radius:8px; overflow:hidden; background:#333">
+              <div style="position:absolute; left:0; top:0; width:1280px; height:720px; transform-origin:0 0; transform:scale(${c.s}) translate(${-c.x}px, ${-c.y}px)">${r.html()}</div></div>
+            <div style="position:absolute; left:${x}px; top:${y + TH + 3}px; width:${TW}px; text-align:center; opacity:.8">f ${f.toFixed(2)} · ${Math.round(f * r.ms)} ms</div>`;
+    });
+  });
+  stage.innerHTML = h;
+  d.body.appendChild(stage);
+  const out = { set: SET, rows: [] };
+  ROWS.forEach((r, i) => {
+    const row = { t: r.t, names: null, seeked: 0 };
+    for (const tile of stage.querySelectorAll(`.p5tile[data-row="${i}"]`)) {
+      const f = parseFloat(tile.dataset.f);
+      const anims = tile.getAnimations({ subtree: true });
+      if (!row.names) row.names = anims.map((a) => a.animationName + ' ' + a.effect.getTiming().duration + '/' + a.effect.getTiming().delay + ' ' + a.effect.getTiming().fill);
+      for (const a of anims) { a.pause(); a.currentTime = Math.min(f * r.ms, 5000); row.seeked++; }
+    }
+    out.rows.push(row);
+  });
+  w.setTimeout(() => { const s = d.getElementById('lgs-p5-film'); if (s) s.remove(); }, 9000);
+  return JSON.stringify(out);
+})()"""
+
+FILM_CLEAN_JS = ("(()=>{const d=L.surface('main').document;const s=d.getElementById('lgs-p5-film');if(s)s.remove();"
+                 "return 'film stage removed: '+!!s+', left: '+!!d.getElementById('lgs-p5-film')})()")
+
+
+def compose_film(mock_png, live_png, out_png):
+    """Storyboard rows (window-nav-motion.html, 1920 x 1080 at 1x) above the live rows (1.5x shot)."""
+    from PIL import Image, ImageDraw, ImageFont
+    mock, live = Image.open(mock_png).convert("RGB"), Image.open(live_png).convert("RGB")
+    W = 1640
+    try:
+        font = ImageFont.truetype("C:/Windows/Fonts/segoeuib.ttf", 22)
+        small = ImageFont.truetype("C:/Windows/Fonts/segoeui.ttf", 18)
+    except OSError:
+        font = small = ImageFont.load_default()
+    blocks = []
+    for i, name in enumerate(["Menu: morph-open", "Alert: present", "Sheet: present", "Sheet: dismiss", "Route change"]):
+        m = mock.crop((270, 120 + i * 190, 1900, 120 + i * 190 + 182))
+        l = live.crop((160, int((8 + i * 140) * 1.5) - 6, 1905, int((8 + i * 140 + 128) * 1.5)))
+        blocks.append((name, m.resize((W, int(m.height * W / m.width))), l.resize((W, int(l.height * W / l.width)))))
+    img = Image.new("RGB", (W + 200, 70 + sum(36 + m.height + 26 + l.height + 26 for _, m, l in blocks)), (16, 17, 20))
+    d = ImageDraw.Draw(img)
+    d.text((20, 18), "P5 motion: window-nav-motion.html storyboard (top of each pair) vs live Steam CEF keyframes "
+           "(bottom), f = 0 .15 .35 .5 .75 1", font=font, fill=(255, 255, 255))
+    y = 70
+    for name, m, l in blocks:
+        d.text((20, y + 4), name, font=font, fill=(255, 255, 255)); y += 36
+        d.text((20, y + m.height // 2 - 10), "mockup", font=small, fill=(200, 200, 200)); img.paste(m, (190, y)); y += m.height + 26
+        d.text((20, y + l.height // 2 - 10), "live (P5)", font=small, fill=(120, 200, 255)); img.paste(l, (190, y)); y += l.height + 26
+    img.save(out_png, optimize=True)
+
+
+def live_film(extra):
+    """Two locked shots (sets A and B), stage removed after each, then the comparison with the mockup."""
+    bad = 0
+    for st in ("A", "B"):
+        name = f"p2_p5_film_{st.lower()}" + ("_reduce" if "reduce" in extra else "")
+        code, so, se = glass("shot", "main", name, "--pre", FILM_JS.replace("@@SET@@", st), "--settle", "0.8", *extra)
+        pre = next((ln[5:] for ln in so.splitlines() if ln.startswith("pre: ")), "{}")
+        rows = json.loads(pre).get("rows", [])
+        print(f"set {st}: exit {code}; " + "; ".join(f"{r['t']}: {', '.join(r['names'] or [])}" for r in rows))
+        c2, so2, _ = glass("js", FILM_CLEAN_JS)
+        print("  " + (so2.strip().splitlines() or ["?"])[-1])
+        bad += bool(code) or not rows
+    if not bad and "reduce" not in extra:
+        mock = os.path.join(tempfile.gettempdir(), f"p5_mock_motion_{os.getpid()}.png")
+        r = subprocess.run([sys.executable, os.path.join(REPO, "tools", "mockshot.py"),
+                            os.path.join(REPO, "docs", "phase2", "mockups", "window-nav-motion.html"), mock, "1920x1080"],
+                           cwd=REPO, capture_output=True, text=True)
+        if r.returncode == 0 and os.path.exists(mock):
+            out = os.path.join(REPO, "shots", "p2_cmp_p5_motion.png")
+            compose_film(mock, os.path.join(REPO, "shots", "p2_p5_film_a.png"), out)
+            os.remove(mock)
+            print("comparison:", os.path.relpath(out, REPO))
+        else:
+            print("mockup render failed:", r.stderr[-500:]); bad += 1
+    sfx = "_reduce" if "reduce" in extra else ""
+    print(f"shots: shots/p2_p5_film_a{sfx}.png, shots/p2_p5_film_b{sfx}.png (look at them; the verdict is the viewer's)")
+    return bad
+
+
 def glass(*args):
     r = subprocess.run([sys.executable, os.path.join(REPO, "glass.py"), *args], cwd=REPO, capture_output=True,
                        text=True, encoding="utf-8", errors="replace", timeout=600)
@@ -1217,8 +1427,14 @@ def pre_result(stdout):
 
 
 def live(kind):
-    """--live mo3 | mo4 | cef. Prints the measurements and a verdict; returns failures."""
+    """--live mo3 | mo4 | cef | film. Prints the measurements and a verdict; returns failures."""
     D = motion_data()
+    if kind == "film":
+        extra = []
+        for opt in ("--mode", "--media"):
+            if opt in sys.argv:
+                extra += [opt, sys.argv[sys.argv.index(opt) + 1]]
+        return live_film(extra)
     if kind == "cef":
         src = open(OUTPUTS["js"], encoding="utf-8").read()
         js = CEF_JS.replace("@@MOTIONJS@@", src).replace("(async () => {", "(async () => { const W = window;", 1)
@@ -1244,9 +1460,12 @@ def live(kind):
         return bad
     reduce = kind == "mo4"
     js = LIVE_JS.replace("@@CASES@@", LIVE_CASES).replace("const w = L.surface('main')", "const W = window; const w = L.surface('main')", 1)
-    args = ["shot", "main", f"p2_p5_{kind}", "--route", "/zoo/buttons", "--theme", "on", "--pre", js]
+    # --back: Steam's history back after the capture, so the route the step found is restored (LAB rule)
+    args = ["shot", "main", f"p2_p5_{kind}", "--route", "/zoo/buttons", "--back", "--theme", "on", "--pre", js]
     if reduce:
         args += ["--media", "reduce"]
+    if "--mode" in sys.argv:                     # lab input-mode stub (laser | pad), PLAN 2.1 M3
+        args += ["--mode", sys.argv[sys.argv.index("--mode") + 1]]
     code, so, se = glass(*args)
     for line in se.splitlines():
         if line.startswith("step:") or "closed" in line:

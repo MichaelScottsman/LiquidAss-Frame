@@ -6,7 +6,13 @@
  * PLAN §1.4 (focus + .28 with a .16 spot in the upper third; laser hover + .08 and a .12 spot;
  * navigation hover = the spot only; navigation selection .18 + arc + Semibold), the ornament's
  * quiet legend and gamepad-only glyph badges (§1.10), the 60 / 80 More circle inside its host
- * (§1.11), quiet frame controls (VP P-70), text on coloured fills dark (CC §7). */
+ * (§1.11), quiet frame controls (VP P-70), text on coloured fills dark (CC §7).
+ * Session 2 (2026-10-07): the shell's own states (tab bar, ornament members, frame controls, More
+ * circle) use P4's theme model: + .28 (`--lgs-focus-add`) with normal alpha compositing (P4-D5);
+ * kit.css still blends with plus-lighter until P4's kit parity (FD-3). C1c's presentation recipe
+ * (menus, alerts, sheets; REQ C1c->C1a) replaces revision 2's blocks. New: the library's fixed
+ * ornament slots (data-slots), the quiet legend's dim band on `window` routes (flag quietBacking),
+ * the page members' recede during alerts and sheets, the More circle without blur inside glass. */
 
 /* ------------------------------------------------------------------ edges (WN §8.2, critique 4)
    kit.css draws the E3 specular ring as a conic arc PLUS a full-width linear top layer. On wide
@@ -29,10 +35,23 @@
 }
 
 /* ------------------------------------------------------------------ state values (PLAN §1.4)
-   The gamepad focus add is P4's token, tuned once between .28 and .32 from the G-FOCUS measurement.
-   The revision 3 tab-bar render needs .32 to pass (focus >= rest + 40 L and >= current route + 15 L
-   over the bright lounge; window-nav.md §13.1), so the shell's mockups use the top of the range. */
+   The gamepad focus add is P4's token `--lgs-focus-add` (.28 today, contracts/tokens.md; tuned once in
+   .28-.32 from G-FOCUS), drawn with normal alpha compositing as the theme does (P4-D5). On the tab
+   bar's glass (L ~95) .28 measures focus - rest +35 L and focus - current-route circle +7.6 L
+   (PLAN-1a-2 fails); .32 measures +42.5 and +15.1 (passes). The shell's mockups use .32, the top of
+   §1.4's range, pending P4's one-time tuning (REQ C1a->P4; window-nav.md §13.1). */
 .lgk-view { --wn-focus-add: .32; --wn-focus-spot: .16; }
+/* glass tone under text: L 70-90 (PLAN §1.6, D2 §6.3). kit.css aims liquid glass at luma .38 (~97 L) and
+   its top sheen adds more, so over a bright room the tab bar and the ornament measured L 128-140 (above
+   the 55-110 range). The shell's liquid glass that carries labels aims at .30 (~77 L), as home-apps.css
+   does for its cards; glassd's tone mapping does the same on the device. */
+.lgk-view :is(.wn-tabcap, .wn-orn.lgk-glass, .wn-framecap) { --lgk-target-luma: .30; }
+/* kit.js clamps its adaptation at x0.42, so over the brightest parts of the room (the curtain, L ~235) the
+   liquid glass still lands near L 110-120. glassd's tone mapping keeps glass L 55-110 and 70-90 under text
+   (GM v2, PLAN §1.6), and the CSS-only tier is the panel tint (L ~75). The shell's liquid glass with labels
+   therefore carries a dark tone layer that holds it in the 70-90 band in the mockups. */
+.lgk-view:not([data-tier="t1"]) :is(.wn-tabcap, .wn-orn.lgk-glass) {
+  background: linear-gradient(180deg, rgb(255 255 255 / .10), rgb(255 255 255 / .02) 55%), rgb(16 18 24 / .30); }
 
 /* ------------------------------------------------------------------ window glass */
 /* The route's glass mode decides the height (WN §3.1.1, PLAN §1.2): `window` ends at 656 (a
@@ -84,10 +103,27 @@
 .wn-orn.compact .wn-leg { font-size: 20px; padding: 0 12px 0 16px; gap: 10px; }
 .wn-orn.compact .wn-leg.sf, .wn-orn.compact.mode-laser .wn-leg.nav { padding: 0 16px; }
 .wn-orn.quiet .wn-leg { padding: 0 22px; }
-/* in the ornament margin of a `window` route the quiet labels sit on the room: white .92 with the
-   on-room shadow (DESIGN2 §8.3, VP P-41); inside the glass (`window-full`, .in-glass) white .70 */
-.wn-orn.quiet:not(.in-glass) .wn-leg { color: rgb(255 255 255 / .92); text-shadow: 0 1px 3px rgb(0 0 0 / .55), 0 0 12px rgb(0 0 0 / .35); }
-.wn-orn.quiet:not(.in-glass) .wn-leg .lgk-glyph { box-shadow: 0 1px 4px rgb(0 0 0 / .35); text-shadow: none; }
+/* the quiet legend (only A and B): no capsule material. Inside the glass (`window-full`, .in-glass):
+   labels Medium white .70 (PLAN §1.10). In the ornament margin of a `window` route the labels sit on
+   the room, where white .70 measures ~1.1 : 1 over a bright room (C1b, C1c), so they sit on the
+   dim band (flag quietBacking, default "window"; WN §3.4.1, O3): one soft black .62 band, 60 px
+   tall, its edges blurred, 10 px beyond the members; no rim, no sheen, no backdrop-filter, no slab.
+   It darkens the room like a shadow; it is not glass. Labels white .82 with the on-room shadow.
+   .bare = quietBacking "off" (PLAN §1.10's bare labels, kept for comparison). */
+.wn-orn.quiet:not(.in-glass):not(.bare)::before { content: ""; position: absolute; left: 2px; right: 2px; top: 12px; bottom: 12px; border-radius: 30px;
+  background: rgb(0 0 0 / .62); filter: blur(7px); pointer-events: none; z-index: -1; }
+.wn-orn.quiet:not(.in-glass):not(.bare) { isolation: isolate; }   /* static .wn-orn.quiet markup in area mockups gets the band too */
+.wn-orn.quiet:not(.in-glass):not(.bare) .wn-leg { color: rgb(255 255 255 / .82); text-shadow: 0 1px 2px rgb(0 0 0 / .45); }
+.wn-orn.quiet.bare:not(.in-glass) .wn-leg { text-shadow: 0 1px 3px rgb(0 0 0 / .55), 0 0 12px rgb(0 0 0 / .35); }
+/* fixed slots (the library's 300 · 130 · 156 · 134 · 120 inside an 880 px capsule; shell.ornamentSlots):
+   uniform 4 px gaps, no group spacers, each member exactly its slot, its content centred; the slot's
+   hit box takes its 2 px share of each gap (P-07). No name suffix on the Options member. */
+.wn-orn.fixed { gap: 4px; padding: 0 12px; max-width: none; }
+.wn-orn.fixed .wn-leg { box-sizing: border-box; justify-content: center; gap: 10px; padding: 0 12px; flex: none; }
+.wn-orn.fixed .wn-leg .val { overflow: hidden; text-overflow: ellipsis; }
+/* while an alert or sheet is open (C1c's html.lgs-modal): the members that act on the page beneath
+   recede under the tab bar's black .35 layer and stay clickable; A, B and the dialog's legends stay lit */
+.wn-orn.modal .wn-leg:not(.nav)::after { opacity: 1; background: rgb(0 0 0 / .35); }
 .wn-leg.sf { padding: 0 24px 0 18px; gap: 10px; }                  /* Steam's %{SortAndFilterButton}, and the T2 Options member */
 .wn-leg.sf > .lgk-i { --is: 24px; color: var(--lg-text-2); }
 .wn-leg.sf .val { color: var(--lg-text-1); }
@@ -104,7 +140,7 @@
 .wn-menu-glyph::before { content: ""; width: 13px; height: 2.4px; border-radius: 2px; background: currentColor;
   box-shadow: 0 -4.6px 0 currentColor, 0 4.6px 0 currentColor; }
 .wn-leg::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
-  mix-blend-mode: plus-lighter; opacity: 0;
+  opacity: 0;
   background: radial-gradient(circle at var(--hx, 50%) var(--hy, 30%), rgb(255 255 255 / var(--spot, .12)) 0, rgb(255 255 255 / 0) var(--spot-r, 75%)), rgb(255 255 255 / var(--lift, 0)); }
 .wn-leg.is-hover::after { opacity: 1; --lift: .08; --spot: .12; }
 .wn-leg.is-focus::after { opacity: 1; --lift: var(--wn-focus-add); --spot: var(--wn-focus-spot); --hx: 50% !important; --hy: 28% !important; }
@@ -136,7 +172,7 @@
   background: var(--lg-yellow); box-shadow: 0 0 0 2px rgb(30 30 34 / .5); z-index: 2; }
 /* current route: the navigation selection (.18 + its specular top arc) as a circle behind a
    heavier white glyph; no label pill */
-.wn-tab.is-nav-selected { color: #fff; background: transparent; }   /* kit's .is-nav-selected fill would paint the whole row */
+.wn-tab.is-nav-selected { color: #fff; background: transparent; box-shadow: none; }   /* kit's .is-nav-selected fill and arc would paint the whole row: the circle carries them */
 .wn-tab.is-nav-selected > .ic { background: rgb(255 255 255 / .18); }
 .wn-tab.is-nav-selected > .ic::before { content: ""; position: absolute; inset: 0; border-radius: 50%; pointer-events: none; padding: 1.5px;
   background: conic-gradient(from var(--lg-light), rgb(255 255 255 / .60) 0deg, rgb(255 255 255 / .16) 40deg, transparent 75deg, transparent 285deg, rgb(255 255 255 / .16) 320deg, rgb(255 255 255 / .60) 360deg);
@@ -144,7 +180,7 @@
 .wn-tab.is-nav-selected > .ic > .lgk-i { stroke-width: 2.8; }
 /* laser hover (navigation row: the light spot only, no fill) and gamepad focus (always the expanded pill) */
 .wn-tab::after { content: ""; position: absolute; left: 0; right: 0; top: calc((var(--p) - var(--d)) / 2); height: var(--d); border-radius: 999px;
-  pointer-events: none; opacity: 0; mix-blend-mode: plus-lighter;
+  pointer-events: none; opacity: 0;
   background: radial-gradient(circle at var(--hx, 22%) var(--hy, 30%), rgb(255 255 255 / var(--spot, .12)) 0, transparent var(--spot-r, 70%)), rgb(255 255 255 / var(--lift, 0)); }
 .wn-tabbar:not(.expanded) .wn-tab::after { right: auto; width: var(--d); }
 .wn-tab.is-hover { color: var(--lg-text-1); }
@@ -173,7 +209,9 @@
 /* circles rest quiet (fill .06, glyph .70; with SteamVR's idle dim .6 the glyph reads at .42, VP P-70)
    and become full circles on hover (.14 = rest + .08, and the spot) or gamepad focus (+ .28, arc) */
 .wn-framecap .lgk-btn { --s: 80px; background: rgb(255 255 255 / .06); color: var(--lg-text-2); }
-.wn-framecap .lgk-btn:is(.is-hover, .is-focus) { background: rgb(255 255 255 / .14); color: #fff; }
+.wn-framecap .lgk-btn.is-hover { background: rgb(255 255 255 / .14); color: #fff; }
+.wn-framecap .lgk-btn.is-focus { color: #fff; }
+.wn-framecap .lgk-btn::after { mix-blend-mode: normal; }
 .wn-framecap .lgk-btn .lgk-i { --is: 36px; }
 .wn-framecap .sep { width: 10px; }
 .wn-framecap .lgk-btn.danger:is(.is-focus, .is-hover) { background: var(--lg-tint-danger) !important; color: #fff; }
@@ -209,44 +247,66 @@
   color: #fff; background: rgb(0 0 0 / .38); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
   box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / .22), 0 2px 8px rgb(0 0 0 / .22); }
 .wn-more .lgk-i { --is: 26px; }
-.wn-more::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; mix-blend-mode: plus-lighter; opacity: 0;
+.wn-more::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0;
   background: radial-gradient(circle at var(--hx, 40%) var(--hy, 35%), rgb(255 255 255 / .12) 0, transparent 75%), rgb(255 255 255 / .08); }
 .wn-more.is-hover::after { opacity: 1; }
 .wn-more.is-open { background: var(--lg-fill-selected) !important; color: var(--lg-text-on-selected); -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+/* inside another glass container (the search sheet, a sheet): the fill only, no blur (no glass in glass, VP P-45) */
+.wn-more.in-glass { -webkit-backdrop-filter: none; backdrop-filter: none; }
 
-/* ------------------------------------------------------------------ menus (DESIGN2 §3.7, layout by item count: WN §5.1) */
+/* ------------------------------------------------------------------ menus, alerts and sheets: C1c's presentation recipe
+   (WN §5.1-§5.4, PLAN §1.4, §1.7, §1.8, §1.12; the `c1c-recipe` block of window-nav-menu.html, adopted here on
+   REQ C1c->C1a so area mockups that draw .wn-menu / .wn-alert / .wn-sheet get the same values). C1c owns the look;
+   change it there first. Focus on a white or coloured fill uses P4's --lgs-white-glow value (contracts/tokens.md). */
+.lgk-view { --wn-dark: #0d0e12; --wn-red: rgb(255 66 69 / .92); --wn-white-glow: 0 0 22px 8px rgb(255 255 255 / .55); }
+/* slab and rows (E-MENU) */
 .wn-menu { padding: 8px; display: flex; flex-direction: column; gap: 6px; box-sizing: border-box; --r: 32px; }
-.wn-menu .hdr { display: flex; align-items: center; height: 40px; padding: 4px 20px 0; font: 700 22px/1 var(--lg-font); color: var(--lg-text-2); flex: none; }
-.wn-menu .ihdr { display: flex; align-items: flex-end; height: 30px; padding: 0 0 4px 18px; font: 600 19px/1 var(--lg-font); color: var(--lg-text-3); flex: none; }
-.wn-menu .lgk-row { height: 72px; padding: 0 22px 0 18px; gap: 18px; font-weight: 500; flex: none; }
+.wn-menu .lgk-row { height: 72px; border-radius: 24px; padding: 0 22px 0 16px; gap: 16px; font: 500 24px/1.2 var(--lg-font); flex: none; }
 .wn-menu.compact { gap: 4px; }
-.wn-menu.compact .lgk-row { height: 60px; border-radius: 22px; }   /* 60 visible on a contiguous 64 px pitch */
-.wn-menu .lgk-row .lead { width: 28px; display: grid; place-items: center; --is: 26px; flex: none; color: var(--lg-text-1); }
+.wn-menu.compact .lgk-row { height: 60px; border-radius: 22px; }                 /* 60 visible on a 64 px pitch */
+.wn-menu .lgk-row .lead { width: 28px; display: grid; place-items: center; --is: 26px; flex: none; color: var(--lg-text-1); }   /* symbol (actions) or check (values) */
+.wn-menu .lgk-row .lead.check .lgk-i { --is: 24px; stroke-width: 3; }
 .wn-menu .lgk-row .trail .lgk-i { --is: 22px; }
+.wn-menu .sep, .wn-menu .gap { height: 6px; flex: none; }                         /* Steam's separator = space, no line */
+.wn-menu .hdr { display: flex; align-items: center; box-sizing: border-box; height: 40px; padding: 4px 20px 0; font: 700 22px/1 var(--lg-font); color: var(--lg-text-2); flex: none; }
+.wn-menu .ihdr { display: flex; align-items: flex-end; box-sizing: border-box; height: 26px; padding: 0 0 4px 18px; font: 600 19px/1 var(--lg-font); color: var(--lg-text-3); flex: none; }
+/* legacy: a trailing check (revision 2). C1c's rule is the leading .lead.check; kept only so area mockups not yet moved still render */
 .wn-menu .lgk-row .chk { margin-left: auto; --is: 24px; color: var(--lg-text-1); }
-.wn-menu .gap { height: 8px; flex: none; }
-.wn-menu.compact .gap { height: 6px; }
-.wn-menu .lgk-row.is-focus::after { --lift: var(--wn-focus-add); --spot: var(--wn-focus-spot); --hx: 50%; --hy: 28%; }
-.wn-menu .lgk-row.danger { color: var(--lg-red); font-weight: 600; }
-.wn-menu .lgk-row.danger .lead { color: var(--lg-red); }
-.wn-menu .lgk-row.danger-glyph .lead { color: var(--lg-red); }          /* many destructive rows: red glyph, white label */
-/* text on a coloured whole fill is dark (CC §7); glyphs stay white on red and blue */
-.wn-menu .lgk-row:is(.danger, .danger-glyph).is-focus { background: var(--lg-tint-danger); color: var(--lg-text-on-selected); }
-.wn-menu .lgk-row:is(.danger, .danger-glyph).is-focus .lead { color: #fff; }
-.wn-menu .lgk-row:is(.danger, .danger-glyph).is-focus::after { --lift: .08; }
-.wn-menu .lgk-row.primary { background: linear-gradient(180deg, rgb(255 255 255 / .16), rgb(255 255 255 / 0) 60%), var(--lg-tint-play); color: var(--lg-text-on-selected); }
-.wn-menu .lgk-row.primary .lead { color: var(--lg-text-on-selected); }
-.wn-menu .cancel { align-self: center; flex: none; margin-top: 4px; --s: 56px; padding: 0 44px; background: rgb(255 255 255 / .08); color: var(--lg-text-2); font-weight: 500; font-size: 22px; }
+/* Steam's Cancel item: a 56 px quiet capsule (PLAN §1.12, HA-11) */
+.wn-menu .cancel { align-self: center; flex: none; --s: 56px; padding: 0 44px; margin-top: 6px; background: rgb(255 255 255 / .08);
+  color: var(--lg-text-2); font: 500 22px/1 var(--lg-font); }
 .wn-menu .cols2 { display: grid; grid-template-columns: 1fr 1fr; grid-auto-flow: column; gap: 6px 8px; }
 .wn-menu .cols2 .lgk-row { min-width: 0; }
 .wn-menu .cols2 .lgk-row .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-/* ------------------------------------------------------------------ alerts and sheets */
-.wn-alert { padding: 36px 36px 28px; --r: 44px; box-sizing: border-box; }
+/* states (PLAN §1.4): laser hover = + .08 and a .12 spot at the pointer, no arc; gamepad focus = + .28 uniform,
+   a static .16 spot in the upper third, the control's own arc x1.5 */
+:is(.wn-menu, .wn-alert, .wn-sheet) :is(.lgk-row, .lgk-btn).is-hover::after { opacity: 1; --lift: .08; --spot: .12; }
+:is(.wn-menu, .wn-alert, .wn-sheet) :is(.lgk-row, .lgk-btn).is-focus::after { opacity: 1; --lift: .28; --spot: .16; --hx: 50%; --hy: 16%; }
+:is(.wn-menu, .wn-alert, .wn-sheet) :is(.lgk-row, .lgk-btn).is-focus::before {
+  background: conic-gradient(from var(--lg-light), rgb(255 255 255 / .9) 0deg, rgb(255 255 255 / .3) 40deg, transparent 75deg, transparent 145deg,
+    rgb(255 255 255 / .3) 180deg, transparent 215deg, transparent 285deg, rgb(255 255 255 / .3) 320deg, rgb(255 255 255 / .9) 360deg); }
+/* tones (WN §5.1.2 + CC §7: text on a coloured fill is dark; white only on blue) */
+.wn-menu .lgk-row.primary, .wn-menu .lgk-row.primary.play { background: linear-gradient(180deg, rgb(255 255 255 / .16), rgb(255 255 255 / 0) 60%), var(--lg-tint-play); color: var(--wn-dark); font-weight: 600; }
+.wn-menu .lgk-row.primary.install { background: linear-gradient(180deg, rgb(255 255 255 / .16), rgb(255 255 255 / 0) 60%), var(--lg-tint-primary); color: #fff; font-weight: 500; }
+.wn-menu .lgk-row.primary .lead { color: var(--wn-dark); }
+.wn-menu .lgk-row.primary.install .lead { color: #fff; }
+.wn-menu .lgk-row.danger { color: var(--lg-red); font-weight: 600; }               /* <= 2 destructive rows: red label */
+.wn-menu .lgk-row:is(.danger, .danger-glyph) .lead { color: var(--lg-red); }       /* > 2 (Power): red glyph, white label */
+.wn-menu .lgk-row:is(.danger, .danger-glyph).is-focus { background: linear-gradient(180deg, rgb(255 255 255 / .14), rgb(255 255 255 / 0) 60%), var(--wn-red);
+  color: var(--wn-dark); font-weight: 600; }
+.wn-menu .lgk-row:is(.danger, .danger-glyph).is-focus .lead { color: var(--wn-dark); }
+.wn-menu .lgk-row:is(.danger, .danger-glyph, .primary).is-focus::after { --lift: .04; --spot: .10; }
+/* focus on a white or coloured fill: a blurred outer glow, never a ring (P-16) */
+:is(.wn-menu, .wn-alert, .wn-sheet) .is-focus:is(.primary, .danger, .danger-glyph, .is-selected, .red) { box-shadow: var(--wn-white-glow); }
+/* source card while its menu is open (PLAN §1.7): 0 mm with a CSS glow, unless it was the gamepad-focused card */
+.lgk-view .src-glow { box-shadow: 0 10px 28px rgb(0 0 0 / .42), 0 0 26px 3px rgb(255 255 255 / .20) !important; }
+/* alerts and sheets (WN §5.3, §5.4; PLAN §1.12): alerts 640 wide, centred on the glass; sheets <= 960 */
+.wn-alert { width: 640px; padding: 36px 36px 28px; --r: 44px; box-sizing: border-box; }
 .wn-alert .t { font: 700 28px/1.25 var(--lg-font); letter-spacing: -.01em; }
 .wn-alert .b { margin-top: 12px; font: 500 22px/1.36 var(--lg-font); color: var(--lg-text-2); }
 .wn-alert .btns { display: flex; gap: 16px; margin-top: 30px; }
-.wn-alert .btns .lgk-btn { flex: 1; }
+.wn-alert .btns .lgk-btn { flex: 1; --s: 60px; }
+:is(.wn-alert, .wn-sheet) .lgk-btn.red { background: linear-gradient(180deg, rgb(255 255 255 / .16), rgb(255 255 255 / 0) 55%), var(--wn-red); color: var(--wn-dark); }
 .wn-sheet { --r: 44px; box-sizing: border-box; }
 
 /* ------------------------------------------------------------------ search sheet (WN §4) */

@@ -18,9 +18,16 @@
 // installed it is gone or the theme has been off for 3 s. A SharedJSContext
 // reload drops the wrapper with the page.
 //
+// Shown popups follow changes at once: when an entry's flag turns on or off
+// (rt.flags.onAny) or the geometry that zMm depends on changes (rt.bridge
+// "geom"), the live popups an entry matches, or matched, are re-sent.
+//
 // Config: the fragments in name order, from P1's loader (rt.data('popups')),
 // or window.__LGS_POPUPS (tests). Each: {version, owns, hosts: {name: entry}}.
 // The last matching entry in merge order applies to a popup.
+//
+// API: returned from install (rt.use('popups')) and exposed as
+// __LGS_RT.popups (rt.expose) for the lab. No global of its own.
 (function lgsPopupsModule() {
   'use strict';
   const W = window;
@@ -253,7 +260,9 @@
       const off = Object.assign({}, params.offset || {});
       if (sv.z_meters === undefined) delete off.z_meters; else off.z_meters = sv.z_meters;
       if (sv.z_pixels === undefined) delete off.z_pixels; else off.z_pixels = sv.z_pixels;
-      out.offset = off;
+      // Steam sent no offset: none goes back (not an empty one)
+      if (!sv.hasOffset && !Object.keys(off).length) delete out.offset;
+      else out.offset = off;
     }
     if (sv.scale === undefined) delete out.scale; else out.scale = copyOf(sv.scale);
     for (const k of SETTABLE) {
@@ -311,9 +320,11 @@
       testFlags: opts.flags || null, testGeom: opts.geom || null,
       recs: new Map(), marks: new WeakSet(), hooks: new Map(),
       origSend: null, origCreate: null, mySend: null, myCreate: null,
-      transforms: 0, resends: 0, restores: 0, misses: 0, ttlTimer: 0,
+      transforms: 0, resends: 0, restores: 0, misses: 0, offs: [],
+      flagResends: 0, geomResends: 0, geomKey: null,
       installedAt: Date.now(), reason: null,
     };
+    S.geomKey = (() => { const g = geom(); return g.S + ',' + g.r; })();
     const proto = Object.getPrototypeOf(st);
     const hadOwnSend = Object.prototype.hasOwnProperty.call(st, 'SendPendingInstanceParamsToSteamVR');
     const hadOwnCreate = Object.prototype.hasOwnProperty.call(st, 'CreatePooledPopup');
@@ -349,12 +360,53 @@
       }
       return me.origCreate.call(this, type, hp, cb);
     };
+    // marks for a later instance's remove(): a wrapper of ours that is no
+    // longer live passes through, so it can be dropped from the chain
+    S.mySend.__lgsDead = () => S !== me;
+    S.mySend.__lgsPrev = S.prevSend;
+    S.myCreate.__lgsDead = () => S !== me;
+    S.myCreate.__lgsPrev = S.prevCreate;
     st.SendPendingInstanceParamsToSteamVR = S.mySend;
     st.CreatePooledPopup = S.myCreate;
-    W.__LGS_POPUPS_API = API;
     resendLive(true);
-    S.ttlTimer = setInterval(ttlCheck, TTL_POLL_MS);
+    // follow flag and geometry changes on popups already shown (re-sending
+    // is idempotent; only popups an entry matches or matched are re-sent)
+    const sub =(f) => { if (typeof f === 'function') S.offs.push(f); };
+    try {
+      if (rt && rt.flags && typeof rt.flags.onAny === 'function') sub(rt.flags.onAny((changed) => onFlags(me, changed)));
+      if (rt && rt.bridge && typeof rt.bridge.on === 'function') {
+        sub(rt.bridge.on('geom', (v, prev, key, changed) => { if (changed !== false) onGeom(me); }));
+      }
+    } catch (err) { S.errors.push('subscribe: ' + String(err).slice(0, 120)); }
+    // the TTL poll: the runtime's timer (cleared on removal) when there is one
+    if (rt && typeof rt.setInterval === 'function') sub(rt.setInterval(ttlCheck, TTL_POLL_MS));
+    else {
+      const id = setInterval(ttlCheck, TTL_POLL_MS);
+      sub(() => clearInterval(id));
+    }
     return status();
+  }
+
+  // an entry's flag changed: re-send the popups it matches now (on) or matched
+  // (off: transform() puts Steam's values back)
+  function onFlags(me, changed) {
+    if (S !== me) return;
+    const names = Array.isArray(changed) ? changed : [];
+    if (names.length && !S.cfg.list.some((e) => e.flag && names.includes(e.flag))) return;
+    S.flagResends++;
+    resendLive(true);
+  }
+
+  // S or r changed: zMm entries map to other units
+  function onGeom(me) {
+    if (S !== me) return;
+    const g = geom();
+    const k = g.S + ',' + g.r;
+    if (k === S.geomKey) return;
+    S.geomKey = k;
+    if (!S.cfg.list.some((e) => e.zMm !== null && e.z === null)) return;
+    S.geomResends++;
+    resendLive(true);
   }
 
   function ttlCheck() {
@@ -369,18 +421,28 @@
     if (!S) return { removed: false };
     const st = S.store;
     const me = S;
-    clearInterval(S.ttlTimer);
+    // the TTL timer and the flag/geometry subscriptions (the runtime also
+    // undoes them on removal; off() runs once)
+    for (const off of me.offs.splice(0)) { try { off(); } catch (_) { /* gone */ } }
     // our methods off the store (someone wrapped over us: keep the chain, but
     // our wrapper passes through from now on because S !== me)
+    S = null;
+    // skip dead wrappers of earlier instances (a runtime re-injected while
+    // an old one was still installed): Steam's prototype method comes back
+    const live = (f) => {
+      while (f && typeof f.__lgsDead === 'function' && f.__lgsDead()) f = f.__lgsPrev || null;
+      return f;
+    };
     if (st.SendPendingInstanceParamsToSteamVR === me.mySend) {
-      if (me.prevSend) st.SendPendingInstanceParamsToSteamVR = me.prevSend;
+      const prev = live(me.prevSend);
+      if (prev) st.SendPendingInstanceParamsToSteamVR = prev;
       else delete st.SendPendingInstanceParamsToSteamVR;
     }
     if (st.CreatePooledPopup === me.myCreate) {
-      if (me.prevCreate) st.CreatePooledPopup = me.prevCreate;
+      const prev = live(me.prevCreate);
+      if (prev) st.CreatePooledPopup = prev;
       else delete st.CreatePooledPopup;
     }
-    S = null;
     // Steam's own params back on the popups we changed that are still shown
     let resent = 0;
     for (const [inst, rec] of me.recs) {
@@ -403,10 +465,7 @@
     }
     me.restores++;
     me.reason = reason || 'remove()';
-    if (W.__LGS_POPUPS_API === API) {
-      try { delete W.__LGS_POPUPS_API; } catch (_) { W.__LGS_POPUPS_API = undefined; }
-    }
-    LAST = { reason: me.reason, at: Date.now(), resent, transforms: me.transforms, errors: me.errors.slice(0, 10) };
+    LAST ={ reason: me.reason, at: Date.now(), resent, transforms: me.transforms, errors: me.errors.slice(0, 10) };
     return Object.assign({ removed: true }, LAST);
   }
 
@@ -428,19 +487,24 @@
       });
     }
     return {
-      installed: true,
+      installed: true, testFragments: !!S.testFrags,
       wrapped: st.SendPendingInstanceParamsToSteamVR === S.mySend && st.CreatePooledPopup === S.myCreate,
       hosts: S.cfg.list.map((e) => ({ name: e.name, file: e.file, type: e.type, z: zUnits(e), scale: e.scale, set: e.set, flag: e.flag, on: !e.flag || flagOn(e.flag), changes: e.changes })),
       live, geom: geom(), transforms: S.transforms, resends: S.resends, misses: S.misses,
+      flagResends: S.flagResends, geomResends: S.geomResends, subscriptions: S.offs.length,
       ttl: { pollMs: TTL_POLL_MS, misses: TTL_MISSES }, errors: S.errors.slice(0, 20),
     };
   }
 
-  function apply() {
+  // apply(): re-read the fragments and re-send the live popups they change
+  // (or no longer change). apply(list) uses that list of fragments instead
+  // until the next apply() (lab tests, RP-7).
+  function apply(frags) {
     if (!S) return status();
-    S.cfg = merge(readFragments(S.rt));
+    S.cfg = merge(Array.isArray(frags) ? frags.filter((x) => x && typeof x === 'object') : readFragments(S.rt));
+    S.testFrags = Array.isArray(frags);
     S.errors = S.cfg.errors.slice();
-    resendLive(false);
+    resendLive(true);
     return status();
   }
 
@@ -448,16 +512,22 @@
 
   const MOD = {
     name: 'popups', deps: [], flag: 'wp.p6',
-    install(rt) { install(rt); return API; },
+    install(rt) {
+      install(rt);
+      // the lab reaches the API as __LGS_RT.popups (undone on removal)
+      if (rt && typeof rt.expose === 'function') {
+        try { rt.expose('popups', API); } catch (err) { if (S) S.errors.push('expose: ' + String(err).slice(0, 120)); }
+      }
+      return API;
+    },
     remove() { return remove('remove()'); },
     api: API,
+    // lab tests that load this file under a stand-in runtime (RP-7's TTL
+    // cases) install it with options: {fragments, flags, geom}
+    test: { install, remove, status, apply, merge },
   };
 
-  if (W.__LGS_RT && typeof W.__LGS_RT.define === 'function') {
-    W.__LGS_RT.define(MOD);
-  } else {
-    // no runtime (a test injected this file by itself): expose the module for
-    // the test, which installs and removes it explicitly
-    W.__LGS_POPUPS_MODULE = { install, remove, status, apply, merge };
-  }
+  // load time only defines the module (runtime.md rule 1); without P1's
+  // runtime nothing happens
+  if (W.__LGS_RT && typeof W.__LGS_RT.define === 'function') W.__LGS_RT.define(MOD);
 })();

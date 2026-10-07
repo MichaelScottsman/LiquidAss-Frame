@@ -1,0 +1,1726 @@
+{
+ "route": "/settings/system",
+ "build": "11094443",
+ "date": "2026-10-07T06:13:00",
+ "step": {
+  "flags": {},
+  "mode": null,
+  "stock": false
+ },
+ "init": {
+  "entry": {
+   "el": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem} %{PagedSettingsDialog_PageList_ShowTitle>Active} Panel",
+   "text": "#bc0792d8",
+   "rect": [
+    0,
+    40,
+    256,
+    42
+   ],
+   "route": "/settings/system",
+   "key": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}|#bc0792d8#0"
+  },
+  "route": "/settings/system"
+ },
+ "entry": {
+  "el": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem} %{PagedSettingsDialog_PageList_ShowTitle>Active} Panel",
+  "text": "#bc0792d8",
+  "rect": [
+   0,
+   40,
+   256,
+   42
+  ],
+  "route": "/settings/system",
+  "key": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}|#bc0792d8#0"
+ },
+ "nodes": [
+  {
+   "id": 0,
+   "el": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem} %{PagedSettingsDialog_PageList_ShowTitle>Active} Panel",
+   "text": "#bc0792d8",
+   "rect": [
+    0,
+    40,
+    256,
+    42
+   ],
+   "route": "/settings/system",
+   "key": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}|#bc0792d8#0"
+  },
+  {
+   "id": 1,
+   "el": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem} %{PagedSettingsDialog_PageList_ShowTitle>Active} Panel",
+   "text": "#66c06c11",
+   "rect": [
+    0,
+    82,
+    256,
+    42
+   ],
+   "route": "/settings/internet",
+   "key": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}|#66c06c11#0"
+  },
+  {
+   "id": 2,
+   "el": "%{DropDownControlButton} DialogButton _DialogLayout",
+   "text": "#6444e2ae",
+   "rect": [
+    968,
+    99,
+    250,
+    60
+   ],
+   "route": "/settings/system",
+   "key": "%{DropDownControlButton}|#6444e2ae#0"
+  },
+  {
+   "id": 3,
+   "el": "%{SearchBox} %{SearchAndTitleContainer>Visible} %{WhiteBackground}",
+   "text": "#b52b36b7",
+   "rect": [
+    372,
+    14,
+    536,
+    80
+   ],
+   "route": "/settings/system",
+   "key": "%{SearchBox}|#b52b36b7#0"
+  },
+  {
+   "id": 4,
+   "el": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem} %{PagedSettingsDialog_PageList_ShowTitle>Active} Panel",
+   "text": "#9e092dda",
+   "rect": [
+    0,
+    124,
+    256,
+    42
+   ],
+   "route": "/settings/storage",
+   "key": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}|#9e092dda#0"
+  },
+  {
+   "id": 5,
+   "el": "%{*GamepadDialogContent>Toggle} %{*GamepadDialogContent>On} Focusable",
+   "text": "#2f2b4618",
+   "rect": [
+    1152,
+    110,
+    67,
+    39
+   ],
+   "route": "/settings/internet",
+   "key": "%{*GamepadDialogContent>Toggle}|#2f2b4618#0"
+  },
+  {
+   "id": 6,
+   "el": "DialogButton _DialogLayout Secondary",
+   "text": "#11456987",
+   "rect": [
+    958,
+    261,
+    260,
+    60
+   ],
+   "route": "/settings/system",
+   "key": "DialogButton|#11456987#0"
+  },
+  {
+   "id": 7,
+   "el": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem} %{PagedSettingsDialog_PageList_ShowTitle>Active} Panel",
+   "text": "#c3b41488",
+   "rect": [
+    0,
+    166,
+    256,
+    42
+   ],
+   "route": "/settings/bluetooth",
+   "key": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}|#c3b41488#0"
+  },
+  {
+   "id": 8,
+   "el": "%{InstallFolder} %{IsSelected} Panel",
+   "text": "#cb20b726",
+   "rect": [
+    292,
+    104,
+    223,
+    50
+   ],
+   "route": "/settings/storage",
+   "key": "%{InstallFolder}|#cb20b726#0"
+  },
+  {
+   "id": 9,
+   "el": "%{DropDownControlButton} DialogButton _DialogLayout",
+   "text": "#d9c8e1bc",
+   "rect": [
+    968,
+    410,
+    250,
+    60
+   ],
+   "route": "/settings/system",
+   "key": "%{DropDownControlButton}|#d9c8e1bc#0"
+  },
+  {
+   "id": 10,
+   "el": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem} %{PagedSettingsDialog_PageList_ShowTitle>Active} Panel",
+   "text": "#574ff9b0",
+   "rect": [
+    0,
+    225,
+    256,
+    42
+   ],
+   "route": "/settings/display",
+   "key": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}|#574ff9b0#0"
+  },
+  {
+   "id": 11,
+   "el": "%{*GamepadDialogContent>Toggle} %{*GamepadDialogContent>On} Focusable",
+   "text": "#c3b41488",
+   "rect": [
+    1152,
+    103,
+    67,
+    39
+   ],
+   "route": "/settings/bluetooth",
+   "key": "%{*GamepadDialogContent>Toggle}|#c3b41488#0"
+  },
+  {
+   "id": 12,
+   "el": "%{DropDownControlButton} DialogButton _DialogLayout",
+   "text": "#8c870aca",
+   "rect": [
+    968,
+    490,
+    250,
+    60
+   ],
+   "route": "/settings/system",
+   "key": "%{DropDownControlButton}|#8c870aca#0"
+  },
+  {
+   "id": 13,
+   "el": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem} %{PagedSettingsDialog_PageList_ShowTitle>Active} Panel",
+   "text": "#7548ab52",
+   "rect": [
+    0,
+    267,
+    256,
+    42
+   ],
+   "route": "/settings/power",
+   "key": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}|#7548ab52#0"
+  },
+  {
+   "id": 14,
+   "el": "%{DropDownControlButton} DialogButton _DialogLayout",
+   "text": "#5f7faaeb",
+   "rect": [
+    865,
+    132,
+    353,
+    60
+   ],
+   "route": "/settings/display",
+   "key": "%{DropDownControlButton}|#5f7faaeb#0"
+  },
+  {
+   "id": 15,
+   "el": "%{*GamepadDialogContent>Toggle} Focusable gpfocus",
+   "text": "#6ccbc90a",
+   "rect": [
+    1152,
+    630,
+    67,
+    39
+   ],
+   "route": "/settings/system",
+   "key": "%{*GamepadDialogContent>Toggle}|#6ccbc90a#0"
+  },
+  {
+   "id": 16,
+   "el": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem} %{PagedSettingsDialog_PageList_ShowTitle>Active} Panel",
+   "text": "#acdac205",
+   "rect": [
+    0,
+    309,
+    256,
+    42
+   ],
+   "route": "/settings/audio",
+   "key": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}|#acdac205#0"
+  },
+  {
+   "id": 17,
+   "el": "%{*GamepadDialogContent>Toggle} Focusable gpfocus",
+   "text": "#49bb7ad5",
+   "rect": [
+    1152,
+    142,
+    67,
+    39
+   ],
+   "route": "/settings/power",
+   "key": "%{*GamepadDialogContent>Toggle}|#49bb7ad5#0"
+  },
+  {
+   "id": 18,
+   "el": "%{DropDownControlButton} DialogButton _DialogLayout",
+   "text": "#d1f7dc89",
+   "rect": [
+    906,
+    638,
+    312,
+    77
+   ],
+   "route": "/settings/system",
+   "key": "%{DropDownControlButton}|#d1f7dc89#0"
+  },
+  {
+   "id": 19,
+   "el": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem} %{PagedSettingsDialog_PageList_ShowTitle>Active} Panel",
+   "text": "#a36a5ffa",
+   "rect": [
+    0,
+    351,
+    256,
+    42
+   ],
+   "route": "/settings/controller/:type/:controllerIndex",
+   "key": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}|#a36a5ffa#0"
+  },
+  {
+   "id": 20,
+   "el": "%{*SliderControlAndNotches>SliderControlPanelGroup} SliderControlPanelGroup Panel",
+   "text": "#3b18e8e3",
+   "rect": [
+    318,
+    141,
+    900,
+    80
+   ],
+   "route": "/settings/audio",
+   "key": "%{*SliderControlAndNotches>SliderControlPanelGroup}|#3b18e8e3#0"
+  },
+  {
+   "id": 21,
+   "el": "%{*GamepadDialogContent>Toggle} Focusable gpfocus",
+   "text": "#fc2a466c",
+   "rect": [
+    1152,
+    671,
+    67,
+    39
+   ],
+   "route": "/settings/system",
+   "key": "%{*GamepadDialogContent>Toggle}|#fc2a466c#0"
+  },
+  {
+   "id": 22,
+   "el": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem} %{PagedSettingsDialog_PageList_ShowTitle>Active} Panel",
+   "text": "#6662c40b",
+   "rect": [
+    0,
+    393,
+    256,
+    42
+   ],
+   "route": "/settings/keyboard",
+   "key": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}|#6662c40b#0"
+  },
+  {
+   "id": 23,
+   "el": "%{SettingsDialogSubHeader>SettingsDialogButton} DialogButton _DialogLayout",
+   "text": "#db8cebf4",
+   "rect": [
+    1009,
+    131,
+    209,
+    60
+   ],
+   "route": "/settings/controller/:type/:controllerIndex",
+   "key": "%{SettingsDialogSubHeader>SettingsDialogButton}|#db8cebf4#0"
+  },
+  {
+   "id": 24,
+   "el": "%{*GamepadDialogContent>Toggle} %{*GamepadDialogContent>On} Focusable",
+   "text": "#c4dcc211",
+   "rect": [
+    1152,
+    693,
+    67,
+    39
+   ],
+   "route": "/settings/system",
+   "key": "%{*GamepadDialogContent>Toggle}|#c4dcc211#0"
+  },
+  {
+   "id": 25,
+   "el": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem} %{PagedSettingsDialog_PageList_ShowTitle>Active} Panel",
+   "text": "#d660049b",
+   "rect": [
+    0,
+    435,
+    256,
+    42
+   ],
+   "route": "/settings/accessibility",
+   "key": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}|#d660049b#0"
+  },
+  {
+   "id": 26,
+   "el": "%{DropDownControlButton} DialogButton _DialogLayout",
+   "text": "#0bde3790",
+   "rect": [
+    920,
+    95,
+    229,
+    60
+   ],
+   "route": "/settings/keyboard",
+   "key": "%{DropDownControlButton}|#0bde3790#0"
+  },
+  {
+   "id": 27,
+   "el": "%{*GamepadDialogContent>Toggle} Focusable gpfocus",
+   "text": "#641ae3fd",
+   "rect": [
+    1152,
+    741,
+    67,
+    39
+   ],
+   "route": "/settings/system",
+   "key": "%{*GamepadDialogContent>Toggle}|#641ae3fd#0"
+  },
+  {
+   "id": 28,
+   "el": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem} %{PagedSettingsDialog_PageList_ShowTitle>Active} Panel",
+   "text": "#f25ce1b8",
+   "rect": [
+    0,
+    477,
+    256,
+    42
+   ],
+   "route": "/settings/security",
+   "key": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}|#f25ce1b8#0"
+  },
+  {
+   "id": 29,
+   "el": "%{*GamepadDialogContent>Toggle} Focusable gpfocus",
+   "text": "#7d9fc2b3",
+   "rect": [
+    1152,
+    101,
+    67,
+    39
+   ],
+   "route": "/settings/accessibility",
+   "key": "%{*GamepadDialogContent>Toggle}|#7d9fc2b3#0"
+  },
+  {
+   "id": 30,
+   "el": "%{*GamepadDialogContent>Toggle} %{*GamepadDialogContent>Disabled} Focusable",
+   "text": "#3cd40f86",
+   "rect": [
+    1152,
+    601,
+    67,
+    39
+   ],
+   "route": "/settings/system",
+   "key": "%{*GamepadDialogContent>Toggle}|#3cd40f86#0"
+  },
+  {
+   "id": 31,
+   "el": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem} %{PagedSettingsDialog_PageList_ShowTitle>Active} Panel",
+   "text": "#753a22b2",
+   "rect": [
+    0,
+    536,
+    256,
+    42
+   ],
+   "route": "/settings/notifications",
+   "key": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}|#753a22b2#0"
+  },
+  {
+   "id": 32,
+   "el": "%{*GamepadDialogContent>Toggle} Focusable gpfocus",
+   "text": "#7dc34034",
+   "rect": [
+    1152,
+    222,
+    67,
+    39
+   ],
+   "route": "/settings/security",
+   "key": "%{*GamepadDialogContent>Toggle}|#7dc34034#0"
+  },
+  {
+   "id": 33,
+   "el": "%{*GamepadDialogContent>Toggle} %{*GamepadDialogContent>Disabled} Focusable",
+   "text": "#48665ca9",
+   "rect": [
+    1152,
+    601,
+    67,
+    39
+   ],
+   "route": "/settings/system",
+   "key": "%{*GamepadDialogContent>Toggle}|#48665ca9#0"
+  },
+  {
+   "id": 34,
+   "el": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem} %{PagedSettingsDialog_PageList_ShowTitle>Active} Panel",
+   "text": "#d5a33b71",
+   "rect": [
+    0,
+    557,
+    256,
+    42
+   ],
+   "route": "/settings/friends",
+   "key": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}|#d5a33b71#0"
+  },
+  {
+   "id": 35,
+   "el": "%{DropDownControlButton} DialogButton _DialogLayout",
+   "text": "#ea3036a8",
+   "rect": [
+    968,
+    124,
+    250,
+    60
+   ],
+   "route": "/settings/notifications",
+   "key": "%{DropDownControlButton}|#ea3036a8#0"
+  },
+  {
+   "id": 36,
+   "el": "%{*GamepadDialogContent>Toggle} %{*GamepadDialogContent>Disabled} Focusable",
+   "text": "#389a0440",
+   "rect": [
+    1152,
+    601,
+    67,
+    39
+   ],
+   "route": "/settings/system",
+   "key": "%{*GamepadDialogContent>Toggle}|#389a0440#0"
+  },
+  {
+   "id": 37,
+   "el": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem} %{PagedSettingsDialog_PageList_ShowTitle>Active} Panel",
+   "text": "#a862c2b2",
+   "rect": [
+    0,
+    531,
+    256,
+    42
+   ],
+   "route": "/settings/downloads",
+   "key": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}|#a862c2b2#0"
+  },
+  {
+   "id": 38,
+   "el": "%{*GamepadDialogContent>Toggle} Focusable gpfocus",
+   "text": "#573f41e6",
+   "rect": [
+    1152,
+    116,
+    67,
+    39
+   ],
+   "route": "/settings/friends",
+   "key": "%{*GamepadDialogContent>Toggle}|#573f41e6#0"
+  },
+  {
+   "id": 39,
+   "el": "%{*GamepadDialogContent>Toggle} %{*GamepadDialogContent>Disabled} Focusable",
+   "text": "#6df3bac5",
+   "rect": [
+    1152,
+    601,
+    67,
+    39
+   ],
+   "route": "/settings/system",
+   "key": "%{*GamepadDialogContent>Toggle}|#6df3bac5#0"
+  },
+  {
+   "id": 40,
+   "el": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem} %{PagedSettingsDialog_PageList_ShowTitle>Active} Panel",
+   "text": "#b2efeaa1",
+   "rect": [
+    0,
+    537,
+    256,
+    42
+   ],
+   "route": "/settings/cloud",
+   "key": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}|#b2efeaa1#0"
+  },
+  {
+   "id": 41,
+   "el": "%{DropDownControlButton} DialogButton _DialogLayout",
+   "text": "#1209b88f",
+   "rect": [
+    968,
+    90,
+    250,
+    60
+   ],
+   "route": "/settings/downloads",
+   "key": "%{DropDownControlButton}|#1209b88f#0"
+  },
+  {
+   "id": 42,
+   "el": "%{*GamepadDialogContent>Toggle} %{*GamepadDialogContent>Disabled} Focusable",
+   "text": "#3dd6a25e",
+   "rect": [
+    1152,
+    601,
+    67,
+    39
+   ],
+   "route": "/settings/system",
+   "key": "%{*GamepadDialogContent>Toggle}|#3dd6a25e#0"
+  },
+  {
+   "id": 43,
+   "el": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem} %{PagedSettingsDialog_PageList_ShowTitle>Active} Panel",
+   "text": "#12d9c090",
+   "rect": [
+    0,
+    531,
+    256,
+    42
+   ],
+   "route": "/settings/ingame",
+   "key": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}|#12d9c090#0"
+  },
+  {
+   "id": 44,
+   "el": "%{*GamepadDialogContent>Toggle} %{*GamepadDialogContent>On} Focusable",
+   "text": "#386e29b7",
+   "rect": [
+    1152,
+    98,
+    67,
+    39
+   ],
+   "route": "/settings/cloud",
+   "key": "%{*GamepadDialogContent>Toggle}|#386e29b7#0"
+  },
+  {
+   "id": 45,
+   "el": "%{*GamepadDialogContent>Toggle} %{*GamepadDialogContent>Disabled} Focusable",
+   "text": "#ba13dfd1",
+   "rect": [
+    1152,
+    601,
+    67,
+    39
+   ],
+   "route": "/settings/system",
+   "key": "%{*GamepadDialogContent>Toggle}|#ba13dfd1#0"
+  },
+  {
+   "id": 46,
+   "el": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem} %{PagedSettingsDialog_PageList_ShowTitle>Active} Panel",
+   "text": "#5d60c7dd",
+   "rect": [
+    0,
+    531,
+    256,
+    42
+   ],
+   "route": "/settings/compatibility",
+   "key": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}|#5d60c7dd#0"
+  },
+  {
+   "id": 47,
+   "el": "%{*GamepadDialogContent>Toggle} Focusable gpfocus",
+   "text": "#066aca46",
+   "rect": [
+    1152,
+    145,
+    67,
+    39
+   ],
+   "route": "/settings/ingame",
+   "key": "%{*GamepadDialogContent>Toggle}|#066aca46#0"
+  },
+  {
+   "id": 48,
+   "el": "%{SettingsDialogSubHeader>SettingsDialogButton} DialogButton _DialogLayout",
+   "text": "#86d32876",
+   "rect": [
+    1058,
+    590,
+    160,
+    60
+   ],
+   "route": "/settings/system",
+   "key": "%{SettingsDialogSubHeader>SettingsDialogButton}|#86d32876#0"
+  },
+  {
+   "id": 49,
+   "el": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem} %{PagedSettingsDialog_PageList_ShowTitle>Active} Panel",
+   "text": "#4efb6cb7",
+   "rect": [
+    0,
+    537,
+    256,
+    42
+   ],
+   "route": "/settings/family",
+   "key": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}|#4efb6cb7#0"
+  },
+  {
+   "id": 50,
+   "el": "%{DropDownControlButton} %{EnableSteamPlayForOthersDropdownButton} DialogButton",
+   "text": "#c494ec55",
+   "rect": [
+    909,
+    133,
+    309,
+    60
+   ],
+   "route": "/settings/compatibility",
+   "key": "%{DropDownControlButton}|#c494ec55#0"
+  },
+  {
+   "id": 51,
+   "el": "%{*GamepadDialogContent>Field} %{*GamepadDialogContent>VerticalAlignCenter} %{*GamepadDialogContent>InlineWrapShiftsChildrenBelow}",
+   "text": "#8908df1a",
+   "rect": [
+    292,
+    580,
+    952,
+    80
+   ],
+   "route": "/settings/system",
+   "key": "%{*GamepadDialogContent>Field}|#8908df1a#0"
+  },
+  {
+   "id": 52,
+   "el": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem} %{PagedSettingsDialog_PageList_ShowTitle>Active} Panel",
+   "text": "#60919e6a",
+   "rect": [
+    0,
+    530,
+    256,
+    42
+   ],
+   "route": "/settings/remoteplay",
+   "key": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}|#60919e6a#0"
+  },
+  {
+   "id": 53,
+   "el": "Focusable gpfocus gpfocuswithin",
+   "text": "#7b8e12cb",
+   "rect": [
+    354,
+    73,
+    113,
+    19
+   ],
+   "route": "/settings/family",
+   "key": "a|#7b8e12cb#0"
+  },
+  {
+   "id": 54,
+   "el": "%{*GamepadDialogContent>Field} %{*GamepadDialogContent>VerticalAlignCenter} %{*GamepadDialogContent>InlineWrapShiftsChildrenBelow}",
+   "text": "#7bcb2f19",
+   "rect": [
+    292,
+    580,
+    952,
+    80
+   ],
+   "route": "/settings/system",
+   "key": "%{*GamepadDialogContent>Field}|#7bcb2f19#0"
+  },
+  {
+   "id": 55,
+   "el": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem} %{PagedSettingsDialog_PageList_ShowTitle>Active} Panel",
+   "text": "#3f593f96",
+   "rect": [
+    0,
+    531,
+    256,
+    42
+   ],
+   "route": "/settings/gamerecording",
+   "key": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}|#3f593f96#0"
+  },
+  {
+   "id": 56,
+   "el": "%{*GamepadDialogContent>Toggle} %{*GamepadDialogContent>On} Focusable",
+   "text": "#f0e59216",
+   "rect": [
+    1152,
+    135,
+    67,
+    39
+   ],
+   "route": "/settings/remoteplay",
+   "key": "%{*GamepadDialogContent>Toggle}|#f0e59216#0"
+  },
+  {
+   "id": 57,
+   "el": "%{*GamepadDialogContent>Field} %{*GamepadDialogContent>VerticalAlignCenter} %{*GamepadDialogContent>InlineWrapShiftsChildrenBelow}",
+   "text": "#02ed9bda",
+   "rect": [
+    292,
+    580,
+    952,
+    80
+   ],
+   "route": "/settings/system",
+   "key": "%{*GamepadDialogContent>Field}|#02ed9bda#0"
+  },
+  {
+   "id": 58,
+   "el": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem} %{PagedSettingsDialog_PageList_ShowTitle>Active} Panel",
+   "text": "#70f8bb9a",
+   "rect": [
+    0,
+    547,
+    256,
+    42
+   ],
+   "route": "/settings/home",
+   "key": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}|#70f8bb9a#0"
+  },
+  {
+   "id": 59,
+   "el": "%{RecordingModeOption} Focusable gpfocus",
+   "text": "#2f836b75",
+   "rect": [
+    292,
+    108,
+    952,
+    70
+   ],
+   "route": "/settings/gamerecording",
+   "key": "%{RecordingModeOption}|#2f836b75#0"
+  },
+  {
+   "id": 60,
+   "el": "%{*GamepadDialogContent>Field} %{*GamepadDialogContent>VerticalAlignCenter} %{*GamepadDialogContent>InlineWrapShiftsChildrenBelow}",
+   "text": "#e9692890",
+   "rect": [
+    292,
+    580,
+    952,
+    80
+   ],
+   "route": "/settings/system",
+   "key": "%{*GamepadDialogContent>Field}|#e9692890#0"
+  },
+  {
+   "id": 61,
+   "el": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem} %{PagedSettingsDialog_PageList_ShowTitle>Active} Panel",
+   "text": "#b8100f5b",
+   "rect": [
+    0,
+    531,
+    256,
+    42
+   ],
+   "route": "/settings/library",
+   "key": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}|#b8100f5b#0"
+  },
+  {
+   "id": 62,
+   "el": "%{*GamepadDialogContent>Toggle} Focusable gpfocus",
+   "text": "#65ba6733",
+   "rect": [
+    1152,
+    107,
+    67,
+    39
+   ],
+   "route": "/settings/home",
+   "key": "%{*GamepadDialogContent>Toggle}|#65ba6733#0"
+  },
+  {
+   "id": 63,
+   "el": "%{*GamepadDialogContent>Field} %{*GamepadDialogContent>VerticalAlignCenter} %{*GamepadDialogContent>InlineWrapShiftsChildrenBelow}",
+   "text": "#d27625f3",
+   "rect": [
+    292,
+    580,
+    952,
+    80
+   ],
+   "route": "/settings/system",
+   "key": "%{*GamepadDialogContent>Field}|#d27625f3#0"
+  },
+  {
+   "id": 64,
+   "el": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem} %{PagedSettingsDialog_PageList_ShowTitle>Active} Panel",
+   "text": "#0d8a7046",
+   "rect": [
+    0,
+    534,
+    256,
+    42
+   ],
+   "route": "/settings/store",
+   "key": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}|#0d8a7046#0"
+  },
+  {
+   "id": 65,
+   "el": "%{*GamepadDialogContent>Toggle} %{*GamepadDialogContent>On} Focusable",
+   "text": "#d4031513",
+   "rect": [
+    1152,
+    107,
+    67,
+    39
+   ],
+   "route": "/settings/library",
+   "key": "%{*GamepadDialogContent>Toggle}|#d4031513#0"
+  },
+  {
+   "id": 66,
+   "el": "%{*GamepadDialogContent>Field} %{*GamepadDialogContent>VerticalAlignCenter} %{*GamepadDialogContent>InlineWrapShiftsChildrenBelow}",
+   "text": "#b577e6c2",
+   "rect": [
+    292,
+    580,
+    952,
+    80
+   ],
+   "route": "/settings/system",
+   "key": "%{*GamepadDialogContent>Field}|#b577e6c2#0"
+  },
+  {
+   "id": 67,
+   "el": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem} %{PagedSettingsDialog_PageList_ShowTitle>Active} Panel",
+   "text": "#7e08ebec",
+   "rect": [
+    0,
+    569,
+    256,
+    42
+   ],
+   "route": "/settings/developer",
+   "key": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}|#7e08ebec#0"
+  },
+  {
+   "id": 68,
+   "el": "%{SettingsDialogSubHeader>SettingsDialogButton} DialogButton _DialogLayout",
+   "text": "#674d7d65",
+   "rect": [
+    1058,
+    87,
+    160,
+    60
+   ],
+   "route": "/settings/store",
+   "key": "%{SettingsDialogSubHeader>SettingsDialogButton}|#674d7d65#0"
+  },
+  {
+   "id": 69,
+   "el": "%{*GamepadDialogContent>Field} %{*GamepadDialogContent>VerticalAlignCenter} %{*GamepadDialogContent>InlineWrapShiftsChildrenBelow}",
+   "text": "#d769cd10",
+   "rect": [
+    292,
+    580,
+    952,
+    80
+   ],
+   "route": "/settings/system",
+   "key": "%{*GamepadDialogContent>Field}|#d769cd10#0"
+  },
+  {
+   "id": 70,
+   "el": "%{*GamepadDialogContent>Toggle} Focusable gpfocus",
+   "text": "#83955cd7",
+   "rect": [
+    1152,
+    168,
+    67,
+    39
+   ],
+   "route": "/settings/developer",
+   "key": "%{*GamepadDialogContent>Toggle}|#83955cd7#0"
+  },
+  {
+   "id": 71,
+   "el": "%{*GamepadDialogContent>Field} %{*GamepadDialogContent>VerticalAlignCenter} %{*GamepadDialogContent>InlineWrapShiftsChildrenBelow}",
+   "text": "#a02b5699",
+   "rect": [
+    292,
+    580,
+    952,
+    80
+   ],
+   "route": "/settings/system",
+   "key": "%{*GamepadDialogContent>Field}|#a02b5699#0"
+  },
+  {
+   "id": 72,
+   "el": "%{*GamepadDialogContent>Field} %{*GamepadDialogContent>VerticalAlignCenter} %{*GamepadDialogContent>InlineWrapShiftsChildrenBelow}",
+   "text": "#b83571e2",
+   "rect": [
+    292,
+    580,
+    952,
+    80
+   ],
+   "route": "/settings/system",
+   "key": "%{*GamepadDialogContent>Field}|#b83571e2#0"
+  },
+  {
+   "id": 73,
+   "el": "%{*GamepadDialogContent>Field} %{*GamepadDialogContent>VerticalAlignCenter} %{*GamepadDialogContent>InlineWrapShiftsChildrenBelow}",
+   "text": "#8dc02b69",
+   "rect": [
+    292,
+    644,
+    952,
+    80
+   ],
+   "route": "/settings/system",
+   "key": "%{*GamepadDialogContent>Field}|#8dc02b69#0"
+  },
+  {
+   "id": 74,
+   "el": "%{*GamepadDialogContent>Field} %{*GamepadDialogContent>VerticalAlignCenter} %{*GamepadDialogContent>InlineWrapShiftsChildrenBelow}",
+   "text": "#1dd23c30",
+   "rect": [
+    292,
+    706,
+    952,
+    80
+   ],
+   "route": "/settings/system",
+   "key": "%{*GamepadDialogContent>Field}|#1dd23c30#0"
+  },
+  {
+   "id": 75,
+   "el": "%{*GamepadDialogContent>Field} %{*GamepadDialogContent>VerticalAlignCenter} %{*GamepadDialogContent>InlineWrapShiftsChildrenBelow}",
+   "text": "#9046bc84",
+   "rect": [
+    292,
+    622,
+    952,
+    80
+   ],
+   "route": "/settings/system",
+   "key": "%{*GamepadDialogContent>Field}|#9046bc84#0"
+  },
+  {
+   "id": 76,
+   "el": "%{*GamepadDialogContent>Field} %{*GamepadDialogContent>VerticalAlignCenter} %{*GamepadDialogContent>InlineWrapShiftsChildrenBelow}",
+   "text": "#8fbff7e4",
+   "rect": [
+    292,
+    645,
+    952,
+    80
+   ],
+   "route": "/settings/system",
+   "key": "%{*GamepadDialogContent>Field}|#8fbff7e4#0"
+  },
+  {
+   "id": 77,
+   "el": "%{*GamepadDialogContent>Field} %{*GamepadDialogContent>VerticalAlignCenter} %{*GamepadDialogContent>InlineWrapShiftsChildrenBelow}",
+   "text": "#5aa738b2",
+   "rect": [
+    292,
+    638,
+    952,
+    80
+   ],
+   "route": "/settings/system",
+   "key": "%{*GamepadDialogContent>Field}|#5aa738b2#0"
+  },
+  {
+   "id": 78,
+   "el": "DialogButton _DialogLayout Secondary",
+   "text": "#c9965e24",
+   "rect": [
+    768,
+    634,
+    450,
+    62
+   ],
+   "route": "/settings/system",
+   "key": "DialogButton|#c9965e24#0"
+  },
+  {
+   "id": 79,
+   "el": "%{*GamepadDialogContent>Field} %{*GamepadDialogContent>VerticalAlignCenter} %{*GamepadDialogContent>InlineWrapShiftsChildrenBelow}",
+   "text": "#9ae1cdbd",
+   "rect": [
+    292,
+    708,
+    952,
+    80
+   ],
+   "route": "/settings/system",
+   "key": "%{*GamepadDialogContent>Field}|#9ae1cdbd#0"
+  },
+  {
+   "id": 80,
+   "el": "%{*GamepadDialogContent>Field} %{*GamepadDialogContent>VerticalAlignCenter} %{*GamepadDialogContent>InlineWrapShiftsChildrenBelow}",
+   "text": "#a240996e",
+   "rect": [
+    292,
+    638,
+    952,
+    80
+   ],
+   "route": "/settings/system",
+   "key": "%{*GamepadDialogContent>Field}|#a240996e#0"
+  },
+  {
+   "id": 81,
+   "el": "%{*GamepadDialogContent>Field} %{*GamepadDialogContent>VerticalAlignCenter} %{*GamepadDialogContent>InlineWrapShiftsChildrenBelow}",
+   "text": "#8b3eae88",
+   "rect": [
+    292,
+    638,
+    952,
+    80
+   ],
+   "route": "/settings/system",
+   "key": "%{*GamepadDialogContent>Field}|#8b3eae88#0"
+  },
+  {
+   "id": 82,
+   "el": "%{*GamepadDialogContent>Field} %{*GamepadDialogContent>VerticalAlignCenter} %{*GamepadDialogContent>InlineWrapShiftsChildrenBelow}",
+   "text": "#1fad2726",
+   "rect": [
+    292,
+    638,
+    952,
+    80
+   ],
+   "route": "/settings/system",
+   "key": "%{*GamepadDialogContent>Field}|#1fad2726#0"
+  },
+  {
+   "id": 83,
+   "el": "%{*GamepadDialogContent>Field} %{*GamepadDialogContent>VerticalAlignCenter} %{*GamepadDialogContent>InlineWrapShiftsChildrenBelow}",
+   "text": "#8dbc0059",
+   "rect": [
+    292,
+    645,
+    952,
+    80
+   ],
+   "route": "/settings/system",
+   "key": "%{*GamepadDialogContent>Field}|#8dbc0059#0"
+  },
+  {
+   "id": 84,
+   "el": "%{*GamepadDialogContent>Field} %{*GamepadDialogContent>VerticalAlignCenter} %{*GamepadDialogContent>InlineWrapShiftsChildrenBelow}",
+   "text": "#d964b6c1",
+   "rect": [
+    292,
+    645,
+    952,
+    80
+   ],
+   "route": "/settings/system",
+   "key": "%{*GamepadDialogContent>Field}|#d964b6c1#0"
+  },
+  {
+   "id": 85,
+   "el": "%{*GamepadDialogContent>Field} %{*GamepadDialogContent>VerticalAlignCenter} %{*GamepadDialogContent>InlineWrapShiftsChildrenBelow}",
+   "text": "#aa22e4e0",
+   "rect": [
+    292,
+    638,
+    952,
+    80
+   ],
+   "route": "/settings/system",
+   "key": "%{*GamepadDialogContent>Field}|#aa22e4e0#0"
+  },
+  {
+   "id": 86,
+   "el": "%{*GamepadDialogContent>Field} %{*GamepadDialogContent>VerticalAlignCenter} %{*GamepadDialogContent>InlineWrapShiftsChildrenBelow}",
+   "text": "#1519b7fe",
+   "rect": [
+    292,
+    645,
+    952,
+    80
+   ],
+   "route": "/settings/system",
+   "key": "%{*GamepadDialogContent>Field}|#1519b7fe#0"
+  },
+  {
+   "id": 87,
+   "el": "%{*GamepadDialogContent>Field} %{*GamepadDialogContent>VerticalAlignCenter} %{*GamepadDialogContent>InlineWrapShiftsChildrenBelow}",
+   "text": "#c3a48f48",
+   "rect": [
+    292,
+    651,
+    952,
+    80
+   ],
+   "route": "/settings/system",
+   "key": "%{*GamepadDialogContent>Field}|#c3a48f48#0"
+  },
+  {
+   "id": 88,
+   "el": "%{*GamepadDialogContent>Field} %{*GamepadDialogContent>VerticalAlignCenter} %{*GamepadDialogContent>InlineWrapShiftsChildrenBelow}",
+   "text": "#2b35bff1",
+   "rect": [
+    292,
+    630,
+    952,
+    80
+   ],
+   "route": "/settings/system",
+   "key": "%{*GamepadDialogContent>Field}|#2b35bff1#0"
+  },
+  {
+   "id": 89,
+   "el": "DialogButton _DialogLayout Secondary",
+   "text": "#2344dde3",
+   "rect": [
+    990,
+    671,
+    228,
+    60
+   ],
+   "route": "/settings/system",
+   "key": "DialogButton|#2344dde3#0"
+  },
+  {
+   "id": 90,
+   "el": "DialogButton _DialogLayout Secondary",
+   "text": "#f991e08e",
+   "rect": [
+    1016,
+    634,
+    203,
+    60
+   ],
+   "route": "/settings/system",
+   "key": "DialogButton|#f991e08e#0"
+  },
+  {
+   "id": 91,
+   "el": "DialogButton _DialogLayout Secondary",
+   "text": "#7b7a5940",
+   "rect": [
+    1058,
+    631,
+    160,
+    60
+   ],
+   "route": "/settings/system",
+   "key": "DialogButton|#7b7a5940#0"
+  },
+  {
+   "id": 92,
+   "el": "DialogButton _DialogLayout Secondary",
+   "text": "#53bbe740",
+   "rect": [
+    1017,
+    633,
+    201,
+    60
+   ],
+   "route": "/settings/system",
+   "key": "DialogButton|#53bbe740#0"
+  }
+ ],
+ "edges": {
+  "0": {
+   "down": 1,
+   "right": 2,
+   "up": 3,
+   "left": "exit:frame.menu.76640005.76640005"
+  },
+  "1": {
+   "down": 4,
+   "right": 5,
+   "up": 0,
+   "left": "exit:frame.menu.76640005.76640005"
+  },
+  "2": {
+   "down": 6,
+   "right": "edge",
+   "up": 3,
+   "left": 0
+  },
+  "3": {
+   "down": 2,
+   "right": "edge",
+   "up": "edge",
+   "left": "exit:frame.menu.76640005.76640005"
+  },
+  "4": {
+   "down": 7,
+   "right": 8,
+   "up": 1,
+   "left": "exit:frame.menu.76640005.76640005"
+  },
+  "6": {
+   "down": 9,
+   "right": "edge",
+   "up": 2,
+   "left": 0
+  },
+  "7": {
+   "down": 10,
+   "right": 11,
+   "up": 4,
+   "left": "exit:frame.menu.76640005.76640005"
+  },
+  "9": {
+   "down": 12,
+   "right": "edge",
+   "up": 6,
+   "left": 0
+  },
+  "10": {
+   "down": 13,
+   "right": 14,
+   "up": 7,
+   "left": "exit:frame.menu.76640005.76640005"
+  },
+  "12": {
+   "down": 15,
+   "right": "edge",
+   "up": 9,
+   "left": 0
+  },
+  "13": {
+   "down": 16,
+   "right": 17,
+   "up": 10,
+   "left": "exit:frame.menu.76640005.76640005"
+  },
+  "15": {
+   "down": 18,
+   "right": "edge",
+   "up": 12,
+   "left": 0
+  },
+  "16": {
+   "down": 19,
+   "right": 20,
+   "up": 13,
+   "left": "exit:frame.menu.76640005.76640005"
+  },
+  "18": {
+   "down": 21,
+   "right": "edge",
+   "up": 15,
+   "left": 0
+  },
+  "19": {
+   "down": 22,
+   "right": 23,
+   "up": 16,
+   "left": "exit:frame.menu.76640005.76640005"
+  },
+  "21": {
+   "down": 24,
+   "right": "edge",
+   "up": 18,
+   "left": 0
+  },
+  "22": {
+   "down": 25,
+   "right": 26,
+   "up": 19,
+   "left": "exit:frame.menu.76640005.76640005"
+  },
+  "24": {
+   "down": 27,
+   "right": "edge",
+   "up": 21,
+   "left": 0
+  },
+  "25": {
+   "down": 28,
+   "right": 29,
+   "up": 22,
+   "left": "exit:frame.menu.76640005.76640005"
+  },
+  "27": {
+   "down": 30,
+   "right": "edge",
+   "up": 24,
+   "left": 0
+  },
+  "28": {
+   "down": 31,
+   "right": 32,
+   "up": 25,
+   "left": "exit:frame.menu.76640005.76640005"
+  },
+  "30": {
+   "down": 33,
+   "right": "edge",
+   "up": 27,
+   "left": 0
+  },
+  "31": {
+   "down": 34,
+   "right": 35,
+   "up": 28,
+   "left": "exit:frame.menu.76640005.76640005"
+  },
+  "33": {
+   "down": 36,
+   "right": "edge",
+   "up": 30,
+   "left": 0
+  },
+  "34": {
+   "down": 37,
+   "right": 38,
+   "up": 31,
+   "left": "exit:frame.menu.76640005.76640005"
+  },
+  "36": {
+   "down": 39,
+   "right": "edge",
+   "up": 33,
+   "left": 0
+  },
+  "37": {
+   "down": 40,
+   "right": 41,
+   "up": 34,
+   "left": "exit:frame.menu.76640005.76640005"
+  },
+  "39": {
+   "down": 42,
+   "right": "edge",
+   "up": 36,
+   "left": 0
+  },
+  "40": {
+   "down": 43,
+   "right": 44,
+   "up": 37,
+   "left": "exit:frame.menu.76640005.76640005"
+  },
+  "42": {
+   "down": 45,
+   "right": "edge",
+   "up": 39,
+   "left": 0
+  },
+  "43": {
+   "down": 46,
+   "right": 47,
+   "up": 40,
+   "left": "exit:frame.menu.76640005.76640005"
+  },
+  "45": {
+   "down": 48,
+   "right": "edge",
+   "up": 42,
+   "left": 0
+  },
+  "46": {
+   "down": 49,
+   "right": 50,
+   "up": 43,
+   "left": "exit:frame.menu.76640005.76640005"
+  },
+  "48": {
+   "down": 51,
+   "right": "edge",
+   "up": 45,
+   "left": 0
+  },
+  "49": {
+   "down": 52,
+   "right": 53,
+   "up": 46,
+   "left": "exit:frame.menu.76640005.76640005"
+  },
+  "51": {
+   "down": 54,
+   "right": "edge",
+   "up": 48,
+   "left": 0
+  },
+  "52": {
+   "down": 55,
+   "right": 56,
+   "up": 49,
+   "left": "exit:frame.menu.76640005.76640005"
+  },
+  "54": {
+   "down": 57,
+   "right": "edge",
+   "up": 51,
+   "left": 0
+  },
+  "55": {
+   "down": 58,
+   "right": 59,
+   "up": 52,
+   "left": "exit:frame.menu.76640005.76640005"
+  },
+  "57": {
+   "down": 60,
+   "right": "edge",
+   "up": 54,
+   "left": 0
+  },
+  "58": {
+   "down": 61,
+   "right": 62,
+   "up": 55,
+   "left": "exit:frame.menu.76640005.76640005"
+  },
+  "60": {
+   "down": 63,
+   "right": "edge",
+   "up": 57,
+   "left": 0
+  },
+  "61": {
+   "down": 64,
+   "right": 65,
+   "up": 58,
+   "left": "exit:frame.menu.76640005.76640005"
+  },
+  "63": {
+   "down": 66,
+   "right": "edge",
+   "up": 60,
+   "left": 0
+  },
+  "64": {
+   "down": 67,
+   "right": 68,
+   "up": 61,
+   "left": "exit:frame.menu.76640005.76640005"
+  },
+  "66": {
+   "down": 69,
+   "right": "edge",
+   "up": 63,
+   "left": 0
+  },
+  "67": {
+   "down": "edge",
+   "right": 70,
+   "up": 64,
+   "left": "exit:frame.menu.76640005.76640005"
+  },
+  "69": {
+   "down": 71,
+   "right": "edge",
+   "up": 66,
+   "left": 0
+  },
+  "71": {
+   "down": 72,
+   "right": "edge",
+   "up": 69,
+   "left": 0
+  },
+  "72": {
+   "down": 73,
+   "right": "edge",
+   "up": 71,
+   "left": 0
+  },
+  "73": {
+   "down": 74,
+   "right": "edge",
+   "up": 72,
+   "left": 0
+  },
+  "74": {
+   "down": 75,
+   "right": "edge",
+   "up": 73,
+   "left": 0
+  },
+  "75": {
+   "down": 76,
+   "right": "edge",
+   "up": 74,
+   "left": 0
+  },
+  "76": {
+   "down": 77,
+   "right": "edge",
+   "up": 75,
+   "left": 0
+  },
+  "77": {
+   "down": 78,
+   "right": "edge",
+   "up": 76,
+   "left": 0
+  },
+  "78": {
+   "down": 79,
+   "right": "edge",
+   "up": 77,
+   "left": 0
+  },
+  "79": {
+   "down": 80,
+   "right": "edge",
+   "up": 78,
+   "left": 0
+  },
+  "80": {
+   "down": 81,
+   "right": "edge",
+   "up": 79,
+   "left": 0
+  },
+  "81": {
+   "down": 82,
+   "right": "edge",
+   "up": 80,
+   "left": 0
+  },
+  "82": {
+   "down": 83,
+   "right": "edge",
+   "up": 81,
+   "left": 0
+  },
+  "83": {
+   "down": 84,
+   "right": "edge",
+   "up": 82,
+   "left": 0
+  },
+  "84": {
+   "down": 85,
+   "right": "edge",
+   "up": 83,
+   "left": 0
+  },
+  "85": {
+   "down": 86,
+   "right": "edge",
+   "up": 84,
+   "left": 0
+  },
+  "86": {
+   "down": 87,
+   "right": "edge",
+   "up": 85,
+   "left": 0
+  },
+  "87": {
+   "down": 88,
+   "right": "edge",
+   "up": 86,
+   "left": 0
+  },
+  "88": {
+   "down": 89,
+   "right": "edge",
+   "up": 87,
+   "left": 0
+  },
+  "89": {
+   "down": 90,
+   "right": "edge",
+   "up": 88,
+   "left": 0
+  },
+  "90": {
+   "down": 91,
+   "right": "edge",
+   "up": 89,
+   "left": 0
+  },
+  "91": {
+   "down": 92,
+   "right": "edge",
+   "up": 90,
+   "left": 0
+  },
+  "92": {
+   "down": "edge",
+   "right": "edge",
+   "up": 91,
+   "left": 0
+  }
+ },
+ "routes": [
+  "/settings/system",
+  "/settings/internet",
+  "/settings/storage",
+  "/settings/bluetooth",
+  "/settings/display",
+  "/settings/power",
+  "/settings/audio",
+  "/settings/controller/:type/:controllerIndex",
+  "/settings/keyboard",
+  "/settings/accessibility",
+  "/settings/security",
+  "/settings/notifications",
+  "/settings/friends",
+  "/settings/downloads",
+  "/settings/cloud",
+  "/settings/ingame",
+  "/settings/compatibility",
+  "/settings/family",
+  "/settings/remoteplay",
+  "/settings/gamerecording",
+  "/settings/home",
+  "/settings/library",
+  "/settings/store",
+  "/settings/developer"
+ ],
+ "irreversible": [],
+ "untested": [
+  {
+   "from": 16,
+   "dir": "right",
+   "to": 20,
+   "why": "opposite move would change a slider"
+  }
+ ],
+ "universe": 70,
+ "unreached": [],
+ "b": {
+  "before": {
+   "route": "/settings/system",
+   "modals": 0,
+   "menus": 0
+  },
+  "after": {
+   "route": "/settings/developer",
+   "modals": 0,
+   "menus": 0
+  },
+  "effect": "route /settings/system -> /settings/developer"
+ },
+ "moves": 485,
+ "replayed": 0,
+ "seconds": 166.3,
+ "truncated": false,
+ "pass": true,
+ "redacted": true
+}

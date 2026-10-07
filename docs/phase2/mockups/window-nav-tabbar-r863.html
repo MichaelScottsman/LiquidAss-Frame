@@ -22,17 +22,18 @@
 <body>
 <div class="lgk-view" data-room="lounge">
 
-  <!-- tab-bar ornament: Steam's VR main menu (frame.menu), always visible. This device: Console on
-       (developer mode), 10 destinations at 58 popup px pitch; the bar spans the panel (y 15-705 main px)
-       and its system capsule ends level with the bottom ornament. Library = the current route (circle only). -->
+  <!-- tab-bar ornament: Steam's VR main menu (frame.menu), always visible (tabBarAlways). This device: Console on
+       (developer mode), 10 destinations. At r = 0.863 with a popup that does not follow the resize (the worst case,
+       WN §3.3.2 rule 2 at the floor) the live pitch is 52 popup px and the bar is exactly the panel's height.
+       Library = the current route: the .18 selection circle with its arc (PLAN §1.4). -->
   <div data-wn="tabbar" data-right="390" data-cy="426" data-sel="library" data-badge data-pitch="52"></div>
 
-  <!-- Steam's main window, 1280 x 720 overlay at 1:1 (r = 1) -->
+  <!-- Steam's main window at r = 0.863 (route glass mode window: 1280 x 656 + the 64 px margin, scaled) -->
   <div class="lgk-overlay" style="left:408px; top:115px; transform:scale(.863); transform-origin:0 0">
-    <div class="lgk-glass wn-win" data-mat="window" data-dz="0" data-tier="T5 window cover (gate AT-0); T1: tint">
+    <div class="lgk-glass wn-win" data-mat="window" data-dz="0" data-tier="T5 window cover (native gate, PLAN §4.3); T1: tint; mode window, 656">
       <div class="grid wn-fade-bottom">
         <div class="lgk-poster lgk-art" data-art="poster:0:Starfall Drift" style="left:42px; top:0"></div>
-        <div class="lgk-poster lgk-art" data-art="poster:1:Hollow Peaks" style="left:286px; top:0" data-dz="15" data-tier="lift: non-interactive pop <= 15 mm (cards)"></div>
+        <div class="lgk-poster lgk-art is-focus" data-art="poster:1:Hollow Peaks" style="left:286px; top:0" data-dz="15" data-tier="gamepad focus: card lift x1.05, +15 mm crop"></div>
         <div class="lgk-poster lgk-art" data-art="poster:2:Neon Orchard" style="left:530px; top:0">
           <div class="dl"><i data-i="download" style="--is:22px"></i><span class="bar"><i></i></span><span class="t-num">62%</span></div>
         </div>
@@ -55,22 +56,19 @@
       </div>
     </div>
 
-    <!-- the shell's More circle on the hovered poster (T2): the laser's direct path to this game's menu -->
-    
+    <!-- the shell's More circle follows attention: in gamepad mode, the focused card (inside its top right, inset 10) -->
+    <div data-wn="more" data-corner="511,204" data-dz="none"></div>
 
-    <!-- bottom ornament, laser mode: Steam's Sort/Filter buttons folded in; A/B hidden (the Back circle and a
-         direct click do both); Options names the frozen target -->
-    <div data-wn="ornament" data-legends="X:Filter|Y:Sort By|menu:Options|A:Select|B:Back"></div>
+    <!-- bottom ornament on a library route, gamepad mode (no laser on the dashboard): C2c's five fixed slots
+         (880 px), label first and the glyph badge trailing; Select and Back quiet (PLAN §1.10) -->
+    <div data-wn="ornament" data-slots="300,130,156,134,120" data-legends="Y:Sort By@Alphabetical|X:Filter|menu:Options|A:Select|B:Back"></div>
   </div>
 
-  <!-- SteamVR window-bar row: frame controls + the window-bar pill, one row under the window (laser-visible) -->
   <!-- no laser on the dashboard: SteamVR shows neither the frame controls nor the window bar (laser-only panels) -->
   <!-- dashboard bar (control-center concept) -->
   <div data-wn="bar" data-cx="960" data-y="904"></div>
 
-  
-
-        <div class="wn-cap" style="left:1560px; top:120px; width:330px"><b>r = 0.863</b> (this device today). Worst case: the frame menu keeps 0.847 mm per popup px while the window shrinks.<br><span class="m">Live pitch 52 popup px (44 mm, 2.2&deg; at 1.15 m); the bar is exactly the panel height. With the popup scaling with the window, the same picture at pitch 58 &times; r.</span></div>
+  <div class="wn-cap" style="left:1560px; top:120px; width:330px"><b>r = 0.863</b> (this device today). Worst case: the frame menu keeps 0.847 mm per popup px while the window shrinks.<br><span class="m">Live pitch 52 popup px (44 mm, 2.2&deg; at 1.15 m); the bar is exactly the panel height. With the popup scaling with the window, the same picture at pitch 58 &times; r.</span></div>
 </div>
 <script src="window-nav-shared.js"></script>
 <script src="kit.js"></script>

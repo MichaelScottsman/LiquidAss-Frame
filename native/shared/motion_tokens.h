@@ -8,7 +8,7 @@
 
 namespace lgs_motion {
 
-inline constexpr const char *kVersion = "2428c76f74";
+inline constexpr const char *kVersion = "ed4e044810";
 
 // A spring token (D2 11.2): SwiftUI Spring(duration d, bounce b), mass 1.
 struct Token {

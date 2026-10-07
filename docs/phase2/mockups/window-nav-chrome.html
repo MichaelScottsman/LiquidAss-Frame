@@ -12,7 +12,7 @@
   .mo { position: relative !important; width: 560px; padding: 12px; display: flex; flex-direction: column; gap: 8px; --r: 44px; box-sizing: border-box; }
   .mo .lgk-row { height: 96px; border-radius: 34px; font-size: 32px; gap: 24px; padding: 0 28px 0 24px; }
   .mo .lgk-row .lgk-i { --is: 36px; }
-  .mo .lgk-row.is-focus::after { --lift: .30; --spot: .18; }
+  .mo .lgk-row.is-focus::after { --lift: var(--wn-focus-add); --spot: var(--wn-focus-spot); --hx: 50%; --hy: 28%; }   /* PLAN §1.4 focus look */
   .mo .lgk-toggle { scale: 1.33; margin-left: auto; margin-right: 10px; }
   /* resize corner: an arc concentric with the glass corner (radius 54 + 12 px gap), appears on look */
   .corner { position: absolute; width: 66px; height: 66px; border-right: 9px solid rgb(255 255 255 / .72); border-bottom: 9px solid rgb(255 255 255 / .72);
@@ -34,7 +34,8 @@
         <div class="lgk-poster lgk-art" data-art="poster:9:Deep Field" style="left:1018px; top:330px"></div>
       </div>
     </div>
-    <div data-wn="ornament" data-mode="laser" data-legends="sf-sort:Alphabetical|sf-filter:Filter|menu:Options@Deep Field"></div>
+    <!-- the ornament on a library route, laser mode: C2c's five fixed slots (PLAN §1.10) -->
+    <div data-wn="ornament" data-mode="laser" data-slots="300,130,156,134,120" data-legends="sf-sort:Alphabetical|sf-filter:Filter|menu:Options|A:Select|B:Back"></div>
   </div>
 
   <!-- SteamVR resize corner, lifted to the glass corner (T4 transform on the ResizeHandle; fallback: the panel corner) -->
@@ -43,13 +44,14 @@
   <!-- the window-bar row: frame controls left of the window bar, one row under the window.
        Float in World hovered by the laser (its tooltip below), the window bar bright because it is hovered next. -->
   <div data-wn="winbar" data-cx="960" data-y="438" data-hover="2" data-on=""></div>
-  <div class="lgk-pop" style="left:640px; top:526px; --pop-scale:.75" data-tier="vr:systemui tooltip, flipped below (T4)">
-    <div class="lgk-glass wn-tip" data-mat="panel" style="position:relative">Float in World</div>
+  <div class="lgk-pop" style="left:640px; top:526px; --pop-scale:.75" data-tier="vr:systemui tooltip: thick glass (PLAN §1.13), flipped below (T4)">
+    <div class="lgk-glass wn-tip" data-mat="thick" style="position:relative" data-id="tooltip">Float in World</div>
   </div>
 
   <div data-wn="laser" data-to="616,474" data-from="1620,1100"></div>
 
-  <!-- second state (bottom half): gamepad focus on More, its popout open above it; a game frame adds Close at the left -->
+  <!-- second state (bottom half): gamepad, More Options open above the More circle (white: the source of an open
+       menu, PLAN §1.4) with focus on its first row; a game frame adds Close at the left -->
   <div class="row2">
     <div class="lgk-pop" style="left:635px; top:14px; --pop-scale:.75" data-tier="vr:systemui AdditionalOptions">
       <div class="lgk-glass mo" data-mat="thick" data-lens style="--dz:10">
@@ -59,11 +61,11 @@
       </div>
     </div>
   </div>
-  <div data-wn="winbar" data-cx="1120" data-y="920" data-focus="4" data-close></div>
+  <div data-wn="winbar" data-idp="pad-" data-cx="1120" data-y="920" data-on="4" data-close></div>
 
-  <div class="wn-cap" style="left:40px; top:440px; width:400px"><b>One window-bar row</b> (laser-visible): the frame controls in one capsule left of the window bar (SteamVR's grab handle, moved up from under the dashboard bar, T4). 80 px circles, 107 px hit (2.49&deg;).</div>
-  <div class="wn-cap" style="left:1500px; top:440px; width:390px">Tooltips flip below the button, so they never cover the ornament. Window bar 140 &times; 9.6 mm, white .46, white .92 on hover.</div>
-  <div class="wn-cap" style="left:40px; top:720px; width:540px"><b>Gamepad focus on More</b>: +.30 and its own specular arc; its popout (thick glass, 72 main px rows, curvature as a real switch) opens above it. A game frame adds a separate Close circle at the left, red only on focus or hover.</div>
+  <div class="wn-cap" style="left:40px; top:440px; width:400px"><b>One window-bar row</b> (laser-visible): the frame controls in one capsule left of the window bar (SteamVR's grab handle, moved up from under the dashboard bar, T4, flag winbarMove). Circles rest quiet (VP P-70) and fill on hover; 80 px circles, 107 px hit (2.49&deg;).</div>
+  <div class="wn-cap" style="left:1500px; top:440px; width:390px">Tooltips (thick glass) flip below the button, so they never cover the ornament. Window bar 140 &times; 9.6 mm, white .46, white .92 on hover. The resize arc shows only while the laser is near.</div>
+  <div class="wn-cap" style="left:40px; top:720px; width:540px"><b>Gamepad, More Options open</b>: the More circle is white while its popout shows (the source of an open menu); focus is on the popout's first row (+ .28–.32, the spot and its arc). Thick glass, 72 main px rows, curvature as a real switch. A game frame adds a separate Close circle at the left, red only on focus or hover.</div>
 </div>
 <script src="window-nav-shared.js"></script>
 <script src="kit.js"></script>

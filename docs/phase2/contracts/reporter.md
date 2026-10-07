@@ -111,8 +111,9 @@ The base mosaic (Steam's texture copied at +2 mm in front of the cover, NATIVE.m
 | `version` | `2` (Phase 1's `layers.json` is 1) |
 | `about` | Free text, ignored |
 | `owns` | `["main", …]`: surfaces whose `cover`, `material`, `modes` or `modal` this fragment may replace. Without it those fields are an error in any fragment but the one that first defined the surface |
-| `supersedes` | `["hdr-back", "main.footer", …]`: rule ids to drop from **other** fragments (a bare id matches on any surface, `surface.id` on one). Use it to retire the legacy rules you replace |
-| `admission` | `true` (default) or `false` for every rule of this fragment (§4). Only `99-legacy.json` uses `false` |
+| `supersedes` | `["hdr-back", "main.footer", …]`: rule ids to drop from **other** fragments (a bare id matches on any surface, `surface.id` on one). Use it to retire the legacy rules you replace. An entry `{"id": "card", "flag": "wp.c2a"}` (or any entry of a fragment with a top-level `flag`) drops the rule only **while that flag is on**, so a legacy rule comes back when your package flag is off |
+| `flag` | A runtime flag for the whole fragment: its rules exist, and its `supersedes` apply, only while it is on (a rule's own `flag` wins). Use your package flag (`wp.<id>`) |
+| `admission` | `true` (default) or `false` for every rule of this fragment (§4). Only `99-legacy.json` uses `false`. It is a fragment field only: `"admission": false` on a rule of an admission-on fragment is ignored (the rule goes through §4) and named in `errors` |
 | `defaults` | `{material, maxLayers, focusables}` for this fragment's rules |
 | `surfaces` | `{name: surface}` |
 
@@ -127,7 +128,8 @@ Per surface (only the first fragment, or an owner, sets the first five):
 | `modes` | Main only: `{attr, sel, window: {h, r}, window-full: {h, r}, hero: {h, r}, windowless: {cover: false}}` (§2.1) |
 | `modal` | A selector for Steam's open modals (menus, alerts, sheets) on this surface (admission rule 6) |
 | `frameKey`, `laserOnly`, `docVisibility`, `maxLayers` | As Phase 1 (`layers.json` `about`) |
-| `layers` | Rules, appended in fragment name order. A rule id must be unique per surface; a duplicate is skipped and named in `errors` |
+| `flag` | A runtime flag (P1 `rt.flags`): the surface is reported only while it is on. `00-base.json` gives `notifications`, `volumelevel` and `tooltip` (C3a's quads) `"flag": "wp.c3a"` |
+| `layers` | Rules, appended in fragment name order. A rule id must be unique per surface; a later duplicate is skipped and named in `errors`, **unless** every earlier rule with that id is conditional (its own `flag`, its fragment's `flag`, a flagged supersede, or a `profile`): then the later rule is kept as their **fallback** and applies only while none of them is live. So an area rule that reuses a legacy id behind its package flag takes over while the flag is on, and the legacy rule comes back while it is off (`rules()` shows `fallbackOf` and `on`). `supersedes` stays the clearer way |
 
 ### 3.2 Rule fields
 
@@ -145,7 +147,7 @@ Per surface (only the first fragment, or an owner, sets the first five):
 | `interactive` | The crop takes the laser itself (wearer profile only, §4) | false |
 | `profile` | `default` or `wearer`: the rule exists only in that profile | both |
 | `modal` | `true` for menus, alerts and sheets: while one is open only modal rules pop (rule 6) | false |
-| `hole` | `true` or `{shadow, y, blur, fill}`: glassd's hole treatment under the crop (G2). `fill` may be a CSS colour or `"scrim"` (black .35) | — |
+| `hole` | `true` or `{shadow, y, blur, fill, edges}`: glassd's hole treatment under the crop (G2, `contracts/glassd.md` §1.4). `fill`: a CSS colour, `"scrim"` (black .35), or `"auto"`: the reporter samples the tones around the crop per pop and reports them as `edges` (§3.4); use it over art and posters. `edges`: literal `{top, right, bottom, left}`, each a CSS colour or a list of 1-8 | — |
 | `tint` | Slab tint: a CSS colour, `"green"`, `"blue"`, or `"auto"` (the element's computed background colour when it is saturated) | — |
 | `slab` | The slab's material: `liquid`, `panel`, `thick`, `window`, `clear`, or `"none"` (glassd draws only the hole; the glass is in-page, GP's cluster over art) | `liquid` (`defaults.material`) |
 | `material` | Phase 1 name of `slab` | — |
@@ -166,6 +168,31 @@ A lift (`liftMm`, `lift`) or a `when: "attended"` rule applies to an element tha
 | `lgs-input-laser` | the element, or a descendant, matches `.lgs-dwell:hover` (P3 sets `.lgs-dwell` after 80 ms of dwell), so a 45 ms-per-card sweep lifts nothing |
 | neither (P3 not loaded) | Phase 1: `.gpfocus, .gpfocuswithin` only |
 
+### 3.4 Hole tones over art: `"hole": {"fill": "auto"}` (REQ P9->P6)
+
+Off axis, a pop shows a thin sliver of the hole glassd cuts under its crop. Over art, one flat `fill` draws that sliver as an L-shaped outline, so the reporter reports glassd's `hole.edges`: the tones **just outside** each edge of the crop.
+
+- Per edge, a 2 CSS px strip outside the crop, about one sample per 27 CSS px (1 to 8, left to right or top to bottom). One sample is reported as a colour, more as a list. Colours are `rgb(r, g, b)` / `rgba(r, g, b, a)` strings.
+- Each sample is the stack under that point (`elementsFromPoint`, the popped element and its descendants skipped), composited top down until opaque: background colours, `linear-gradient` layers evaluated at that point (dimming layers), and `<img>` art read through a small canvas (same-origin art: `steamloopback.host`, `data:`), with `object-fit` and `object-position`.
+- A layer it cannot read (a `url()` background, cross-origin art, a `<video>`, a radial or corner-angled gradient) leaves that sample unknown; an unknown sample takes the nearest known tone on its edge. An edge with no known sample is left out, and then the hole also gets a flat `fill`: the nearest opaque ancestor's background colour.
+- Layers that take no pointer events are not seen (`elementsFromPoint` skips them). Over art that a `pointer-events: none` dimming layer covers, give the rule a literal `fill` or `edges`.
+- The samples are kept while the crop stays put (1.5 s, then sampled again). A rule's literal `edges` win over sampled ones, side by side.
+
+### 3.5 Retiring `99-legacy.json` (PLAN §6)
+
+Each legacy id has an owner by PLAN §1.1. The owner retires it with `supersedes` behind its package flag (`{"id": …, "flag": "wp.<id>"}`), or, for an id that serves several areas' routes, by popping its own route's elements with an earlier rule (a later legacy layer that overlaps a kept one is dropped) until the last of those areas supersedes the id. When every id below is superseded by a flag that `defaults.json` turns on, `99-legacy.json` and `theme/layers.json` are deleted (P6, PLAN §6 step 7).
+
+| Legacy id | Pops (Phase 1 dz, units) | Retired by |
+|---|---|---|
+| `hdr-back`, `hdr-search` | Toolbar Back and search capsules (.015) | C1a |
+| `footer` | Bottom ornament capsule (.012) | C1a (the ornament is a plate with `data-lgs-nopop`, §2.1, never a pop) |
+| `tabs`, `tab-arrow` | Tab rows and their arrows: library, Home, game page, search (.012) | Shared: C2c (library), C2a (Home), C5a (game page), C1b (search); the last of them supersedes |
+| `sort-filter` | Library Sort & Filter capsule (.015) | C2c |
+| `card` | The focused poster or search result (lift .008) | Shared: C2c (library), C2a (Home), C1b (search results) |
+| `play`, `app-button` | Game page Play and its menu button (.015 and .01, + lift) | C5a |
+| `menu`, `sheet`, `sheet-panel`, `filters` | Menus, alerts, sheets, the filter dialog (.03) | C1c |
+| `button` | A focused dialog button (lift .005) | C4a (buttons), with C1c for dialogs |
+
 ---
 
 ## 4. The admission rules (PLAN §1.7)
@@ -176,12 +203,12 @@ Every rule with admission on (all but `99-legacy.json`) goes through these, in o
 |---|---|---|
 | 0 | Profile | `profile` (rule) against the live profile: **wearer** when the flag `interactivePops` is true (`rt.flags`, or `opts.profile`), else **default** |
 | 1 | Covered | The crop lies inside one of the surface's cover shapes or plates (2 px tolerance), and overlaps no `data-lgs-nopop` box |
-| 2 | Click-safe (every non-interactive pop) | `s` = the shorter side (CSS px) of the smallest visible focusable (`focusables`, below) that is the element or inside it, and is visible in the crop by ≥ 8 × 8 px. Cap = `0.000521 × s` units. The wanted depth snaps **down** to the allowed set {10, 15, 25} mm at the live S, r; below 10 mm the pop is dropped. A capped layer carries `capped: true` and `want` (the wanted dz). No focusable inside: no cap (decorative crops: hero icon, avatar) |
+| 2 | Click-safe (every non-interactive pop) | `s` = the shorter side (CSS px) of the smallest visible focusable (`focusables`, below) that **intersects the crop** by ≥ 8 × 8 px: the element, one inside it, a focusable around it, or a neighbour the crop covers (an `outset`, an overlapping sibling). Cap = `0.000521 × s` units. The wanted depth snaps **down** to the allowed set {10, 15, 25} mm at the live S, r; below 10 mm the pop is dropped. A capped layer carries `capped: true` and `want` (the wanted dz). No focusable intersects: no cap (decorative crops: hero icon, avatar) |
 | 3 | Not over media | The crop overlaps no visible `<video>` or `[data-lgs-media]`, unless `media: "allow"` |
 | 4 | Not destructive | The element is not, and does not contain, `[data-lgs-destructive]` |
 | 5 | Containers only | The crop is ≥ 60 × 60 CSS px, or a capsule (`r: "capsule"`) ≥ 44 tall and ≥ 60 wide |
 | 6 | Still | Not while its scroller moves (as Phase 1). While the surface's `modal` selector (or a `modal: true` rule) matches a visible element, only `modal: true` rules pop |
-| 7 | Few depths | More than 4 distinct dz at rest on a surface (0 counts) adds a warning to `errors`: `"main: 5 distinct depths (max 4): …"` |
+| 7 | Few depths | More than 4 distinct dz on a surface (0 counts), over **every** kept layer (Phase 2 and legacy alike), adds a warning to `errors`: `"main: 6 distinct depths (max 4): 0, 0.008 (legacy), 0.012 (legacy), 0.0271, …"`; a depth only legacy layers use is marked `(legacy)` |
 
 - **Interactive:** a layer reports `interactive: true` only in the wearer profile and only when its rule (or its `wearer` block) says so. In the default profile every layer is `interactive: false` (RP-4).
 - **Wearer profile:** the rule's `wearer` values replace `mm`, `liftMm`, `when` and `interactive`; interactive pops skip rule 2 (the click lands on the crop itself).
@@ -199,6 +226,7 @@ Every rule with admission on (all but `99-legacy.json`) goes through these, in o
 - wraps `vrPooledPopupStore.SendPendingInstanceParamsToSteamVR(inst, params)` (every `ShowDashboardPopup` request goes through it: the first one, live updates and resizes) and `CreatePooledPopup(type, hookParams, cb)` (so `initialHookParams` carry the change from the start), as own properties of the store that shadow the prototype's methods;
 - changes the request of each popup a host entry matches (§5.2), setting absolute values, so re-sending is idempotent;
 - re-sends the live instances it changes once on install, and their **original** params once on removal;
+- follows changes while a popup is shown: when a host entry's `flag` turns on or off (`rt.flags.onAny`), or the geometry a `zMm` entry depends on changes (`rt.bridge` key `geom`), it re-sends the live popups an entry matches or matched, so an entry applies at once and its effect ends with its flag (a lab `--flags` step leaves nothing behind);
 - **restores** Steam's methods on `remove()`, and by itself (TTL) when the runtime that installed it is gone or the theme stays off for 3 s. A SharedJSContext reload drops the wrapper with the page; Steam then sends its own params again.
 
 ### 5.2 Fragment format
@@ -232,12 +260,15 @@ Every rule with admission on (all but `99-legacy.json`) goes through these, in o
 - The **last** matching entry in merge order applies to a popup (later fragments are more specific: `32-launcher.json`'s "+" entry with a `contentSel` wins over `30-bar.json`'s `barpopup`).
 - Config source: P1's loader passes the fragments (`rt.data('popups')`, REQ P6->P1); for tests, `window.__LGS_POPUPS = [fragments]`.
 
-### 5.3 API (`window.__LGS_POPUPS_API`, and `rt.popups` when P1 exposes module APIs)
+### 5.3 API (`rt.use('popups')` in modules, `__LGS_RT.popups` for the lab)
+
+Returned from `install` and exposed with `rt.expose('popups', …)`, so it goes with the module. No global of its own (the earlier global `__LGS_POPUPS_API` is gone).
 
 | Call | Returns |
 |---|---|
-| `status()` | `{installed, wrapped, hosts, live: [{id, type, key, entry, z, scale, set}], resends, restores, ttl}` |
+| `status()` | `{installed, wrapped, hosts, live: [{id, type, key, entry, z, scale, set}], resends, flagResends, geomResends, subscriptions, restores, ttl}` |
 | `apply()` | Re-reads the fragments and re-sends the changed live instances |
+| `apply(list)` | Lab tests: uses that list of fragments instead of `rt.data('popups')` until the next `apply()` (RP-7) |
 | `restore(reason)` | Restores Steam's methods and params now (the same as `remove()`) |
 
 ---
@@ -259,7 +290,7 @@ Version **3**. Phase 1 fields are unchanged (NATIVE.md "Steam → daemon"). New 
 | `visible` | surface | true when a cover shape **or** a plate is on screen |
 | `layers[].interactive` | layer | `true` only in the wearer profile (§4) |
 | `layers[].capped`, `want` | layer | The click-safe cap lowered it; the wanted dz |
-| `layers[].hole` | layer | `true` or `{shadow?, y?, blur?, fill?}` (glassd §1.4) |
+| `layers[].hole` | layer | `true` or `{shadow?, y?, blur?, fill?, edges?}` (glassd §1.4; `edges` from `fill: "auto"`, §3.4, or literal) |
 | `layers[].tint` | layer | A CSS colour |
 | `layers[].material` | layer | The slab material, `"none"` allowed |
 | `layers[].modal` | layer | `true` for modal rules |
@@ -304,6 +335,7 @@ Two call forms are accepted: P8's `ack(popMap, {plates: plateMap})` (`contracts/
 | `data-lgs-cover` | each cover element | glassd draws this surface's glass: drop the CSS glass |
 | `data-lgs-pop` = `self`, `before` or `after` | each popped element | glassd draws its slab: drop the CSS tint of that part |
 | `data-lgs-plate-ack` | each plate element | glassd draws this plate: drop the plate's CSS fill, keep content |
+| `data-lgs-noslab` = the parts (`self`, `before`, `after`) | a popped element whose rule says `slab: "none"` | glassd draws only the hole under it: **keep** the CSS glass (05-native.css skips it) |
 
 An element must hold its id for 350 ms before an ack applies to it (ids are slots). `theme/05-native.css` (P6) drops the generic glass under `html.lgs-native` for these. Areas key their own native-mode rules on the same attributes, never on `html.lgs-native` alone.
 
@@ -317,8 +349,12 @@ Under `html.lgs-on.lgs-native`, outside `prefers-contrast: more`:
 |---|---|
 | `[data-lgs-cover]` on `%{BasicUiRoot}` | window glass background transparent, rim off |
 | `[data-lgs-cover]` on bar segments, popup cards, Quick Access, tab and frame menus, floating footer | panel glass variables transparent |
-| `[data-lgs-plate][data-lgs-plate-ack]` | `background: transparent`, `box-shadow: none`, `backdrop-filter: none` on the plate element itself, and `--lgs-plate-bg: transparent` for areas that paint the plate through that variable. Content, labels and focus stay |
-| `[data-lgs-pop]` | the part's CSS tint and rim off; its backdrop blur stays (in-page refraction) |
+| `[data-lgs-plate][data-lgs-plate-ack]` | `background: transparent`, `box-shadow: none`, `backdrop-filter: none` on the plate element itself; `--lgs-plate-bg`, `--lgs-mat-plate-bg` and every `--lgs-mat-*-bg` transparent, `-shade` zeroed, `--lgs-mat-liquid-blur`/`-thick-blur` `none`, `--lgs-edge: none`, for areas that paint the plate through a token (C2a's discs, C1c's flat modals). Content, labels and focus stay (mark a focus glow on a plate `!important`) |
+| `[data-lgs-pop]` (not `[data-lgs-noslab]` for that part) | the part's `--lgs-mat-{liquid,liquid-room,panel,thick}-bg` and `-shade` zeroed and its `--lgs-edge` off: tint, shading and E3 edge go; its backdrop blur stays (in-page refraction). Phase 1's per-element rules stay for the legacy pops |
+| `[data-lgs-pop~="before"]` / `[data-lgs-pop~="after"]` on a host that does not pop itself | the host's `--lgs-edge: none`: P4's E3 arc of that capsule (drawn on the host's `::before`) goes too |
+| main cover `::after` | `background: none` (C1a's top sheen), besides `box-shadow: none` |
+| legacy pops painted with literal colours (R1) | `#Footer::after` (the ornament capsule): `background` = the scrim; header Back `::before`: `--lgs-raised-bg` = the scrim, `--lgs-raised-shadow` off. An area that paints a popped part with literal colours keys its own native rule on `[data-lgs-pop~=…]`, or paints through the `--lgs-mat-*` tokens |
+| `[data-lgs-cover]` (Phase 2 tokens) | main: `--lgs-mat-window-bg`/`-shade` zeroed, `--lgs-edge: none`; every other cover (the card of its quad): the panel, liquid, liquid-room and thick tokens zeroed, `--lgs-edge: none` |
 | scroll-edge bands under tab rows | fade from a neutral scrim instead of the window tint |
 
 ---
@@ -332,6 +368,7 @@ Installed by evaluating `device/lgs_layers.js`. With `window.__LGS_LAYERS_OPTS` 
 | `start(rules, opts)` | `rules`: a Phase 1 object, or an array of fragments (§3.1), or JSON text of either. `opts`: `binding` (default `lgsLayers`), `ackMode`, `pingTtlMs`, `attrPrefix` (tests), `profile` (`default`/`wearer`, overrides the flag), `geom` (`{S, r}`, overrides the bridge), `flags` (`{name: bool}`, overrides `rt.flags` for tests) |
 | `__LGS_LAYERS_OPTS.global` | Tests: install under another global name (e.g. `__LGS_LAYERS_T`), so a running daemon's instance is untouched |
 | `stop(o)`, `ping()`, `ack(map)`, `resend()`, `forceDash(v)`, `overlay(ms)` | As Phase 1 (NATIVE.md) |
+| Globals | While running: `__LGS_LAYERS` and the cache `__LGS_LAYERS_NAVMOD` (a webpack module id). A real `stop()` deletes both (and any `__LGS_LAYERS*_LAST` an older version left); a re-injection keeps the cache. Nothing else |
 | `snapshot()` | The current report as an object (`v: 3`), computed fresh; emits nothing |
 | `debug(name)` | Per rule and candidate: kept, or the admission rule that dropped it (`rule1-uncovered`, `rule2-click-safe s=40`, `rule3-media`, `rule4-destructive`, `rule5-small`, `rule6-modal`, `profile`, `flag`, …), and the plates |
 | `rules()` | The merged configuration: surfaces, rule ids per surface with their fragment, superseded ids, errors |
@@ -344,5 +381,14 @@ Installed by evaluating `device/lgs_layers.js`. With `window.__LGS_LAYERS_OPTS` 
 Filed in `docs/phase2/wp/P6.md` § Requests:
 
 - **P8:** read `theme/layers/*.json` (name order, skip `_wip/`) and pass `layers: [ {file, …} ]`, falling back to `theme/layers.json`; ack in the v3 object form with `plates`; pass `plates`, `mosaic`, `hole`, `tint`, slab `material` and `interactive` through to glassd.json and the scene-graph spec; publish `geom` `{S, r}` on `rt.bridge`.
-- **P7:** restrict the base mosaic to `mosaic` bands when present; make a pop's panel interactive only when the layer says `interactive: true`; place plates with the cover (same panel and `coverDz`).
+- **P7:** restrict the base mosaic to `mosaic` bands when present; make a pop's panel interactive only when the layer says `interactive: true`; place plates with the cover (same panel and `coverDz`). (Filed late, in R1; `lgs_sg.js` already does all three.)
 - **P1:** pass `theme/popups/*.json` (name order) to the runtime as data (`rt.data('popups')`), and the flags `interactivePops`, `wp.p6` through `rt.flags`.
+
+---
+
+## 11. Changelog
+
+- 2026-10-07 (M1): contract written.
+- 2026-10-07 (complete): fragment-level `flag` and flagged `supersedes` entries (§3.1).
+- 2026-10-07 (review R1): `hole.fill: "auto"` and literal `hole.edges` (§3.2, §3.4; REQ P9->P6); duplicate ids may be fallbacks of conditional rules, and rule-level `admission: false` is ignored with an error (§3.1); rule 2 counts every focusable that intersects the crop, rule 7 counts legacy layers too, marked `(legacy)` (§4); the popup wrapper follows entry flags and `geom` while popups are shown, its API is `__LGS_RT.popups` / `rt.use('popups')`, the global `__LGS_POPUPS_API` is gone (§5); `05-native.css` turns off the E3 hook of hosts of popped pseudo-elements and the literal glass of the legacy footer, Back and window-sheen paints (§8); legacy retirement table (§3.5).
+- 2026-10-07 (M3): surface field `flag` (§3.1; C3a's `notifications`, `volumelevel`, `tooltip` behind `wp.c3a`); attribute `data-lgs-noslab` for `slab: "none"` pops and the Phase 2 `05-native.css` rules (§7, §8); globals after `stop()` (§9); popup wrapper `apply(list)` (§5.3). RP-1 to RP-8 pass on the Frame (`wp/P6.md`).

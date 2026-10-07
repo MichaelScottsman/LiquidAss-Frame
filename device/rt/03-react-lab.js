@@ -325,6 +325,26 @@
     } catch (e) { return { key, local: null, src: '', error: String(e) }; }
   }
 
+  // A main-window snapshot once gamepad focus has settled (L.snap), with where focus is. Steam's footer
+  // legend follows whatever holds focus, which settles at its own pace after a navigation: two shots are
+  // compared with the legend only when focus is on the same element in both.
+  async function settledSnap(L) {
+    react.nav.focusRoot();
+    await sleep(700);
+    return { snap: L.snap('main'), focus: L.focused('main') || {} };
+  }
+  function compareSettled(L, A, B) {
+    const sameFocus = JSON.stringify(A.focus) === JSON.stringify(B.focus);
+    const legend = (el) => /ActionButtonLabel|FooterLegend|%\{Footer/.test(el || '');
+    const strip = (x) => { if (sameFocus) return x; const o = {}; for (const k of Object.keys(x)) if (!legend(x[k].el)) o[k] = x[k]; return o; };
+    const a = strip(A.snap), b = strip(B.snap);
+    const d = L.diff(a, b);
+    const keysA = Object.keys(a).length, keysB = Object.keys(b).length;
+    return { ok: !d.issues.length && !d.movedCount && keysA === keysB, sameFocus, focusA: A.focus, focusB: B.focus,
+      issues: d.issues.slice(0, 6), movedCount: d.movedCount, keysA, keysB,
+      txt: d.issues.length + ' issues, ' + d.movedCount + ' moved, ' + keysA + '/' + keysB + ' nodes' + (sameFocus ? '' : ' (focus differed: footer legend left out)') };
+  }
+
   // ------------------------------------------------------------ the RX runners
   const runners = {
     async 'RX-1'() { return selftest({ runs: 2 }); },
@@ -332,7 +352,13 @@
     async 'RX-2'(L) {
       if (!L) return { ok: false, blocked: 'needs the lab helpers L (run through glass.py js)' };
       const out = { ok: true, steps: [] };
-      const bars = () => react.nav.inst().VRDashboardBarPopups || [];
+      // Open bar popups (the lab helpers' openThings() reads the same set).
+      const bars = () => {
+        const i = react.nav.inst();
+        let all = [];
+        try { all = [...(i.m_setVRDashboardBarPopups || i.VRDashboardBarPopups || [])]; } catch (_) { all = []; }
+        return all.filter((h) => { try { return h.BPopupOpen(); } catch (_) { return true; } });
+      };
       const closeBars = async () => { for (const p of bars()) { try { p.closePopup(); } catch (_) { /* gone */ } } await sleep(400); };
       const openPlus = async () => {
         await closeBars();
@@ -343,26 +369,39 @@
         await sleep(1000);
       };
       let h = null, calls = 0;
+      const summary = (d, a, b) => ({ controls: d.controls, texts: d.texts, issues: d.issues, movedCount: d.movedCount, keysA: Object.keys(a).length, keysB: Object.keys(b).length });
+      const same = (x) => x.issues.length === 0 && x.movedCount === 0 && x.keysA === x.keysB;
       try {
         await openPlus();
         const a = L.snap('barpopup');
+        const aBar = L.snap('bar');
         await closeBars();
         h = react.patch.byProps('p2.rx2', react.patch.targets.plusButton, (orig) => function rx2NoOp(props, second) { calls++; return orig.call(this, props, second); });
         out.patch = { count: h.count, kinds: h.kinds, live: h.live };
+        const callsBefore = calls;
+        out.rerender = react.patch.rerender(h);
+        await sleep(300);
+        out.wrapperCallsAfterRerender = calls - callsBefore;
         await openPlus();
         const b = L.snap('barpopup');
+        const bBar = L.snap('bar');
         await closeBars();
-        const d = L.diff(a, b);
-        out.diff = { controls: d.controls, texts: d.texts, issues: d.issues, movedCount: d.movedCount, keysA: Object.keys(a).length, keysB: Object.keys(b).length };
+        out.diff = summary(L.diff(a, b), a, b);
+        out.diffBar = summary(L.diff(aBar, bBar), aBar, bBar);
         out.wrapperCalls = calls;
-        out.steps.push((h.count === 1 ? 'PASS' : 'FAIL') + ' one component matched: ' + h.count + ' ' + h.kinds.join());
+        out.steps.push((h.count === 1 ? 'PASS' : 'FAIL') + ' one component matched: ' + h.count + ' ' + h.kinds.join() + ' (live fibers ' + h.live + ')');
+        out.steps.push((out.rerender.forced >= 1 && out.wrapperCallsAfterRerender > 0 ? 'PASS' : 'FAIL') + ' rerender() shows the patch at once: ' + JSON.stringify(out.rerender) + ', ' + out.wrapperCallsAfterRerender + ' wrapper calls');
         out.steps.push((calls > 0 ? 'PASS' : 'FAIL') + ' patched render ran: ' + calls + ' calls');
-        out.steps.push((d.issues.length === 0 && d.movedCount === 0 && out.diff.keysA === out.diff.keysB ? 'PASS' : 'FAIL') + ' barpopup unchanged against unpatched: ' + d.issues.length + ' issues, ' + d.movedCount + ' moved, ' + out.diff.keysA + '/' + out.diff.keysB + ' nodes');
+        out.steps.push((same(out.diff) ? 'PASS' : 'FAIL') + ' barpopup (OPEN) unchanged against unpatched: ' + out.diff.issues.length + ' issues, ' + out.diff.movedCount + ' moved, ' + out.diff.keysA + '/' + out.diff.keysB + ' nodes');
+        out.steps.push((same(out.diffBar) ? 'PASS' : 'FAIL') + ' bar unchanged against unpatched: ' + out.diffBar.issues.length + ' issues, ' + out.diffBar.movedCount + ' moved, ' + out.diffBar.keysA + '/' + out.diffBar.keysB + ' nodes');
       } catch (e) {
         out.steps.push('ERROR ' + ((e && e.message) || e));
       } finally {
         if (h) h.remove();
         await closeBars();
+        // Undo the fake hover of the OPEN recipe (IM §9: pointer to 1400, 900).
+        try { L.q('bar', '%{AddWindowButton}').dispatchEvent(new (L.surface('bar').MouseEvent)('mouseleave')); } catch (_) { /* gone */ }
+        try { if (typeof L.unhover === 'function') await L.unhover(); } catch (_) { /* older lab */ }
       }
       out.patchedLeft = react.test.countPatchedLeft();
       out.steps.push((out.patchedLeft === 0 ? 'PASS' : 'FAIL') + ' patchedLeft after removal: ' + out.patchedLeft);
@@ -375,9 +414,24 @@
       const pass = (c, msg) => { out.steps.push((c ? 'PASS ' : 'FAIL ') + msg); if (!c) out.ok = false; };
       const d = doc();
       let libSel = null; try { libSel = L ? L.sel('%{GamepadLibrary}') : null; } catch (_) { libSel = null; }
-      const routeNodes = () => { const r = libSel ? d.querySelector(libSel) : null; return r ? r.querySelectorAll('*').length : -1; };
-      const focusKey = () => { const f = d.querySelector('.gpfocus'); return f ? { el: f, text: (f.innerText || f.getAttribute('aria-label') || '').trim().slice(0, 40) } : null; };
+      const routeRoot = () => (libSel ? d.querySelector(libSel) : null);
+      const routeNodes = () => { const r = routeRoot(); return r ? r.querySelectorAll('*').length : -1; };
+      // A poster is named by the app its component renders (fiber props), not by its (empty) text.
+      const appOf = (el) => {
+        const f = react.fiber.closest(el, (p) => typeof p.appid === 'number' || (p.app && typeof p.app.appid === 'number') || (p.overview && typeof p.overview.appid === 'number'));
+        if (!f) return null;
+        const p = f.memoizedProps;
+        return typeof p.appid === 'number' ? p.appid : (p.app ? p.app.appid : p.overview.appid);
+      };
+      const focusKey = () => {
+        const f = d.querySelector('.gpfocus');
+        if (!f) return null;
+        const app = appOf(f);
+        return { el: f, app, text: app != null ? 'app ' + app : (f.innerText || f.getAttribute('aria-label') || '').trim().slice(0, 40) };
+      };
+      const describeEl = (el) => (el.tagName.toLowerCase() + (el.className && typeof el.className === 'string' ? '.' + el.className.split(/\s+/).slice(0, 3).join('.') : ''));
       let modal = null, cancelled = 0;
+      const routeBefore = react.nav.route();
       try {
         react.nav.go('/library/tab/AllGames');
         await sleep(1600);
@@ -388,6 +442,8 @@
         out.focusBefore = before && before.text;
         const n0 = routeNodes();
         out.nodesBefore = n0;
+        const root0 = routeRoot();
+        const els0 = root0 ? [...root0.querySelectorAll('*')] : [];
         const c = react.c, jsx = react.jsx, jsxs = react.jsxs;
         function LabModal(p) {
           const close = () => { cancelled++; if (p.closeModal) p.closeModal(); };
@@ -404,7 +460,20 @@
         pass(shown, 'modal rendered in main');
         pass(react.nav.route() === '/library/tab/AllGames', 'route unchanged: ' + react.nav.route());
         const n1 = routeNodes();
-        pass(n1 === n0 && n0 > 0, 'route DOM node count unchanged: ' + n0 + ' -> ' + n1);
+        const root1 = routeRoot();
+        const gone = els0.filter((e) => !e.isConnected || !root1 || !root1.contains(e));
+        const added = root1 ? [...root1.querySelectorAll('*')].filter((e) => !els0.includes(e)) : [];
+        out.nodesDuring = n1;
+        out.changedDuring = { gone: gone.map(describeEl).slice(0, 8), added: added.map(describeEl).slice(0, 8) };
+        pass(!!root0 && root1 === root0, 'the route stays mounted under the modal (same root node)');
+        // Steam renders the grid's gamepad fast-scroll overlay only while gamepad focus is inside the grid,
+        // and a poster may drop its focus decoration: both leave when focus moves to the modal and come back
+        // after. Anything else is a real change. The posters themselves must be the very same nodes.
+        let fso = null; try { fso = L ? L.sel('%{FastScrollOverlay}') : null; } catch (_) { fso = null; }
+        const focusDependent = (e) => (fso && (e.matches(fso) || !!(e.parentElement && e.parentElement.closest(fso))))
+          || !!(before && before.el && (before.el === e || before.el.contains(e)));
+        const onlyFocusDependent = gone.concat(added).every((e) => focusDependent(e));
+        pass(n0 > 0 && (n1 === n0 || onlyFocusDependent), 'route DOM node count unchanged: ' + n0 + ' -> ' + n1 + (n1 !== n0 ? ' (the difference is only Steam\'s focus-dependent nodes: ' + onlyFocusDependent + ')' : ''));
         react.nav.focusRoot();
         await sleep(500);
         const f1 = d.querySelector('.gpfocus');
@@ -423,6 +492,14 @@
         out.ok = false; out.steps.push('ERROR ' + ((e && e.message) || e));
       } finally {
         if (d.querySelector('.lgsx-modal') && modal) { try { modal.Close(); } catch (_) { /* closed */ } }
+        // Leave the device on the route we found it on.
+        if (routeBefore !== '/library/tab/AllGames' && react.nav.route() === '/library/tab/AllGames') {
+          react.nav.back();
+          await sleep(900);
+          if (react.nav.route() !== routeBefore) { react.nav.go(routeBefore, true); await sleep(600); }
+        }
+        out.routeBefore = routeBefore;
+        out.routeAfter = react.nav.route();
       }
       return out;
     },
@@ -495,7 +572,9 @@
       const pass = (c, msg) => { out.steps.push((c ? 'PASS ' : 'FAIL ') + msg); if (!c) out.ok = false; };
       const A = react.actions;
       const t = rt.test && rt.test.actions;
-      try { if (t && t.enable) t.enable(true, { ttlMs: 60000 }); } catch (_) { /* shim */ }
+      let loggerWasOn = false;
+      try { loggerWasOn = !!(t && t.enabled && t.enabled()); } catch (_) { loggerWasOn = false; }
+      try { if (t && t.enable && !loggerWasOn) t.enable(true, { ttlMs: 60000 }); } catch (_) { /* shim */ }
       A.test(true);
       const mode = A.mode();
       if (mode.mode !== 'test') { A.test(false); return { ok: false, steps: ['FAIL test mode is not on; aborting before any action: ' + JSON.stringify(mode)] }; }
@@ -576,8 +655,246 @@
       } finally {
         unspy();
         A.test(false);
-        try { if (t && t.enable) t.enable(false); } catch (_) { /* shim */ }
+        // Give the step's action logger back as it was (P10 turns it on for every locked step).
+        try { if (t && t.enable && !loggerWasOn) t.enable(false); } catch (_) { /* shim */ }
       }
+      return out;
+    },
+
+    // ---------------------------------------------------------- beyond the card's RX list: the other builds
+    // RX-OV: routes.override on /library/home (element children) and on the achievements route (function
+    // children), Steam's page kept inside ours, an override that throws degrades to Steam's page, removal.
+    async 'RX-OV'(L) {
+      const out = { ok: true, steps: [] };
+      const pass = (c, msg) => { out.steps.push((c ? 'PASS ' : 'FAIL ') + msg); if (!c) out.ok = false; };
+      const d = doc();
+      const routeBefore = route();
+      const home = react.Routes.Library.Home();
+      const count = () => d.querySelectorAll('*').length;
+      const handles = [];
+      try {
+        react.nav.go(home, true); await sleep(1500);
+        const n0 = count();
+        let calls = 0;
+        handles.push(react.routes.override(home, (steam, ctx) => { calls++; return react.jsx('div', { className: 'lgsx-ov', 'data-path': ctx.match && ctx.match.path, children: steam }); }));
+        await sleep(1200);
+        const ov = d.querySelector('.lgsx-ov');
+        pass(!!ov && calls > 0, 'override renders at ' + home + ' (' + calls + ' calls, match ' + (ov && ov.getAttribute('data-path')) + ')');
+        pass(!!ov && ov.querySelectorAll('*').length > 100, 'Steam Home is kept inside it: ' + (ov ? ov.querySelectorAll('*').length : 0) + ' nodes');
+        handles.pop().remove(); await sleep(1200);
+        const n1 = count();
+        pass(!d.querySelector('.lgsx-ov') && Math.abs(n1 - n0) <= Math.max(10, n0 * 0.05), 'removed: Steam Home back, ' + n0 + ' -> ' + n1 + ' nodes');
+        // a throwing override degrades to Steam's own page
+        function Boom() { throw new Error('lab: forced render error'); }
+        handles.push(react.routes.override(home, () => react.jsx(Boom, {})));
+        await sleep(1200);
+        const n2 = count();
+        pass(Math.abs(n2 - n0) <= Math.max(10, n0 * 0.05), 'a throwing override shows Steam Home instead: ' + n2 + ' nodes');
+        handles.pop().remove(); await sleep(900);
+        // function children (Steam's achievements route): Steam's own children still get the route props
+        const game = react.data.installedGames({ limit: 1 })[0];
+        if (game) {
+          const achPath = '/library/app/:appid/achievements';
+          let seen = null;
+          handles.push(react.routes.override(achPath, (steam, ctx) => { seen = ctx.match && ctx.match.params; return react.jsx('div', { className: 'lgsx-ov2', children: steam }); }));
+          react.nav.go('/library/app/' + game.appid + '/achievements'); await sleep(1800);
+          const ov2 = d.querySelector('.lgsx-ov2');
+          pass(!!ov2 && !!seen && String(seen.appid) === String(game.appid), 'function-children route: our wrapper with the real match (appid ' + (seen && seen.appid) + '), Steam content ' + (ov2 ? ov2.querySelectorAll('*').length : 0) + ' nodes');
+          handles.pop().remove(); await sleep(900);
+          pass(!d.querySelector('.lgsx-ov2'), 'achievements override removed');
+          react.nav.back(); await sleep(900);
+        }
+        let threw = null; try { react.routes.override('/library/no-such-route', () => null); } catch (e) { threw = e.message; }
+        pass(!!threw, 'override of a path Steam does not declare throws: ' + threw);
+      } catch (e) {
+        out.ok = false; out.steps.push('ERROR ' + ((e && e.message) || e));
+      } finally {
+        while (handles.length) { try { handles.pop().remove(); } catch (_) { /* gone */ } }
+        if (route() !== routeBefore) { react.nav.go(routeBefore, true); await sleep(900); }
+      }
+      out.routeBefore = routeBefore; out.routeAfter = route();
+      out.status = react.routes.list();
+      out.patchedLeft = react.test.countPatchedLeft();
+      pass(out.patchedLeft === 0 && !out.status.overridden.length, 'patchedLeft ' + out.patchedLeft + ', overrides left ' + out.status.overridden.length);
+      return out;
+    },
+
+    // RX-HEAL: React remounts the route switch (simulated: the original type is put back on the live
+    // fiber); the history listener re-patches before the router renders into our path.
+    async 'RX-HEAL'() {
+      const out = { ok: true, steps: [] };
+      const pass = (c, msg) => { out.steps.push((c ? 'PASS ' : 'FAIL ') + msg); if (!c) out.ok = false; };
+      const routeBefore = route();
+      const P = '/library/lgs/lab/heal';
+      let h = null;
+      try {
+        h = react.routes.add(P, () => react.jsx(react.ui.Page, { className: 'lgsx-heal', children: react.jsx('div', { className: 'lgsx-title', children: 'heal' }) }), { exact: true, owner: 'react-lab' });
+        const dropped = react.test.dropSwitchPatch();
+        pass(dropped > 0 && react.status().patchedLive === 0, 'switch patch dropped (as on a remount): ' + dropped + ' fiber types restored, patchedLive ' + react.status().patchedLive);
+        react.nav.go(P); await sleep(1500);
+        pass(!!doc().querySelector('.lgsx-heal') && react.status().patchedLive === 1, 'navigation re-patched it and our page rendered (patchedLive ' + react.status().patchedLive + ')');
+      } catch (e) {
+        out.ok = false; out.steps.push('ERROR ' + ((e && e.message) || e));
+      } finally {
+        if (route() === P) { react.nav.back(); await sleep(900); }
+        if (h) h.remove();
+        if (route() !== routeBefore) { react.nav.go(routeBefore, true); await sleep(900); }
+      }
+      out.patchedLeft = react.test.countPatchedLeft();
+      pass(out.patchedLeft === 0, 'patchedLeft after removal: ' + out.patchedLeft);
+      out.routeAfter = route();
+      return out;
+    },
+
+    // RX-FN: patch.byProps on a bare function component (Steam's PagedSettings, SET P-S1): the patch
+    // survives the settings page being unmounted and mounted again (element substitution), the page is
+    // unchanged by a no-op wrap, and removal restores everything.
+    async 'RX-FN'(L) {
+      const out = { ok: true, steps: [] };
+      const pass = (c, msg) => { out.steps.push((c ? 'PASS ' : 'FAIL ') + msg); if (!c) out.ok = false; };
+      const routeBefore = route();
+      const sys = react.Routes.Settings.System();
+      let h = null, calls = 0;
+      try {
+        // The unpatched reference comes through the same entry path as the patched shot below (Home, then
+        // Settings), so focus and the footer legend start the same way.
+        react.nav.go(sys); await sleep(1200);
+        react.nav.go('/library/home'); await sleep(1300);
+        react.nav.go(sys); await sleep(1500);
+        // Steam's footer legend follows whatever holds gamepad focus, which settles at its own pace after
+        // a navigation; it is compared only when focus is on the same element in both shots.
+        const settle = async () => { react.nav.focusRoot(); await sleep(700); return (L.focused('main') || {}); };
+        const fa = L ? await settle() : null;
+        const a = L ? L.snap('main') : null;
+        h = react.patch.byProps('p2.rxfn', react.patch.targets.pagedSettings, (orig) => function rxfnNoOp(props, r) { calls++; return orig.call(this, props, r); });
+        out.patch = { count: h.count, kinds: h.kinds, live: h.live };
+        pass(h.count === 1 && h.kinds[0] === 'fn', 'one bare function component matched: ' + h.count + ' ' + h.kinds.join());
+        react.nav.go('/library/home'); await sleep(1300);
+        const c0 = calls;
+        react.nav.go(sys); await sleep(1500);
+        pass(calls > c0, 'patched render runs after the page was unmounted and mounted again: ' + (calls - c0) + ' calls');
+        const fb = L ? await settle() : null;
+        const b = L ? L.snap('main') : null;
+        if (a && b) {
+          const sameFocus = JSON.stringify(fa) === JSON.stringify(fb);
+          const legend = (k) => /ActionButtonLabel|FooterLegend|%\{Footer/.test(k);
+          const strip = (x) => { if (sameFocus) return x; const o = {}; for (const k of Object.keys(x)) if (!legend(x[k].el || '')) o[k] = x[k]; return o; };
+          const a2 = strip(a), b2 = strip(b);
+          const df = L.diff(a2, b2);
+          out.diff = { issues: df.issues, movedCount: df.movedCount, keysA: Object.keys(a2).length, keysB: Object.keys(b2).length, sameFocus, focusA: fa, focusB: fb };
+          if (!sameFocus) out.steps.push('NOTE gamepad focus settled on different elements (' + JSON.stringify(fa) + ' vs ' + JSON.stringify(fb) + '); the footer legend is left out of the comparison');
+          pass(!df.issues.length && !df.movedCount && out.diff.keysA === out.diff.keysB, sys + ' unchanged against unpatched: ' + df.issues.length + ' issues, ' + df.movedCount + ' moved, ' + out.diff.keysA + '/' + out.diff.keysB + ' nodes');
+        }
+        h.remove(); h = null;
+        pass(react.test.countPatchedLeft() === 0, 'removed while mounted: patchedLeft ' + react.test.countPatchedLeft());
+        const c1 = calls;
+        react.nav.go('/library/home'); await sleep(1200);
+        react.nav.go(sys); await sleep(1500);
+        pass(calls === c1 && !!doc().querySelector('.Panel'), 'after removal the wrap never runs again (' + (calls - c1) + ' calls) and Settings renders');
+      } catch (e) {
+        out.ok = false; out.steps.push('ERROR ' + ((e && e.message) || e));
+      } finally {
+        if (h) { try { h.remove(); } catch (_) { /* gone */ } }
+        if (route() !== routeBefore) { react.nav.go(routeBefore, true); await sleep(900); }
+      }
+      out.patchedLeft = react.test.countPatchedLeft();
+      out.routeAfter = route();
+      return out;
+    },
+
+    // RX-REMOVE: everything at once (a route, an override, a memo patch and a bare function patch), then
+    // the module's own removal (what lgs off runs): patchedLeft 0, Steam's element factories restored, a
+    // stale /library/lgs/ entry falls back to Steam's library. The module then starts fresh (unscanned).
+    async 'RX-REMOVE'() {
+      const out = { ok: true, steps: [] };
+      const pass = (c, msg) => { out.steps.push((c ? 'PASS ' : 'FAIL ') + msg); if (!c) out.ok = false; };
+      const st0 = react.status();
+      const others = st0.routes.filter((p) => !p.startsWith(LAB)).length + st0.overrides.length + st0.patches.length;
+      if (others) return { ok: false, blocked: 'react has live routes or patches from other modules; run with only reactLab on', status: st0 };
+      const routeBefore = route();
+      const P = '/library/lgs/lab/remove';
+      try {
+        react.ready();
+        const M = react.M;
+        const jsx0 = M.jsx.jsx, ce0 = M.React.createElement;
+        react.routes.add(P, () => react.jsx(react.ui.Page, { className: 'lgsx-rm', children: react.jsx('div', { className: 'lgsx-title', children: 'remove' }) }), { exact: true });
+        react.routes.override(react.Routes.Library.Home(), (steam) => steam);
+        react.patch.byProps('p2.rm.plus', react.patch.targets.plusButton, (o) => function (p, r) { return o.call(this, p, r); });
+        react.nav.go(react.Routes.Settings.System()); await sleep(1500);
+        react.patch.byProps('p2.rm.paged', react.patch.targets.pagedSettings, (o) => function (p, r) { return o.call(this, p, r); });
+        react.nav.go(P); await sleep(1500);
+        const s1 = react.status();
+        pass(!!doc().querySelector('.lgsx-rm') && s1.patches.length === 2 && s1.overrides.length === 1 && M.jsx.jsx !== jsx0, 'all live: route rendered, 2 patches, 1 override, element factories hooked');
+        const rep = react.test.cycle();
+        out.report = rep;
+        await sleep(1200);
+        pass(rep.patchedLeft === 0, 'removal report: patchedLeft ' + rep.patchedLeft + ', restored ' + rep.restored + ', route ' + rep.routeBefore + ' -> ' + rep.routeAfter);
+        pass(M.jsx.jsx === jsx0 && M.React.createElement === ce0, 'Steam jsx and createElement are the originals again');
+        pass(rep.routeAfter !== P && !doc().querySelector('.lgsx-rm'), 'our route was left: ' + route());
+        react.nav.go(P); await sleep(1500);
+        const libSel = (() => { try { return window.__LGS_LAB ? window.__LGS_LAB.sel('%{GamepadLibrary}') : null; } catch (_) { return null; } })();
+        pass(!doc().querySelector('.lgsx-rm') && (!libSel || !!doc().querySelector(libSel)), 'a stale ' + P + ' entry falls back to Steam library (no page of ours)');
+        pass(!react.isReady && react.status().switchFibers === null, 'fresh state after removal: not scanned');
+      } catch (e) {
+        out.ok = false; out.steps.push('ERROR ' + ((e && e.message) || e));
+        try { out.report = react.test.cycle(); } catch (_) { /* gone */ }
+      } finally {
+        if (route() !== routeBefore) { react.nav.go(routeBefore, true); await sleep(900); }
+      }
+      out.routeAfter = route();
+      return out;
+    },
+    // RX-TARGETS: the named predicates of contract §5.2 not covered above (statusPill on the bar, appButtons
+    // on a game page): each matches exactly one component; a no-op wrap leaves the surface unchanged; removal
+    // leaves patchedLeft 0. (plusButton: RX-2; pagedSettings: RX-FN.)
+    async 'RX-TARGETS'(L) {
+      if (!L) return { ok: false, blocked: 'needs the lab helpers L (run through glass.py js)' };
+      const out = { ok: true, steps: [] };
+      const pass = (c, msg) => { out.steps.push((c ? 'PASS ' : 'FAIL ') + msg); if (!c) out.ok = false; };
+      const same = (a, b) => { const d = L.diff(a, b); return { ok: !d.issues.length && !d.movedCount && Object.keys(a).length === Object.keys(b).length, txt: d.issues.length + ' issues, ' + d.movedCount + ' moved, ' + Object.keys(a).length + '/' + Object.keys(b).length + ' nodes', issues: d.issues.slice(0, 4) }; };
+      const routeBefore = route();
+      let h1 = null, h2 = null;
+      try {
+        // statusPill (bar, always mounted)
+        let c1 = 0;
+        const a1 = L.snap('bar');
+        h1 = react.patch.byProps('p2.rxt.pill', react.patch.targets.statusPill, (o) => function rxtPill(p, r) { c1++; return o.call(this, p, r); });
+        out.pill = { count: h1.count, kinds: h1.kinds, live: h1.live, rerender: react.patch.rerender(h1) };
+        await sleep(400);
+        const b1 = L.snap('bar');
+        const s1 = same(a1, b1);
+        pass(h1.count === 1, 'statusPill matches one component: ' + h1.count + ' ' + h1.kinds.join() + ' (live ' + h1.live + ', rerender ' + JSON.stringify(out.pill.rerender) + ', ' + c1 + ' wrapper calls)');
+        pass(s1.ok, 'bar unchanged with the no-op wrap: ' + s1.txt + (s1.ok ? '' : ' ' + JSON.stringify(s1.issues)));
+        h1.remove(); h1 = null;
+        pass(react.test.countPatchedLeft() === 0, 'statusPill removed: patchedLeft ' + react.test.countPatchedLeft());
+        // appButtons (game page)
+        const g = react.data.installedGames({ limit: 1 })[0];
+        if (!g) { out.steps.push('NOTE no installed game; appButtons skipped'); }
+        else {
+          const page = '/library/app/' + g.appid;
+          let c2 = 0;
+          react.nav.go('/library/home'); await sleep(1200);
+          react.nav.go(page); await sleep(1800);
+          const a2 = await settledSnap(L);
+          h2 = react.patch.byProps('p2.rxt.app', react.patch.targets.appButtons, (o) => function rxtApp(p, r) { c2++; return o.call(this, p, r); });
+          out.app = { count: h2.count, kinds: h2.kinds };
+          react.nav.go('/library/home'); await sleep(1200);
+          react.nav.go(page); await sleep(1800);
+          const b2 = await settledSnap(L);
+          const s2 = compareSettled(L, a2, b2);
+          pass(h2.count === 1 && c2 > 0, 'appButtons matches one component: ' + h2.count + ' ' + h2.kinds.join() + ', patched render ran ' + c2 + ' times after a remount');
+          pass(s2.ok, page + ' unchanged with the no-op wrap: ' + s2.txt + (s2.ok ? '' : ' ' + JSON.stringify(s2.issues)));
+          h2.remove(); h2 = null;
+          pass(react.test.countPatchedLeft() === 0, 'appButtons removed: patchedLeft ' + react.test.countPatchedLeft());
+        }
+      } catch (e) {
+        out.ok = false; out.steps.push('ERROR ' + ((e && e.message) || e));
+      } finally {
+        if (h1) { try { h1.remove(); } catch (_) { /* gone */ } }
+        if (h2) { try { h2.remove(); } catch (_) { /* gone */ } }
+        if (route() !== routeBefore) { react.nav.go(routeBefore, true); await sleep(900); }
+      }
+      out.routeAfter = route();
       return out;
     },
   };
@@ -609,6 +926,8 @@
         get events() { return S.events.slice(); },
         tests: Object.keys(runners),
       };
+      // Contract §9: also reachable as rt.react.lab while this module is installed.
+      try { react.lab = api; } catch (_) { /* frozen */ }
       return api;
     },
     async remove() {
@@ -618,6 +937,7 @@
       if (st.menu) { try { st.menu.Hide(); } catch (_) { /* closed */ } }
       try { if (st.labRoute) st.labRoute.remove(); } catch (_) { /* gone */ }
       for (const h of st.handles) { try { h.remove(); } catch (_) { /* gone */ } }
+      try { if (react && react.lab) delete react.lab; } catch (_) { /* gone */ }
       S = null; react = null; rt = null;
       return { patchedLeft: 0 };
     },

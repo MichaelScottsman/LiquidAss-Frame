@@ -2,119 +2,182 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Glass Shell P2 home-apps: search results sheet (window-nav's) with the Apps provider and X = Play</title>
+<title>Glass Shell P2 home-apps (C2a): search results for "half", gamepad focus on the Software cell (this concept's provider)</title>
 <link rel="stylesheet" href="kit.css">
 <link rel="stylesheet" href="window-nav-shared.css">
 <link rel="stylesheet" href="home-apps.css">
+<style id="c1b-recipe">
+  /* C1b's search recipe, copied unchanged from window-nav-results.html (C1b owns the sheet; PLAN §1.1, §1.9).
+     This mockup shows the same sheet and the same real data with gamepad focus on the Software cell, which is
+     what home-apps contributes through C1b's provider API (HA §6, C1b "Interface announced"). */
+  .c1b :is(.lgk-row, .lgk-btn, .lgk-seg > *).is-hover::after { opacity: 1; --lift: .08; --spot: .12; }
+  .c1b :is(.lgk-row, .lgk-btn, .lgk-seg > *).is-focus::after { opacity: 1; --lift: .28; --spot: .16; --hx: 50%; --hy: 16%; }
+  .c1b .is-focus:is(.is-selected, .primary) { box-shadow: 0 0 18px 2px rgb(255 255 255 / .30); }
+  .c1b .wn-ssheet { --r: 44px; }
+  .c1b .sx-h { position: absolute; font: 600 28px/1.25 var(--lg-font); letter-spacing: -.01em; white-space: nowrap; }   /* Title 3 */
+  .c1b .sx-art { position: absolute; overflow: hidden; background: linear-gradient(160deg, #3b4a63, #1a2232); }
+  .c1b .sx-art img { position: absolute; display: block; }
+  .c1b .sx-art img.hero, .c1b .sx-art img.port { inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .c1b .sx-art img.logo { left: 50%; top: 52%; translate: -50% -50%; max-width: 76%; max-height: 46%; object-fit: contain;
+    filter: drop-shadow(0 2px 3px rgb(0 0 0 / .6)) drop-shadow(0 0 10px rgb(0 0 0 / .35)); }
+  .c1b .sx-art.mono { display: grid; place-items: center; text-align: center; padding: 10px; box-sizing: border-box;
+    font: 700 20px/1.2 var(--lg-font); color: rgb(255 255 255 / .92); }
+  .c1b.laser .lgk-glyph { display: none !important; }
+</style>
 <style>
-  /* window-nav §4.6 results sheet (same geometry as window-nav-results.html, C1b), over a snapshot of the Library */
-  .snaptitle { position: absolute; left: 100px; top: 25px; }
-  .grid { position: absolute; left: 0; top: 212px; right: 0; bottom: 0; }
-  .grid .ha-poster { width: 220px; height: 330px; }
-  .sheet { left: 120px; top: 100px; width: 1040px; height: 520px; overflow: hidden; }
-  .scope { position: absolute; left: 50%; translate: -50% 0; top: 22px; }
+  /* ---- the context snapshot under the scrim (as in window-nav-results.html) */
+  .snaptitle { position: absolute; left: 100px; top: 25px; white-space: nowrap; }
+  .snaptabs { position: absolute; left: 108px; right: 108px; top: 116px; height: 64px; overflow: hidden; }
+  .snaptabs .lgk-seg { position: absolute; left: 0; top: 0; }
+  .snaptabs .n { font-weight: 500; color: var(--lg-text-2); margin-left: 2px; }
+  .snaptabs .is-selected .n { color: rgb(13 14 18 / .55); }
+  .snaparrow { position: absolute !important; top: 118px; background: transparent !important; color: var(--lg-text-2); }
+  .snapsub { position: absolute; left: 50%; translate: -50% 0; top: 192px; height: 60px; }
+  .snapsub > * { padding: 0 24px; }
+  .snapgrid { position: absolute; inset: 0; }
+  .snapgrid .sx-art { width: 172px; height: 258px; border-radius: 20px; box-shadow: 0 6px 18px rgb(0 0 0 / .30); }
+
+  /* ---- C1b's results sheet: 960 x 500 at (160, 100) */
+  .sheet { left: 160px; top: 100px; width: 960px; height: 500px; overflow: hidden; }
+  .scope { position: absolute; left: 50%; translate: -50% 0; top: 16px; }
+  .scope > * { min-width: 120px; padding: 0 18px; box-sizing: border-box; }
   .scope .n { font-weight: 500; color: var(--lg-text-2); margin-left: 2px; }
   .scope .is-selected .n { color: rgb(13 14 18 / .55); }
-  .arrow { position: absolute !important; top: 24px; background: transparent !important; color: var(--lg-text-2); }
-  .body { position: absolute; left: 0; right: 0; top: 104px; bottom: 0;
+  .arrow { position: absolute !important; top: 18px; background: transparent !important; color: var(--lg-text-2); }
+  .body { position: absolute; left: 0; right: 0; top: 0; bottom: 0;
           -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 26px), transparent); mask-image: linear-gradient(180deg, #000 calc(100% - 26px), transparent); }
-  .hd { position: absolute; left: 32px; right: 32px; display: flex; align-items: center; justify-content: space-between; height: 40px; }
-  .hd .lgk-btn { --s: 48px; font-size: 20px; padding: 0 14px 0 20px; gap: 4px; background: rgb(255 255 255 / .08); }
-  .hd .lgk-btn .lgk-i { --is: 20px; color: var(--lg-text-2); }
-  .row1 { position: absolute; left: 32px; top: 48px; display: flex; gap: 16px; align-items: flex-start; }
-  .hit { position: relative; width: 300px; height: 170px; border-radius: 20px; overflow: hidden; flex: none; box-shadow: 0 6px 18px rgb(0 0 0 / .3); }
-  .hit .ha-hero { position: absolute; inset: 0; }
-  .hit .ha-hero img.logo { display: none; }        /* the card writes the name; the hero carries no logo (Steam's asset rule) */
-  .hit::after { content: ""; position: absolute; inset: 0; background: linear-gradient(0deg, rgb(0 0 0 / .62), transparent 62%); }
-  .hit.is-focus { scale: 1.05; z-index: 3; box-shadow: 0 6px 18px rgb(0 0 0 / .44), 0 0 30px 2px rgb(255 255 255 / .18); }
-  .hit .k { position: absolute; left: 16px; top: 12px; z-index: 2; height: 28px; padding: 0 12px; border-radius: 14px; display: grid; place-items: center;
-            background: rgb(0 0 0 / .42); font: 600 17px/1 var(--lg-font); }
-  /* the name keeps the full card width on its own line; status and Open share the bottom line (proposed to C1b) */
-  .hit .t { position: absolute; left: 18px; right: 18px; bottom: 70px; z-index: 2; font: 700 26px/1.1 var(--lg-font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .hit .s { position: absolute; left: 18px; bottom: 24px; z-index: 2; font: 500 18px/1.2 var(--lg-font); color: rgb(255 255 255 / .8); }
-  .hit .o { position: absolute; right: 14px; bottom: 14px; z-index: 2; --s: 48px; padding: 0 22px; font-size: 21px; background: rgb(255 255 255 / .26); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
-  .p { position: relative; width: 113px; flex: none; }
-  .p .ha-poster { position: relative; display: block; width: 113px; height: 170px; border-radius: 16px; }
-  .p .lbl { margin-top: 8px; font: 500 20px/1.25 var(--lg-font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .p .sub { font: 500 18px/1.3 var(--lg-font); color: var(--lg-text-2); white-space: nowrap; }
-  /* home-apps' contribution S-B: an Apps section of program capsules (64 visible, 80 hit), after Top Results */
-  .apps { position: absolute; left: 32px; top: 326px; display: flex; gap: 16px; }
-  .app { position: relative; display: flex; align-items: center; gap: 14px; height: 64px; padding: 0 26px 0 8px; border-radius: 32px; background: var(--lg-fill-thin);
-         font: 600 22px/1 var(--lg-font); white-space: nowrap; }
-  .app .disc { width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; flex: none;
-               background: radial-gradient(90% 60% at 40% 0%, rgb(255 255 255 / .22), rgb(255 255 255 / 0) 60%), rgb(255 255 255 / .11); }
-  .app .disc .ha-prog { width: 36px; height: 36px; } .app .disc .ha-prog img { width: 36px; max-height: 36px; }
-  .app .k2 { font: 500 20px/1 var(--lg-font); color: var(--lg-text-2); margin-left: 4px; }
+  /* row 1: the Top Hit at rest (attention is on the Software cell, so no lift and no More circle) */
+  .hit { left: 32px; top: 96px; width: 372px; height: 170px; border-radius: 20px; box-shadow: 0 6px 18px rgb(0 0 0 / .3); }
+  .hit::before { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none; background: linear-gradient(0deg, rgb(0 0 0 / .66), rgb(0 0 0 / .05) 62%); }
+  .hit .tag { position: absolute; left: 14px; top: 14px; z-index: 3; height: 30px; padding: 0 12px; border-radius: 15px; display: grid; place-items: center;
+    background: rgb(0 0 0 / .45); font: 600 18px/1 var(--lg-font); color: var(--lg-text-1); }
+  .hit .t { position: absolute; left: 18px; bottom: 40px; z-index: 3; max-width: 210px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    font: 600 28px/1.15 var(--lg-font); letter-spacing: -.01em; }
+  .hit .s { position: absolute; left: 18px; bottom: 14px; z-index: 3; font: 500 18px/1.3 var(--lg-font); color: rgb(255 255 255 / .82); }
+  .hit .open { position: absolute !important; right: 12px; bottom: 12px; z-index: 3; background: rgb(255 255 255 / .24); }
+  .poster { top: 96px; width: 113px; height: 170px; border-radius: 16px; box-shadow: 0 6px 18px rgb(0 0 0 / .3); }
+  .row2h { top: 318px; }
+  /* the Software cell (S-B, home-apps' provider, HA §6): 300 x 84, a 56 px disc with the program's real 48 px icon,
+     the name 24 Semibold. A fill inside the sheet's glass (never glass on glass, VP P-45); it never pops (WN §4.9). */
+  .apps { position: absolute; left: 32px; top: 362px; width: 300px; height: 84px; border-radius: 20px; box-sizing: border-box; padding: 0 18px 0 16px;
+          display: flex; align-items: center; gap: 14px; background: var(--lg-fill-regular); isolation: isolate; }
+  .apps .chip { width: 56px; height: 56px; border-radius: 50%; flex: none; display: grid; place-items: center; background: rgb(255 255 255 / .11); }
+  .apps .chip img { width: 48px; height: 48px; display: block; }
+  .apps .nm { font: 600 24px/1.25 var(--lg-font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* gamepad focus on the cell (PLAN §1.4): + white .28 uniform, a .16 spot in the upper third, the control's own top arc
+     x1.5 (white .33 instead of .22); no lift and no scale (it is a row-like control, not a content card, VP P-05, P-19) */
+  .apps.is-focus { box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / .33); }
+  .apps.is-focus::after { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
+    background: radial-gradient(circle at 50% 16%, rgb(255 255 255 / .16) 0, rgb(255 255 255 / 0) 75%), rgb(255 255 255 / .28); }
+  .st { position: absolute; top: 362px; width: 180px; height: 84px; border-radius: 16px; box-shadow: 0 6px 18px rgb(0 0 0 / .3);
+        --s: .646; background: #1b1e25 url("../../../shots/p2_audit_search_on.png") no-repeat;
+        background-size: calc(1920px * var(--s)) calc(1080px * var(--s));
+        background-position: calc(var(--x) * var(--s) * -1px) calc(var(--y) * var(--s) * -1px); }
+  .seeall { position: absolute !important; left: 752px; top: 374px; }
+  .seeall .lgk-i { --is: 22px; color: var(--lg-text-2); margin-left: -2px; }
 </style>
 </head>
 <body>
-<!-- Gamepad mode: focus on the Top Hit; X = Steam's primary action (S-C) shows in the ornament as "Play" with its badge. -->
-<div class="lgk-view" data-room="lounge" data-lgs-vr-mode="gamepad">
+<div class="lgk-view c1b pad" data-room="lounge">
 
-  <div data-wn="tabbar" data-right="302" data-cy="426" data-sel="library"></div>
+  <div data-wn="tabbar" data-right="302" data-cy="426" data-pitch="58" data-badge></div>
 
   <div class="lgk-overlay" style="left:320px; top:66px">
-    <!-- search is a window route (PLAN §1.2): window glass, the snapshot of the page search started from (here the
-         Library), the .35 scrim, the toolbar row with the 640 capsule, then window-nav's results sheet (+10 mm) -->
-    <div class="lgk-glass wn-win" data-mat="window" data-dz="0">
-      <div class="wn-snap">
-        <div class="grid wn-fade-bottom">
-          <span class="ha-poster" data-app="751630" style="left:42px; top:0"></span>
-          <span class="ha-poster" data-app="2320910" style="left:286px; top:0"></span>
-          <span class="ha-poster" data-app="629730" style="left:530px; top:0"></span>
-          <span class="ha-poster" data-app="963930" style="left:774px; top:0"></span>
-          <span class="ha-poster" data-app="1484280" style="left:1018px; top:0"></span>
-          <span class="ha-poster" data-app="611670" style="left:42px; top:354px"></span>
-          <span class="ha-poster" data-app="1575520" style="left:286px; top:354px"></span>
-          <span class="ha-poster" data-app="1910860" style="left:530px; top:354px"></span>
-          <span class="ha-poster" data-app="2177750" style="left:774px; top:354px"></span>
-          <span class="ha-poster" data-app="546560" style="left:1018px; top:354px"></span>
-        </div>
+    <div class="lgk-glass wn-win" data-id="window" data-mat="window" data-dz="0" data-tier="window glass, route mode window (656)">
+      <div class="wn-snap" data-id="snapshot" data-tier="T2 context snapshot (C1b): inert clone, no ids">
         <div class="t-large snaptitle">Library</div>
+        <span class="lgk-btn circle snaparrow" style="left:24px"><i data-i="chevron-left"></i></span>
+        <div class="snaptabs"><div class="lgk-seg"><span class="is-selected">All Games <span class="n t-num">350</span></span><span>Great On Frame <span class="n t-num">21</span></span><span>Ready To Play <span class="n t-num">68</span></span><span>Collections <span class="n t-num">9</span></span><span>Non-Steam <span class="n t-num">54</span></span><span>Soundtracks <span class="n t-num">18</span></span></div></div>
+        <span class="lgk-btn circle snaparrow" style="right:24px"><i data-i="chevron-right"></i></span>
+        <div class="lgk-seg compact snapsub"><span class="is-selected">All</span><span>VR</span><span>Non-VR</span></div>
+        <div class="snapgrid wn-fade-bottom">
+          <span class="sx-art" data-c1b-art="poster:735580" data-name="11-11 Memories Retold" style="left:40px; top:270px"></span>
+          <span class="sx-art" data-c1b-art="poster:793460" data-name="112 Operator" style="left:236px; top:270px"></span>
+          <span class="sx-art" data-c1b-art="poster:410110" data-name="12 is Better Than 6" style="left:432px; top:270px"></span>
+          <span class="sx-art" data-c1b-art="poster:242820" data-name="140" style="left:628px; top:270px"></span>
+          <span class="sx-art" data-c1b-art="poster:1147940" data-name="3dSen" style="left:824px; top:270px"></span>
+          <span class="sx-art" data-c1b-art="poster:954280" data-name="3dSenVR" style="left:1020px; top:270px"></span>
+          <span class="sx-art" data-c1b-art="poster:503560" data-name="911 Operator" style="left:40px; top:570px"></span>
+          <span class="sx-art" data-c1b-art="poster:15560" data-name="AaaaaAAaaaAAAaaAAAAaAAAAA!!!" style="left:236px; top:570px"></span>
+          <span class="sx-art" data-c1b-art="poster:473690" data-name="Absolver" style="left:432px; top:570px"></span>
+          <span class="sx-art" data-c1b-art="poster:228400" data-name="Ace Combat Assault Horizon" style="left:628px; top:570px"></span>
+          <span class="sx-art" data-c1b-art="poster:300060" data-name="ADR1FT" style="left:824px; top:570px"></span>
+          <span class="sx-art" data-c1b-art="poster:371140" data-name="Aegis Defenders" style="left:1020px; top:570px"></span>
+        </div>
       </div>
-      <div class="lgk-scrim" style="z-index:3"></div>
+      <div class="lgk-scrim" style="z-index:3" data-id="scrim"></div>
       <div data-wn="toolbar" data-back="nested" data-search="filled:half" data-searchw="wide"></div>
     </div>
 
-    <div class="lgk-glass wn-ssheet sheet" data-mat="thick" data-lens style="--dz:10" data-dz="10" data-tier="C1b sheet (+10 mm, non-interactive); C2a provider: programs in the ranking, the Apps section, X = Play">
-      <span class="lgk-btn circle arrow" style="left:22px"><i data-i="chevron-left"></i></span>
-      <div class="lgk-seg scope">
-        <span class="is-selected">All</span><span>Library <span class="n t-num">9</span></span><span>Friends</span><span>Store</span><span>Tools</span>
+    <div class="lgk-glass wn-ssheet sheet" data-id="sheet" data-mat="thick" data-lens style="--dz:10" data-dz="10" data-tier="C1b LgsSearch: All summary from Steam's search results (Q6); T4 +10 mm crop, interactive: false">
+      <span class="lgk-btn circle arrow" style="left:12px" data-id="scope-prev"><i data-i="chevron-left"></i></span>
+      <div class="lgk-seg scope" data-id="scope">
+        <span class="is-selected">All <span class="n t-num">162</span></span>
+        <span>Library <span class="n t-num">8</span></span>
+        <span>Friends <span class="n t-num">0</span></span>
+        <span>Store <span class="n t-num">158</span></span>
+        <span>Tools <span class="n t-num">3</span></span>
+        <span>Hidden <span class="n t-num">4</span></span>
       </div>
-      <span class="lgk-btn circle arrow" style="right:22px"><i data-i="chevron-right"></i></span>
+      <span class="lgk-btn circle arrow" style="right:12px" data-id="scope-next"><i data-i="chevron-right"></i></span>
 
       <div class="body">
-        <div class="hd" style="top:0"><span class="t-title3">Top Results</span><span class="lgk-btn capsule">See All 9<i data-i="chevron-right"></i></span></div>
-        <div class="row1">
-          <div class="hit is-focus" data-dz="15"><span class="ha-hero" data-app="546560" data-name="Half-Life: Alyx" data-pos="50% 30%"></span>
-            <span class="k">Top Hit</span><span class="t">Half-Life: Alyx</span><span class="s">Installed · 6.3 hours</span>
-            <span class="lgk-btn capsule o">Open</span></div>
-          <div class="p"><span class="ha-poster" data-app="2177750" data-name="Half-Life 2: VR Mod - Episode One"></span><div class="lbl">Half-Life 2: VR Mod - Episode One</div><div class="sub">Installed</div></div>
-          <div class="p"><span class="ha-poster" data-app="220" data-name="Half-Life 2"></span><div class="lbl">Half-Life 2</div><div class="sub">Not installed</div></div>
-          <div class="p"><span class="ha-poster" data-app="70" data-name="Half-Life"></span><div class="lbl">Half-Life</div><div class="sub">Not installed</div></div>
-          <div class="p"><span class="ha-poster" data-app="320" data-name="Half-Life 2: Deathmatch"></span><div class="lbl">Half-Life 2: Deathmatch</div><div class="sub">Not installed</div></div>
+        <!-- the Top Hit: Steam's best library match. Half SBS Toggle is also tier 1 (title prefix), so the game keeps it
+             (a program needs a strictly better tier, C1b's rule) -->
+        <div class="sx-art hit" data-id="tophit" data-c1b-art="hero:546560" data-name="Half-Life: Alyx" data-dz="0" data-tier="content card at rest: no lift, no More circle (attention is elsewhere)">
+          <span class="tag">Top Hit</span>
+          <span class="t">Half-Life: Alyx</span><span class="s">Playtime: 6.3 hrs</span>
+          <span class="lgk-btn capsule open">Open</span>
         </div>
-        <!-- S-B: programs from Steam's launch list that match (Liquid Glass never listed); A launches with Steam's call -->
-        <div class="hd" style="top:280px"><span class="t-title3">Apps</span></div>
-        <div class="apps">
-          <span class="app" data-tier="C2a provider · LaunchNonSteamApp(strCmdline) (logged in tests)"><span class="disc"><span class="ha-prog" data-prog="Half SBS Toggle"></span></span>Half SBS Toggle<span class="k2">App</span></span>
+        <span class="sx-art poster" data-c1b-art="poster:70" data-name="Half-Life" style="left:428px"></span>
+        <span class="sx-art poster" data-c1b-art="poster:220" data-name="Half-Life 2" style="left:557px"></span>
+        <span class="sx-art poster" data-c1b-art="poster:130" data-name="Half-Life: Blue Shift" style="left:686px"></span>
+        <span class="sx-art poster" data-c1b-art="poster:50" data-name="Half-Life: Opposing Force" style="left:815px"></span>
+
+        <div class="sx-h row2h" style="left:32px" data-id="software-h">Software</div>
+        <div class="sx-h row2h" style="left:348px" data-id="store-h">Store (158)</div>
+        <div class="apps is-focus" data-id="software" data-dz="0" data-tier="C2a provider c2a.programs, slot software: A = LaunchNonSteamApp(strCmdline) through rt.react.actions (logged in tests); never pops">
+          <span class="chip"><img src="../../refs/library/icons/half-sbs-toggle.png" alt="" onerror="this.replaceWith(Object.assign(document.createElement('i'),{dataset:{i:'window'}}))"></span>
+          <span class="nm">Half SBS Toggle</span>
         </div>
-        <div class="hd" style="top:398px"><span class="t-title3">In the Store</span><span class="lgk-btn capsule">See All<i data-i="chevron-right"></i></span></div>
+        <span class="st" data-id="store-0" style="left:348px; --x:666; --y:368"></span>
+        <span class="st" data-id="store-1" style="left:544px; --x:971; --y:368"></span>
+        <span class="lgk-btn capsule seeall" data-id="seeall">See All<i data-i="chevron-right"></i></span>
+        <div class="sx-h" style="left:32px; top:476px">Tools (3)</div>
       </div>
     </div>
-    <div data-wn="ornament" data-legends="X:Play|menu:Options@Half-Life: Alyx|A:Open|B:Close"></div>
+
+    <!-- the bottom ornament (C1a, PLAN §1.10): a program has no X (no primary action) and no menu, so our cell declares
+         only A "Open" and B "Back": the quiet legend in the 64 px margin, glyph badges because this is gamepad mode -->
+    <div data-wn="ornament" data-legends="A:Open|B:Back"></div>
   </div>
 
+  <div data-wn="winbar" data-cx="960" data-y="806" data-dim=".85"></div>
   <div data-wn="bar" data-cx="960" data-y="904"></div>
 
-  <div class="wn-cap" style="left:1612px; top:150px; width:290px">window-nav's sheet (C1b). <span class="m">home-apps adds three things through the provider API:</span></div>
-  <div class="wn-cap" style="left:1612px; top:262px; width:290px">S-A: programs join the ranking; one can be the Top Hit <span class="m">(here a game wins: "half" is a title prefix of both)</span></div>
-  <div class="wn-cap" style="left:1612px; top:424px; width:290px">S-B: the Apps section, after Top Results <span class="m">(the real match: Half SBS Toggle)</span></div>
-  <div class="wn-cap" style="left:1612px; top:560px; width:290px">S-C: X = Steam's primary action on library items <span class="m">(A still opens the page)</span></div>
+  <div class="wn-cap" style="left:1612px; top:150px; width:290px"><b>C1b's sheet; home-apps adds programs</b> through the provider API (<code>c2a.programs</code>). Same query and real data as <code>p2_window-nav_results.png</code>.</div>
+  <div class="wn-cap" style="left:1612px; top:290px; width:290px"><b>S-A:</b> a program becomes the Top Hit only with a strictly better match tier. "half": every Half-Life title and Half SBS Toggle are title prefixes, so the game stays. "vlc": VLC media player would be the Top Hit.</div>
+  <div class="wn-cap" style="left:1612px; top:470px; width:290px"><b>S-B:</b> the Software cell, gamepad focus (+ white .28, spot, arc; no lift). A launches it (logged in tests). With more matches it reads "and N more" and A opens Home › Apps with it focused.</div>
+  <div class="wn-cap" style="left:1612px; top:648px; width:290px"><b>S-C:</b> X = Play on library items, declared by C1b's sheet. A program has no X or menu, so only A and B: the quiet legend.</div>
 </div>
 <script src="../../refs/library/library.js"></script>
 <script src="home-apps.js"></script>
 <script src="window-nav-shared.js"></script>
+<script>
+  /* C1b's art helper (copied from window-nav-results.html): real art from docs/refs/library, else a title card */
+  (() => {
+    const base = '../../refs/library/art/';
+    const fallback = (el) => { if (!el.querySelector('img.hero, img.port')) { el.classList.add('mono'); if (!el.children.length) el.textContent = el.dataset.name || ''; } };
+    document.querySelectorAll('[data-c1b-art]').forEach((el) => {
+      const [kind, id] = el.dataset.c1bArt.split(':');
+      const add = (file, cls) => { const i = new Image(); i.className = cls; i.alt = ''; i.onerror = () => { i.remove(); fallback(el); }; i.src = base + file; el.prepend(i); };
+      if (kind === 'poster') add(id + '_port.jpg', 'port');
+      else if (kind === 'hero') { if (el.dataset.logo !== undefined) add(id + '_logo.png', 'logo'); add(id + '_hero.jpg', 'hero'); }
+    });
+    const tag = (sel, id) => { const n = document.querySelector(sel); if (n) n.dataset.id = id; };
+    tag('.wn-toolbar .wn-search', 'field'); tag('.wn-toolbar .wn-back', 'back'); tag('.wn-orn', 'ornament');
+  })();
+</script>
 <script src="kit.js"></script>
 <script src="home-apps-icons.js"></script>
 </body>

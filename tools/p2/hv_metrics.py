@@ -9,9 +9,9 @@ measure(path, rect=None) -> dict:
   glassL          mean luma (601) inside the rect, inset 8 %   (G-HV: 55..110)
   outsideL        mean luma of the band 12..48 px outside the rect
   edge            WN 8.2 profile of the rect's top edge (ratio <= 0.35)
-  doubling        max normalised correlation of the x-gradient of the band around the
-                  top edge with itself shifted by 4..40 px (> 0.6 at some shift = a doubled edge),
-                  and that shift
+  doubling        the highest local maximum (shift >= 6 px) of the normalised correlation of the
+                  x-gradient of the band around the top edge with itself shifted by 4..42 px
+                  (> 0.6 = a doubled edge), and that shift
   pass            all of the above within limits (rect checks only when a rect is known)
 
 Auto rect: the bounding box of the largest bright component (the UI is brighter than the
@@ -56,15 +56,17 @@ def doubling(L, y, x0, x1, half=12):
     band = L[y0:y1, x0:x1]
     g = np.abs(np.diff(band, axis=1)).mean(axis=0)
     g = g - g.mean()
-    best, at = 0.0, 0
-    for s in range(4, 41):
+    cs = {}
+    for s in range(4, 43):
         a, b = g[:-s], g[s:]
         den = np.sqrt((a * a).sum() * (b * b).sum())
-        if den <= 0:
-            continue
-        c = float((a * b).sum() / den)
-        if c > best:
-            best, at = c, s
+        cs[s] = float((a * b).sum() / den) if den > 0 else 0.0
+    # Only a local maximum at a shift >= 6 counts (REQ P9->P10): text repeats its strokes at the smallest
+    # shifts, so the correlation falls from s = 4 without any doubled edge.
+    best, at = 0.0, 0
+    for s in range(6, 42):
+        if cs[s] > cs[s - 1] and cs[s] > cs[s + 1] and cs[s] > best:
+            best, at = cs[s], s
     return round(best, 3), at
 
 
