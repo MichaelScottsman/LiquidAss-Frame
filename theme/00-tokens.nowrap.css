@@ -123,6 +123,10 @@ html.lgs-on {
   /* ================================================================ states (PLAN §1.4) */
   --lgs-hover-add: .08;
   --lgs-hover-spot: .12;
+  /* laser hover on wide rows (uniform add) and navigation rows (spot only),
+     tuned to VP P-03's +10..+25 L over the dim and bright rooms (R1 m7) */
+  --lgs-row-hover-add: .06;
+  --lgs-nav-hover-spot: .16;
   --lgs-focus-add: .32;          /* final, set from G-FOCUS (range .28-.32): .28 failed P-14/P-15 on the tab bar over glass at L ~95 (REQ C1a); wp/P4.md P4-D8 */
   --lgs-focus-spot: .16;
   --lgs-focus-arc: .55;
@@ -167,6 +171,9 @@ html.lgs-on {
   /* ================================================================ materials, CSS-only (T1) look
      (PLAN §1.6, WN §8.4). glassd draws the real glass in native mode;
      05-native.css (P6) zeroes these where the daemon acknowledged a cover. */
+  /* the window's tint alone (a colour, for slabs that build their own
+     gradient stack; High Contrast makes it .94 like the -bg tokens) */
+  --lgs-mat-window-tint: rgb(20 22 30 / calc(.60 + var(--lgs-dial) * .24));
   --lgs-mat-window-bg:
       linear-gradient(180deg, rgb(255 255 255 / .08) 0, rgb(255 255 255 / 0) 30%),
       rgb(20 22 30 / calc(.60 + var(--lgs-dial) * .24));
@@ -274,9 +281,11 @@ html.lgs-on {
      replace Phase 1's); the fallbacks are the Phase 1 values */
   --lgs-spring: var(--lgs-ease-b15, cubic-bezier(0.2, 0.9, 0.25, 1.15));
   --lgs-ease: var(--lgs-ease-b0, cubic-bezier(0.2, 0.8, 0.2, 1));
-  --lgs-t-fast: 140ms;
-  --lgs-t: 220ms;
-  --lgs-t-slow: 320ms;
+  /* the Phase 1 durations (140 / 220 / 320 ms) are not tokens: P5's take their
+     place (DESIGN2 §11.3; review R1 m4), and follow P5's Reduce Motion values */
+  --lgs-t-fast: var(--lgs-d-interactive, 210ms);
+  --lgs-t: var(--lgs-d-hover-in, 294ms);
+  --lgs-t-slow: var(--lgs-d-fade, 441ms);
 }
 
 /* Vietnamese mixes Inter and fallback letters inside one word: keep Steam's stack */
@@ -304,6 +313,7 @@ html.lgs-on:lang(vi) { --lgs-font: "Motiva Sans", Arial, sans-serif; }
     --lgs-text-3: rgb(255 255 255 / .74);
     --lgs-separator: rgb(255 255 255 / .28);
     --lgs-mat-window-bg: rgb(11 13 16 / .94);
+    --lgs-mat-window-tint: rgb(11 13 16 / .94);
     --lgs-mat-panel-bg: rgb(11 13 16 / .94);
     --lgs-mat-liquid-bg: rgb(11 13 16 / .94);
     --lgs-mat-liquid-room-bg: rgb(11 13 16 / .94);
@@ -311,25 +321,26 @@ html.lgs-on:lang(vi) { --lgs-font: "Motiva Sans", Arial, sans-serif; }
     --lgs-mat-clear-bg: rgb(11 13 16 / .94);
     --lgs-mat-plate-bg: rgb(11 13 16 / .94);
     --lgs-hover-spot: 0;
+    --lgs-nav-hover-spot: 0;
     --lgs-focus-spot: 0;
     --lgs-press-spot: 0;
     /* Phase 1 aliases, as before */
     --lgs-glass-bg: rgba(24, 26, 34, 0.92);
     --lgs-thick-bg: rgba(24, 26, 34, 0.96);
   }
+  /* the dial at its opaque end; doubled class so it beats the bundler's
+     remembered dial (html.lgs-on { --lgs-dial: X }, appended last; review R1 m6) */
+  html.lgs-on.lgs-on { --lgs-dial: 1; }
 }
 
 /* Reduce Motion: no swell and no lift; fades stay (MO C8, VP P-56: fades
-   <= 200 ms, not instant). The Phase 1 duration aliases follow P5's Reduce
-   Motion durations (150 / 150 / 180 ms; REQ P5->P4). */
+   <= 200 ms, not instant). The Phase 1 duration aliases are P5's tokens, so
+   they take P5's Reduce Motion durations (150 / 150 / 180 ms) by themselves. */
 @media (prefers-reduced-motion: reduce) {
   html.lgs-on {
     --lgs-press-grow: 0;
     --lgs-press-max: 1;
     --lgs-card-lift: 1;
     --lgs-disc-lift: 1;
-    --lgs-t-fast: var(--lgs-d-interactive, 150ms);
-    --lgs-t: var(--lgs-d-hover-in, 150ms);
-    --lgs-t-slow: var(--lgs-d-fade, 180ms);
   }
 }

@@ -3,7 +3,7 @@
 // lab_helpers.js and lab_p2.js; extends window.__LGS_LAB with L.gates.
 (function () {
   const L = window.__LGS_LAB;
-  if (!L || (L.gates && L.gates.v === 6)) return;
+  if (!L || (L.gates && L.gates.v === 7)) return;
 
   // D2 2.5: the multiplier m of each surface (sizes in main-window px x m).
   const M = [[/^main$/, 1], [/^frame\.menu|^tooltip|^notifications|^floatingfooter/, 0.9], [/^bar|^barpopup/, 0.83],
@@ -43,24 +43,65 @@
     if (table) exTable = table;
     return exTable || {};
   }
-  function exemptId(alias, el) {
+  // An exemption may be limited to some sweeps (lab/exemptions.json "_scope": {"E-GRID": {"sweeps": ["aud"],
+  // "aud": ["SHRUNK"]}}): elsewhere the element is judged as usual. sweep: 'size' | 'type' | 'outline' | 'aud';
+  // none = any exemption (the Phase 1 behaviour).
+  const scopeOf = (id) => { const s = (exemptions()._scope || {})[id]; return s && typeof s === 'object' ? s : null; };
+  const inScope = (id, sweep) => { const s = scopeOf(id); return !sweep || !s || !Array.isArray(s.sweeps) || s.sweeps.includes(sweep); };
+  // -> {id, host}: the exemption and the element that carries it (the tagged ancestor or the selector's match).
+  function exemptMatch(alias, el, sweep) {
     const host = el.closest('[data-lgs-exempt]');
-    if (host) return host.getAttribute('data-lgs-exempt');
+    if (host && inScope(host.getAttribute('data-lgs-exempt'), sweep)) return { id: host.getAttribute('data-lgs-exempt'), host };
     const t = exemptions();
     for (const id of Object.keys(t)) {
-      if (!Array.isArray(t[id])) continue;
+      if (!Array.isArray(t[id]) || !inScope(id, sweep)) continue;
       for (const s of t[id]) {
         let sel;
         try { sel = L.sel(s); } catch (_) { continue; }
-        try { if (el.closest(sel)) return id; } catch (_) { /* bad selector */ }
+        try { const h = el.closest(sel); if (h) return { id, host: h }; } catch (_) { /* bad selector */ }
       }
     }
     return null;
+  }
+  function exemptId(alias, el, sweep) {
+    const m = exemptMatch(alias, el, sweep);
+    return m ? m.id : null;
   }
 
   const rectOf = (el) => { const r = el.getBoundingClientRect(); return [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)]; };
   const label = (el) => (L.readable(el).slice(0, 3).join(' ') || el.tagName.toLowerCase()) +
     ((el.innerText || el.getAttribute('aria-label') || '').trim() ? ' "' + (el.innerText || el.getAttribute('aria-label')).trim().replace(/\s+/g, ' ').slice(0, 30) + '"' : '');
+
+  // Part of its host's target (REQ C3a->P10): Steam renders some Panels with the Focusable class but
+  // `focusable: false` (the battery, volume, Wi-Fi and bell glyphs inside the Quick Access pill). With no activation
+  // handler of their own (onClick, onActivate, pointer/mouse/touch down/up, the gamepad buttons), a laser click on
+  // one bubbles to the control around it and the gamepad never focuses it: it is part of that control's target, which
+  // SIZE judges whole. Native controls (button, input, a[href], ...) and anything with its own handler stay targets.
+  const ACT = /^on(Click|Activate|MouseDown|MouseUp|PointerDown|PointerUp|TouchStart|TouchEnd|OKButton|SecondaryButton|SecondaryActionDescription|OptionsButton|GamepadDirection)$/;
+  const fiberOf = (el) => { const k = Object.keys(el).find((x) => x.startsWith('__reactFiber')); return k ? el[k] : null; };
+  function partOfHost(el) {
+    if (el.matches('button, input, textarea, select, a[href]')) return false;
+    if (!el.parentElement || !el.parentElement.closest(INTERACTIVE)) return false;     // not inside another control
+    for (let f = fiberOf(el), i = 0; f && i < 8; f = f.return, i++) {
+      const p = f.memoizedProps;
+      if (!p || typeof p !== 'object') continue;
+      for (const k of Object.keys(p)) if (ACT.test(k) && typeof p[k] === 'function') return false;
+      if (Object.prototype.hasOwnProperty.call(p, 'focusable')) return p.focusable === false;   // the Panel that says
+    }
+    return false;
+  }
+
+  // Does el carry an activation handler of its own (its React props up to the Panel that declares `focusable`)?
+  // A focusable Panel without one is a focus container, not a hit target (REQ C7->P10, AUD panes).
+  function ownHandler(el) {
+    for (let f = fiberOf(el), i = 0; f && i < 8; f = f.return, i++) {
+      const p = f.memoizedProps;
+      if (!p || typeof p !== 'object') continue;
+      for (const k of Object.keys(p)) if (ACT.test(k) && typeof p[k] === 'function') return true;
+      if (i > 0 && Object.prototype.hasOwnProperty.call(p, 'focusable')) break;
+    }
+    return el.matches('button, input, textarea, select, a[href]') || typeof el.onclick === 'function';
+  }
 
   function controls(alias) {
     const w = L.surface(alias);
@@ -134,6 +175,91 @@
     return null;
   }
 
+  // Can n scroll along the axis ('x' | 'y')?
+  function canScroll(w, n, axis) {
+    const c = w.getComputedStyle(n);
+    return axis === 'y' ? /(auto|scroll)/.test(c.overflowY) && n.scrollHeight > n.clientHeight + 2
+      : /(auto|scroll)/.test(c.overflowX) && n.scrollWidth > n.clientWidth + 2;
+  }
+  // The outermost scroller around el (null: el does not scroll).
+  function topScroller(w, el) {
+    let top = null;
+    for (let n = el.parentElement; n && n.nodeType === 1 && n !== w.document.documentElement; n = n.parentElement) {
+      if (canScroll(w, n, 'x') || canScroll(w, n, 'y')) top = n;
+    }
+    return top;
+  }
+  // Under chrome or a fixed clip (REQ C4a->P10 (2) and its refinement; review of the obscured rule, session 4).
+  // Scrolling moves el relative to: the window, C1a's glass cut, the clips of `top` (the outermost scroller) and its
+  // ancestors (clip-path always, overflow on the axes they do not scroll), and chrome (a hit outside `top` that is
+  // not its ancestor: the bottom ornament, a header). Samples every 4 px down (at most 40 columns across) over the
+  // bw x bh box at (cx, cy):
+  // `frac` = the share under those; `clearable` = the scrollers around el have the room to move the whole box out
+  // (vertically or horizontally), so the user (or C1a's scroll guard) brings it clear before using it. A control
+  // that cannot be scrolled clear is judged where it is: hiding it would hide a real defect.
+  function obscuredInfo(w, el, top, cx, cy, bw, bh) {
+    const d = w.document;
+    let x0 = 0, y0 = 0, x1 = w.innerWidth, y1 = w.innerHeight;
+    for (let n = top; n && n.nodeType === 1 && n !== d.documentElement; n = n.parentElement) {
+      const c = w.getComputedStyle(n);
+      const clip = c.clipPath && c.clipPath !== 'none';
+      const ox = c.overflowX !== 'visible' && !canScroll(w, n, 'x'), oy = c.overflowY !== 'visible' && !canScroll(w, n, 'y');
+      if (!clip && !ox && !oy) continue;
+      const q = n.getBoundingClientRect();
+      if (clip) { const k = clipBox(c, q); x0 = Math.max(x0, k.l); x1 = Math.min(x1, k.r); y0 = Math.max(y0, k.t); y1 = Math.min(y1, k.b); }
+      if (ox) { x0 = Math.max(x0, q.left); x1 = Math.min(x1, q.right); }
+      if (oy) { y0 = Math.max(y0, q.top); y1 = Math.min(y1, q.bottom); }
+    }
+    const gh = parseFloat(w.getComputedStyle(d.documentElement).getPropertyValue('--lgs-c1a-gh'));
+    if (gh > 0) y1 = Math.min(y1, gh);
+    const under = (x, y) => {
+      if (x < x0 || x >= x1 || y < y0 || y >= y1) return 'clip';
+      const h = d.elementFromPoint(x, y);
+      return h && !top.contains(h) && !h.contains(top) ? 'chrome' : null;
+    };
+    let n = 0, ob = 0, chrome = 0, rows = 0, cols = 0;
+    let minY = Infinity, maxY = -Infinity, minX = Infinity, maxX = -Infinity;
+    let topRow = false, bottomRow = false, leftCol = false, rightCol = false;
+    const ys = [], xs = [];
+    for (let y = cy - bh / 2 + 2; y < cy + bh / 2; y += 4) ys.push(y);
+    const sx = Math.max(4, bw / 40);            // <= 40 columns: a wide row costs no more than a narrow control
+    for (let x = cx - bw / 2 + 2; x < cx + bw / 2; x += sx) xs.push(x);
+    rows = ys.length; cols = xs.length;
+    ys.forEach((y, iy) => xs.forEach((x, ix) => {
+      n++;
+      const u = under(x, y);
+      if (!u) return;
+      ob++;
+      if (u === 'chrome') chrome++;
+      minY = Math.min(minY, y); maxY = Math.max(maxY, y); minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+      if (iy === 0) topRow = true;
+      if (iy === rows - 1) bottomRow = true;
+      if (ix === 0) leftCol = true;
+      if (ix === cols - 1) rightCol = true;
+    }));
+    const centre = !!under(cx, cy);
+    // the room the scrollers around el have, per direction
+    let down = 0, up = 0, right = 0, left = 0;
+    for (let s = el.parentElement; s && s.nodeType === 1 && s !== d.documentElement; s = s.parentElement) {
+      if (canScroll(w, s, 'y')) { down += s.scrollHeight - s.clientHeight - s.scrollTop; up += s.scrollTop; }
+      if (canScroll(w, s, 'x')) { right += s.scrollWidth - s.clientWidth - Math.abs(s.scrollLeft); left += Math.abs(s.scrollLeft); }
+    }
+    // The shift that moves the box off every obscured sample (one 4 px grid step of margin). What is obscured at
+    // the box's edge goes on beyond it (a band: the ornament, the window edge, a header), so the box can only move
+    // away from that edge: content up (scroll down) off a band at its bottom, content down off one at its top; an
+    // obscured patch inside the box may be cleared either way. Obscured at both edges of an axis: not that axis.
+    const bTop = cy - bh / 2, bBot = cy + bh / 2, bLeft = cx - bw / 2, bRight = cx + bw / 2;
+    const nD = ob ? bBot - (minY - 4) : 0, nU = ob ? (maxY + 4) - bTop : 0;
+    const nR = ob ? bRight - (minX - sx) : 0, nL = ob ? (maxX + sx) - bLeft : 0;
+    const vOk = !(topRow && bottomRow) && ((!topRow && nD <= down + 1) || (!bottomRow && nU <= up + 1));
+    const hOk = !(leftCol && rightCol) && ((!leftCol && nR <= right + 1) || (!rightCol && nL <= left + 1));
+    const r1 = (v) => Math.round(v);
+    return { frac: n ? ob / n : 0, chromeFrac: n ? chrome / n : 0, centre, clearable: ob === 0 || vOk || hOk,
+      edges: { top: topRow, bottom: bottomRow, left: leftCol, right: rightCol },
+      need: { down: topRow ? 0 : r1(nD), up: bottomRow ? 0 : r1(nU), right: leftCol ? 0 : r1(nR), left: rightCol ? 0 : r1(nL) },
+      room: { down: r1(down), up: r1(up), right: r1(right), left: r1(left) } };
+  }
+
   // Hit statistics over a box bw x bh centred on (cx, cy): own = the element or inside it; other = another control.
   function hitStats(w, el, cx, cy, bw, bh, isCtl, allow) {
     const d = w.document;
@@ -150,6 +276,31 @@
       }
     }
     return { n, own: n ? own / n : 1, other: n ? other / n : 0, otherName };
+  }
+
+  // The drawn fill of an element: its box less a clear border (transparent, with background-clip padding-box or
+  // content-box; content-box also drops the padding). A visible border is part of the shape.
+  function fillRect(w, el) {
+    const r = el.getBoundingClientRect(), c = w.getComputedStyle(el);
+    const clip = c.backgroundClip || 'border-box';
+    const ins = (side) => {
+      const bw = parseFloat(c['border' + side + 'Width']) || 0;
+      const clear = c['border' + side + 'Style'] === 'none' || alphaOf(c['border' + side + 'Color']) <= 0.05;
+      return (clip !== 'border-box' && clear ? bw : 0) + (clip === 'content-box' ? parseFloat(c['padding' + side]) || 0 : 0);
+    };
+    const t = ins('Top'), rr = ins('Right'), b = ins('Bottom'), l = ins('Left');
+    return { left: r.left + l, top: r.top + t, right: r.right - rr, bottom: r.bottom - b, width: Math.max(0, r.width - l - rr), height: Math.max(0, r.height - t - b) };
+  }
+  // Steam's appended Cancel (PLAN 1.16 E-MENU (Cancel), R2-5): the last item of a top-level menu's first slab
+  // (submenus, the container's second slab, have none), as C1c's 22-presentations.css selects it.
+  let cancelSel;
+  function isMenuCancel(el) {
+    if (cancelSel === undefined) {
+      try { cancelSel = L.sel('%{*BasicContextMenuHeader>BasicContextMenuModal} %{*BasicContextMenuModal>BasicContextMenuContainer} > %{*BasicContextMenuModal>contextMenuContents}:first-child > %{*BasicContextMenuModal>contextMenuItem}:last-child'); } catch (_) { cancelSel = null; }
+    }
+    if (cancelSel) { try { return el.matches(cancelSel); } catch (_) { /* fall back */ } }
+    const p = el.parentElement;
+    return !!p && p.lastElementChild === el && !!p.parentElement && p.parentElement.firstElementChild === p && !!p.parentElement.parentElement;
   }
 
   // PLAN 1.16: each exemption's own criterion (contracts/lab.md section 6). Returns {pass, why}.
@@ -169,14 +320,63 @@
     };
     switch (id) {
       case 'E-MENU': {
-        const p = pitchTo('y');
-        const ok = r.height + 0.5 >= 60 && r.width >= 320 && (p === null || p >= 63.5);
-        return { pass: ok, why: `${Math.round(r.width)} x ${Math.round(r.height)}, pitch ${p === null ? 'last' : Math.round(p)} (needs >= 60 visible, >= 320 wide, pitch >= 64)` };
+        // PLAN 1.16 [R2-5] (REQ Coordinator->P10 (1)). The visible fill is the element less a clear border (C1c's
+        // rows inset their fill by a 2 px transparent border with background-clip: padding-box).
+        const fill = fillRect(w, el);
+        const items = sib.filter((s) => s.className === el.className || L.readable(s).some((c) => /contextMenuItem/.test(c)));
+        const cancel = isMenuCancel(el);
+        if (cancel) {
+          // Steam's appended Cancel, its own line: visible 60 tall (= its element), >= 192 wide, >= 4 px clear of
+          // the last row's visible fill, inside the slab, last in DOM order, its centre hits it. Judged instead of
+          // P-08 and the row clauses.
+          const slab = el.parentElement.getBoundingClientRect();
+          const above = items.filter((s) => s !== el && L.visible(w, s)).map((s) => fillRect(w, s))
+            .filter((q) => q.bottom <= fill.top + 1 && q.right > fill.left && q.left < fill.right);
+          const clear = above.length ? Math.min(...above.map((q) => fill.top - q.bottom)) : null;
+          const inside = r.left >= slab.left - 1 && r.right <= slab.right + 1 && r.top >= slab.top - 1 && r.bottom <= slab.bottom + 1;
+          const hit = w.document.elementFromPoint(cx, cy);
+          const hits = !!hit && (el.contains(hit) || hit.contains(el));
+          const ok = fill.height + 0.5 >= 60 && Math.abs(fill.height - r.height) < 0.5 && fill.width + 0.5 >= 192 && (clear === null || clear >= 3.5) && inside && hits;
+          return { pass: ok, why: `Cancel: fill ${Math.round(fill.width)} x ${Math.round(fill.height)} on a ${Math.round(r.width)} x ${Math.round(r.height)} element, ${clear === null ? 'no row above' : Math.round(clear) + ' px clear of the row above'}, ${inside ? 'inside' : 'outside'} the slab, centre hit ${hits ? 'own' : 'other'} (needs a 60 tall fill = its element, >= 192 wide, >= 4 px clear, inside, own centre)` };
+        }
+        // Rows: >= 60 visible on a contiguous pitch of >= 64 (compact: rows touch) or 78 (regular); >= 320 wide in
+        // one column, >= 280 in the two-column grid (rows at two distinct x in the slab, or C1c's .lgs-menu-grid).
+        const xs = new Set(items.filter((s) => L.visible(w, s) && !isMenuCancel(s)).map((s) => Math.round(s.getBoundingClientRect().left / 8)));
+        xs.add(Math.round(r.left / 8));
+        const grid = xs.size >= 2 || !!(el.parentElement && el.parentElement.closest('.lgs-menu-grid'));
+        const below = items.filter((s) => s !== el && L.visible(w, s) && !isMenuCancel(s)).map((s) => s.getBoundingClientRect())
+          .filter((q) => q.top > r.top + 1 && Math.abs(q.left - r.left) < 8);
+        const p = below.length ? Math.min(...below.map((q) => q.top - r.top)) : null;
+        const gap = below.length ? Math.min(...below.map((q) => q.top - r.bottom)) : null;
+        const compact = gap !== null && gap <= 2;
+        const minW = grid ? 280 : 320, minP = compact ? 64 : 78;
+        const ok = fill.height + 0.5 >= 60 && r.width + 0.5 >= minW && (p === null || p + 0.5 >= minP);
+        return { pass: ok, why: `${grid ? 'grid' : 'column'} row ${Math.round(r.width)} x ${Math.round(r.height)} (fill ${Math.round(fill.height)} tall), pitch ${p === null ? 'last' : Math.round(p)}${p === null ? '' : compact ? ' compact' : ' regular'} (needs fill >= 60, >= ${minW} wide, pitch >= ${minP})` };
       }
       case 'E-TAB': {
-        const g = gapTo('y');
-        const ok = r.height + 0.5 >= 52 && (g === null || g <= 2);
-        return { pass: ok, why: `item ${Math.round(r.height)} tall, gap ${g === null ? 'last' : Math.round(g)} (needs >= 52, abutting)` };
+        // PLAN 1.16: pitch >= 52 frame-menu px (m .9), so 52 x m / .9 on any surface (48 bar px), items abutting.
+        // Vertical bars (the frame menu) or horizontal rows (Quick Access's five tabs, REQ C3b->P10): the axis is
+        // the one along which the next item follows; across it the visible item keeps P-80's 60 x m (50 bar px).
+        const pitchMin = 52 * m / 0.9, cross = 60 * m;
+        const row = sib.some((s) => { const q = s.getBoundingClientRect(); return Math.abs(q.top - r.top) < 4 && Math.abs(q.left - r.left) > 4; });
+        const g = gapTo(row ? 'x' : 'y');
+        const vr = visibleRect(w, el);
+        const along = row ? r.width : r.height, across = row ? vr.h : vr.w;
+        const ok = along + 0.5 >= pitchMin && across + 0.5 >= cross && (g === null || g <= 2);
+        return { pass: ok, why: `${row ? 'row' : 'column'} item ${Math.round(r.width)} x ${Math.round(r.height)} (visible ${Math.round(vr.w)} x ${Math.round(vr.h)}), gap ${g === null ? 'last' : Math.round(g)} (needs ${row ? 'width' : 'height'} >= ${+pitchMin.toFixed(1)}, visible ${row ? 'height' : 'width'} >= ${+cross.toFixed(1)}, abutting)` };
+      }
+      case 'E-GRID': {
+        // REQ C2b->P10: launcher grid cells (the "+" popup). AUD's SHRUNK is waived for them (rows 260 x 40 become
+        // 72 x 96 cells), never GONE / HIDDEN / UNCLICKABLE / CONTRAST, and only while each cell is >= 80m x 96m
+        // (67 x 80 bar px), abuts its row and column neighbours (gap <= 2) and is its own whole hit (>= 95 % own,
+        // no other target over the cell). SIZE judges the cells as usual (scope "aud" in exemptions.json).
+        const inRow = sib.map((s) => s.getBoundingClientRect()).filter((q) => Math.abs(q.top - r.top) < 4 && q.left >= r.right - 1);
+        const inCol = sib.map((s) => s.getBoundingClientRect()).filter((q) => Math.abs(q.left - r.left) < 4 && q.top >= r.bottom - 1);
+        const gx = inRow.length ? Math.min(...inRow.map((q) => q.left - r.right)) : null;
+        const gy = inCol.length ? Math.min(...inCol.map((q) => q.top - r.bottom)) : null;
+        const h = hitStats(w, el, cx, cy, Math.max(4, r.width - 2), Math.max(4, r.height - 2), isCtl);
+        const ok = r.width + 0.5 >= 80 * m && r.height + 0.5 >= 96 * m && (gx === null || gx <= 2) && (gy === null || gy <= 2) && h.own >= 0.95 && h.other === 0;
+        return { pass: ok, why: `cell ${Math.round(r.width)} x ${Math.round(r.height)}, gaps ${gx === null ? 'last' : Math.round(gx)} / ${gy === null ? 'last' : Math.round(gy)}, hit ${Math.round(h.own * 100)}% own, ${Math.round(h.other * 100)}% other (needs >= ${+(80 * m).toFixed(1)} x ${+(96 * m).toFixed(1)}, abutting, whole cell its own hit)` };
       }
       case 'E-SWITCH': {
         const h = hitStats(w, el, cx, cy, 86, 80, isCtl);
@@ -210,12 +410,27 @@
     }
   }
 
+  // The criterion of one exemption on the element that carries it, outside the SIZE sweep (AUD's snapshots for a
+  // scoped exemption such as E-GRID): {pass, why}. `cache` (a Map) shares one result between a host's records.
+  function exemptCriterion(alias, id, host, cache) {
+    if (cache && cache.has(host)) return cache.get(host);
+    const w = L.surface(alias);
+    const isCtl = (n) => { for (let x = n; x && x.nodeType === 1; x = x.parentElement) if (x.matches(INTERACTIVE) && L.visible(w, x)) return x; return null; };
+    let c;
+    try { c = exemptCheck(alias, id, host, w, isCtl, mOf(alias)); } catch (e) { c = { pass: null, why: e.message }; }
+    if (cache) cache.set(host, c);
+    return c;
+  }
+
   // ------------------------------------------------------------ G-SIZE (P-08, P-80, P-83; SM G2b)
   function size(alias, opts) {
     opts = opts || {};
     const w = L.surface(alias);
     const m = mOf(alias);
-    const ctls = controls(alias);
+    // focusable: false Panels without a handler of their own are part of their host's target (REQ C3a->P10)
+    const all = controls(alias);
+    const hosted = all.filter(partOfHost);
+    const ctls = all.filter((el) => !hosted.includes(el));
     const set = new Set(ctls);
     // Containers are not targets: an element holding several controls (nav rows, headers, tab
     // strips), a scroller, or anything over half the window. A hit on one is empty page area,
@@ -231,7 +446,8 @@
     const containers = new Set(ctls.filter(isContainer));
     const isCtl = (n) => { for (let x = n; x && x.nodeType === 1; x = x.parentElement) if (set.has(x) && !containers.has(x)) return x; return null; };
     const modal = topModal(w);
-    const fails = [], exempt = [], skipped = [];
+    const fails = [], exempt = [], inPlace = [];
+    const skipped = hosted.slice(0, 20).map((el) => ({ el: label(el), why: 'part of its host (focusable: false, no handler of its own)' }));
     let checked = 0, transients;
     for (const el of ctls) {
       const r = el.getBoundingClientRect();
@@ -239,17 +455,29 @@
       if (modal && !modal.contains(el)) { if (skipped.length < 40) skipped.push({ el: name, why: 'under modal' }); continue; }
       const vr = visibleRect(w, el);
       if (vr.w < 1 || vr.h < 1) { if (skipped.length < 40) skipped.push({ el: name, why: 'clipped' }); continue; }
-      // Obscured (REQ C4a->P10 2): the centre lies under chrome outside the element's scroller (the bottom
-      // ornament, the header): the user scrolls it into view before using it.
+      // Obscured (REQ C4a->P10 (2) and its refinement): in a scroller, with its centre clipped or under chrome
+      // outside the scroller (the bottom ornament, a header), or >= 25 % of its 80 px hit box there. The user (or
+      // C1a's scroll guard) scrolls it clear before using it, so it is skipped, but only when the scrollers around
+      // it have the room to bring the whole hit box clear; otherwise it is judged where it is (obscuredInfo).
       const cx = r.x + r.width / 2, cy = r.y + r.height / 2;
+      const bw = Math.max(80 * m, r.width), bh = 80 * m;
       const sc = scrollerOf(w, el);
-      const ch = (cx >= 0 && cy >= 0 && cx < w.innerWidth && cy < w.innerHeight) ? w.document.elementFromPoint(cx, cy) : null;
-      const centreClipped = cy < vr.y0 || cy > vr.y1 || cx < vr.x0 || cx > vr.x1;
-      if (sc && (centreClipped || (ch && !el.contains(ch) && !ch.contains(el) && !sc.contains(ch)))) {
-        if (skipped.length < 40) skipped.push({ el: name, why: 'obscured: scrolled under chrome' });
-        continue;
+      let stuck = null;
+      if (sc) {
+        const top = topScroller(w, el) || sc;
+        const centreClipped = cy < vr.y0 || cy > vr.y1 || cx < vr.x0 || cx > vr.x1;
+        const ob = obscuredInfo(w, el, top, cx, cy, bw, bh);
+        if (centreClipped || ob.centre || ob.frac >= 0.25) {
+          const pct = Math.round(ob.frac * 100);
+          if (ob.clearable) {
+            if (skipped.length < 40) skipped.push({ el: name, why: 'obscured: scrolled under chrome', under: pct });
+            continue;
+          }
+          const nd = Object.entries(ob.need).filter(([, v]) => v > 0).map(([k, v]) => `${k} ${v} (room ${ob.room[k]})`).join(', ');
+          stuck = `${pct}% of its hit box under chrome or the glass cut, and its scrollers cannot bring it clear: needs ${nd || 'both ways'} px`;
+        }
       }
-      const ex = exemptId(alias, el);
+      const ex = exemptId(alias, el, 'size');
       if (ex) {
         let c = { pass: null, why: '' };
         try { c = exemptCheck(alias, ex, el, w, isCtl, m); } catch (e) { c = { pass: null, why: e.message }; }
@@ -273,17 +501,20 @@
       const isField = el.matches(FIELD);
       const minVis = (isField ? 64 : 60) * m;
       if (short + 0.5 < minVis) fails.push({ el: name, rect: rectOf(el), rule: 'P-80', why: `visible short side ${Math.round(short)} < ${Math.round(minVis)}` });
-      // hit sampling over B = max(80m, w) x 80m, centred on the control
-      const bw = Math.max(80 * m, r.width), bh = 80 * m;
-      // A control that is only partly visible (cut by its scroller, the window glass bottom or the window edge)
-      // with a visible part shorter or narrower than the box cannot meet P-08 where it is; the scroll guard
-      // brings it into view before it takes focus (REQ C2a->P10 #9). P-80 and P-83 are still judged.
+      // Hit sampling over B = max(80m, w) x 80m (bw, bh above). A control that is only partly visible (cut by its
+      // scroller, the window glass bottom or the window edge) with a visible part shorter or narrower than the box
+      // cannot meet P-08 where it is; the scroll guard brings it into view before it takes focus (REQ C2a->P10
+      // #9). P-80 and P-83 are still judged.
       const partly = (vr.h + 1 < r.height || vr.w + 1 < r.width) && (vr.h + 0.5 < bh || vr.w + 0.5 < Math.min(bw, 80 * m));
       if (partly) { if (skipped.length < 40) skipped.push({ el: name, why: 'partly visible: P-08 not sampled' }); }
-      const h = partly ? { own: 1, other: 0 } : hitStats(w, el, cx, cy, bw, bh, isCtl);
+      // The box is centred on the control's VISIBLE rect (REQ C2a->P10 #13): a control whose visible part holds
+      // the box can be hit anywhere in it, and nothing can be pointed at in the part that is cut away. For a fully
+      // visible control this is its own centre; the box keeps the full width of a wide control's visible part.
+      const vcx = (vr.x0 + vr.x1) / 2, vcy = (vr.y0 + vr.y1) / 2, vbw = Math.max(80 * m, vr.w);
+      const h = partly ? { own: 1, other: 0 } : hitStats(w, el, vcx, vcy, vbw, bh, isCtl);
       if (h.own < 0.95 || h.other > 0) {
-        fails.push({ el: name, rect: rectOf(el), rule: 'P-08', why: `hit ${Math.round(h.own * 100)}% own, ${Math.round(h.other * 100)}% other${h.otherName ? ' (' + h.otherName + ')' : ''} over ${Math.round(bw)}x${Math.round(bh)}` });
-      }
+        fails.push({ el: name, rect: rectOf(el), rule: 'P-08', why: `hit ${Math.round(h.own * 100)}% own, ${Math.round(h.other * 100)}% other${h.otherName ? ' (' + h.otherName + ')' : ''} over ${Math.round(vbw)}x${Math.round(bh)}${stuck ? '; ' + stuck : ''}` });
+      } else if (stuck && inPlace.length < 40) inPlace.push({ el: name, why: stuck });
       // P-83 shape: icon-only circles, text capsules. Not judged: vertical stacks, settings rows and other
       // list rows (Field, option, tab rows: rounded rectangles, CTL 10), content cards (art >= 100 tall, VP P-45).
       const cs = w.getComputedStyle(el);
@@ -300,7 +531,8 @@
       }
     }
     const exFail = exempt.filter((e) => e.pass === false);
-    return { pass: fails.length === 0 && exFail.length === 0, m, checked, fails: fails.slice(0, opts.max || 80), failCount: fails.length, exempt, exemptFail: exFail.length, skipped, modal: !!modal };
+    // inPlace: obscured controls whose scrollers cannot bring them clear, judged where they are (and passing)
+    return { pass: fails.length === 0 && exFail.length === 0, m, checked, fails: fails.slice(0, opts.max || 80), failCount: fails.length, exempt, exemptFail: exFail.length, skipped, inPlace, modal: !!modal };
   }
 
   // ------------------------------------------------------------ G-TYPE (P-38, P-84)
@@ -324,7 +556,7 @@
       if (modal && !modal.contains(el)) continue;                      // under an open modal
       const vr = visibleRect(w, el);
       if (vr.w < 1 || vr.h < 1) { skippedN++; continue; }              // clipped away (under the glass bottom)
-      const ex = exemptId(alias, el);
+      const ex = exemptId(alias, el, 'type');
       if (ex) { if (exempt.length < 40) exempt.push({ el: label(el), id: ex }); continue; }
       checked++;
       const cs = w.getComputedStyle(el);
@@ -445,7 +677,7 @@
       const rgb = /rgba?\(([^)]+)\)/.exec(cs.backgroundColor || '');
       const blackTint = !!rgb && rgb[1].split(/[ ,/]+/).filter(Boolean).slice(0, 3).every((v) => Number(v) === 0) && bgA < 0.5;
       const isGlass = !content && (bdf || edgeHook || (bgA > 0.02 && bgA < 0.95 && !blackTint)) && rad >= 16 && r.width >= 60 && r.height >= 40;
-      const exId = () => exemptId(alias, el);
+      const exId = () => exemptId(alias, el, 'outline');
       // P-43: thin lines anywhere (borders < 2 px, 1 px filled elements, hard 1-2 px shadow lines)
       for (const side of ['Top', 'Right', 'Bottom', 'Left']) {
         const bw = parseFloat(cs['border' + side + 'Width']) || 0;
@@ -631,27 +863,48 @@
     return bad;
   }
 
-  // G-AUD with exemptions: drop exempt records from both snapshots, then L.diff.
+  // G-AUD with exemptions: drop exempt records from both snapshots, then L.diff. A scoped exemption (exemptions.json
+  // "_scope": {"E-GRID": {"aud": ["SHRUNK"]}}) waives only the listed issue kinds, and only while the themed
+  // element meets the exemption's own criterion (`exc`, from L.snap); its other issues are reported as usual.
   function audDiff(a, b) {
-    const ex = [];
+    const ex = [], scoped = [];
     const a2 = {}, b2 = {};
     for (const k of Object.keys(a)) {
+      const kinds = a[k].exKinds || (b[k] && b[k].exKinds);
+      if (kinds && kinds.length) {
+        const one = L.diff({ [k]: a[k] }, b[k] ? { [k]: b[k] } : {});
+        const c = (b[k] && b[k].exc) || { pass: null, why: 'no themed record' };
+        const id = (b[k] && b[k].ex) || a[k].ex;
+        for (const iss of one.issues) {
+          const kind = iss.split(' ')[0];
+          if (kinds.includes(kind) && c.pass === true) { if (ex.length < 40) ex.push({ el: a[k].el + (a[k].text ? ' "' + a[k].text + '"' : ''), id, waived: kind, why: c.why }); }
+          else scoped.push(kinds.includes(kind) ? `${iss} (${id} criterion not met: ${c.why})` : iss);
+        }
+        continue;
+      }
       const e = a[k].ex || (b[k] && b[k].ex);
       if (e) { if (ex.length < 40) ex.push({ el: a[k].el + (a[k].text ? ' "' + a[k].text + '"' : ''), id: e }); continue; }
       a2[k] = a[k];
       if (b[k]) b2[k] = b[k];
       // A scroll container that stays >= 300 x 300 is not a small target (REQ C1c->P10 c): a sheet capped at
-      // 960 px keeps every row reachable by scrolling. Its size change is listed, not counted as SHRUNK.
-      if (b[k] && (a[k].sc || b[k].sc) && b[k].w >= 300 && b[k].h >= 300 && b[k].w * b[k].h < a[k].w * a[k].h) {
-        if (ex.length < 40) ex.push({ el: a[k].el + (a[k].text ? ' "' + a[k].text + '"' : ''), id: 'scroll-container', why: `${a[k].w}x${a[k].h} -> ${b[k].w}x${b[k].h}` });
+      // 960 px keeps every row reachable by scrolling. Nor is a pane that stays >= 300 x 300 (REQ C7->P10: /chat's
+      // panes under C1a's toolbar and footer pads): a focusable Panel that holds other controls or has no handler
+      // of its own, or a text box; its controls are audited one by one. Their size change is listed, not counted as
+      // SHRUNK; a leaf target with its own handler is always judged.
+      // a pane: a control that holds other controls or has no activation handler of its own (Steam's data), or a
+      // text box; a leaf target with its own handler is never one
+      const pane = a[k].kind === 'text' || (a[k].kind === 'ctl' && (a[k].nl || (b[k] && b[k].nl) || a[k].act === false));
+      if (b[k] && (a[k].sc || b[k].sc || pane) && b[k].w >= 300 && b[k].h >= 300 && b[k].w * b[k].h < a[k].w * a[k].h) {
+        if (ex.length < 40) ex.push({ el: a[k].el + (a[k].text ? ' "' + a[k].text + '"' : ''), id: (a[k].sc || b[k].sc) ? 'scroll-container' : 'container-pane', why: `${a[k].w}x${a[k].h} -> ${b[k].w}x${b[k].h}` });
         b2[k] = Object.assign({}, b[k], { w: a[k].w, h: a[k].h });
       }
     }
     const r = L.diff(a2, b2);
+    r.issues = r.issues.concat(scoped);
     r.exempt = ex;
     r.pass = r.issues.length === 0;
     return r;
   }
 
-  L.gates = { v: 6, shadowLines, pseudoBox, visibleRect, topModal, hitStats, exemptCheck, isScrollDriven, isOurs, ourSheets, audDiff, mOf, exemptions, exemptId, controls, size, type, outline, animsNow, motionAudit, atRest, cssAudit, isTokenMs, isTokenEase, TOKENS };
+  L.gates = { v: 7, shadowLines, pseudoBox, visibleRect, topModal, hitStats, exemptCheck, exemptMatch, exemptCriterion, obscuredInfo, topScroller, canScroll, partOfHost, ownHandler, fillRect, isMenuCancel, isScrollDriven, isOurs, ourSheets, audDiff, mOf, exemptions, exemptId, controls, size, type, outline, animsNow, motionAudit, atRest, cssAudit, isTokenMs, isTokenEase, TOKENS };
 })();

@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "about": "C3b Control Center (CC §4.2, §10; PLAN §1.2, §1.6, §1.7). CC-M has no pops: its three tiles (data-lgs-plate=panel, ids cc-now, cc-controls, cc-room) and the close circle (data-lgs-plate=liquid, id cc-close) are plates at the cover's depth (0 mm in both profiles), set as DOM attributes by device/rt/31-cc.js, and the main surface goes windowless through C1a's glassMode('*') hook while CC-M is open, so the window cover dematerializes while the plates materialize. CC-C (Steam's Quick Access popup) is the barpopup cover from 00-base.json; its +25 mm request is the barpopup host's (C3a's popup fragment). This fragment therefore declares no layer rules; it exists so the reporter and sgcheck see the package's flag. Open: REQ C3b->P6 (treat .lgs-cc as main's modal so no other main rule pops under CC-M).",
+  "flag": "wp.c3b",
+  "surfaces": {
+    "main": {
+      "layers": []
+    }
+  }
+}

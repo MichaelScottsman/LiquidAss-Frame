@@ -1,0 +1,47 @@
+{
+  "version": 2,
+  "about": "C2c Library catalogue (HA §10.4; PLAN §1.7 default profile). Every rule is behind wp.c2c. Only the attended poster (gamepad focus, or the laser's 80 ms dwell) pops, +15 mm, non-interactive, on a liquid slab; the posters are 172 x 258, so rule 2's click-safe cap (s = 172) admits +15; the More circle (60 visible) rides the poster's crop and, if the reporter counts it as the smallest focusable, the cap lowers the pop to +10, as HA §10.4 allows. While a menu or the Filters sheet is open only modal rules pop (rule 6, C1c's frames), so the source poster sits at 0. Collection tiles behave like posters. The window, its tab track, the sub-filter and the ornament stay at 0: the track is drawn on %{TabRow}::before, so the legacy 'tabs' rule (the wrapper's ::after) finds nothing on library routes; the legacy 'card' pop of a focused poster is dropped by overlap with the earlier library-poster layer. 'sort-filter' (Steam's laser pill, now a toolbar trailing group on the window plane, D-C2c-12) is superseded while wp.c2c is on. 'tab-arrow' (Phase 1's 4.43 mm pop of the ‹ › circles, outside PLAN §1.7's depth set, R2) matches only the library and Steam's own Home tab rows, so it is superseded too while wp.c2c is on (C2a informed): the arrows stay on the window plane like the track they flank.",
+  "flag": "wp.c2c",
+  "supersedes": [
+    {
+      "id": "sort-filter",
+      "flag": "wp.c2c"
+    },
+    {
+      "id": "tab-arrow",
+      "flag": "wp.c2c"
+    }
+  ],
+  "surfaces": {
+    "main": {
+      "layers": [
+        {
+          "id": "library-poster",
+          "sel": "%{GamepadLibrary} %{LibraryItemBox}",
+          "mm": 15,
+          "when": "attended",
+          "slab": "liquid",
+          "r": 20,
+          "flag": "wp.c2c",
+          "wearer": {
+            "mm": 15,
+            "interactive": true
+          }
+        },
+        {
+          "id": "library-collection",
+          "sel": "%{GamepadLibrary} %{Collection}",
+          "mm": 15,
+          "when": "attended",
+          "slab": "liquid",
+          "r": 30,
+          "flag": "wp.c2c",
+          "wearer": {
+            "mm": 15,
+            "interactive": true
+          }
+        }
+      ]
+    }
+  }
+}

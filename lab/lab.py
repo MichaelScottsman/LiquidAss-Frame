@@ -33,13 +33,19 @@ volumelevel, keyboard or notifications, or vr:PAGE for SteamVR's own pages
 (vr:systemui, vr:controllerbindingui, ...; listed by "surfaces --vr").
 Selectors accept %{Token} classes.
 """
-import asyncio
-import base64
-import fcntl
-import json
-import os
 import sys
-import time
+
+# No bytecode caches on the Frame (REQ P8->P10, PLAN 7: nothing may persist past `lgs off` or a reboot): set before
+# the imports below, so lgs, lgs_shell, lgs_vr and lab_p2cmd are not cached however lab.py is started (glass.py also
+# runs it with `python3 -B` and PYTHONDONTWRITEBYTECODE=1; other packages' scripts may not).
+sys.dont_write_bytecode = True
+
+import asyncio  # noqa: E402
+import base64  # noqa: E402
+import fcntl  # noqa: E402
+import json  # noqa: E402
+import os  # noqa: E402
+import time  # noqa: E402
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(HERE), "device"))
@@ -872,7 +878,16 @@ def main(argv):
         route = opt(args, "--route")
         pre = opt(args, "--pre")
         secs = float(opt(args, "--seconds", 3))
+        ab = opt(args, "--ab")              # Phase 2 (P10): R2-13's ABBA verdict, lab_p2cmd.perf_ab
+        rounds = int(opt(args, "--rounds", 2))
         surface = args[0]
+        if ab:
+            sys.modules.setdefault("lab", sys.modules[__name__])
+            import lab_p2cmd
+            code = lab_p2cmd.perf_ab(surface, route, pre, secs, ab, rounds)
+            if code:
+                sys.exit(code)
+            return
         res = {}
         with Lock():
             if route:

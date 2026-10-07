@@ -1,0 +1,22 @@
+reaper 316746
+{
+ "waitedS": 152.3,
+ "build": "11094443",
+ "date": "2026-10-07T12:31:54",
+ "native": {
+  "enabled": true,
+  "glassd": true,
+  "reason": "native",
+  "readyS": 2.6
+ },
+ "steps": [],
+ "start": "started (native)",
+ "lgsNativeOnMain": true
+}
+== step: p7
+step: mode=laser via rt.test.input.set  native=on
+@@p7 {"test": "SG-POPUP-N", "shots": ["/tmp/lgs/p7/hv/p7n_pop_A_built.png", "/tmp/lgs/p7/hv/p7n_pop_B_removed.png", "/tmp/lgs/p7/hv/p7n_pop_C_restored.png"], "route0": "/library/home", "mode": "laser", "ready": {"items": 36, "expired": false, "coverAt": 1791390941241, "cover": 1, "base": 17, "pop": 6, "lastContactMsAgo": 69, "window": {"dim": 1, "dimTarget": 1, "recede": 0, "recedeTarget": 0, "error": null}, "expiries": 0, "rebuilds": 0, "steamPage": {"mountable": "frame:7400001:page:5:mountable", "active": true, "t1": true}, "motion": "motion.js", "version": "f14d16cf2e+a9fdddd1dd"}, "surfaces": ["valve.steam.gamepadui.main", "valve.steam.gamepadui.bar", "valve.steam.gamepadui.floatingfooter", "valve.steam.gamepadui.frame.menu.92520005"], "parents": {"valve.steam.gamepadui.main": {"src": "frame", "uv": [0, 0, 1, 1], "mpp": 0.001388888888888889, "curv": null}, "valve.steam.gamepadui.bar": {"src": "popup", "uv": [0.160833, 0, 0.839167, 1], "mpp": 0.0015308333333333335, "curv": "system.systemui::DashboardCurvatureOrigin"}, "valve.steam.gamepadui.floatingfooter": {"src": "popup", "uv": [0.291667, 0, 0.708333, 1], "mpp": 0.0015308333333333335, "curv": "system.systemui::DashboardCurvatureOrigin"}, "valve.steam.gamepadui.frame.menu.92520005": {"src": "popup", "uv": [0.773333, 0.18, 1, 0.82], "mpp": 0.0015308333333333335, "curv": null}}, "items": [{"k": "valve.steam.gamepadui.bar#cover", "kind": "cover", "anchor": [0.499722, 0.5], "uv": [0.160556, 0, 0.838889, 1], "px": [1221, 120], "curv": "system.systemui::DashboardCurvatureOrigin", "z": 0.001}, {"k": "valve.steam.gamepadui.bar#base:0", "kind": "base", "anchor": [0.499722, 0.5], "uv": [0.160556, 0, 0.838889, 1], "px": [1221, 120], "curv": "system.systemui::DashboardCurvatureOrigin", "z": 0.002}, {"k": "valve.steam.gamepadui.frame.menu.92520005#cover", "kind": "cover", "anchor": [0.886667, 0.5], "uv": [0.773333, 0.18, 1, 0.82], "px": [102, 768], "curv": null, "z": 0.001}, {"k": "valve.steam.gamepadui.frame.menu.92520005#base:0", "kind": "base", "anchor": [0.886667, 0.5], "uv": [0.773333, 0.18, 1, 0.82], "px": [102, 768], "curv": null, "z": 0.002}, {"k": "valve.steam.gamepadui.floatingfooter#cover", "kind": "cover", "anchor": [0.499444, 0.5], "uv": [0.291111, 0, 0.707778, 1], "px": [375, 60], "curv": "system.systemui::DashboardCurvatureOrigin", "z": 0.001}, {"k": "valve.steam.gamepadui.floatingfooter#base:0", "kind": "base", "anchor": [0.499444, 0.5], "uv": [0.291111, 0, 0.707778, 1], "px": [375, 60], "curv": "system.systemui::DashboardCurvatureOrigin", "z": 0.002}], "target": "valve.steam.gamepadui.frame.menu.92520005", "itemsB": 0, "itemsC": 2, "targetItems": [{"k": "valve.steam.gamepadui.frame.menu.92520005#cover", "kind": "cover", "anchor": [0.886667, 0.5], "uv": [0.773333, 0.18, 1, 0.82], "px": [102, 768], "curv": null, "z": 0.001}, {"k": "valve.steam.gamepadui.frame.menu.92520005#base:0", "kind": "base", "anchor": [0.886667, 0.5], "uv": [0.773333, 0.18, 1, 0.82], "px": [102, 768], "curv": null, "z": 0.002}], "anchorOk": true, "curv": null}
+step: mode=laser via rt.test.input.set  native=on
+@@p7 {"test": "SG-6", "ready": {"items": 17, "expired": false, "coverAt": 1791390941241, "cover": 1, "base": 6, "pop": 2, "lastContactMsAgo": 360, "window": {"dim": 1, "dimTarget": 1, "recede": 0, "recedeTarget": 0, "error": null}, "expiries": 0, "rebuilds": 0, "steamPage": {"mountable": "frame:7400001:page:5:mountable", "active": true, "t1": true}, "motion": "motion.js", "version": "f14d16cf2e+a9fdddd1dd"}, "pid": 320333, "atStop": {"lastContactMsAgo": 33, "items": 17}, "off": {"sinceStopS": 12.38, "sinceContactMs": 12415}, "back": {"afterContS": 0.11, "coverPushedAfterContS": 0.096, "items": 6, "rebuilds": 1, "expiries": 1}, "samples": [[0.0, 17, 36, false], [1.52, 13, 1549, false], [3.03, 13, 3064, false], [4.54, 13, 4578, false], [6.06, 13, 6093, false], [7.58, 13, 7608, false], [9.09, 13, 9125, false], [10.61, 13, 10644, false], [12.13, 13, 12163, false], [13.64, 0, 13676, true]], "pass": true}
+native-session: back to CSS only: yes
+{"nativeSession": 0, "tests": 2}

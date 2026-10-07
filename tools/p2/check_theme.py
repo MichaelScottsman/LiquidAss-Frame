@@ -19,6 +19,8 @@ never count):
     theme/lens.json, device/defaults.json: valid JSON.
   * device/rt/*.js, device/shared/*.js, device/vr/*.js, lab/*.js: `node --check`.
   * device/*.py, device/shell_ext/*.py, lab/*.py: Python syntax.
+  * P4's hook host lists (`python docs/phase2/fontkit.py --hooks-check`): stale lists print a WARN line (a hook
+    selector that paints nothing until `fontkit.py --hooks` is run); a warning never fails the check (REQ P4->P10).
 """
 import importlib.util
 import json
@@ -188,6 +190,34 @@ def check_py(paths, root):
     return probs
 
 
+def hooks_check(root):
+    """P4's hook host lists (REQ P4->P10): `python docs/phase2/fontkit.py --hooks-check` exits 1 when a theme rule
+    sets --lgs-ill, --lgs-edge or --lgs-scroll-band on a selector the generated `lgs-hosts` blocks of 03-material.css
+    / 04-states.css do not list yet (that hook then paints nothing). A WARNING, not a failure: the bundle is fine,
+    and any package may regenerate the lists (contracts/tokens.md section 2). Returns (warnings, notes)."""
+    fk = root / "docs" / "phase2" / "fontkit.py"
+    if not fk.is_file():
+        return [], ["docs/phase2/fontkit.py not found: hook host lists not checked"]
+    try:
+        r = subprocess.run([sys.executable, "-B", str(fk), "--hooks-check", "--json"], capture_output=True, text=True,
+                           timeout=60, cwd=str(root))
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return [], [f"hook host lists not checked (fontkit.py --hooks-check: {e})"]
+    try:
+        res = json.loads(r.stdout)
+    except ValueError:
+        res = None
+    if r.returncode == 0:
+        return [], []
+    if r.returncode == 1:
+        stale = ", ".join((res or {}).get("stale") or []) or "?"
+        return [f"hook host lists are stale ({stale}): a theme rule sets --lgs-ill / --lgs-edge / --lgs-scroll-band "
+                f"on a selector theme/03-material.css or theme/04-states.css does not list, so that hook paints "
+                f"nothing; run `python docs/phase2/fontkit.py --hooks` (any package may, contracts/tokens.md section 2)"], []
+    err = (r.stderr or r.stdout or "").strip().splitlines()
+    return [], [f"hook host lists not checked (fontkit.py --hooks-check exit {r.returncode}: {err[-1] if err else 'no output'})"]
+
+
 def run(root=ROOT):
     root = Path(root)
     lgs = load_lgs(root)
@@ -239,7 +269,9 @@ def run(root=ROOT):
             probs += check_json(p, p.relative_to(root).as_posix())
     pys = files(root / "device", ".py") + files(root / "device" / "shell_ext", ".py") + files(root / "lab", ".py")
     probs += check_py(pys, root)
-    return {"pass": not probs, "problems": probs, "notes": notes,
+    warnings, hn = hooks_check(root)
+    notes += hn
+    return {"pass": not probs, "problems": probs, "warnings": warnings, "notes": notes,
             "checked": {"css": len(css), "js": len(js_paths), "json": len(jsons), "py": len(pys),
                         "bundler": (bundler or {}).get("checked")},
             "bundler": bundler}
@@ -257,13 +289,16 @@ def main(argv):
     else:
         for p in res["problems"]:
             print("FAIL " + p)
+        for w in res["warnings"]:          # printed with --quiet too: they need an action, but do not fail
+            print("WARN " + w)
         if not quiet:
             for n in res["notes"]:
                 print("note: " + n)
             c = res["checked"]
             print(f"check-theme: bundler (P1) {c['bundler'] if c['bundler'] is not None else 'n/a'} files; "
                   f"{c['css']} css, {c['js']} js, {c['json']} json, {c['py']} py -> "
-                  + ("PASS" if res["pass"] else f"FAIL ({len(res['problems'])} problems)"))
+                  + ("PASS" if res["pass"] else f"FAIL ({len(res['problems'])} problems)")
+                  + (f", {len(res['warnings'])} warning(s)" if res["warnings"] else ""))
     return 0 if res["pass"] else 1
 
 

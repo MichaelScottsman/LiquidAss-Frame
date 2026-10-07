@@ -490,7 +490,11 @@
   // through track() is undone at once (review R1 M2).
   const NOOP = () => {};
   function makeScope(rec) {
-    const cleanups = [];
+    // Live subscriptions only: an off() that runs (a timer that fired, an
+    // unsubscribe the module did itself) leaves the set at once, so a module
+    // that keeps scheduling short timers never grows it (REQ P2->P1). A Set
+    // keeps insertion order; removal undoes the newest first.
+    const cleanups = new Set();
     let dead = false, lateCalls = 0;
     const late = (what) => {
       lateCalls++;
@@ -499,9 +503,14 @@
     };
     const track = (fn) => {
       let done = false;
-      const off = () => { if (done) return; done = true; try { fn(); } catch (e) { log('error', rec.name, 'cleanup threw', errText(e)); } };
+      const off = () => {
+        if (done) return;
+        done = true;
+        cleanups.delete(off);
+        try { fn(); } catch (e) { log('error', rec.name, 'cleanup threw', errText(e)); }
+      };
       if (dead) { late('a subscription'); off(); return NOOP; }
-      cleanups.push(off);
+      cleanups.add(off);
       return off;
     };
     const isDead = () => dead;
@@ -559,11 +568,14 @@
     };
     scope._dispose = () => {
       dead = true;
-      while (cleanups.length) { const off = cleanups.pop(); off(); }
+      // newest first, as before; anything a cleanup subscribes now is undone at once (dead)
+      const all = [...cleanups].reverse();
+      cleanups.clear();
+      for (const off of all) off();
     };
     scope._dead = isDead;
     scope._late = () => lateCalls;
-    scope._count = () => cleanups.length;
+    scope._count = () => cleanups.size;
     return scope;
   }
 
@@ -619,7 +631,8 @@
       rec.state = 'installed';
       rec.installs++;
       rec.installMs = Math.round((now() - t0) * 10) / 10;
-      log('info', rec.name, `installed in ${rec.installMs} ms`);
+      log('info', rec.name, `installed in ${rec.installMs} ms` + (rec.retries ? ` after ${rec.retries} transient retries` : ''));
+      if (rec.retries) { rec.retriedOk = rec.retries; rec.retries = 0; }
       bus.emit('module', rec.name, 'installed');
       replayInputStub(rec);
     } catch (e) {
@@ -638,8 +651,43 @@
       rec.scope = null;
       rec.api = undefined;
       bus.emit('module', rec.name, 'failed');
+      if (!(e && e.lgsTimeout)) retryTransient(rec, gen, e);
     }
     trackNewGlobals(before, rec.name);
+  }
+
+  // A failure the module marks as transient (err.transient === true, or on err.cause:
+  // Steam's UI still mounting after a SharedJSContext restart, react.md v3 §1) is
+  // retried after err.retryAfterMs (at least 1 s), at most TRANSIENT_RETRIES times,
+  // each attempt logged; never after teardown (REQ P2->P1). Any other failure stays
+  // failed until the next `lgs on`.
+  const TRANSIENT_RETRIES = 4;
+  const retryTimers = new Set();
+  function transientOf(e) {
+    for (let x = e, i = 0; x && i < 4; x = x.cause, i++) {
+      try { if (x.transient === true) return x; } catch (_) { return null; }
+    }
+    return null;
+  }
+  function retryTransient(rec, gen, e) {
+    const t = transientOf(e);
+    if (!t) return;
+    rec.retries = (rec.retries || 0) + 1;
+    if (rec.retries > TRANSIENT_RETRIES) {
+      log('warn', rec.name, `transient failure: gave up after ${TRANSIENT_RETRIES} retries`);
+      return;
+    }
+    const ms = Math.max(1000, Number(t.retryAfterMs) || 0);
+    rec.reason = `transient: retry ${rec.retries}/${TRANSIENT_RETRIES} in ${ms} ms`;
+    log('warn', rec.name, `transient failure; retry ${rec.retries}/${TRANSIENT_RETRIES} in ${ms} ms`);
+    const id = W.setTimeout(() => {
+      retryTimers.delete(id);
+      if (stopping || stopped || !started || rec.gen !== gen || rec.state !== 'failed') return;
+      rec.state = 'defined';
+      rec.error = null;
+      schedule('transient retry ' + rec.name);
+    }, ms);
+    retryTimers.add(id);
   }
 
   async function removeRec(rec, reason) {
@@ -952,6 +1000,7 @@
       if (r.reason && r.state !== 'installed') m.reason = r.reason;
       if (r.error) m.error = r.error;
       if (r.installMs !== null) m.installMs = r.installMs;
+      if (r.retries || r.retriedOk) m.retries = r.retries || r.retriedOk;
       if (r.state === 'installed' && r.scope) m.subscriptions = r.scope._count();
       return m;
     });
@@ -1012,6 +1061,8 @@
       testTimers.clear();
       overlays.length = 0;
       dropActions('teardown');
+      for (const id of retryTimers) W.clearTimeout(id);
+      retryTimers.clear();
       unhookPopupManager();
       for (const e of entries.values()) { try { e.doc.removeEventListener('visibilitychange', e._vis); } catch (_) { /* gone */ } }
       entries.clear();
@@ -1210,6 +1261,24 @@
       }
       return { patchedLeft: 0 };
     },
+  });
+
+  // rt.stubTransient: install() fails twice with a transient error (retryAfterMs 1000),
+  // then installs (RT-2, REQ P2->P1).
+  let transientAttempts = 0;
+  define({
+    name: 'rt.stub.transient', file: 'rt/00-rt.js', flag: 'rt.stubTransient',
+    install(r) {
+      transientAttempts++;
+      if (transientAttempts <= 2) {
+        const e = new Error(`rt.stub.transient: not ready yet (attempt ${transientAttempts})`);
+        e.transient = true; e.retryAfterMs = 1000;
+        throw e;
+      }
+      r.windows.track((e) => { e.html.classList.add('lgs-rt-stub-transient'); return () => e.html.classList.remove('lgs-rt-stub-transient'); });
+      return { attempts: transientAttempts };
+    },
+    remove() { return { patchedLeft: 0 }; },
   });
 
   // Test hooks carried over from the runtime this one replaces (same process, lab step).

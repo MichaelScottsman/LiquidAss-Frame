@@ -45,6 +45,18 @@ def items():
     return out
 
 
+def p23_bottom(layout):
+    """P-23's bottom bound (PLAN R2-11, REQ Coordinator->P10 (2)): 612 (the ornament's top at 628 - 16) on a route
+    with a bottom ornament (a rendered #Footer legend), else the glass bottom - 16 (640 on `window`, 704 on
+    `window-full` and `windowless`). VP's 620 is read as 612. Without layout data (an older lab) 612."""
+    if not layout:
+        return 612.0, "bottom ornament assumed (no layout data)"
+    if layout.get("ornament"):
+        return 612.0, "bottom ornament"
+    gb = float(layout.get("glassBottom") or layout.get("height") or 720)
+    return gb - 16, f"no ornament: glass bottom {gb:g} - 16"
+
+
 def verdicts(r, bfs=None):
     """{P-id: (state, detail)} for one route's @@conf result."""
     v = {}
@@ -114,10 +126,11 @@ def verdicts(r, bfs=None):
         e = bfs.get("entry") or {}
         bad = bool(re.search(r"Back|SearchBox|frame\.menu", e.get("el", "") + " " + e.get("text", ""))) or (e.get("rect") or [0, 99])[1] < 40
         v["P-22"] = ("FAIL" if bad else "PASS", f"entry focus {e.get('el', '')[:60]} \"{e.get('text', '')[:24]}\" at {e.get('rect')}")
+        bottom, why = p23_bottom(r.get("layout"))
         outside = [n for n in bfs.get("nodes", []) if n.get("route") == bfs.get("route") and n.get("rect")
-                   and (n["rect"][1] < 124 or n["rect"][1] + n["rect"][3] > 620)
+                   and (n["rect"][1] < 124 or n["rect"][1] + n["rect"][3] > bottom)
                    and not re.search(r"SearchBox|Back", n.get("el", ""))]
-        v["P-23"] = ("FAIL" if outside else "PASS", f"{len(outside)} focused rects outside y 124..620"
+        v["P-23"] = ("FAIL" if outside else "PASS", f"{len(outside)} focused rects outside y 124..{bottom:g} ({why})"
                      + (": " + "; ".join(f"{n['el'][:30]} {n['rect']}" for n in outside[:3]) if outside else ""))
     return v
 

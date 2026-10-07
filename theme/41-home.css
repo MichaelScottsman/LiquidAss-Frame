@@ -717,6 +717,7 @@
 /* folder title: Title 2 on the room, centred on the toolbar row's centre line */
 .lgs-home-title {
   position: absolute;
+  pointer-events: none; /* a label: never in front of the header search */
   top: 32px;
   left: 50%;
   translate: -50% 0;

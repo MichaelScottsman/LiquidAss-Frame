@@ -1,0 +1,759 @@
+/* Glass Shell, area "cc" (package C3b): Control Center.
+   Concept: docs/phase2/concepts/control-center.md (CC) §4, §9, §10; PLAN §1.2-§1.8.
+   Evidence: docs/phase2/wp/C3b.md. Wrapped as html.lgs-on { ... } by the
+   bundler ("&" is html.lgs-on).
+
+   A. While CC-M is open (T2 attributes set by device/rt/31-cc.js, flag wp.c3b):
+      Steam's page layers fade (opacity only, on `fade`), the window tint goes
+      (CSS-only twin of C1a's windowless mode), the status pill is white.
+   B. CC-M, our T3 view (inert until 31-cc.js renders it). Every control is an
+      80 px transparent hit box (.lgs-cc-hit, PLAN §1.3) holding its visible
+      face; the face reads the hit box's state numbers (P4, inherit) and
+      carries the light (--lgs-ill), so the light is the visible shape.
+      CSS-only tiles are the opaque end of the dial (.94, PLAN §1.2); glassd
+      plates replace the fill in native mode (05-native.css, data-lgs-plate).
+      Steam's own components inside (sliders, Quick Access panels) keep C4a's
+      primitive look; only their box is fitted here.
+   C. CC-C: Steam's Quick Access popup (barpopup), Phase 2 deltas over the
+      Phase 1 rules still in 30-bar.css (two-step move, PLAN §6): focus is
+      light, never an outline; the selected tab is a .18 disc (CC §4.12).
+
+   The T3 DOM (31-cc.js):
+   .lgs-cc[data-page=main|notif|more][.is-closing]       1280 x 720 modal root
+     .lgs-cc-backdrop                                     a press here closes
+     .lgs-cc-tiles > .lgs-cc-tile[data-lgs-cc-tile=now|ctl|room][data-lgs-plate=panel]
+         (.lgs-mat / .lgs-mat-out; .lgs-cc-ctl.is-wide on the More page)
+       .lgs-cc-hit[data-lgs-cc-k] (Focusable, 80 hit) > face:
+         .lgs-cc-circle > .lgs-cc-circle-face   60 circle, raised
+         .lgs-cc-tog[.is-on][data-tone] > .lgs-cc-tog-face   68 circle
+         .lgs-cc-cap > .lgs-cc-cap-face          308 x 60 capsule
+         .lgs-cc-row > .lgs-cc-row-face          80 platter row
+         .lgs-cc-seg-item[.is-selected] > .lgs-cc-seg-label
+         .lgs-cc-side-row[.is-selected] > .lgs-cc-side-face   sidebar nav row
+       .lgs-cc-slider > Steam's slider component
+       .lgs-cc-platter, .lgs-cc-date, .lgs-cc-clock, .lgs-cc-title, .lgs-cc-head
+     .lgs-cc-close.lgs-cc-hit[data-lgs-plate=liquid] > .lgs-cc-circle-face
+*/
+
+/* ===================================================================== */
+/* A. While CC-M is open                                                  */
+/* ===================================================================== */
+
+/* Steam's page layers (every sibling on the path from our modal up to
+   BasicUiRoot): opacity only, nothing moves; back in on the same token */
+& [data-lgs-cc-fade] {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transition: opacity var(--lgs-motion-fade) !important;
+}
+& [data-lgs-cc-fade="out"] {
+  opacity: 1 !important;
+}
+/* Steam's header and footer controls set their own pointer-events: nothing
+   under a faded layer may take the laser while CC-M is open */
+& [data-lgs-cc-fade] * {
+  pointer-events: none !important;
+}
+/* the window's CSS glass dematerializes with it: tint, edge and sheen go
+   (with the shell runtime on, C1a's glassMode hook makes the route
+   windowless as well). The glass height and its content clip stay: Steam
+   renders the modal layer inside the clipped page on library routes, and
+   CC-M ends inside the 656 px glass (the close circle's hit ends at 656). */
+& %{BasicUiRoot}[data-lgs-cc] {
+  --lgs-c1a-tint: transparent;
+  --lgs-edge: none;
+}
+& %{BasicUiRoot}[data-lgs-cc]::after {
+  content: none;
+}
+/* the status pill is white while what it opens is showing (CC §1) */
+&[data-lgs-cc] %{QuickAccessButton} {
+  color: var(--lgs-text-on-selected);
+}
+&[data-lgs-cc] %{QuickAccessButton} %{PopupBody>Time} {
+  text-shadow: none;
+  background-color: var(--lgs-selected-fill);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+&[data-lgs-cc] %{QuickAccessButton} %{PopupBody>Inner}::before {
+  background: var(--lgs-selected-fill);
+  box-shadow: none;
+  outline: none;
+  opacity: 1;
+}
+&[data-lgs-cc] %{QuickAccessButton}.gpfocus %{PopupBody>Inner}::before {
+  box-shadow: 0 0 calc(var(--lgs-white-glow-blur) * var(--lgs-m-bar)) calc(var(--lgs-white-glow-spread) * var(--lgs-m-bar)) rgb(255 255 255 / var(--lgs-white-glow-a));
+}
+
+/* ===================================================================== */
+/* B. CC-M                                                                */
+/* ===================================================================== */
+
+.lgs-cc {
+  --lgs-c3b-tile-bg: linear-gradient(180deg, rgb(255 255 255 / .07) 0, rgb(255 255 255 / 0) 30%), rgb(17 19 27 / .94);
+  position: absolute;
+  inset: 0;
+  width: 1280px;
+  height: 720px;
+  font-family: var(--lgs-font);
+  color: var(--lgs-text-1);
+  -webkit-font-smoothing: antialiased;
+}
+.lgs-cc-backdrop {
+  position: absolute;
+  inset: 0;
+}
+.lgs-cc-tiles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* --- tiles: 344 x 528 at y 40, x 96 / 468 / 840 (CC §4.3) ------------ */
+.lgs-cc-tile {
+  position: absolute;
+  top: 40px;
+  width: 344px;
+  height: 528px;
+  box-sizing: border-box;
+  border-radius: var(--lgs-r-window);
+  background: var(--lgs-c3b-tile-bg);
+  box-shadow: var(--lgs-mat-panel-shade);
+  --lgs-edge: panel;
+  --lgs-maxside: 528;
+  pointer-events: auto;
+  isolation: isolate;
+  transition: width var(--lgs-motion-morph-open);
+}
+.lgs-cc-now { left: 96px; }
+.lgs-cc-ctl { left: 468px; }
+.lgs-cc-room { left: 840px; }
+.lgs-cc-ctl.is-wide { width: 716px; }
+
+/* --- hit boxes and faces ---------------------------------------------- */
+.lgs-cc-hit {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 40px;
+  background: transparent !important;
+  color: var(--lgs-text-1);
+  cursor: default;
+}
+.lgs-cc-hit > :is(.lgs-cc-circle-face, .lgs-cc-tog-face, .lgs-cc-cap-face, .lgs-cc-row-face, .lgs-cc-seg-label, .lgs-cc-side-face) {
+  /* the hit box's state numbers drive the face's light (P4 §3.1) */
+  --lgs-hover: inherit;
+  --lgs-focus: inherit;
+  --lgs-within: inherit;
+  --lgs-press: inherit;
+  --lgs-dis: inherit;
+  --lgs-lift: inherit;
+  position: relative;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  isolation: isolate;
+  --lgs-ill-z: -1;
+  pointer-events: none;
+}
+.lgs-cc-ic,
+.lgs-cc-hit svg {
+  width: var(--lgs-symbol);
+  height: var(--lgs-symbol);
+  flex: none;
+}
+
+/* corner circles: 60 at (24, 24) and (260, 24); hit 80 at (14, 14) */
+.lgs-cc-circle {
+  width: 80px;
+  height: 80px;
+  border-radius: 39px;
+}
+.lgs-cc-circle.is-tl { left: 14px; top: 14px; }
+.lgs-cc-circle.is-tr { left: 250px; top: 14px; }
+.lgs-cc-circle-face {
+  width: 60px;
+  height: 60px;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--lgs-raised-bg);
+  box-shadow: var(--lgs-raised-shadow);
+  --lgs-ill: raised;
+}
+.lgs-cc-circle-face svg {
+  width: 27px;
+  height: 27px;
+}
+.lgs-cc-corners {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 108px;
+}
+.lgs-cc-hit-spacer {
+  display: none;
+}
+
+/* --- Now --------------------------------------------------------------- */
+.lgs-cc-now-main {
+  position: absolute;
+  inset: 0;
+}
+.lgs-cc-date {
+  position: absolute;
+  top: 37px;
+  left: 104px;
+  right: 104px;
+  text-align: center;
+  font: 600 22px/30px var(--lgs-font);
+  color: var(--lgs-text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lgs-cc-clock {
+  position: absolute;
+  top: 82px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font: 600 104px/112px var(--lgs-font);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.035em;
+  color: rgb(255 255 255 / .97);
+}
+/* capsules: 308 x 60 visible, 80 hit */
+.lgs-cc-cap {
+  left: 18px;
+  width: 308px;
+  height: 80px;
+}
+.lgs-cc-cap.is-battery { top: 194px; }
+.lgs-cc-cap.is-notif { top: 444px; }
+.lgs-cc-cap-face {
+  width: 100%;
+  height: 60px;
+  gap: 14px;
+  padding: 0 18px 0 20px;
+  border-radius: var(--lgs-r-capsule);
+  background: var(--lgs-raised-bg);
+  box-shadow: var(--lgs-raised-shadow);
+  --lgs-ill: raised;
+  font: 600 22px/28px var(--lgs-font);
+}
+.lgs-cc-cap-face.is-center {
+  justify-content: center;
+}
+.lgs-cc-cap-ic {
+  display: flex;
+  color: var(--lgs-text-1);
+}
+.lgs-cc-cap-label,
+.lgs-cc-row-label,
+.lgs-cc-side-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lgs-cc-chev {
+  display: flex;
+  color: var(--lgs-text-3);
+}
+.lgs-cc-chev svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Now Playing platter: recessed .14, radius 36 (CC §4.3) */
+.lgs-cc-platter {
+  position: absolute;
+  box-sizing: border-box;
+  border-radius: 36px;
+  background: var(--lgs-fill-regular);
+}
+.lgs-cc-np {
+  left: 18px;
+  top: 282px;
+  width: 308px;
+  height: 156px;
+  padding: 12px;
+}
+.lgs-cc-np-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 64px;
+}
+.lgs-cc-np-disc {
+  width: 64px;
+  height: 64px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgb(255 255 255 / .10);
+  color: var(--lgs-text-2);
+}
+.lgs-cc-np.is-idle {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.lgs-cc-np.is-idle .lgs-cc-np-disc {
+  background: rgb(255 255 255 / .06);
+}
+.lgs-cc-np-title {
+  font: 600 23px/30px var(--lgs-font);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lgs-cc-np-sub {
+  font: 500 20px/26px var(--lgs-font);
+  color: var(--lgs-text-2);
+}
+.lgs-cc-np-text {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.lgs-cc-np .lgs-cc-cap.is-return {
+  left: 12px;
+  top: 76px;
+  width: 284px;
+}
+.lgs-cc-np .lgs-cc-cap.is-return .lgs-cc-cap-face {
+  background: rgb(255 255 255 / .14);
+}
+
+/* --- Controls ---------------------------------------------------------- */
+.lgs-cc-ctl-main {
+  position: absolute;
+  inset: 0;
+}
+/* four 68 px circles at 80 pitch (x 18 / 98 / 178 / 258, y 18): the hit
+   boxes are the 80 px cells, edge to edge */
+.lgs-cc-toggles {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  width: 320px;
+  height: 80px;
+  display: flex;
+}
+.lgs-cc-toggles > .lgs-cc-hit,
+.lgs-cc-toggles .lgs-cc-tog {
+  position: relative;
+  flex: none;
+}
+.lgs-cc-tog {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+}
+.lgs-cc-tog-face {
+  width: 68px;
+  height: 68px;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--lgs-fill-thick);
+  box-shadow: var(--lgs-recessed-shadow);
+  color: var(--lgs-text-1);
+  --lgs-ill: recessed;
+}
+.lgs-cc-tog-face svg {
+  width: 30px;
+  height: 30px;
+}
+.lgs-cc-tog.is-on .lgs-cc-tog-face {
+  background: var(--lgs-blue);
+  box-shadow: none;
+  color: #fff;
+  --lgs-ill: white;
+}
+.lgs-cc-tog.is-on[data-tone="orange"] .lgs-cc-tog-face {
+  background: var(--lgs-orange);
+  color: var(--lgs-text-on-color);
+}
+.lgs-cc-tog.is-disabled .lgs-cc-tog-face {
+  color: rgb(255 255 255 / var(--lgs-dis-content));
+  background: rgb(0 0 0 / .12);
+}
+
+/* rows: Performance, More Controls in one recessed platter (80 contiguous,
+   PLAN §1.3; hover pill inset 6) */
+.lgs-cc-rows {
+  left: 18px;
+  top: 104px;
+  width: 308px;
+  height: 172px;
+  padding: 6px;
+}
+.lgs-cc-row {
+  position: relative;
+  width: 296px;
+  height: 80px;
+  border-radius: 40px;
+}
+.lgs-cc-row-face {
+  width: 100%;
+  height: 80px;
+  gap: 16px;
+  padding: 0 18px 0 22px;
+  border-radius: 30px;
+  font: 600 22px/28px var(--lgs-font);
+  --lgs-ill: row;
+}
+.lgs-cc-row + .lgs-cc-row .lgs-cc-row-face::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: 26px;
+  right: 26px;
+  height: 2px;
+  background: var(--lgs-separator);
+}
+.lgs-cc-row-ic {
+  display: flex;
+}
+
+/* sliders: Steam's own components, fitted to 308 x 80 rows */
+.lgs-cc-sliders {
+  position: absolute;
+  left: 18px;
+  width: 308px;
+}
+.lgs-cc-ctl-main .lgs-cc-sliders { top: 292px; }
+.lgs-cc-room-main .lgs-cc-sliders { top: 300px; }
+.lgs-cc-slider {
+  position: relative;
+  width: 308px;
+  min-height: 80px;
+  margin-bottom: 12px;
+}
+.lgs-cc-slider %{*GamepadDialogContent>Field} {
+  padding: 0 !important;
+  margin: 0 !important;
+  min-height: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.lgs-cc-slider %{*GamepadDialogContent>Field}::after {
+  display: none;
+}
+.lgs-cc-slider %{*GamepadDialogContent>FieldLeftColumn} {
+  padding: 0 !important;
+  margin: 0 !important;
+  min-height: 0 !important;
+}
+
+/* --- Room -------------------------------------------------------------- */
+.lgs-cc-room-main {
+  position: absolute;
+  inset: 0;
+}
+.lgs-cc-room-head {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 104px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+/* Steam's own action name ("Toggle Room View"): up to two lines */
+.lgs-cc-title {
+  text-align: center;
+  font: 700 34px/40px var(--lgs-font);
+  letter-spacing: -.01em;
+  padding: 0 28px;
+  max-height: 80px;
+  overflow: hidden;
+  text-wrap: balance;
+  align-self: stretch;
+}
+/* Off · On: recessed 64 track, two segments (CC §4.3, PLAN §1.3) */
+.lgs-cc-seg {
+  position: relative;
+  width: 308px;
+  height: 80px;
+  display: flex;
+}
+.lgs-cc-seg::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 8px;
+  height: 64px;
+  border-radius: var(--lgs-r-capsule);
+  background: var(--lgs-fill-thick);
+  box-shadow: var(--lgs-recessed-shadow);
+  pointer-events: none;
+}
+.lgs-cc-seg-pill {
+  display: none;
+}
+.lgs-cc-seg-item {
+  position: relative;
+  flex: 1 1 0;
+  height: 80px;
+  border-radius: 40px;
+}
+.lgs-cc-seg-label {
+  width: calc(100% - 8px);
+  height: 56px;
+  justify-content: center;
+  border-radius: var(--lgs-r-capsule);
+  font: 600 22px/28px var(--lgs-font);
+  color: var(--lgs-text-1);
+  --lgs-ill: raised;
+  transition: background-color var(--lgs-motion-snappy), color var(--lgs-motion-swap);
+}
+.lgs-cc-seg-item.is-selected .lgs-cc-seg-label {
+  background: var(--lgs-selected-fill);
+  color: var(--lgs-text-on-selected);
+  --lgs-ill: white;
+}
+
+/* --- close circle: 60 liquid glass under the Controls tile -------------- */
+.lgs-cc-close {
+  left: 600px;
+  top: 576px;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  --lgs-maxside: 60;
+}
+.lgs-cc-close .lgs-cc-circle-face {
+  background: var(--lgs-mat-liquid-room-bg);
+  box-shadow: var(--lgs-mat-liquid-shade);
+  --lgs-edge: liquid;
+}
+.lgs-cc.is-closing .lgs-cc-backdrop,
+.lgs-cc.is-closing .lgs-cc-hit {
+  pointer-events: none;
+}
+
+/* --- page headers (notification list, More Controls) ------------------- */
+.lgs-cc-head {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 104px;
+}
+.lgs-cc-head .lgs-cc-circle:not(.is-tl) {
+  left: 0;
+  top: 14px;
+}
+.lgs-cc-head-title {
+  position: absolute;
+  left: 96px;
+  right: 24px;
+  top: 34px;
+  font: 700 28px/36px var(--lgs-font);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lgs-cc-head.is-pane .lgs-cc-head-title {
+  left: 82px;
+  font-size: 30px;
+}
+.lgs-cc-list {
+  position: absolute;
+  inset: 0;
+}
+.lgs-cc-scroll {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 104px;
+  bottom: 0;
+  overflow-y: auto;
+  padding: 0 18px 40px;
+  box-sizing: border-box;
+  -webkit-mask-image: var(--lgs-scroll-mask-bottom);
+  mask-image: var(--lgs-scroll-mask-bottom);
+}
+.lgs-cc-empty {
+  padding-top: 120px;
+  text-align: center;
+  font: 500 22px/28px var(--lgs-font);
+  color: var(--lgs-text-2);
+}
+
+/* --- More Controls: split view 716 x 528 (CC §4.7) --------------------- */
+.lgs-cc-more {
+  position: absolute;
+  inset: 0;
+}
+.lgs-cc-side {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 258px;
+  box-sizing: border-box;
+  padding: 24px 9px;
+  border-radius: var(--lgs-r-window) 0 0 var(--lgs-r-window);
+  background: var(--lgs-fill-regular);
+}
+.lgs-cc-side-row {
+  position: relative;
+  width: 240px;
+  height: 80px;
+  border-radius: 40px;
+}
+.lgs-cc-side-face {
+  width: 100%;
+  height: 72px;
+  gap: 14px;
+  padding: 0 14px;
+  border-radius: var(--lgs-r-row);
+  font: 600 22px/28px var(--lgs-font);
+  --lgs-ill: nav;
+}
+.lgs-cc-side-row.is-selected .lgs-cc-side-face {
+  background: var(--lgs-fill-nav);
+  box-shadow: var(--lgs-sel-arc);
+  font-weight: var(--lgs-nav-weight);
+}
+.lgs-cc-side-ic {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--lgs-gray);
+  color: #fff;
+}
+.lgs-cc-side-ic svg {
+  width: 24px;
+  height: 24px;
+}
+.lgs-cc-side-ic[data-k="notifications"] { background: var(--lgs-red); }
+.lgs-cc-side-ic[data-k="settings"] { background: var(--lgs-blue); }
+.lgs-cc-side-ic[data-k="perf"] { background: var(--lgs-orange); color: var(--lgs-text-on-color); }
+.lgs-cc-side-ic[data-k="battery"] { background: var(--lgs-green); color: var(--lgs-text-on-color); }
+.lgs-cc-side-ic[data-k="help"] { background: var(--lgs-indigo); }
+.lgs-cc-pane-wrap {
+  position: absolute;
+  left: 272px;
+  right: 0;
+  top: 0;
+  bottom: 0;
+}
+.lgs-cc-pane {
+  position: absolute;
+  inset: 0;
+}
+.lgs-cc-pane .lgs-cc-scroll {
+  padding: 0 18px 40px 10px;
+}
+/* Steam's Quick Access panels at window scale (CC §4.7): title-case
+   section headers, no 1 px dividers; rows are C4a's primitives */
+:is(.lgs-cc-pane, .lgs-cc-list) %{*PanelSection>PanelSectionTitle} {
+  font: 600 20px/26px var(--lgs-font);
+  color: var(--lgs-text-2);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* --- hit regions -------------------------------------------------------- */
+/* the hit boxes are square and transparent (Chromium hit-tests the rounded
+   shape, so a round box would miss its own corners); text never takes the
+   laser from a control's 80 px box */
+.lgs-cc .lgs-cc-hit {
+  border-radius: 0;
+}
+.lgs-cc :is(.lgs-cc-date, .lgs-cc-clock, .lgs-cc-title, .lgs-cc-head-title, .lgs-cc-np, .lgs-cc-empty) {
+  pointer-events: none;
+}
+.lgs-cc .lgs-cc-np .lgs-cc-hit {
+  pointer-events: auto;
+}
+
+/* --- motion ------------------------------------------------------------ */
+.lgs-cc-tile.lgs-mat,
+.lgs-cc-close.lgs-mat {
+  animation-duration: var(--lgs-d-mat-in);
+}
+@media (prefers-reduced-motion: reduce) {
+  .lgs-cc-tile {
+    transition: none;
+  }
+}
+
+/* ===================================================================== */
+/* C. CC-C: Steam's Quick Access popup, Phase 2 deltas                    */
+/* ===================================================================== */
+
+/* no outline or ring anywhere (P-42): the tab focus is light */
+%{QuickAccessMenu} %{PopupBody>Tab}.gpfocus%{ViewPlaceholder>Selected}::before,
+%{QuickAccessMenu} %{PopupBody>Tab}.gpfocus:not(%{ViewPlaceholder>Selected})::before {
+  outline: none;
+  box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / var(--lgs-focus-arc));
+  background: rgb(255 255 255 / var(--lgs-focus-add));
+}
+/* the selected tab is a lighter disc (.18), not a white fill (CC §4.12) */
+%{QuickAccessMenu} %{PopupBody>Tab}%{ViewPlaceholder>Selected} {
+  color: var(--lgs-text-1) !important;
+}
+%{QuickAccessMenu} %{PopupBody>Tab}%{ViewPlaceholder>Selected}::before {
+  background: var(--lgs-fill-nav);
+  box-shadow: var(--lgs-sel-arc);
+}
+%{QuickAccessMenu} %{PopupBody>Tab}.gpfocus%{ViewPlaceholder>Selected}::before {
+  background: rgb(255 255 255 / calc(.18 + var(--lgs-focus-add)));
+}
+/* tab row: the 1 px top divider goes (P-43; the tabs sit on the glass) and
+   the tabs are 56 tall (>= 50 bar-px visible, P-80); Steam's 60 px pitch
+   stays (five tabs in the 300 px card: REQ C3b->P10 for E-TAB) */
+%{QuickAccessMenu} %{ViewPlaceholder>Tabs}::after {
+  background: transparent;
+  height: 0;
+}
+%{QuickAccessMenu} %{ViewPlaceholder>Tabs} {
+  min-height: 60px;
+  align-items: center;
+}
+%{QuickAccessMenu} %{PopupBody>Tab} {
+  height: 56px;
+}
+%{QuickAccessMenu} %{PopupBody>Tab}::before {
+  inset: 2px 4px;
+}
+/* row separators: 2 px white .08, never a 1 px line (P-43, PLAN §1.3) */
+%{QuickAccessMenu} %{*GamepadDialogContent>Field}%{*GamepadDialogContent>Classic}:is(%{*GamepadDialogContent>WithBottomSeparatorStandard}, %{*GamepadDialogContent>WithBottomSeparatorThick})::after {
+  height: 2px;
+  background: var(--lgs-separator);
+}
+/* the battery level reads at Semibold (P-38: no weight under 500) */
+%{QuickAccessMenu} %{*PanelSection>BatteryPercentageLabel} {
+  font-weight: 600;
+}
+/* the card: Phase 2 panel material (fill + E4/E5 shading), no Phase 1 rim
+   lines (P-42) */
+%{QuickAccessMenu} {
+  background: var(--lgs-mat-panel-bg);
+  box-shadow: var(--lgs-mat-panel-shade);
+}
+/* labels and values read at >= 500 (P-38) */
+%{QuickAccessMenu} :is(%{*GamepadDialogContent>FieldLabel}, %{VRBatteryIcon>Percent}) {
+  font-weight: 500;
+}
+/* rows reach the 80 px hit height at bar scale (66 bar px, P-08; CC §4.12
+   rows >= 60 pp) */
+%{QuickAccessMenu} %{*GamepadDialogContent>Field}%{*GamepadDialogContent>Classic} {
+  min-height: 66px;
+  box-sizing: border-box;
+}

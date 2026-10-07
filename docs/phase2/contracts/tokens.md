@@ -95,9 +95,11 @@ Tints: `--lgs-tint-play` green .88 · `--lgs-tint-primary` blue .86 · `--lgs-ti
 |---|---|---|
 | `--lgs-hover-add` | .08 | Laser hover: uniform white added |
 | `--lgs-hover-spot` | .12 | Laser hover: light spot peak at the pointer |
+| `--lgs-row-hover-add` | .06 | Laser hover on `--lgs-ill: row` (wide rows): the uniform add (VP P-03 +10..+25 L over the dim room, R1 m7) |
+| `--lgs-nav-hover-spot` | .16 | Laser hover on `--lgs-ill: nav`: the spot (no fill), so the hover still reads ≥ +10 L over a bright room (R1 m7); 0 in High Contrast |
 | `--lgs-focus-add` | **.32** (final) | Gamepad focus: uniform white added. **Set once from G-FOCUS on 2026-10-07** at the top of the .28–.32 range: .28 passed on P4's fixture (P-14 ≥ +45.7 L on L 85 glass) but failed P-14 (+35.2) and P-15 (+7.6) on C1a's tab bar over glass at L ~95, which is inside the glass band; .32 passes there (+42.5 / +15.1) |
 | `--lgs-focus-spot` | .16 | Gamepad focus: spot in the upper third |
-| `--lgs-focus-arc` | .55 | Gamepad focus: the control's specular arc (inset top highlight alpha); the edge rim ×1.5 |
+| `--lgs-focus-arc` | .55 | Gamepad focus: the control's specular arc (inset top highlight alpha) on raised, recessed and white kinds; on `row` and `nav` kinds the same alpha is the E3 lobe at 26 % of the width, fading both ways, never a full-width line (R1 m1). The edge rim ×1.5. (PLAN §1.4's "arc ×1.5" would be .33; .55 stays because areas use the token directly in approved looks, P4-D13) |
 | `--lgs-focus-first` | .60 | Fraction of the focus look on the first frame (P5's `lgs-focus-in` starts at this) |
 | `--lgs-within-add` | .06 | A multi-control row that contains the focus (`.gpfocuswithin`) warms by this |
 | `--lgs-press-add` / `--lgs-press-spot` | .06 / .22 | Press glow: uniform and spreading spot |
@@ -120,6 +122,7 @@ Tints: `--lgs-tint-play` green .88 · `--lgs-tint-primary` blue .86 · `--lgs-ti
 | `--lgs-shadow-5mm` / `-10mm` / `-15mm` / `-25mm` / `-30mm` | Depth shadows (y .4 px/mm, blur 1.2 px/mm): `0 2px 6px` .30 (tooltips, owner + 5 mm), `0 4px 12px` .30, `0 6px 18px` .30, `0 10px 30px` .28, `0 12px 36px` .32 |
 | `--lgs-shadow-contact` | `0 6px 18px black .35` (Home discs, lifted content) |
 | `--lgs-mat-window-bg` | Smoky tint `rgb(20 22 30 / (.60 + dial × .24))` with the top sheen (white .08 → 0 over 30 %) |
+| `--lgs-mat-window-tint` | The window's tint alone, a colour (`rgb(20 22 30 / (.60 + dial × .24))`; `rgb(11 13 16 / .94)` in High Contrast), for a window that builds its own gradient stack |
 | `--lgs-mat-panel-bg` | `rgb(28 30 40 / (.67 + dial × .22))` (= .78 at the default dial) with a top sheen |
 | `--lgs-mat-liquid-bg`, `--lgs-mat-liquid-blur` | `linear-gradient(white .12 → .03)` over `rgb(80 80 86 / .12)`; `blur(12px) saturate(1.7)`. In-page only (over Steam content) |
 | `--lgs-mat-liquid-room-bg` | Liquid over the room (no backdrop to frost): tint .70 + sheen |
@@ -131,13 +134,13 @@ Tints: `--lgs-tint-play` green .88 · `--lgs-tint-primary` blue .86 · `--lgs-ti
 | `--lgs-scroll-band-top` / `-bottom` | Scroll-edge dimming gradients (black .30 → 0) |
 | `--lgs-scroll-mask-bottom` / `-top` | `mask-image` values fading a scroller's last / first 120 px |
 
-High Contrast (`prefers-contrast: more`): every `--lgs-mat-*-bg` becomes `rgb(11 13 16 / .94)` (thick .96), text-2/-3 rise to .86/.74, and the edge hook (§2) draws the one allowed stroke, 2 px solid white .70.
+High Contrast (`prefers-contrast: more`): every `--lgs-mat-*-bg` becomes `rgb(11 13 16 / .94)` (thick .96), `--lgs-dial` is 1 (written `html.lgs-on.lgs-on`, so it beats the bundler's remembered dial), text-2/-3 rise to .86/.74, and the edge hook (§2) draws the one allowed stroke, 2 px solid white .70. A slab painted with its own tint formula instead of `--lgs-mat-*-bg` must follow High Contrast itself.
 
 ### 1.8 Phase 1 aliases (kept until every area reaches M2; then removed, PLAN §6)
 
 Names Phase 2 redefines with the same meaning take the Phase 2 value: radii (`--lgs-r-window` 54, `-sheet` 44, `-menu` 32, `-row` 24, `-card` 20, `-small` 14, `-capsule`), colours (`--lgs-blue` …, `--lgs-tint-*`, `--lgs-toggle-on`), text levels, `--lgs-selected-fill`, `--lgs-scrim`, `--lgs-well-shadow` (ring removed), `--lgs-separator` (.11 → .08), and the rim tokens `--lgs-window-rim`, `--lgs-panel-rim`, `--lgs-glass-rim`, which lose their closing `inset 0 0 0 1px` ring (D2 §6.2 R1).
 
-Every other Phase 1 name keeps its Phase 1 value: `--lgs-dial`, `--lgs-text-shadow`, `--lgs-window-alpha`, `--lgs-window-bg`, `--lgs-window-sheen`, `--lgs-panel-alpha`, `--lgs-panel-bg`, `--lgs-panel-sheen`, `--lgs-glass-bg`, `--lgs-glass-blur`, `--lgs-glass-shadow`, `--lgs-thick-bg`, `--lgs-thick-blur`, `--lgs-menu-scrim-blur`, `--lgs-fill-1/-2/-3`, `--lgs-fill-sunken`, `--lgs-hover-fill`, `--lgs-focus-fill`, `--lgs-focus-ring`, `--lgs-focus-ring-outer`, `--lgs-focus-outline`, `--lgs-focus-glow`, `--lgs-pressed-fill`, `--lgs-pressed-scale`, `--lgs-disabled-opacity`, `--lgs-control-rim`, `--lgs-tint-lift`, `--lgs-well-bg`, `--lgs-caret`, `--lgs-control-outline`, `--lgs-knob`, `--lgs-knob-shadow`, `--lgs-slider-fill`, `--lgs-slider-fill-2`, `--lgs-track-depth`, `--lgs-pill-shadow`, `--lgs-field-gap`, `--lgs-r-panel`, and the motion aliases `--lgs-spring`, `--lgs-ease`, `--lgs-t-fast`, `--lgs-t`, `--lgs-t-slow` with the keyframes `lgs-materialize`, `lgs-materialize-up`.
+Every other Phase 1 name keeps its Phase 1 value: `--lgs-dial`, `--lgs-text-shadow`, `--lgs-window-alpha`, `--lgs-window-bg`, `--lgs-window-sheen`, `--lgs-panel-alpha`, `--lgs-panel-bg`, `--lgs-panel-sheen`, `--lgs-glass-bg`, `--lgs-glass-blur`, `--lgs-glass-shadow`, `--lgs-thick-bg`, `--lgs-thick-blur`, `--lgs-menu-scrim-blur`, `--lgs-fill-1/-2/-3`, `--lgs-fill-sunken`, `--lgs-hover-fill`, `--lgs-focus-fill`, `--lgs-focus-ring`, `--lgs-focus-ring-outer`, `--lgs-focus-outline`, `--lgs-focus-glow`, `--lgs-pressed-fill`, `--lgs-pressed-scale`, `--lgs-disabled-opacity`, `--lgs-control-rim`, `--lgs-tint-lift`, `--lgs-well-bg`, `--lgs-caret`, `--lgs-control-outline`, `--lgs-knob`, `--lgs-knob-shadow`, `--lgs-slider-fill`, `--lgs-slider-fill-2`, `--lgs-track-depth`, `--lgs-pill-shadow`, `--lgs-field-gap`, `--lgs-r-panel`, and the keyframes `lgs-materialize`, `lgs-materialize-up`. The motion aliases point at P5's tokens (D2 §11.3): `--lgs-spring` = `--lgs-ease-b15`, `--lgs-ease` = `--lgs-ease-b0`, `--lgs-t-fast` = `--lgs-d-interactive` (210 ms), `--lgs-t` = `--lgs-d-hover-in` (294 ms), `--lgs-t-slow` = `--lgs-d-fade` (441 ms); the Phase 1 140 / 220 / 320 ms are gone (R1 m4), and under Reduce Motion they follow P5 (150 / 150 / 180 ms).
 
 **Do not use a Phase 1 name in new Phase 2 code.** In particular `--lgs-glass-bg`, `--lgs-thick-bg`, `--lgs-glass-blur` and `--lgs-thick-blur` keep Phase 1 values because Phase 1 files use them inside `linear-gradient()` and `background-color`; Phase 2 code uses `--lgs-mat-*` (D2 §16 amended accordingly). P6's `05-native.css` should zero the `--lgs-mat-*-bg` tokens wherever it zeroes `--lgs-glass-bg` today.
 
@@ -165,7 +168,15 @@ The element must be a containing block (`position: relative/absolute/fixed`; mos
 }
 ```
 
-How it works: `@container style(--lgs-edge: …)` rules on `*::before`; a pseudo-element queries its originating element. `--lgs-edge` is registered `inherits: false`, so children never inherit it. Proven on the device's CEF 126 (`wp/P4.md`, probe SQ-1).
+How it works: `@container style(--lgs-edge: …)` rules on the host's `::before`; a pseudo-element queries its originating element. `--lgs-edge` is registered `inherits: false`, so children never inherit it. Proven on the device's CEF 126 (`wp/P4.md`, probe SQ-1).
+
+**Hosts are listed (since R1).** The hook rules do not use a universal subject: `*::before` / `*::after` inside `@container` made Blink resolve both pseudo-elements of every element on every style recalc, which cost the virtualised library grid about 20 % of its scroll frame rate (G-PERF, review R1 M1). Each hook rule's subject is a generated flat list, one `:where(<host>)::before|::after` entry per host (Blink files each entry under its class; a single big `:where()` list or a nested `&` is matched against every element), written by `python docs/phase2/fontkit.py --hooks` from every theme rule that sets the property to a kind: the rightmost compound of its selector without pseudo-classes (a superset; the style query still decides), the whole selector when that compound has no class, id, attribute or token, and per-kind lists for the per-kind rules. Measured on the library grid (P4 log, R1): the listed hooks cost about 1.5 % of the scroll frame rate against no hooks, the universal ones 27 %. So:
+
+- **After you add a selector that sets `--lgs-edge`, `--lgs-ill` or `--lgs-scroll-band` (or move one), run `python docs/phase2/fontkit.py --hooks`.** Any package may run it: it rewrites only the generated `lgs-hosts … begin/end` blocks in `theme/03-material.css` and `theme/04-states.css`, deterministically, from the files in `theme/` (P4-D14). Then `check-theme` and `sync` as usual. `python docs/phase2/fontkit.py --hooks-check` exits 1 when a list is stale: an element that opts in but is not listed gets no edge or light.
+- `:where()` keeps the specificity the universal subject had (0,1,2 for the pseudo-element), so your own rule on a host's `::before` / `::after` still wins as before. An entry that does not parse matches nothing; it never drops the rule.
+- Prefer a host selector whose last compound has a class (or token, id, attribute): it becomes a cheap entry. A last compound that is only `.Panel`, `.Focusable` or a tag makes the generator list the whole selector.
+- Elements we create opt in through the markup in (b) and `data-lgs-ill` (§3.2); those selectors are in the lists already.
+- `--lgs-edge-dim` (inherited, 0–1, default 0) dims an edge's light. The `window` edge takes .35 while Steam's modal scrim shows (a `.ModalOverlayContent.active` that is not a context menu alone, or an `.inactive` dialog under one), so the window rim (z 20000, above the scrim) dims with the window instead of glowing over it (R1 m8).
 
 **(b) Markup (T2 / T3 elements we create, or Steam nodes tagged by T2):** `class="lgs-glass" data-lgs-mat="window|panel|liquid|thick|clear"` gives the whole material (fill, blur where valid, E4/E5, E3 edge) on the element; `class="lgs-edge" data-lgs-mat="…"` gives only the E3 edge. `data-lgs-dz="10|15|25|30"` adds the depth shadow.
 
@@ -194,9 +205,11 @@ Thickness θ is computed from the **shorter** side (GM §1.7). CSS presets do no
 | `--lgs-within` | `.gpfocuswithin` and not laser mode (a row that contains the focus) |
 | `--lgs-press` | `:active` (laser), or `.lgs-pressed` (P3, gamepad A) |
 | `--lgs-lift` | Pad: `.gpfocus`. Laser: `.lgs-dwell:hover` (80 ms dwell, VP P-06). Runtime off: `.gpfocus` or `:hover` |
-| `--lgs-dis` | `:disabled`, `[aria-disabled="true"]`, `.Disabled`, `%{*Field>Disabled}` and P3's `.lgs-focus-disabled` |
+| `--lgs-dis` | `:disabled`, `[aria-disabled="true"]`, `.Disabled`, `%{*GamepadDialogContent>Disabled}` and P3's `.lgs-focus-disabled` |
 
 Read them on the element (`scale: calc(1 + (var(--lgs-card-lift) - 1) * var(--lgs-lift))`), or inside your own pseudo-element with `--lgs-focus: inherit` (they do not inherit by themselves).
+
+**Runtime off.** With P3's input mode off (`wp.p3` off: no `lgs-input-*` class on `<html>`, the shipped default today), both keys apply as in Phase 1: a stale `.gpfocus` lights under the laser and a parked pointer's `:hover` lights in pad mode. Laser and pad keying need P3's runtime on (R1 m12; a defaults question for V1, not a CSS one).
 
 ### 3.2 The illumination hook
 
@@ -204,8 +217,8 @@ Read them on the element (`scale: calc(1 + (var(--lgs-card-lift) - 1) * var(--lg
 |---|---|
 | `--lgs-ill: raised` | Hover: + white `--lgs-hover-add` and a spot `--lgs-hover-spot` at `--hx/--hy` (P3's pointer, static (50 %, 30 %) without it). Focus: + white `--lgs-focus-add`, a spot `--lgs-focus-spot` at (50 %, 30 %), the inset top arc `--lgs-focus-arc`; the first frame shows `--lgs-focus-first` (P5 `lgs-focus-in`). Press: + `--lgs-press-add` and a spot `--lgs-press-spot` spreading to 120 %. Disabled: no hover or press; focus = `--lgs-dis-focus-add` and the arc at 60 %, no spot |
 | `--lgs-ill: recessed` | As raised (fields, tracks) |
-| `--lgs-ill: row` | As raised, drawn as a pill inset `--lgs-row-inset` (6 px) with radius `--lgs-r-row`; `.gpfocuswithin` warms it by `--lgs-within-add` (CTL C-D14 multi-control rows) |
-| `--lgs-ill: nav` | Navigation rows (sidebar, list, tab bar): hover is the spot only, no fill (SM-D13, SET T-SEL); focus as raised |
+| `--lgs-ill: row` | As raised (laser hover add `--lgs-row-hover-add`), drawn as a pill inset `--lgs-row-inset` (6 px) with radius `--lgs-r-row`; `.gpfocuswithin` warms it by `--lgs-within-add` (CTL C-D14 multi-control rows). The focus arc is the E3 lobe (26 % of the width), not a full-width top line |
+| `--lgs-ill: nav` | Navigation rows (sidebar, list, tab bar): hover is the spot only (`--lgs-nav-hover-spot`), no fill (SM-D13, SET T-SEL); focus as raised, with the arc as the E3 lobe like `row` |
 | `--lgs-ill: white` | Selected, on, open-menu source, coloured whole fills: focus and hover are the outer glow `--lgs-white-glow` (P-16), never a fill |
 | `--lgs-ill: card` | Content (posters, tiles): a diagonal specular sheen on hover or focus. The lift (`scale`, +15 mm) stays the area's, keyed on `--lgs-lift` |
 
@@ -214,6 +227,8 @@ Tuning per element (inherited plain custom properties, all optional): `--lgs-ill
 Timing: in on `hover-in` (294 ms, b0), out on `fade` (441 ms, b0); press in on `interactive` (210 ms), out 90 ms linear; focus enters at `--lgs-focus-first` with P5's `lgs-focus-in`. Under Reduce Motion: ≤ 150 ms fades, no swell.
 
 The same rules for T2/T3 markup: `data-lgs-ill="raised|recessed|row|nav|white|card"` on an element we create (equivalent to the property).
+
+The host-list rule of §2 applies here too: a new selector that sets `--lgs-ill` needs `python docs/phase2/fontkit.py --hooks`. The in-transitions are keyed on the input mode like the numbers (`:hover` not in pad mode, `.gpfocus` not in laser mode; VP P-01).
 
 **Rules for areas** (VP P-05, CTL C-D12): rows, cards, keys, switches, sliders, tabs and toolbar buttons never scale on hover or focus; only content cards (×1.05) and Home discs (×1.10) lift. Steam's focus fills (`ItemFocusAnim-*`, `forwards`) must be overridden `!important` with the rest fill, so the focus contrast lives in the hook.
 
@@ -229,7 +244,9 @@ G-FOCUS criteria (PLAN §1.4) are met by these values: focus ≥ +40 L over rest
 
 ### 3.4 Steam's FocusRing (CTL §4.5)
 
-`%{FocusRing}` becomes a light plate: no outline, animations off (no flash, grow or 20× pulse), a white .12 fill + .16 spot + a blurred glow (`--lgs-white-glow` at 3/4 spread and 4/5 alpha = 22/6/.44, so a ring on a white radio segment passes P-16), radius `min(var(--lgs-r-row), 50%)`. The rules are written `html.lgs-on.lgs-on` (0,3,1) so they beat Phase 1's ring in `10-primitives.css` §10 until C4a removes it. On check circles (P3's `.lgs-ring-check` on the ring) the plate is a bloom 12 px larger than the circle. Only in pad mode or with the runtime off; nothing in laser mode.
+`%{FocusRing}` becomes a light plate: no outline, animations off (no flash, grow or 20× pulse), a white .12 fill + .16 spot + a blurred glow (`--lgs-white-glow` at 3/4 spread and 4/5 alpha = 22/6/.44), radius `var(--lgs-ring-r, min(var(--lgs-r-row), 50%))`. It is the focus cue only for targets that have **no light of their own** (links, scroll panels, recording-mode cards, any control no area hooked).
+
+**Where the focused control lights itself, the plate paints nothing** (no fill, no glow): when the `.gpfocus` element matches one of the `--lgs-ill` hosts' whole selectors (generated with the lists of §2: `html.lgs-on.lgs-on:has(.gpfocus:where(…)) %{FocusRing}`). C4a's radio segments (`%{Group>Button}`, capsules with their own `raised` / `white` hook) and check circles are such controls: before R1 the plate framed the capsule with its 24 px corners, doubled the glow and greyed the label (review R1 M2). `--lgs-ring-r` (inherited) gives an area's remaining ringed targets a capsule radius (`999px`); set it on an ancestor of `%{FocusRingRoot}` (the ring lives in its own root under the page, not next to the target). On check circles that P3 tags (`.lgs-ring-check`) and that have no hook, the plate is a bloom 12 px larger than the circle. Only in pad mode or with the runtime off; nothing in laser mode (`opacity: 0`).
 
 ### 3.5 Accessibility
 
@@ -244,11 +261,13 @@ Generated, never hand-edited: `python docs/phase2/fontkit.py --css theme/01-font
 
 ## 5. SteamVR pages (`theme/vr/00-vr-tokens.css`)
 
-The shared SteamVR values (formerly `vr/10-systemui.css` §0): `--lgs-vr-scale`, `--lgs-vr-r-window`, `--lgs-vr-r-card`, `--lgs-vr-r-row`, `--lgs-vr-ring-w`, `--lgs-vr-focus-ring`, `--lgs-vr-hover-fill`, `--lgs-vr-hover-rim`, `--lgs-vr-solid-bg` and the rest of that block, same names and values. C1a removes its copy after P4 lands it (two-step move, PLAN §6).
+The shared SteamVR values (formerly `vr/10-systemui.css` §0): `--lgs-vr-scale`, `--lgs-vr-r-window`, `--lgs-vr-r-card`, `--lgs-vr-r-row`, `--lgs-vr-ring-w`, `--lgs-vr-focus-ring`, `--lgs-vr-hover-fill`, `--lgs-vr-hover-rim`, `--lgs-vr-solid-bg` and the rest of that block. C1a removed its copy (done).
+
+**No hooks in SteamVR pages.** SteamVR pages get the `*.nowrap.css` tokens and `theme/vr/*.css`, not `03-material.css` or `04-states.css`: `--lgs-edge`, `--lgs-ill` and the state numbers do nothing there, and SteamVR area files draw their own light from these tokens. Since R1 (m3) the two Phase 1 ring tokens are ring-free, same names: `--lgs-vr-focus-ring` = the focus add (`--lgs-focus-add`) as an inset layer under the label + the lit top arc + a 32 px glow; `--lgs-vr-hover-rim` = the lit top arc only (white .45), with `--lgs-vr-hover-fill` carrying the hover. Pages that restate `--lgs-vr-hover-rim` at their own scale (`vr/40-bindings.css`, `vr/50-keyboard.css`) should restate the new form.
 
 ## 6. Lens (`device/lgs_lens.js`)
 
-Unchanged Phase 1 interface (`theme/lens.json`, E2 lensing on 1–3 controls per page). Areas declare lens targets with the class `lgs-lens` set by their T2 code; P4 reads it.
+Unchanged Phase 1 interface: `theme/lens.json` (a list of `{sel, …}` specs) drives E2 lensing on 1–3 controls per page; the core calls `lgsLens()` only when that file has specs. **Not built in Phase 2 (R1 m2):** the class interface PLAN §6 plans (areas tag lens targets with `lgs-lens` from T2, the core sweeps them) does not exist: nothing reads `.lgs-lens`, `theme/lens.json` is absent (`lensed: 0`), and no area uses lensing. An area that needs it files `REQ <you>->P4`; P4 then adds the sweep to `device/lgs_lens.js` with a REQ to P1 for the core's call.
 
 ## 7. Requests and changes
 
@@ -261,3 +280,4 @@ File requests to P4 as `- [ ] REQ <YOU>->P4: …` in your own `docs/phase2/wp/<Y
 - 2026-10-07 (M1): contract written; tokens, hooks (`--lgs-edge`, `--lgs-ill`, `--lgs-scroll-band`), state numbers and the FocusRing plate live.
 - 2026-10-07: `--lgs-white-glow` 18/2/.30 → **22/8/.55**, with parts `--lgs-white-glow-blur`, `-spread`, `-a` (REQ C1c, C3a: P-16 band). Phase 1 motion aliases follow P5 (`--lgs-spring` = `--lgs-ease-b15`, `--lgs-ease` = `--lgs-ease-b0`; under Reduce Motion `--lgs-t-*` = P5's 150 / 150 / 180 ms instead of 1 ms; REQ P5). `theme/01-font.nowrap.css` live in every Steam window (SteamVR pages need P8's binary FontFace load). `--lgs-focus-add` .28 recorded as final. Kit parity tool added; the kit's state layer now uses normal compositing and the theme's values (focus .28 instead of .14), the E3 lobe instead of the linear top layer, and a 40 px menu header: **mockups that use `is-focus`, `lgk-glass` or `lgk-menu` render slightly differently; re-render before comparing**.
 - 2026-10-07 (later): `--lgs-focus-add` **.28 → .32** (final; REQ C1a, G-FOCUS on the tab bar). New: `--lgs-text-on-color` `#0d0e12` and `--lgs-fill-danger` red .92 (REQ C4a), `--lgs-shadow-5mm` (REQ P3), `--lgs-edge-z` (edge stacking; the window's rim sits above its header). High Contrast: focus on white and coloured fills is an outer stroke behind a 3 px dark gap. FocusRing hidden in laser mode (`opacity: 0`, CTL §4.5). Kit: liquid target luma .38 → .30 and the adaptation floor ×0.42 → ×0.30 (REQ C1a), `.lgk-btn.play` label `#0d0e12`.
+- 2026-10-07 (R1 review fixes): **hook hosts are listed**, not universal (G-PERF; §2: run `python docs/phase2/fontkit.py --hooks` after adding a hook selector; flat `:where(host)` entries keep the old specificity). New tokens `--lgs-row-hover-add` .06 and `--lgs-nav-hover-spot` .16 (P-03). **FocusRing plate off** where the focused control is an `--lgs-ill` host; `--lgs-ring-r` (§3.4). `row` / `nav` focus arc = the E3 lobe. In-transitions keyed by input mode. `--lgs-edge-dim`; the window rim dims under a modal scrim. `--lgs-t-fast/-t/-t-slow` = P5's 210 / 294 / 441 ms (were 140 / 220 / 320). High Contrast `--lgs-dial: 1` at `html.lgs-on.lgs-on`. SteamVR: `--lgs-vr-focus-ring` and `--lgs-vr-hover-rim` are ring-free (§5); hooks are not bundled into SteamVR pages (documented). §3.1's disabled token corrected to `%{*GamepadDialogContent>Disabled}`; §6 lens: the class interface is not built. Kit: E3 bottom stop .16, focus rim = the theme's E3 ×1.5, row/tab focus arc as the lobe (re-render mockups that use `is-focus` on rows or tabs before `cmp`).

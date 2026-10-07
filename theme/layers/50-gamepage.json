@@ -1,0 +1,87 @@
+{
+  "version": 2,
+  "about": "C5a game pages (GP §3.5, §4.3; PLAN §1.7 default profile). Every rule is behind wp.c5a. Pinned tab row (details state, T2's data-lgs-gp=\"details\"): the segment track and the two arrow circles pop +10 mm over the window glass on a liquid slab (segments are 60 tall, so rule 2's cap s = 60 admits +10; wearer +15, interactive). Focused content cards on the tab pages (DLC tiles, community items, collection tiles, event cards) pop +15 mm when attended; an event card whose 28 px Like/Comment capsules intersect its crop is capped by rule 2 (the reporter drops it to the allowed value). The action cluster and the tab row over the hero art stay at 0 (PLAN-5a-1) until glassd's hole treatment (G2) is live and GP AT-HV-OFFAXIS passes; their rules exist behind the separate flag overArtPops (off), with hole fill auto and no slab (the glass is in-page clear glass). Legacy 'play' and 'app-button' are superseded while wp.c5a is on; the legacy 'tabs' pseudo (::after of the tab wrapper) is no longer drawn on game pages, so it finds nothing here; 'tab-arrow' does not match game pages.",
+  "flag": "wp.c5a",
+  "supersedes": [
+    { "id": "play", "flag": "wp.c5a" },
+    { "id": "app-button", "flag": "wp.c5a" }
+  ],
+  "surfaces": {
+    "main": {
+      "layers": [
+        {
+          "id": "gp-tabs-pinned",
+          "sel": "%{PartnerEventOverlayContainer>AppDetailsMain}[data-lgs-gp=\"details\"] %{AppDetailsContainer} %{TabRowTabs}",
+          "mm": 10,
+          "when": "always",
+          "slab": "liquid",
+          "r": "capsule",
+          "max": 1,
+          "flag": "wp.c5a",
+          "wearer": { "mm": 15, "interactive": true }
+        },
+        {
+          "id": "gp-tab-arrows",
+          "sel": "%{PartnerEventOverlayContainer>AppDetailsMain}[data-lgs-gp=\"details\"] %{AppDetailsContainer} %{TabRow} > %{Arrows}",
+          "mm": 10,
+          "when": "always",
+          "slab": "liquid",
+          "inset": 8,
+          "r": "capsule",
+          "max": 2,
+          "flag": "wp.c5a",
+          "wearer": { "mm": 15, "interactive": true }
+        },
+        {
+          "id": "gp-card",
+          "sel": "%{PartnerEventOverlayContainer>AppDetailsMain}[data-lgs-gp=\"details\"] :is(%{DLCSection>Item}, %{CommunityItem}, %{GameInfoCollections} %{Collection}, %{PartnerEventMediumImage_Container}, %{PartnerEventLargeImage_Container}, %{PartnerEventTextOnly_Container})",
+          "mm": 15,
+          "when": "attended",
+          "slab": "liquid",
+          "max": 1,
+          "flag": "wp.c5a",
+          "wearer": { "mm": 15, "interactive": true }
+        },
+        {
+          "id": "gp-play-art",
+          "sel": "%{PartnerEventOverlayContainer>AppDetailsMain}[data-lgs-gp=\"title\"] %{PlayButtonContainer>PlayButton}",
+          "mm": 10,
+          "when": "always",
+          "slab": "none",
+          "hole": { "fill": "auto" },
+          "media": "allow",
+          "r": "capsule",
+          "max": 1,
+          "flag": "overArtPops",
+          "wearer": { "mm": 15, "interactive": true }
+        },
+        {
+          "id": "gp-cluster-art",
+          "sel": "%{PartnerEventOverlayContainer>AppDetailsMain}[data-lgs-gp=\"title\"] :is(%{StreamingSelector}, %{ShutdownAppButton}, %{AppButtons} %{Container>MenuButton})",
+          "mm": 10,
+          "when": "always",
+          "slab": "none",
+          "hole": { "fill": "auto" },
+          "media": "allow",
+          "r": "capsule",
+          "max": 4,
+          "flag": "overArtPops",
+          "wearer": { "mm": 10, "interactive": true }
+        },
+        {
+          "id": "gp-tabs-art",
+          "sel": "%{PartnerEventOverlayContainer>AppDetailsMain}[data-lgs-gp=\"title\"] %{AppDetailsContainer} %{TabRowTabs}",
+          "mm": 10,
+          "when": "always",
+          "slab": "none",
+          "hole": { "fill": "auto" },
+          "media": "allow",
+          "r": "capsule",
+          "max": 1,
+          "flag": "overArtPops",
+          "wearer": { "mm": 10, "interactive": true }
+        }
+      ]
+    }
+  }
+}

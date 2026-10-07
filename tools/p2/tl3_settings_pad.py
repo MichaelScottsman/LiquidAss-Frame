@@ -32,9 +32,13 @@ WRAP = r"""
 """
 
 
-def run(args, timeout=900):
-    r = subprocess.run([sys.executable, str(ROOT / "glass.py")] + args, capture_output=True, text=True,
-                       encoding="utf-8", errors="replace", timeout=timeout)
+def run(args, timeout=900, tries=10):
+    """One glass.py step; on a busy lab lock (other agents' steps, 240 s each) it tries again, up to `tries` times."""
+    for _ in range(tries):
+        r = subprocess.run([sys.executable, str(ROOT / "glass.py")] + args, capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", timeout=timeout)
+        if "lock busy" not in (r.stdout + r.stderr):
+            break
     return r.returncode, r.stdout, r.stderr
 
 
@@ -61,6 +65,14 @@ def main(argv):
         tmp = Path(tempfile.mkdtemp(prefix="tl3-")) / "bfs.json"
         code, o, e = run(["pad-bfs", "--route", route, "--budget", "300", "--out", str(tmp), "--raw"])
         bfs_file = str(tmp)
+        if not tmp.exists():         # the BFS step gave no result (lock busy, device unreachable)
+            print(o, e)
+            try:
+                tmp.parent.rmdir()
+            except OSError:
+                pass
+            print("BLOCKED: pad-bfs gave no result")
+            return 3
     bfs = json.loads(Path(bfs_file).read_text(encoding="utf-8"))
     nodes = {}
     for n in bfs["nodes"]:

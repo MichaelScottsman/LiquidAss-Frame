@@ -16,8 +16,13 @@ body.ControllerMainBorderRadius {
   --lgs-vr-r-window: calc(var(--lgs-r-window) * 1.875);
   --lgs-vr-r-card: calc(var(--lgs-r-card) * 1.875);
   --lgs-vr-r-row: calc(var(--lgs-r-row) * 1.875);
-  /* restated so the hover rim uses this page's scale */
-  --lgs-vr-hover-rim: inset 0 0 0 calc(1.5px * 1.875) var(--lgs-control-outline);
+  /* restated at this page's scale in the ring-free form (REQ P4->C5b):
+     the lit top arc only */
+  --lgs-vr-hover-rim: inset 0 calc(1.5px * 1.875) calc(1.5px * 1.875) calc(-1px * 1.875) rgb(255 255 255 / .45);
+  /* ring-free stand-ins for the Phase 1 rims (no 1 px lines, VP P-42/43) */
+  /* raised controls: a soft drop only; a uniform top arc read as a line
+     in G-OUTLINE's edge profile (ratio ~1 > .35) */
+  --c5b-raised: 0 calc(1px * 1.875) calc(2px * 1.875) rgb(0 0 0 / .10);
   /* the overlay's own rounded corners (body clips): Steam's window radius */
   border-radius: var(--lgs-vr-r-window);
 
@@ -25,8 +30,13 @@ body.ControllerMainBorderRadius {
   /* 1. Window glass                                                   */
   /* ---------------------------------------------------------------- */
   & .InputContainer {
-    background: var(--lgs-window-sheen), var(--lgs-window-bg);
-    box-shadow: var(--lgs-window-rim);
+    background:
+        radial-gradient(20% 16px at 26% 0, rgb(255 255 255 / .18), rgb(255 255 255 / 0)),
+        var(--lgs-mat-window-bg);
+    /* no E4/E5 dark edge here: on a transparent SteamVR overlay the inset
+       black shadow comes out as a BRIGHT top band in the page's own pixels
+       (measured: edge ratio .67 with it, .05 without) */
+    box-shadow: none;
     border-radius: var(--lgs-vr-r-window);
     color: var(--lgs-text-1);
   }
@@ -37,7 +47,7 @@ body.ControllerMainBorderRadius {
   /* ---------------------------------------------------------------- */
   & .PageTitleBar .TitleBarMainRow {
     background: transparent;
-    box-shadow: inset 0 -1px 0 var(--lgs-separator);
+    box-shadow: none;
   }
   & .PageTitle,
   & .PageTitleBar .PageTitleLabel {
@@ -50,7 +60,7 @@ body.ControllerMainBorderRadius {
   & .PageTitleButton,
   & .PageTitleBar .OptionsButton {
     background: var(--lgs-fill-2);
-    box-shadow: var(--lgs-control-rim);
+    box-shadow: var(--c5b-raised);
     border-radius: var(--lgs-r-capsule);
     color: var(--lgs-text-1);
     transition: background-color var(--lgs-t-fast) var(--lgs-ease);
@@ -58,7 +68,7 @@ body.ControllerMainBorderRadius {
   & .PageTitleBar .PageTitleBackButton:hover,
   & .PageTitleBar .OptionsButton:not(.Disabled):hover {
     background: var(--lgs-vr-hover-fill);
-    box-shadow: var(--lgs-control-rim), var(--lgs-vr-hover-rim);
+    box-shadow: var(--c5b-raised), var(--lgs-vr-hover-rim);
   }
   & .PageTitleBar .PageTitleButton:not(.Disabled):active {
     background: var(--lgs-pressed-fill);
@@ -72,18 +82,18 @@ body.ControllerMainBorderRadius {
   /* ---------------------------------------------------------------- */
   & .ButtonControl {
     background: var(--lgs-fill-2);
-    box-shadow: var(--lgs-control-rim);
+    box-shadow: var(--c5b-raised);
     border-radius: var(--lgs-r-capsule);
     color: var(--lgs-text-1);
     transition: background-color var(--lgs-t-fast) var(--lgs-ease);
   }
   & .ButtonControl:not(.Disabled):hover {
     background: var(--lgs-vr-hover-fill);
-    box-shadow: var(--lgs-control-rim), var(--lgs-vr-hover-rim);
+    box-shadow: var(--c5b-raised), var(--lgs-vr-hover-rim);
   }
   & .ButtonControl:not(.Disabled):active {
     background: var(--lgs-pressed-fill);
-    box-shadow: var(--lgs-control-rim);
+    box-shadow: var(--c5b-raised);
   }
   & .ButtonControl.Disabled {
     opacity: var(--lgs-disabled-opacity);
@@ -210,7 +220,7 @@ body.ControllerMainBorderRadius {
      (the panel tint) with a white count on every tab state */
   & .UnboundActionsCount {
     background-color: var(--lgs-vr-solid-bg);
-    box-shadow: inset 0 0 0 1px var(--lgs-separator);
+    box-shadow: none;
     border-radius: var(--lgs-r-capsule);
     color: var(--lgs-text-1);
   }
@@ -254,7 +264,7 @@ body.ControllerMainBorderRadius {
   & .BindingLabel.BindingHeader:not(.ReadOnly) {
     background-color: var(--lgs-fill-2);
     border-color: transparent;
-    box-shadow: var(--lgs-control-rim);
+    box-shadow: var(--c5b-raised);
     border-radius: var(--lgs-r-small);
   }
   & .Label.BindingLabel.BindingHeader {
@@ -298,17 +308,17 @@ body.ControllerMainBorderRadius {
     background: var(--lgs-scrim);
   }
   & .rodal-dialog {
-    background: var(--lgs-panel-sheen), var(--lgs-thick-bg);
-    backdrop-filter: var(--lgs-thick-blur);
-    box-shadow: var(--lgs-glass-rim), var(--lgs-glass-shadow);
+    background: var(--c5b-lobe), var(--lgs-mat-thick-bg);
+    backdrop-filter: var(--lgs-mat-thick-blur);
+    box-shadow: var(--lgs-shadow-25mm);
     border-radius: calc(var(--lgs-r-sheet) * var(--lgs-vr-scale));
     color: var(--lgs-text-1);
   }
   & .Modal {
-    background: var(--lgs-panel-sheen), var(--lgs-thick-bg);
-    backdrop-filter: var(--lgs-thick-blur);
+    background: var(--c5b-lobe), var(--lgs-mat-thick-bg);
+    backdrop-filter: var(--lgs-mat-thick-blur);
     border-color: transparent;
-    box-shadow: var(--lgs-glass-rim), var(--lgs-glass-shadow);
+    box-shadow: var(--lgs-shadow-25mm);
     border-radius: calc(var(--lgs-r-sheet) * var(--lgs-vr-scale));
     color: var(--lgs-text-1);
   }
@@ -331,9 +341,9 @@ body.ControllerMainBorderRadius {
     border-top-color: var(--lgs-separator);
   }
   & .Dropdown.Popover {
-    background: var(--lgs-panel-sheen), var(--lgs-thick-bg);
-    backdrop-filter: var(--lgs-thick-blur);
-    box-shadow: var(--lgs-glass-rim), var(--lgs-glass-shadow);
+    background: var(--c5b-lobe), var(--lgs-mat-thick-bg);
+    backdrop-filter: var(--lgs-mat-thick-blur);
+    box-shadow: var(--lgs-shadow-25mm);
     border-radius: calc(var(--lgs-r-menu) * var(--lgs-vr-scale));
   }
   & .Dropdown.Popover > .Separator {
@@ -377,5 +387,220 @@ body.ControllerMainBorderRadius {
   & .AppSelectWrapper::-webkit-scrollbar-thumb,
   & .AppBindingSection::-webkit-scrollbar-thumb {
     background-color: rgba(255, 255, 255, 0.28);
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* 9. Phase 2 sizes and type (GP §4.14, C5b): binding px = main px   */
+  /*    x 1.87. Capsules 112 visible with a 150 hit (19 px above and   */
+  /*    below, drawn by a transparent ::after), neighbours >= 40 apart; */
+  /*    text >= 34 px and >= Medium, title case (no uppercase chrome). */
+  /*    Laser only: hover is the only cue (no gamepad path, as today). */
+  /* ---------------------------------------------------------------- */
+  & .InputContainer {
+    font-family: var(--lgs-font);
+    font-weight: 500;
+  }
+  & :is(.PageTitleLabel, .PageSubTitle, .AllCaps, .PageTitleButton, .OptionsButton, .AppSelectName,
+        .ButtonControl, .Label, .BindingLabel, .BindingListSectionHeader, .Tab) {
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  /* title bar: 150 tall, Back and Options as 112 capsules inset 24 */
+  & .PageTitleBar .TitleBarMainRow {
+    min-height: 160px;
+    align-items: center;
+  }
+  & .PageTitleBar :is(.PageTitleButton, .OptionsButton) {
+    position: relative;
+    box-sizing: border-box;
+    height: 112px;
+    min-width: 112px;
+    padding: 0 40px;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    border-radius: 56px;
+    font: 600 38px/1 var(--lgs-font);
+    background: var(--c5b-lobe), var(--lgs-fill-thin);
+    box-shadow: var(--c5b-raised);
+  }
+  & .PageTitleBar .PageTitleLabel {
+    font: 700 50px/1.15 var(--lgs-font);
+    letter-spacing: -.01em;
+  }
+  & .PageTitleBar .PageSubTitle {
+    font: 500 36px/1.25 var(--lgs-font);
+    color: var(--lgs-text-2);
+  }
+  /* the 150 px hit box of every 112 px capsule */
+  & :is(.PageTitleButton, .OptionsButton, .BindingSelectButton, .DeveloperLabel.Inline, .ToggleMirror,
+        .AppSelectShowMoreButton, .BindingManageButtons .ButtonControl)::after {
+    content: "";
+    position: absolute;
+    inset: -19px 0;
+    border-radius: inherit;
+    pointer-events: auto;
+  }
+  /* app list */
+  & .AppSelectContainer .AppSelectName {
+    font: 600 45px/1.2 var(--lgs-font);
+  }
+  & .AppSelectContainer :is(.AppSelectTitle, .AppSelectSubtitle) {
+    font: 500 34px/1.25 var(--lgs-font);
+  }
+  & .AppSelectShowMoreButton {
+    box-sizing: border-box;
+    min-height: 112px;
+    padding: 0 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 56px;
+    font: 600 38px/1 var(--lgs-font);
+    background: var(--c5b-lobe), var(--lgs-fill-thin);
+    box-shadow: var(--c5b-raised);
+  }
+  /* binding list */
+  & .BindingListSectionHeader {
+    font: 700 45px/1.2 var(--lgs-font);
+    color: var(--lgs-text-1);
+  }
+  & .BindingName {
+    font: 600 45px/1.2 var(--lgs-font);
+  }
+  /* description and meta wrap in full (a clamp hides text: AUD SHRUNK;
+     a one-line meta ran out of its entry over the next one); both >= 41 px:
+     G-TYPE counts them as body text */
+  & .BindingDescription {
+    font: 500 42px/1.25 var(--lgs-font);
+    color: var(--lgs-text-2);
+  }
+  & :is(.BindingLastUpdated, .BindingSteamPersonaName, .RemappedInfoSpan) {
+    font: 500 42px/1.25 var(--lgs-font);
+    color: var(--lgs-text-2);
+    white-space: normal;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+  & .SteamCommunityProfileImage {
+    border-radius: 50%;
+    background-color: rgb(255 255 255 / .10);
+  }
+  & .ControllerTypeWrapper :is(div, span) {
+    font-weight: 500;
+  }
+  & .ControllerTypeWrapper .Label,
+  & .ControllerTypeButton div {
+    font-size: max(34px, 1em);
+  }
+  & :is(.BindingSelectButton, .DeveloperLabel.Inline) {
+    position: relative;
+    box-sizing: border-box;
+    height: 112px;
+    min-width: 150px;
+    padding: 0 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 56px;
+    font: 600 38px/1 var(--lgs-font);
+    background: var(--c5b-lobe), var(--lgs-fill-thin);
+    box-shadow: var(--c5b-raised);
+  }
+  /* View and Activate: 40 apart (SteamVR floats them right) */
+  & .BindingSelectButton {
+    margin-left: 40px;
+  }
+  /* separators: 2 px white .08 (never a 1 px line) */
+  & :is(hr, .RemappedInfoHr, .BottomButtonHR, .BindingManageButtonsHR, .InlineSeparator) {
+    border: 0;
+    height: 2px !important;
+    min-height: 2px;
+    background: var(--lgs-separator);
+  }
+  /* view / edit */
+  & .Label.Tab {
+    position: relative;
+    box-sizing: border-box;
+    min-height: 104px;
+    padding: 0 36px;
+    white-space: nowrap;
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 52px;
+    font: 600 36px/1 var(--lgs-font);
+  }
+  /* the unbound-actions count: an orange capsule after the label (the
+     tab makes room for it) */
+  & .Label.Tab:has(.UnboundActionsCount) {
+    padding-right: 96px;
+  }
+  & .UnboundActionsCount {
+    top: 50%;
+    right: 24px;
+    translate: 0 -50%;
+    box-sizing: border-box;
+    min-width: 52px;
+    height: 52px;
+    padding: 0 12px;
+    display: grid;
+    place-items: center;
+    background-color: var(--lgs-orange);
+    color: var(--lgs-text-on-color);
+    font: 700 34px/1 var(--lgs-font);
+  }
+  /* the sticky controller-image column must fit the scroller's 904 px,
+     or Poses / Haptics under it can never be reached: images at 600 */
+  & .BindingControllerImageColumns .ControllerImage {
+    max-height: 600px;
+    width: auto;
+    margin-top: 24px;
+    margin-bottom: 24px;
+  }
+  & .ToggleMirror {
+    margin: 19px 20px;
+    position: relative;
+    box-sizing: border-box;
+    min-height: 112px;
+    padding: 0 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 56px;
+    font: 600 38px/1 var(--lgs-font);
+    background: var(--c5b-lobe), var(--lgs-fill-thin);
+    box-shadow: var(--c5b-raised);
+  }
+  & :is(.Label.Title, .ControllerTitle) {
+    font-weight: 600;
+  }
+  & .Label.Title:not(.ControllerTitle) {
+    font-size: 46px;
+    line-height: 1.2;
+  }
+  & .Label.BindingLabel {
+    font-size: max(36px, 1em);
+    font-weight: 500;
+  }
+  & .Label.BindingLabel.BindingHeader {
+    font-weight: 600;
+  }
+  & .BindingManageButtons {
+    margin-bottom: 20px;
+  }
+  & .BindingManageButtons .ButtonControl {
+    position: relative;
+    box-sizing: border-box;
+    min-height: 112px;
+    padding: 0 30px;
+    margin: 0 20px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 56px;
+    font: 600 34px/1 var(--lgs-font);
+    background: var(--c5b-lobe), var(--lgs-fill-thin);
+    box-shadow: var(--c5b-raised);
   }
 }

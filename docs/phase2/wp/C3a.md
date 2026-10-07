@@ -10,6 +10,43 @@ package is in "Acceptance tests" here.
 
 ## Status
 
+- **READY: wp.c3a** (2026-10-07 10:45, build 11094443). Evidence in the table below: with `--flags wp.c3a` in both
+  `--mode laser` and `--mode pad`, G-AUD has no GONE / HIDDEN / SHRUNK / UNCLICKABLE / CONTRAST finding on `bar`,
+  `barpopup` (Playspace, Streaming, the Steam tab menu), `tooltip`, `volumelevel`, `floatingfooter`; the bar's gamepad
+  traversal (View x2, Right x8, Left x8) reaches every item in Steam's order both ways with wrap and a visible focus
+  light, no outline; the modules `bar` and `hud` log no error and leave no attribute when the flag goes off.
+- **M2 (T1) reached** for C3a's surfaces: `theme/30-bar.css` and `theme/35-hud.css` rewritten (drafts identical in
+  `theme/_wip/`). Bar = Home circle, apps capsule, system capsule (liquid-over-room tint + E3 edges), 56 pp discs at a
+  64 pp pitch, white on/open discs, focus light (+.32, spot, arc) or the scaled white glow, .18 selected disc + white
+  dot, the pill on one line (clock 26 Semibold tabular). Bar popups and tab menus are panel glass with 64 pp rows,
+  tab-menu current route = navigation selection; Streaming's primary is the blue capsule. Tooltip = thick capsule 40 pp,
+  18 Semibold; volume HUD panel capsule; floating hint 40 pp capsule; toasts 320 x 76, r 30, entrance by
+  `@starting-style` (Steam's `toastEnterVR` / `toastExitVR` list untouched). `theme/vr/60-overlays.css`: the one ring
+  (binding callout active) is now light. All DashboardMenu rules are scoped to `%{Variant_TabMenu}` (C1a's REQ done).
+  `python docs/phase2/fontkit.py --hooks` was run for the new `--lgs-edge` / `--lgs-ill` hosts (tokens.md §2 allows it).
+- **M3 (T2) reached:** `device/rt/30-bar.js` (module `bar`, flag `wp.c3a`: unread count from
+  `NotificationStore.m_nUnviewedNotifications` as `data-lgs-unread` on Steam's bell, badge drawn in CSS; `data-lgs-exempt=
+  "E-BAR"` on the disc slots) and `device/rt/35-hud.js` (module `hud`: `data-lgs-val` = round(100 x
+  `--normalized-slider-value`), seen live as "30"). `hudPlacement` is **not built**: P6's wrapper cannot set a popup's
+  y or pitch (reporter.md §5.2), so the HUD keeps Steam's placement (S21 default).
+- **Native fragments written:** `theme/layers/30-bar.json` (`owns: ["bar"]`, cover = the three pieces, unflagged because
+  the T1 look is always on) and `theme/popups/30-bar.json` (`owns: ["barpopup"]`, +25 mm, flag `wp.c3a`, needs `wp.p6`).
+  **Native check: deferred to V1: P7 fix in progress.** The coordinator put a hold on the native lock (P7's
+  scene-graph fix has priority) at about 10:45. Before that message arrived, one `native-session` had already run
+  (10:34, `sgcheck --flags wp.c3a` plus one `hv --look`). Treat its result as **provisional only**: `bar`,
+  `barpopup`, `tooltip` x3, `volumelevel`, `notifications` and `floatingfooter` had 0 pops at 0 mm and no C3a finding.
+  The run's only FAILs were main's `hdr-back` (5.54 mm) and `footer` (4.43 mm) (R2), which are not C3a rules. The hv
+  frame showed the bar as three separate glass pieces; it was viewed and then deleted (`hv --clean`, nothing kept). No
+  native-mode run followed the hold. V1 should rerun `native-session --step "sgcheck --flags wp.c3a,wp.p6"` (also to
+  read back the +25 mm barpopup request through P6's wrapper) once P7 releases the lock.
+- **Known, not fixed:** (1) G-SIZE on `bar` lists Steam's pill glyphs (stock too; REQ C3a->P10). (2) G-OUTLINE: one
+  bottom-edge probe on Streaming's first card (ratio .78), see Evidence. (3) D-9: capsules keep Steam's 80 pp height
+  (mockup 72): the Bookend tab and avatar are 80-86 tall and BarSurface clips; bar 774 pp wide with no app tabs (mock
+  ~728). (4) The Quick Access rules stay in 30-bar.css §4 and the keyboard in 35-hud.css §5 until C3b / C4b ask (PLAN §6).
+  (5) PLAN-3a-1 `cmp` and G-FOCUS live pairs not run (expedited). (6) Toast look verified on a class-exact mock in the
+  hidden notifications window (computed styles), not on a live toast.
+- Device left: theme on, CSS-only (native-session returned), no C3a flag set, bar popups and tooltips closed, pointer
+  parked with `L.unhover()`. The main route was changed by other agents' steps during this session; C3a navigates none.
 - **M0 reached** (2026-10-07). Done this session:
   - The three owned mockups follow PLAN §1 (every §1 decision that touches C3a is in the table below) and are re-rendered:
     `shots/p2_control-center_bar.png`, `shots/p2_control-center_hud.png`, `shots/p2_window-nav_toast.png`. Each image was
@@ -180,6 +217,13 @@ S8, NO6 (C6a, C6b), NO2, NO3 (C3b).
 | M0 render: toast, hint | `python tools/mockshot.py docs/phase2/mockups/window-nav-toast.html shots/p2_window-nav_toast.png` | Rendered, viewed; card at Steam's x 20, hint 40 tall, four variants | `shots/p2_window-nav_toast.png` | 2026-10-07 | n/a |
 | CC A2 (bar mockup) | `python docs/phase2/concepts/control-center-mockaudit.py bar` | PASS (min text 16 pp; slots [64]; widths 740–856 pp; 0 below floor) | — | 2026-10-07 | n/a |
 | G-FOCUS (mockup) | twin A/B (`focus_ab.py`, `dim_ab.py`) and `python glass.py focus --png shots/p2_control-center_bar.png --pair ...` | P-14 +40.4 / +47.4, P-15 +22.8, P-16 +23.1 (bright); +44.1 / +50.6, +33.5, +27.1 (dim) | `shots/p2_control-center_bar.png` | 2026-10-07 | n/a |
+| M2 gates `bar` | `gates bar --flags wp.c3a --mode laser` and `--mode pad` | AUD, TYPE, OUTLINE, MOTION **PASS** both modes; SIZE: only Steam's pill glyphs (battery, volume, Wi-Fi, bell: `focusable:false`, clicks bubble to the pill), the same in `--stock` (REQ C3a->P10). Disc slots tagged E-BAR by `30-bar.js`: 5 exempt, all pass (64 x 80 pp slots, 56 pp discs, + 70 x 72) | — | 2026-10-07 09:52-10:00 | 11094443 |
+| M2 gates `barpopup` Playspace | OPEN Playspace pre, both modes | **PASS** (laser and pad; one earlier pad AUD CONTRAST run was a timing artefact of the materialize, gone after `lgs-mat-large-in`) | `shots/p2_c3a_play_t1.png` | 2026-10-07 10:25 | 11094443 |
+| M2 gates `barpopup` tab menu | HOVER Steam tab pre, both modes | **PASS** after `--lgs-light: 305deg` on the tall menu (edge ratio .479 before) | `shots/p2_c3a_tabmenu_t1.png` | 2026-10-07 10:12 | 11094443 |
+| M2 gates `barpopup` Streaming | OPEN Streaming pre, both modes | AUD, SIZE, TYPE, MOTION **PASS** (fixed: blue primary over C4a's raised button, 66 pp tall, 20 pp one line; host status 16/500 at white .86; Advanced 50 pp target; no rings on the host card, the status dot or the divider). **G-OUTLINE: 1 probe** on the first card's bottom edge, ratio .78 (dL 27.9): the card's bottom rows are 30 L vs 32 inside in our capture, so the probe sees the antialiased edge over its bright room; recorded, not fixed | `shots/p2_c3a_stream_t1.png` | 2026-10-07 10:20 | 11094443 |
+| M2 gates `tooltip`, `volumelevel`, `floatingfooter` | TOOLTIP (Room View hover), volume `m_VolumePressedSubscribable` (no volume change), two-legend footer recipe; both modes | **PASS** all three in both modes (tooltip pad MOTION once caught the materialize running at +1 s; rerun PASS; volume pad once hit a CDP timeout, rerun PASS) | `shots/p2_c3a_tip_t1.png`, `p2_c3a_hud_t1.png` (HUD number 30 drawn by `35-hud.js`), `p2_c3a_hint_t1.png` | 2026-10-07 10:26-10:36 | 11094443 |
+| Toast (A16, mock (a) in the real notifications window) | class-exact mock, computed styles | card 320 x 76 (measured 308 x 73 at the entrance's scale .962, the hidden window does not tick), radius 30, no outline or border, Steam's animation list (`toastEnterVR`, `toastExitVR` hashed names) untouched, panel tint, title 20/600, body 18/400, logo 48 | — | 2026-10-07 10:28 | 11094443 |
+| G-PAD on the bar | View x2 (frame menu, then bar), Right x8, Left x8, `FocusApplicationRoot()` | Every bar item reached in Steam's order in both directions with wrap (Home, +, Playspace, Room View, Streaming, pill, avatar); each shows the light (+.32 spot/arc) or, on white Room View, the glow; no outline anywhere; focus returned to main | — | 2026-10-07 10:33 | 11094443 |
 
 New strings drawn by C3a (PLAN §1.15): none (numerals only).
 
@@ -192,3 +236,19 @@ New strings drawn by C3a (PLAN §1.15): none (numerals only).
 - [x] REQ C3a->P6: surfaces for C3a's quads. PLAN's P6 card lists `notifications` and `volumelevel` in `theme/layers/00-base.json`; today it defines main, bar, barpopup, frame.menu, floatingfooter only. C3a needs (M4): `notifications` (key `valve.steam.gamepadui.notifications`, `panel`, cover `%{ShortTemplate}`), `volumelevel` (`panel`, cover `%{VolumeSliderLabel>VolumePopin}`, capsule) and `tooltip` (prefix `valve.steam.gamepadui.tooltip.`, `thick`, cover `%{PopupBody>Tooltip}`, capsule). Please add them to 00-base.json, or answer that C3a should define them in `theme/layers/30-bar.json` (C3a will also declare `owns: ["bar"]` there for the three-shape bar cover). **P6 (2026-10-07):** done in `00-base.json`: `notifications` (key, `panel`, cover `%{ShortTemplate}` with `all`), `volumelevel` (key `valve.steam.gamepadui.volumelevel`, `panel`, `%{VolumeSliderLabel>VolumePopin}`, capsule), `tooltip` (prefix `valve.steam.gamepadui.tooltip.`, `thick`, `%{PopupBody>Tooltip}`, capsule). Each carries the new surface field `"flag": "wp.c3a"` (contract reporter.md §3.1): reported only while your package flag is on, so RP-1 and native sessions without C3a are unchanged. Define the bar's three shapes in `30-bar.json` with `owns: ["bar"]`.
 - [x] REQ C3a->P10: `glass.py cmp` for popup quads. C3a's mockups draw quads at `--pop-scale` (bar and bar popups ×1.2, toasts ×1.107, HUD ×1.93) with no `mockOrigin` window. Please let `<PKG>-cmp.json` give a mockup scale and origin per mapping (or per file), e.g. `{"mockScale": 1.2, "mockOrigin": [x, y]}`, so mockup rects in view px compare with live surface px. The bar mockup repeats `data-id`s in six rows; `--rects` keeps the first (row A), which is fine if documented.
   - P10 (2026-10-07 06:00): done. `glass.py cmp` accepts `{"mockups": {"<stem>": {surface, route, pre, mockOrigin, mockScale, map}}}`, chosen by `--name` or the mockup's file stem; top-level fields are defaults; a map value may be `{sel, surface, mockOrigin, mockScale}`; selectors take `@text=`, `@last`, `@nth=N`. A repeated `data-id` keeps its first occurrence. contracts/lab.md §3.
+- [x] REQ C3a->P10: G-SIZE on `bar` lists Steam's pill glyphs (`%{QuickAccessButton} %{PopupBody>StatusItem}`: headset
+  battery, volume, Wi-Fi, the bell) as targets (P-80 18 x 18, P-08). They are `Panel Focusable` by class but
+  `focusable: false` in Steam, and a click bubbles to the pill (`docs/inventory/bar.md` §1.2); stock shows the same
+  findings (`gates bar --only size --stock`, 2026-10-07 09:57). The pill is one target (CC §3.1, 232 x 80 live). Please
+  add them to `lab/exemptions.json` (e.g. an `E-BAR` entry judged on the closest `%{QuickAccessButton}`) or skip
+  descendants of a target whose own `focusable` is false. C3a's T2 already tags the disc slots `data-lgs-exempt="E-BAR"`.
+  - P10 (2026-10-07 session 4): done, the second way, from Steam's own data: a Panel rendered `Focusable` whose
+    Panel props say `focusable: false` and that has no activation handler of its own (read from its React fibers
+    up to that Panel: `onClick`, `onActivate`, pointer/mouse/touch down/up, the gamepad button handlers; probe of
+    the live pill: the glyphs carry only `onContextMenu`, the pill `onClick` + `onActivate`), inside another
+    control, is part of that control's target: SIZE lists it as `skipped: part of its host` and judges the pill
+    whole (it is no longer a container). Native buttons and anything with its own handler (a bell with its own
+    `onClick`, if Steam ever gives it one) stay targets. No E-BAR entry needed. `gates bar --only size --flags
+    wp.c3a --mode laser` (11:10): **PASS**, 0 findings, 5 exempt (your E-BAR slots), 3 glyphs part of the host;
+    `--stock` (11:16): the same 3 glyphs part of the host, the pill passes; the 5 findings left are Steam's small
+    bar buttons (48 px, stock only). contracts/lab.md §4 SIZE.

@@ -2,7 +2,7 @@
 
 Owner: **P2**. Files: `device/rt/02-react.js` (module `react`), `device/rt/03-react-lab.js` (module `react-lab`, tests only). Source of truth for the mechanisms: `docs/phase2/capabilities/steam-react.md` (SR). Steam build at the time of writing: `11094443`.
 
-Status of this contract: **v2** (2026-10-07, code complete and tested live: `docs/phase2/wp/P2.md`). Signatures below are stable; additions are appended, never renamed. A change that breaks a caller is announced in `docs/phase2/wp/P2.md` under "Contract changes" before it lands. What changed since v1 is in §11.
+Status of this contract: **v3** (2026-10-07, review R1 fixes; v2 was code complete and tested live: `docs/phase2/wp/P2.md`). Signatures below are stable; additions are appended, never renamed. A change that breaks a caller is announced in `docs/phase2/wp/P2.md` under "Contract changes" before it lands. What changed since v1 is in §11.
 
 ---
 
@@ -33,9 +33,9 @@ __LGS_RT.define({ name: 'react', deps: [], flag: 'react', install(rt), remove() 
 
 | Call | Returns |
 |---|---|
-| `rt.react.ready()` | `true`, or throws `Error('lgs-react: …')` naming the missing finders. Idempotent; a failure is sticky until `rt.react.reset()` (tests) |
+| `rt.react.ready()` | `true`, or throws `Error('lgs-react: …')` naming what is missing. Idempotent. A missing **required finder** is sticky until `rt.react.reset()` (tests). A **transient** failure (Steam's UI still mounting: `main route switch not found`, `no React fiber in the main window`, webpack not loaded) has `err.transient === true`, `err.retryAfterMs` and `err.attempt`: the same error is thrown until the backoff ends (1, 2, 4, 8, 16, then every 30 s), and the next `ready()` after it retries the switch lookup without scanning again (RX-RETRY). Your own `install()` still fails closed meanwhile; let the error out of `install()` unchanged (or as `cause`): P1 re-installs a module whose install failed with a `transient` error, after `retryAfterMs`, up to 4 times (runtime.md, REQ P2->P1) |
 | `rt.react.isReady` | boolean, no side effects |
-| `rt.react.status()` | `{version, installed, ready, error, scanMs, factories, finders: {Name: {module, candidates, required, found}}, switchFibers, patchedLive, routes: [...], overrides: [...], patches: [{id, count, live, kinds, pending}], patchedLeft, jsxHooked, actions: {mode, reasons, logged}}`. `patchedLeft` counts our functions in Steam's objects right now (0 when nothing is registered, and after removal) |
+| `rt.react.status()` | `{version, installed, ready, error, scanMs, factories, finders: {Name: {module, candidates, required, found}}, switchFibers, patchedLive, routes: [...], overrides: [...], patches: [{id, count, live, kinds, pending, late}], patchedLeft, jsxHooked, watching, lateTimers, actions: {mode, reasons, logged}}`, plus `errorTransient`, `retryInMs`, `attempts` while `ready()` is failing. `watching`: the history and window listeners are on (anything registered, a pending optional patch included); `lateTimers`: late-attach timers still scheduled. `patchedLeft` counts our functions in Steam's objects right now (0 when nothing is registered, and after removal) |
 | `rt.react.version` | integer, bumped on every contract-visible change |
 
 ---
@@ -60,7 +60,7 @@ const { mods, where, counts } = rt.react.find({
 });
 ```
 
-- `u` = `rt.react.util`: `fnSrc(v)` (source of a function, class `prototype.render`, forwardRef `.render` or memo `.type`), `pick(exports, test(v, src, key))`, `has(src, ...needles)`.
+- `u` = `rt.react.util`: `fnSrc(v)` (source of a function, class `prototype.render`, forwardRef `.render` or memo `.type`; it reads **through** our trampolines, so a predicate that checks the source still matches a component we already patched), `pick(exports, test(v, src, key))`, `has(src, ...needles)`.
 - **Rule (SR §3.2):** a finder must match exactly one module. If `counts[name] > 1`, tighten its needles before relying on it; each extra candidate is a module that could be executed early.
 - The source cache behind `find()` is kept 60 s after the last scan or `find()`, then dropped; a later `find()` scans again (≈ 80 ms).
 - Live on build 11094443: all 25 built-in finders have exactly 1 candidate (`status().finders`). The scan searches one anchor needle per finder (its longest) and checks the others only on the anchor's modules: 143–165 ms on a busy device (76–94 ms when idle). Your own finders cost about 5 ms per distinct anchor needle when the cache must be rebuilt.
@@ -134,8 +134,9 @@ rt.react.patch.byProps('c2b.plus', rt.react.patch.targets.plusButton, (orig) => 
 | `fn` | a bare function component (no shared holder) | every live fiber's `type`, **and** while the patch exists Steam's element factories (`jsx`, `jsxs`, `createElement` of Steam's React) substitute our trampoline for that function, so a remount keeps the patch (RX-FN: PagedSettings). The first render after patching, and the first after removal, may remount the live instance once (React sees a new element type) |
 
 - One stable trampoline per component carries every layer, so adding or removing a layer never changes the type React sees.
-- **Layering:** several packages may patch the same component; wraps compose in registration order and each handle removes only its own layer.
-- **Fail closed:** throws if nothing matches (`opts.optional: true` returns a handle with `count: 0` and keeps looking on navigation), or if more than `opts.max` (default 1) distinct components match.
+- **Layering:** several packages may patch the same component; wraps compose in registration order and each handle removes only its own layer. Every named target in §5.2 matches a component that is already patched (RX-OPT: a second layer on `appButtons`).
+- **Fail closed:** throws if nothing matches, or if more than `opts.max` (default 1) distinct components match.
+- **`opts.optional: true`** (for targets mounted only on some routes: `appButtons`, `pagedSettings`): when nothing matches, returns a handle with `count: 0`, `pending: true` and keeps looking: on every navigation of the main window, when a popup window is added or shown, and in a bounded series of scoped timers 120, 400, 1000 and 2500 ms after each of those events and after the registration itself (the history event comes before React commits the new route). A pending handle keeps the watchers on by itself, so it works as a package's **only** registration (RX-OPT). Once attached, `count`, `kinds` and `live` are filled in on the same handle and `patch.list()` shows `late` (the event that attached it). A pending handle that later matches more than `max` stays pending and logs the error.
 - `handle = {id, count, live, kinds, refresh(), remove()}`: `count` distinct components, `live` mounted fibers switched at once.
 - Re-render: `rt.react.patch.rerender(handle)` forces one render of the live instances, for patches that must show at once. Returns `{forced, skipped, how: {class, observer}}`: a class instance gets `forceUpdate()`; a mobx observer gets mobx's own update path (a new `stateVersion`, then `onStoreChange()`, exactly what an observable change does). Other components cannot be forced from outside (`skipped`); they show the patch at their next own render.
 - `rt.react.patch.list()` → `[{id, count, live, kinds, pending}]`.
@@ -162,11 +163,11 @@ Packages that discover a new stable predicate send it to P2 as a REQ so it lands
 | Helper | What |
 |---|---|
 | `ui.Page` | Component. `GamepadPage` (`scrollable: false` unless given) whose root is a `Focusable` with `onCancel` (default `nav.back()`) and `onCancelActionDescription` = Steam's "Back". Props: `onCancel`, `className` (root), `rootProps` (more props for the root `Focusable`), `pageProps` (passed to `GamepadPage`), `name` (for the error log), `children`. Includes `ui.ErrorBoundary` |
-| `ui.ErrorBoundary` | Component `{name, fallback, children}`. On error: logs to the runtime log and renders `fallback` if given, else a page with a focused Back `DialogButton` |
+| `ui.ErrorBoundary` | Component `{name, fallback, onError, children}`. On error: logs to the runtime log, calls `onError(err)` if given, and renders `fallback` if given, else the error page: a root spanning the page (48 px side insets) with the title in Title 2 (English UI only, D-P2-6) and a focused 240 × 60 Back capsule on the centre line (`.lgs-react-fail`, `.lgs-react-fail-title`, `.lgs-react-fail-back`; P4 tokens with their values as fallbacks; RX-FAIL) |
 | `ui.menu(content, anchor?, opts?)` | Steam's `showContextMenu`. `content` is a React element or an array of `{label, onSelected, tone, disabled, checked}`; `opts.label` the title. Returns the instance (`.Hide()`). In the main window it is Steam's centred gamepad sheet, with Steam's own Cancel |
-| `ui.modal(element, opts?)` | Steam's `showModal(element, window, opts.options)`; `opts.window` defaults to the main window. Returns a **Promise** of the instance (`.Close()`). Overlays the route without unmounting it (RX-3: the route's root stays the same node; only Steam's focus-dependent nodes such as `%{FastScrollOverlay}` leave while focus is in the modal). Steam passes your element a `closeModal` prop. Call `nav.focusRoot()` in tests before D-pad input |
+| `ui.modal(element, opts?)` | Steam's `showModal(element, window, opts.options)`; `opts.window` defaults to the main window. Returns a **Promise** of the instance (`.Close()`). **Focus goes back** to the control that had it when the modal closes through Steam's `closeModal` (your `onCancel`/B, ConfirmModal's OK and Cancel): Steam parks focus in `vr-null-tree` after a modal in VR, so P2 activates the page's nav tree again and focuses its last node, if the route did not change and nothing else took focus (RX-3; `opts.restoreFocus: false` opts out). Your element is wrapped in a small host that forwards every prop Steam passes. Overlays the route without unmounting it (RX-3: the route's root stays the same node; only Steam's focus-dependent nodes such as `%{FastScrollOverlay}` leave while focus is in the modal). Steam passes your element a `closeModal` prop. Call `nav.focusRoot()` in tests before D-pad input |
 | `ui.confirm(opts)` | `ui.modal` of Steam's `ConfirmModal`: `{title, description, okText, cancelText, middleText, onOK, onCancel, onMiddle, alert}`; a Promise of the instance |
-| `ui.loc(token, ...args)` | Steam's localized string for `#Token`, or `null` when it does not exist |
+| `ui.loc(token, ...args)` | Steam's localized string for `#Token`, or `null` when it does not exist. With `args`, `%1$s` … `%9$s` are filled from them (Steam's `LocalizeString` ignores extra arguments; REQ C2a->P2 #11); a placeholder without an argument stays |
 | `ui.text(token, english)` | `loc(token)`, else `english` only when the UI language starts with `en`, else `null` (PLAN §1.15) |
 | `ui.lang()` | Steam's preferred UI locale (`'english'` when unreadable) |
 | `ui.style(css)` | An element: a `<style>` inside your page's tree (lives and dies with it, SR §3.6). `ui.Style` is the component (`{css}`) |
@@ -204,10 +205,12 @@ The only way T3 views launch or leave. Each returns `{fn, arg, mode, reason}` wi
 
 1. the runtime's action-logger test switch is on (P1, `contracts/runtime.md`), or `rt.react.actions.test(true)` was called;
 2. the flag **`actionsLive` is not `true`**. Built-in default **false** for the whole build; V1 sets it in `defaults.json` at release (PLAN §1.17 safe default);
-3. `ev` is a DOM mouse or pointer event with `isTrusted === false` (a synthetic lab click; a real laser click is trusted);
+3. `ev` is a DOM mouse or pointer event with `isTrusted === false` (a synthetic lab click; a real laser click is trusted), **except** Steam's own programmatic click: an untrusted `PointerEvent` `click` with `pointerType ''` (pointerId -1). That is what Steam's `DialogButton` (`onClick`) and `MenuItem` (`onSelected`, so `ui.menu` items) dispatch for the gamepad's **A** (`HTMLElement.click()`), the gamepad path, so it does not count. Lab clicks are `MouseEvent`s (P10's `L.click`) and stay synthetic; a locked lab step is in test mode anyway through P10's action logger (reason 1), whatever its clicks look like (RX-7 gamepad phase);
 4. the test state cannot be read (fail closed).
 
 `refused` means Steam's handler was not found: nothing runs and nothing is guessed.
+
+**Pass the event.** Give the action the event your control received: a `DialogButton`'s `onClick(ev)`, a `MenuItem`'s or `ui.menu` item's `onSelected(ev)`, a `Focusable`'s `onActivate(ev)` (a `vgp_onok` CustomEvent on A). All three are the user's own laser or gamepad press and run in the shipped state (`actionsLive: true`); only lab clicks and the test switches log instead.
 
 | Helper | What |
 |---|---|
@@ -227,16 +230,17 @@ Tests only. Installed only inside a locked step (`--flags reactLab`).
 | Call | What |
 |---|---|
 | `rt.react.lab.fixture(name, factory)` | registers `factory(rt) → element` (Steam's component with fake props) |
-| `await rt.react.lab.open(name \| element)` | adds `/library/lgs/lab`, navigates there, mounts the fixture inside `ui.ErrorBoundary`; resolves `{mounted, error}` |
+| `await rt.react.lab.open(name \| element)` | adds `/library/lgs/lab`, navigates there, mounts the fixture inside its own `ui.ErrorBoundary`; resolves `{mounted, error, route, nodes}`: a fixture that throws gives `mounted: false` and the error message (C7 labels it "unverified"; RX-OPEN) |
+| `await rt.react.lab.openRaw(name \| element)` | the fixture as the **whole page** of a real added route, `/library/lgs/lab/raw` (no lab wrapper): what a package's `routes.add()` page gets; resolves `{route, failPage}` |
 | `await rt.react.lab.close()` | leaves the route and removes it; resolves `{routeLeft, nodesLeft}` |
 | `await rt.react.lab.selftest(opts)` | RX-1: SR §6's selftest on a test page at `/library/lgs/lab/selftest` |
 | `await rt.react.lab.run(id)` | runs one of P2's acceptance tests (`'RX-1'` … `'RX-7'`) and returns its report |
 
-Built-in fixtures: `ConfirmModal` (no-op props), `buttons` (`DialogButton`, `DialogButtonPrimary`), `fields` (`ToggleField`, `SliderField` with local state only).
+Built-in fixtures: `ConfirmModal` (no-op props), `buttons` (`DialogButton`, `DialogButtonPrimary`), `fields` (`ToggleField`, `SliderField` with local state only), `boom` (a component that throws while rendering).
 
 More of the lab API: `lab.fixtures()` (names), `lab.tests` (runner ids), `lab.events` (what the selftest page logged), `lab.where()` (where `.gpfocus` is, in lab terms), `lab.press('A'|'B'|'X'|'Y'|'MENU')` (dispatches a gamepad button **only** while focus is inside the lab page or its own menu and main is the active focus context; otherwise it throws).
 
-Runners (`lab.run(id, L)`; pass the lab helpers `L` from `glass.py js`): `RX-1` … `RX-7` (PLAN §2.3), and four for builds the RX list does not cover: `RX-OV` (overrides), `RX-HEAL` (self-healing), `RX-FN` (bare-function patch, PagedSettings), `RX-REMOVE` (the module's whole removal), `RX-TARGETS` (`statusPill`, `appButtons`). Run them as `python glass.py js --flags reactLab "__LGS_RT.use('react-lab').run('RX-1', L)"`; `RX-5`, `RX-6` and `RX-REMOVE` refuse to run while another module has live routes or patches.
+Runners (`lab.run(id, L)`; pass the lab helpers `L` from `glass.py js`): `RX-1` … `RX-7` (PLAN §2.3), and nine for builds the RX list does not cover: `RX-OV` (overrides), `RX-HEAL` (self-healing), `RX-FN` (bare-function patch, PagedSettings), `RX-REMOVE` (the module's whole removal), `RX-TARGETS` (`statusPill`, `appButtons`), `RX-OPT` (optional patches as the only registration, layering on `appButtons`), `RX-RETRY` (transient `ready()` failure retried), `RX-FAIL` (the error page on a real added route), `RX-OPEN` (`lab.open()` error reporting). Run them as `python glass.py js --flags reactLab "__LGS_RT.react.lab.run('RX-1', L)"`; `RX-5`, `RX-6`, `RX-REMOVE`, `RX-OPT` and `RX-RETRY` refuse to run while another module has live routes or patches.
 
 ---
 
@@ -244,11 +248,12 @@ Runners (`lab.run(id, L)`; pass the lab helpers `L` from `glass.py js`): `RX-1` 
 
 | Failure | What happens |
 |---|---|
-| A required finder misses, or the route switch is not found | `ready()` throws; nothing patched; every caller's `install()` throws; T1 everywhere |
+| A required finder misses | `ready()` throws (sticky); nothing patched; every caller's `install()` throws; T1 everywhere |
+| The route switch or the main window's fiber is not there yet (UI mounting) | `ready()` throws a `transient` error; nothing patched; retried by the next `ready()` after the backoff |
 | An optional finder misses | that export is `null`; callers skip or degrade |
 | A route component throws | `ui.ErrorBoundary`: focused Back page (added routes) or Steam's own page (overrides) |
 | React remounts the switch | re-patched on the next navigation into our paths |
-| `patch.byProps` target not found | throws (or `count: 0` with `optional`) |
+| `patch.byProps` target not found | throws (or `count: 0`, pending, with `optional`; attached when it mounts) |
 | Steam's action handler not found | `refused`, nothing runs |
 | `lgs off` | `remove()`; `patchedLeft: 0` |
 
@@ -260,6 +265,7 @@ Runners (`lab.run(id, L)`; pass the lab helpers `L` from `glass.py js`): `RX-1` 
 | `test.countPatchedLeft()` | Our functions still on fibers (type or elementType), holders, Steam's element factories |
 | `test.cycle()` | The module's own removal (what `lgs off` runs), then a fresh unscanned state; returns the removal report. Every handle is dead afterwards |
 | `test.dropSwitchPatch()` | Puts the original type back on the route switch fiber, as a React remount would (RX-HEAL) |
+| `test.noSwitch(on)` | While on, `ready()` sees no route switch, as while Steam's UI mounts (a transient failure; RX-RETRY). Cleared by `reset()` |
 | `rt.react.reset()` | Forgets a failed scan; refuses while routes, overrides or patches are live |
 
 ## 11. Changelog
@@ -267,4 +273,5 @@ Runners (`lab.run(id, L)`; pass the lab helpers `L` from `glass.py js`): `RX-1` 
 | Version | Date | Change |
 |---|---|---|
 | v1 | 2026-10-07 | First version (M1) |
+| v3 | 2026-10-07 | Review R1 fixes. **Behaviour changes a caller may notice:** (1) Steam's own programmatic click (untrusted `PointerEvent` `click`, `pointerType ''`: A on a `DialogButton` or `MenuItem`) is no longer a synthetic event, so actions run from the gamepad in the shipped state (§8); (2) an `optional` patch keeps looking when it is the only registration, with late-attach timers after each navigation (§5.1); (3) a transient `ready()` failure is retried after a backoff instead of being sticky (§1); (4) `ui.loc` fills `%N$s` from its arguments (§6); (5) `util.fnSrc` reads through our trampolines (layering on `appButtons`). (6) `ui.modal` gives focus back to the control that had it when the modal closes (Steam left it parked in `vr-null-tree`; `opts.restoreFocus: false` opts out). Additions: `ErrorBoundary.onError`; the error page spans the page and uses P4 tokens; `status().watching/lateTimers/errorTransient/retryInMs/attempts`, `patch.list()[].late`; `lab.open()` returns `{mounted, error, route, nodes}`, `lab.openRaw`, fixture `boom`, runners `RX-OPT`, `RX-RETRY`, `RX-FAIL`, `RX-OPEN`; `test.noSwitch`. `rt.react.version` is 3 (it stayed 1 through v2 by mistake) |
 | v2 | 2026-10-07 | Code complete and tested live. `rt.react` comes from P1's `rt.expose`. Flag `react` is the module's install gate (§1, REQ P1->P2). Rule 9 (no hooks in wraps). Overrides: function children and `null` steamChildren (§4.2). Patch kinds incl. bare functions through element substitution; `rerender` semantics; `patch.list()` (§5.1). All four named targets filled and verified (§5.2). `fiber.walk`, `fiber.firstHost`; `ui.text`, `ui.lang`, `ui.Style`, `Page.rootProps`/`name`; `data.isLiquidGlass`; `actions.mode(ev)`, `actions.primaryInfo`; lab API and runners (§9); test hooks (§10.1). `DropdownField` is not in the `fields` fixture |

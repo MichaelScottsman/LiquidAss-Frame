@@ -1,0 +1,445 @@
+/* Glass Shell, area "keyboard" (C4b, Phase 2): Steam's VR keyboard
+   (window VRKeyboard, overlay valve.steam.gamepadui.keyboard, 854 x 280
+   kb px). CTL §12 (docs/phase2/concepts/controls.md), PLAN §1.3, §1.4, §1.6,
+   §1.7; mockups controls-keyboard*.html.
+
+   Takes over section 5 of 35-hud.css (PLAN §6 two-step move, REQ C4b->C3a):
+   every property that section sets is restated here, so this file wins by
+   name order until C3a deletes it.
+
+   - Platter (T1): the keyboard's contents (keys, and Steam's text buffer in
+     buffered mode) on one thick-glass platter, radius --lgs-r-platter (30),
+     tint rgb(28 30 38 / .84) (the T1 maximum, VP P-87) + top sheen + E3/E4
+     edge cues, never a ring. In native mode glassd draws the platter as the
+     keyboard surface's `thick` cover (theme/layers/36-keyboard.json) and the
+     CSS tint drops away (section 6).
+   - Keys: Steam's own keys through Steam's skin variables on .DefaultTheme
+     only (other skins untouched): letters and Space white .15, modifiers
+     white .075, Enter blue .86; radius 11 (corner keys concentric with the
+     platter); a top sheen, a lit top lip and a 2 px contact shadow.
+   - States: hover / virtual focus %{Modal>Focused} white .32, label stays
+     white (keyed on the input mode, section 3); pressed %{Modal>Touched}
+     white .94 + dark label + glow (keys never scale); Shift / Caps white .94.
+   - Echo row (T2, device/rt/36-keyboard.js, flag wp.c4b): .lgs-kbe in the
+     keyboard window's body, display only, pointer-events none (section 5).
+   Never touched: hit areas (%{KeyboardKeyHitArea}), label transforms and
+   opacity, keyboard_appear, the grid cells, key pointer-events,
+   %{AriaLiveRegion}. Wrapped as html.lgs-on { ... }. */
+
+
+/* ======================================================================
+   1. Skin variables (default skin only) and the platter
+   ====================================================================== */
+
+%{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme {
+  --c4b-key: rgb(255 255 255 / .15);
+  --c4b-mod: rgb(255 255 255 / .075);
+  --c4b-lit: rgb(255 255 255 / .32);
+  --c4b-sheen: linear-gradient(180deg, rgb(255 255 255 / .07), rgb(255 255 255 / 0) 60%);
+  --c4b-sheen-mod: linear-gradient(180deg, rgb(255 255 255 / .05), rgb(255 255 255 / 0) 60%);
+  --c4b-sheen-lit: linear-gradient(180deg, rgb(255 255 255 / .12), rgb(255 255 255 / 0) 60%);
+  --c4b-sheen-enter: linear-gradient(180deg, rgb(255 255 255 / .18), rgb(255 255 255 / 0) 60%);
+  --c4b-lip: inset 0 1.5px 1.5px -1px rgb(255 255 255 / .24);
+  --c4b-contact: 0 2px 3px rgb(0 0 0 / .22);
+  --c4b-glow: 0 0 16px 2px rgb(255 255 255 / .30);
+
+  --key-background-color: var(--c4b-key);
+  --key-color: var(--lgs-text-1);
+  --key-shift-label-color: rgb(255 255 255 / .60);
+  --key-action-button-glyph-color: var(--lgs-text-2);
+  --key-focused-background-color: var(--c4b-lit);
+  --key-focused-color: var(--lgs-text-1);
+  --key-focused-shift-label-color: rgb(255 255 255 / .72);
+  --key-focused-action-button-left-color: var(--lgs-text-1);
+  --key-focused-action-button-right-color: var(--lgs-text-1);
+  --key-meta-background-color: var(--c4b-mod);
+  --key-meta-color: var(--lgs-text-1);
+  --key-tab-background-color: var(--c4b-mod);
+  --key-tab-color: var(--lgs-text-1);
+  --key-caps-background-color: var(--c4b-mod);
+  --key-caps-color: var(--lgs-text-1);
+  --key-shift-background-color: var(--c4b-mod);
+  --key-shift-color: var(--lgs-text-1);
+  --key-backspace-background-color: var(--c4b-mod);
+  --key-backspace-color: var(--lgs-text-1);
+  --key-enter-background-color: var(--lgs-tint-primary);
+  --key-enter-color: var(--lgs-text-on-tint);
+  --key-enter-action-button-glyph-color: var(--lgs-text-on-tint);
+  --key-spacebar-background-color: var(--c4b-key);
+  --key-spacebar-color: var(--lgs-text-1);
+  --key-spacer-background-color: transparent;
+  --key-extendedkey-background-color: transparent;
+  --key-extendedkey-color: var(--lgs-text-1);
+  --key-extendedkey-focused-background-color: var(--c4b-lit);
+  --key-extendedkey-focused-color: var(--lgs-text-1);
+  --key-extendedkey-hover-background-color: var(--c4b-lit);
+  --key-extendedkey-hover-color: var(--lgs-text-1);
+  --key-toggleon-background-color: var(--lgs-selected-fill);
+  --key-toggleon-color: var(--lgs-text-on-selected);
+  --key-toggleoneshot-background-color: var(--lgs-selected-fill);
+  --key-toggleoneshot-color: var(--lgs-text-on-selected);
+  --key-emoji-color: var(--lgs-text-1);
+  --key-emoji-category-highlight-background-color: var(--c4b-key);
+  --key-emoji-focused-background-color: var(--c4b-lit);
+  --key-emoji-focused-color: var(--lgs-text-1);
+  --key-touched-background-color: var(--lgs-selected-fill);
+  --key-touched-color: var(--lgs-text-on-selected);
+  /* trackpad touch pointers (Steam draws them at .5 opacity) */
+  --key-pointer-background-color: var(--lgs-selected-fill);
+  --key-pointer-stroke-color: var(--lgs-text-on-selected);
+  --key-deadkey-background-color: var(--c4b-mod);
+  --key-deadkeyinactive-color: var(--lgs-text-3);
+  --key-deadkeyactive-color: var(--lgs-text-on-selected);
+
+  /* the keyboard itself is clear: the platter is its parent (below), so
+     the text buffer and the keys share one piece of glass */
+  background: transparent;
+  box-shadow: none;
+  border-radius: var(--lgs-r-platter);
+}
+
+/* the platter: Steam's contents box (854 x 239 in minimal mode, the text
+   buffer + keys in buffered mode). With the echo row on (T2), the whole
+   keyboard container (854 x 280) is the platter instead (section 5). */
+%{VRVirtualKeyboardContents}:has(> %{Modal>Keyboard}.DefaultTheme) {
+  background: linear-gradient(180deg, rgb(255 255 255 / .08), rgb(255 255 255 / 0) 34%), rgb(28 30 38 / calc(.70 + var(--lgs-dial, .5) * .28));
+  box-shadow: var(--lgs-mat-thick-shade);
+  border-radius: var(--lgs-r-platter);
+  --lgs-edge: thick;
+}
+
+
+/* ======================================================================
+   2. Keys at rest
+   ====================================================================== */
+
+%{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme %{Modal>KeyboardKey} {
+  border-radius: 11px;
+  background-image: var(--c4b-sheen);
+  box-shadow: var(--c4b-lip), var(--c4b-contact);
+  text-shadow: none;
+  font-weight: 500;
+  scale: none;
+  transition: background-color var(--lgs-d-fade) var(--lgs-ease-fade),
+      color var(--lgs-d-fade) var(--lgs-ease-fade),
+      box-shadow var(--lgs-d-glow-off) linear;
+}
+/* modifiers: Tab, Caps, Shift, Backspace, the layout and arrow keys */
+%{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme :is(%{Modal>KeyboardMetaKey}, %{Modal>KeyboardTabKey}, %{Modal>KeyboardCapsKey}, %{Modal>KeyboardLeftShift}, %{Modal>KeyboardRightShift}, %{Modal>KeyboardBackspace}) {
+  background-image: var(--c4b-sheen-mod);
+  font-weight: 600;
+}
+/* Enter: the one tinted key */
+%{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme %{Modal>KeyboardEnter} {
+  background-image: var(--c4b-sheen-enter);
+  box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / .38), 0 2px 4px rgb(0 0 0 / .25);
+  font-weight: 600;
+}
+/* corner keys follow the platter's curve (keyboard padding + hit-area
+   padding put them 3-4 px in from the edge: concentric = 30 - 4) */
+%{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme > :nth-child(1 of %{Keyboard>KeyboardRow}) > :first-child %{Modal>KeyboardKey} {
+  border-top-left-radius: calc(var(--lgs-r-platter) - 4px);
+}
+%{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme > :nth-child(1 of %{Keyboard>KeyboardRow}) > :last-child %{Modal>KeyboardKey} {
+  border-top-right-radius: calc(var(--lgs-r-platter) - 4px);
+}
+%{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme > :nth-last-child(1 of %{Keyboard>KeyboardRow}) > :first-child %{Modal>KeyboardKey} {
+  border-bottom-left-radius: calc(var(--lgs-r-platter) - 4px);
+}
+%{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme > :nth-last-child(1 of %{Keyboard>KeyboardRow}) > :last-child %{Modal>KeyboardKey} {
+  border-bottom-right-radius: calc(var(--lgs-r-platter) - 4px);
+}
+/* below Steam's text buffer the top row is not a platter corner */
+%{VRVirtualKeyboardContents}:has(> %{VirtualKeyboardTextBuffer}) > %{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme > :nth-child(1 of %{Keyboard>KeyboardRow}) > :is(:first-child, :last-child) %{Modal>KeyboardKey} {
+  border-top-left-radius: 11px;
+  border-top-right-radius: 11px;
+}
+/* controller glyphs on keys (Steam's ActionButtonGlyph; Steam shows them
+   only while a controller drives the keyboard) */
+%{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme %{Modal>ActionButtonGlyph} {
+  opacity: .9;
+}
+
+
+/* ======================================================================
+   3. Hover and virtual focus (CTL §12.4; PLAN §1.4)
+   Steam moves its virtual focus (%{Modal>Focused}) with the D-pad and with
+   the laser's mouseover. Gamepad mode: the virtual focus lights. Laser
+   mode: only the key under the pointer lights; a virtual focus left behind
+   when the pointer leaves the keyboard goes dark (section 3b).
+   ====================================================================== */
+
+%{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme %{Modal>KeyboardKey}%{Modal>Focused} {
+  background-image: var(--c4b-sheen-lit);
+  box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / .40), var(--c4b-contact);
+  text-shadow: none;
+  transition-duration: var(--lgs-d-interactive), var(--lgs-d-interactive), var(--lgs-d-glow-off);
+  transition-timing-function: var(--lgs-ease-interactive), var(--lgs-ease-interactive), linear;
+}
+/* laser: the key under the pointer lights even before Steam moves its
+   virtual focus there (Steam's skin rule keys on Focused only) */
+&:not(.lgs-input-pad) %{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme %{KeyboardKeyHitArea}:hover > %{Modal>KeyboardKey}:not(%{Modal>KeyboardEnter}, %{Modal>ToggleOn}, %{Modal>ToggleOneShot}, %{Modal>Touched}) {
+  background-color: var(--c4b-lit);
+  background-image: var(--c4b-sheen-lit);
+  color: var(--lgs-text-1);
+}
+/* Enter lit: its blue stays, a white lift over it */
+%{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme %{Modal>KeyboardEnter}%{Modal>Focused}:not(%{Modal>Touched}),
+&:not(.lgs-input-pad) %{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme %{KeyboardKeyHitArea}:hover > %{Modal>KeyboardEnter}:not(%{Modal>Touched}) {
+  background-color: var(--key-enter-background-color);
+  background-image: linear-gradient(rgb(255 255 255 / .20), rgb(255 255 255 / .20));
+  color: var(--lgs-text-on-tint);
+  box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / .50), 0 2px 4px rgb(0 0 0 / .25), var(--c4b-glow);
+}
+
+/* 3b. laser mode, pointer off the keyboard: a stale virtual focus is dark */
+&.lgs-input-laser %{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme:not(:hover) %{Modal>KeyboardKey}%{Modal>Focused}:not(%{Modal>Touched}, %{Modal>ToggleOn}, %{Modal>ToggleOneShot}) {
+  background-color: var(--c4b-key);
+  background-image: var(--c4b-sheen);
+  box-shadow: var(--c4b-lip), var(--c4b-contact);
+}
+&.lgs-input-laser %{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme:not(:hover) :is(%{Modal>KeyboardMetaKey}, %{Modal>KeyboardTabKey}, %{Modal>KeyboardCapsKey}, %{Modal>KeyboardLeftShift}, %{Modal>KeyboardRightShift}, %{Modal>KeyboardBackspace})%{Modal>Focused}:not(%{Modal>Touched}, %{Modal>ToggleOn}, %{Modal>ToggleOneShot}) {
+  background-color: var(--c4b-mod);
+  background-image: var(--c4b-sheen-mod);
+}
+&.lgs-input-laser %{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme:not(:hover) %{Modal>KeyboardEnter}%{Modal>Focused}:not(%{Modal>Touched}) {
+  background-color: var(--key-enter-background-color);
+  background-image: var(--c4b-sheen-enter);
+  box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / .38), 0 2px 4px rgb(0 0 0 / .25);
+}
+
+
+/* ======================================================================
+   4. Pressed, Shift / Caps, dead keys, accents, emoji, IME, buffer
+   ====================================================================== */
+
+/* pressed: white .94, dark label, a white glow from the key; never scales.
+   In at once (Steam paints Touched on press), the glow off in 90 ms */
+%{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme %{Modal>KeyboardKey}%{Modal>Touched} {
+  background-color: var(--key-touched-background-color);
+  background-image: none;
+  color: var(--key-touched-color);
+  box-shadow: var(--c4b-glow), var(--c4b-contact);
+  text-shadow: none;
+  scale: none;
+  transition-duration: 0s, 0s, var(--lgs-d-interactive);
+}
+/* Shift one-shot and Caps lock: white .94, dark glyph; focused: + glow
+   (focus on a white fill is a glow, never a ring, VP P-16) */
+%{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme %{Modal>KeyboardKey}:is(%{Modal>ToggleOn}, %{Modal>ToggleOneShot}):not(%{Modal>Touched}) {
+  background-color: var(--lgs-selected-fill);
+  background-image: none;
+  color: var(--lgs-text-on-selected);
+  box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / .60), var(--c4b-contact);
+  text-shadow: none;
+}
+%{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme %{Modal>KeyboardKey}:is(%{Modal>ToggleOn}, %{Modal>ToggleOneShot})%{Modal>Focused}:not(%{Modal>Touched}) {
+  box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / .60), var(--c4b-glow);
+}
+/* Caps lock (on, not one-shot): a 3 kb px bar under the glyph */
+%{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme %{Modal>KeyboardCapsKey}%{Modal>ToggleOn} {
+  background-image: linear-gradient(var(--lgs-text-on-selected), var(--lgs-text-on-selected));
+  background-size: 18px 3px;
+  background-position: 50% calc(100% - 6px);
+  background-repeat: no-repeat;
+}
+%{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme %{Modal>KeyboardKey}:is(%{Modal>ToggleOn}, %{Modal>ToggleOneShot}, %{Modal>Touched}) %{Modal>ShiftedLabel} {
+  color: rgb(13 14 18 / .55);
+}
+
+/* long-press accent bubble: a menu bubble on the platter (a fill, not glass:
+   it lives inside the keyboard quad). Position and size stay Steam's */
+%{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme %{KeyboardExtendedRow} {
+  background: linear-gradient(180deg, rgb(255 255 255 / .10), rgb(255 255 255 / 0) 50%), rgb(44 46 54 / .96);
+  backdrop-filter: none;
+  box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / .22), 0 6px 18px rgb(0 0 0 / .45);
+  border-radius: 17px;
+}
+%{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme %{KeyboardExtendedKey} {
+  border-radius: 11px;
+  text-shadow: none;
+  transition: background-color var(--lgs-d-fade) var(--lgs-ease-fade), color var(--lgs-d-fade) var(--lgs-ease-fade);
+}
+%{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme %{KeyboardExtendedKey}:is(%{Modal>Focused}, :hover) {
+  text-shadow: none;
+  transition-duration: var(--lgs-d-interactive);
+}
+/* emoji / Steam Chat Items and IME candidates: the same key tokens */
+%{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme :is(%{KeyboardEmojiKey}, %{KeyboardSteamItemKey}, %{KeyboardImeLutKey}) {
+  border-radius: 11px;
+}
+
+/* buffered mode (an app opened the keyboard): Steam's own text buffer is
+   the echo row (text 19 kb px, blue caret), on the same platter */
+%{VRVirtualKeyboardContents}:has(> %{Modal>Keyboard}.DefaultTheme) > %{VirtualKeyboardTextBuffer} {
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+}
+%{VRVirtualKeyboardContents}:has(> %{Modal>Keyboard}.DefaultTheme) > %{VirtualKeyboardTextBuffer} %{VirtualKeyboardTextBufferText} {
+  color: var(--lgs-text-1);
+  text-shadow: none;
+  font-weight: 500;
+}
+%{VRVirtualKeyboardContents}:has(> %{Modal>Keyboard}.DefaultTheme) > %{VirtualKeyboardTextBuffer} %{VirtualKeyboardTextBufferCursor} {
+  background-color: var(--lgs-blue);
+}
+%{VRVirtualKeyboardContents}:has(> %{VirtualKeyboardTextBuffer}) > %{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+
+/* ======================================================================
+   5. Echo row (T2, device/rt/36-keyboard.js, flag wp.c4b; CTL §12.3)
+   The module adds html.lgs-kb-echo to the keyboard window and one
+   .lgs-kbe node to its body. Top band (y 5-38) with the key block moved
+   down 41 kb px (the hit areas move with their keys), only when no IME
+   row, emoji layout or text buffer is shown (C-D18); otherwise the echo
+   is not drawn and nothing moves. The platter then spans the whole
+   keyboard container (854 x 280).
+   ====================================================================== */
+
+&.lgs-kb-echo %{VirtualKeyboardStandaloneContainer>VirtualKeyboardContainer}:not(:has(.Row_IME, %{Modal>EmojiKeyboard}, %{VirtualKeyboardTextBuffer})) {
+  background: linear-gradient(180deg, rgb(255 255 255 / .08), rgb(255 255 255 / 0) 34%), rgb(28 30 38 / calc(.70 + var(--lgs-dial, .5) * .28));
+  box-shadow: var(--lgs-mat-thick-shade);
+  border-radius: var(--lgs-r-platter);
+  --lgs-edge: thick;
+}
+&.lgs-kb-echo %{VirtualKeyboardStandaloneContainer>VirtualKeyboardContainer}:not(:has(.Row_IME, %{Modal>EmojiKeyboard}, %{VirtualKeyboardTextBuffer})) > %{VRVirtualKeyboardContents} {
+  translate: 0 41px;
+  background: transparent;
+  box-shadow: none;
+  --lgs-edge: none;
+}
+
+.lgs-kbe {
+  position: fixed;
+  left: 8px;
+  right: 8px;
+  top: 5px;
+  height: 33px;
+  z-index: 6001;              /* over Steam's keyboard container (z-index 6000) */
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  border-radius: 17px;
+  background: rgb(0 0 0 / .30);
+  box-shadow: var(--lgs-recessed-shadow);
+  white-space: nowrap;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+  color: var(--lgs-text-1);
+}
+&:not(.lgs-kb-echo) .lgs-kbe,
+body:has(.Row_IME, %{Modal>EmojiKeyboard}, %{VirtualKeyboardTextBuffer}) > .lgs-kbe,
+.lgs-kbe[data-lgs-kbe="off"] {
+  opacity: 0;
+  visibility: hidden;
+}
+.lgs-kbe-lbl {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--lgs-text-2);
+}
+.lgs-kbe-lbl:empty {
+  display: none;
+}
+/* lock glyph before the field name on a masked field */
+.lgs-kbe[data-lgs-kbe-mask="1"] .lgs-kbe-lbl::before {
+  content: "";
+  flex: none;
+  width: 11px;
+  height: 14px;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 11 14'%3E%3Cpath d='M2.5 6V4a3 3 0 0 1 6 0v2h.5A1 1 0 0 1 10 7v6a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1zm1.5 0h3V4a1.5 1.5 0 0 0-3 0z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+/* magnifier before the field name on a search field */
+.lgs-kbe[data-lgs-kbe-kind="search"] .lgs-kbe-lbl::before {
+  content: "";
+  flex: none;
+  width: 15px;
+  height: 15px;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 15 15'%3E%3Cpath d='M6.25 1a5.25 5.25 0 0 1 4.2 8.4l3.3 3.3-1.05 1.05-3.3-3.3A5.25 5.25 0 1 1 6.25 1zm0 1.5a3.75 3.75 0 1 0 0 7.5 3.75 3.75 0 0 0 0-7.5z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.lgs-kbe-txt {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  font-size: 19px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--lgs-text-1);
+}
+/* long text: the end around the caret, the left edge fading over 24 px */
+.lgs-kbe-txt[data-lgs-kbe-over] {
+  justify-content: flex-end;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 24px);
+}
+.lgs-kbe-txt > span {
+  flex: none;
+  white-space: pre;
+}
+.lgs-kbe-ph {
+  color: rgb(255 255 255 / .55);
+}
+.lgs-kbe-sel {
+  background: color-mix(in srgb, var(--lgs-blue) 45%, transparent);
+  border-radius: 3px;
+}
+.lgs-kbe-comp {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.lgs-kbe-dots {
+  letter-spacing: .18em;
+  font-weight: 700;
+}
+.lgs-kbe-caret {
+  flex: none;
+  display: inline-block;
+  width: 2px;
+  height: 21px;
+  margin: 0 1px;
+  border-radius: 1px;
+  background: var(--lgs-blue);
+}
+
+
+/* ======================================================================
+   6. Native mode: glassd draws the platter as the keyboard surface's
+   `thick` cover once the daemon acknowledges it ([data-lgs-cover], set by
+   the reporter from theme/layers/36-keyboard.json). The CSS tint, shading
+   and edge drop there; keys, echo and labels are content and stay.
+   High Contrast keeps the CSS platter.
+   ====================================================================== */
+
+@media not (prefers-contrast: more) {
+  &.lgs-native :is(%{VRVirtualKeyboardContents}, %{VirtualKeyboardStandaloneContainer>VirtualKeyboardContainer})[data-lgs-cover] {
+    background: transparent;
+    box-shadow: none;
+    --lgs-edge: none;
+  }
+}
+
+
+/* ======================================================================
+   7. Reduce Motion: fades only, short
+   ====================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  %{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme %{Modal>KeyboardKey} {
+    transition-duration: var(--lgs-d-reduce), var(--lgs-d-reduce), var(--lgs-d-glow-off);
+  }
+}

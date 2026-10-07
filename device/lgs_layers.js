@@ -164,10 +164,21 @@
 
   // ------------------------------------------------------------ rules
 
+  // The theme's class index: P1's lgsIndexShared() when device/lgs_index.js
+  // is in scope (it caches only a good index and rebuilds a stale one; REQ
+  // P1->P6), else the one lgs_core.js published, else a fresh build that is
+  // cached only when it is good.
   function getIndex() {
-    if (W.__LGS_INDEX && W.__LGS_INDEX.selector) return W.__LGS_INDEX;
+    /* eslint-disable no-undef */
+    if (typeof lgsIndexShared === 'function') {
+      try { const ix = lgsIndexShared(); if (ix && ix.selector) return ix; } catch (_) { /* fall back */ }
+    }
+    if (W.__LGS_INDEX && W.__LGS_INDEX.selector && W.__LGS_INDEX.ok !== false) return W.__LGS_INDEX;
     if (typeof lgsBuildIndex !== 'function') return null;
-    return (W.__LGS_INDEX = lgsBuildIndex()); // eslint-disable-line no-undef
+    const ix = lgsBuildIndex();
+    /* eslint-enable no-undef */
+    if (ix && ix.ok) W.__LGS_INDEX = ix;
+    return ix && ix.selector ? ix : null;
   }
 
   function resolveSel(sel, index, errs, where) {
@@ -509,9 +520,26 @@
   // ------------------------------------------------------------ Steam state
 
   let reqCache = null;
+  // webpack's require, through a chunk record that is spliced out again at
+  // once (REQ P1->P6: a record left in webpackChunksteamui keeps its closure
+  // for the context's life); records an older build left are removed too
   function webpackReq() {
     if (reqCache) return reqCache;
-    try { W.webpackChunksteamui.push([[Symbol('lgs-layers')], {}, (r) => { reqCache = r; }]); } catch (_) { /* no bundle */ }
+    if (typeof lgsWebpackRequire === 'function') { // eslint-disable-line no-undef
+      try { reqCache = lgsWebpackRequire(); } catch (_) { reqCache = null; } // eslint-disable-line no-undef
+      if (reqCache) return reqCache;
+    }
+    const chunks = W.webpackChunksteamui;
+    if (!chunks || typeof chunks.push !== 'function' || chunks.push === Array.prototype.push) return null;
+    const rec = [[Symbol('lgs-layers')], {}, (r) => { reqCache = r; }];
+    try { chunks.push(rec); } catch (_) { return null; }
+    try {
+      for (let i = chunks.length - 1; i >= 0; i--) {
+        const c = chunks[i];
+        const id = c && Array.isArray(c[0]) ? c[0][0] : null;
+        if (c === rec || (typeof id === 'symbol' && id.description === 'lgs-layers')) chunks.splice(i, 1);
+      }
+    } catch (_) { /* array gone */ }
     return reqCache;
   }
 
@@ -1654,20 +1682,30 @@
 
   // The shorter side (CSS px) of the smallest visible focusable that
   // intersects the crop by >= 8 x 8 px (PLAN 1.7 rule 2): the element or one
-  // inside it, a focusable around it, or any other focusable the crop covers
-  // (a neighbour an outset reaches, an overlapping sibling); null if none.
+  // inside it, a focusable around it, or any other focusable the crop shows
+  // (a neighbour an outset reaches, a sibling stacked over it); null if none.
+  // Another element counts only where it is what a click there reaches (hit
+  // test at the middle of its part of the crop): one hidden under the popped
+  // element is not a target in the crop.
   function smallestTarget(ctx, el, rule, b) {
     const F = rule.focusables || DEFAULT_FOCUSABLES;
     let best = null;
     for (const f of focusRects(ctx, F)) {
       const R = f.R;
-      const ix = Math.min(R.right, b.r) - Math.max(R.left, b.l);
-      const iy = Math.min(R.bottom, b.b) - Math.max(R.top, b.t);
-      if (ix < MIN_VISIBLE_TARGET || iy < MIN_VISIBLE_TARGET) continue;
+      const x0 = Math.max(R.left, b.l);
+      const x1 = Math.min(R.right, b.r);
+      const y0 = Math.max(R.top, b.t);
+      const y1 = Math.min(R.bottom, b.b);
+      if (x1 - x0 < MIN_VISIBLE_TARGET || y1 - y0 < MIN_VISIBLE_TARGET) continue;
       const sd = Math.min(R.width, R.height);
       if (best !== null && sd >= best) continue;
       const st = cs(ctx.ent, f.el);
       if (st.display === 'none' || st.visibility !== 'visible') continue;
+      if (f.el !== el && !el.contains(f.el) && !f.el.contains(el)) {
+        let top = null;
+        try { top = ctx.doc.elementFromPoint((x0 + x1) / 2, (y0 + y1) / 2); } catch (_) { top = null; }
+        if (!top || !(top === f.el || f.el.contains(top))) continue;
+      }
       best = sd;
     }
     return best === null ? null : Math.round(best * 10) / 10;

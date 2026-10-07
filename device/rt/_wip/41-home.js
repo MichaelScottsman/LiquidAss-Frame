@@ -42,6 +42,9 @@ var HOME_PER_PAGE = 13;
 var HOME_PER_PAGE_FOOTER = 9; // two rows when Steam shows a footer anyway (D-C2a-2, HA §3.2)
 var HOME_SECTIONS = ['recent', 'collections', 'apps'];
 var HOME_BANDS = [[14, 94], [130, 262], [318, 450], [506, 638]];
+// the low layout (D-C2a-9): rows at 236 / 416 / 596, section track at 102-166 (the native check at 09:23 had
+// the discs' lower 34 px outside the bands, so their art was hidden under the plate glass)
+var HOME_BANDS_LOW = [[14, 172], [170, 302], [350, 482], [530, 662]];
 var HOME_LAUNCH_SOURCE = 1000; // Steam's library launch source (the capsule's own menu passes it)
 // Strings (HA §3.8): Steam's token first; the English text only when the UI language starts with "en"
 var HOME_STR = {
@@ -436,10 +439,10 @@ function homeComponents(R, rt) {
     }
   }
 
-  function Cell({ item, index, focusMe, under, hidden, low, move, card }) {
+  function Cell({ item, index, focusMe, under, hidden, low, move, card, cardOn }) {
     const x = HOME_CELLS[index][0], y = low ? HOME_LOW_Y[HOME_CELLS[index][1]] : HOME_CELLS[index][1];
     const isGame = item.kind === 'game';
-    const cls = ['lgs-home-cell'];
+    const cls = ['lgs-home-cell', 'c2a-cell']; // c2a-cell: a stable first class for pad-bfs node keys (is-* change with state)
     if (under) cls.push('is-under');
     if (hidden) cls.push('is-hidden-label');
     if (item.running) cls.push('is-running');
@@ -451,6 +454,8 @@ function homeComponents(R, rt) {
       'data-kind': item.kind === 'empty' ? 'empty' : item.kind,
       'data-lgs-home-key': item.key,
       'data-lgs-home-index': index,
+      // the cell's name, stable while its card opens inside it (the card adds Play, status and title text)
+      'aria-label': item.name || label || undefined,
       autoFocus: !!focusMe,
       noFocusRing: true,
       onActivate: (e) => activate(item, e),
@@ -475,6 +480,10 @@ function homeComponents(R, rt) {
       children: [
         jsxs('div', {
           className: 'lgs-home-disc', 'data-lgs-dwell': '', 'data-lgs-plate': 'liquid', 'data-lgs-plate-id': 'home-disc-' + item.key,
+          // a circle (Steam's 50 % radius would be read as 50 px); a neighbour the open card overlaps keeps its
+          // full glass (only the card's own cell reads as its shadow; native check 09:23 had row-3 discs dimmed)
+          'data-lgs-plate-r': 'capsule',
+          'data-lgs-plate-occluder': (under || (cardOn && !card)) ? 'false' : undefined,
           children: [jsx(Art, { item }, 'a'), (isGame && !homeInstalled(item.ov)) ? jsx('span', { className: 'lgs-home-cloud', children: svg('cloud') }, 'c') : null],
         }, 'disc'),
         jsxs('div', { className: 'lgs-home-label', children: [item.running ? jsx('i', { className: 'lgs-home-run' }, 'r') : null, label] }, 'label'),
@@ -545,12 +554,15 @@ function homeComponents(R, rt) {
       if (el && (!pill || pill.x !== el.offsetLeft || pill.w !== el.offsetWidth)) setPill({ x: el.offsetLeft, w: el.offsetWidth });
     });
     // Down from the top row returns to the remembered cell (HA §3.5); Up is Steam's (its search)
-    const down = () => toGrid();
+    const down = (sel) => () => toGrid(sel);
+    const WN_SEL = '.lgs-home .lgs-home-top .lgs-home-wn';
     if (kind === 'folder') {
       const lib = homeStr(R, 'showlib');
-      return jsxs(c.Focusable, { className: 'lgs-home-top', 'flow-children': 'row', children: [
+      // a plain row, not a Focusable: with one control in it, a Focusable row would itself be a 1280 x 108
+      // target over Steam's header (Up and Down are explicit: focusTop / toGrid)
+      return jsxs('div', { className: 'lgs-home-top', children: [
         jsx('h1', { className: 'lgs-home-title', children: title }, 't'),
-        libPath ? jsx(c.Focusable, { className: 'lgs-home-wn', noFocusRing: true, onMoveDown: down,
+        libPath ? jsx(c.Focusable, { className: 'lgs-home-wn', noFocusRing: true, onMoveDown: down(WN_SEL),
           onActivate: (e) => R.actions.navigate(libPath, {}, e),
           children: jsxs('div', { className: 'lgs-home-wn-glass' + (lib ? '' : ' is-icon'), 'data-lgs-plate': 'liquid', 'data-lgs-plate-id': 'home-top-showlib',
             'aria-label': lib || undefined,
@@ -565,14 +577,14 @@ function homeComponents(R, rt) {
         children: [jsx('div', { className: 'lgs-home-seg-pill' }, 'pill')].concat(HOME_SECTIONS.map((s) => {
           const label = homeStr(R, s);
           return jsx(c.Focusable, {
-            className: 'lgs-home-seg-item' + (s === section ? ' is-selected' : '') + (label ? '' : ' is-glyph'), noFocusRing: true, role: 'tab', 'aria-selected': s === section,
-            'aria-label': label ? undefined : s, onMoveDown: down,
+            className: 'lgs-home-seg-item c2a-seg' + (s === section ? ' is-selected' : '') + (label ? '' : ' is-glyph'), noFocusRing: true, role: 'tab', 'aria-selected': s === section,
+            'aria-label': label ? undefined : s, 'data-lgs-home-sec': s, onMoveDown: down('.lgs-home .lgs-home-seg-item[data-lgs-home-sec="' + s + '"]'),
             onActivate: () => onSection(s),
             children: jsx('span', { className: 'lgs-home-seg-fill', children: label ? jsx('span', { className: 'lgs-home-seg-label', children: label }) : svg(s) }),
           }, s);
         })),
       }, 'seg'),
-      jsx(c.Focusable, { className: 'lgs-home-wn', noFocusRing: true, onMoveDown: down, onActivate: () => R.nav.go('/library/lgs/steamhome'),
+      jsx(c.Focusable, { className: 'lgs-home-wn', noFocusRing: true, onMoveDown: down(WN_SEL), onActivate: () => R.nav.go('/library/lgs/steamhome'),
         children: jsxs('div', { className: 'lgs-home-wn-glass' + (wn ? '' : ' is-icon'), 'data-lgs-plate': 'liquid', 'data-lgs-plate-id': 'home-top-wn',
           'aria-label': wn || undefined,
           children: [svg('sparkle'), wn ? jsx('span', { className: 'lgs-home-wn-label', children: wn }, 'l') : null] }) }, 'wn'),
@@ -706,15 +718,24 @@ function homeComponents(R, rt) {
     // ---- explicit neighbours (HA §3.5)
     const cellEl = (i) => { try { return R.nav.win().document.querySelector('.lgs-home-grid > .lgs-home-cell[data-lgs-home-index="' + i + '"]'); } catch (_) { return null; } };
     const focusCell = (i) => homeFocusEl(R, cellEl(i));
-    const focusTop = () => {
+    // one-step memory for the top row too (HA §3.5): Up from the cell that Down from a top-row control
+    // reached returns to that control; otherwise Up goes to the selected segment
+    const focusTop = (fromIdx) => {
       let el = null;
-      try { el = R.nav.win().document.querySelector(kind === 'folder' ? '.lgs-home .lgs-home-top .lgs-home-wn' : '.lgs-home .lgs-home-seg-item.is-selected'); } catch (_) { el = null; }
+      const tm = HS.topBack;
+      HS.topBack = null;
+      try {
+        const doc = R.nav.win().document;
+        if (tm && tm.to === fromIdx && tm.sKey === sKey && tm.sel) el = doc.querySelector(tm.sel);
+        if (!el) el = doc.querySelector(kind === 'folder' ? '.lgs-home .lgs-home-top .lgs-home-wn' : '.lgs-home .lgs-home-seg-item.is-selected');
+      } catch (_) { el = null; }
       return homeFocusEl(R, el);
     };
-    const toGrid = () => {
+    const toGrid = (fromSel) => {
       const k = HS.topMem[sKey];
       let i = k != null ? items.findIndex((it) => it.key === k) : -1;
       if (i < 0) i = memIdx;
+      HS.topBack = fromSel ? { sel: fromSel, to: i, sKey } : null;
       return focusCell(i);
     };
     const moveFrom = (i, d) => {
@@ -727,7 +748,9 @@ function homeComponents(R, rt) {
         if (k >= 0 && k < cells.length) { vmem.current = null; return focusCell(cells[k]); }
         // past the row's end or start: the same row on the next or previous page
         const np = pg + (d === 'right' ? 1 : -1);
-        if (np < 0) return false; // first page, Left at a row's start: Steam's tab bar, as today (SN N2)
+        // first page, Left at a row's start: Steam's own move (focus leaves the main window for the tab bar,
+        // exactly as Left on the first capsule of Steam's Home: stock probe 2026-10-07, SN N2)
+        if (np < 0) return false;
         if (np >= pages.length) return true; // the last page's row end: focus stays
         const nn = pages[np].length;
         const tr = homeRowCells(row, nn);
@@ -740,7 +763,8 @@ function homeComponents(R, rt) {
         vmem.current = { from: i, to: m.from, dir: d };
         return focusCell(m.from);
       }
-      if (d === 'up' && row === 0) { HS.topMem[sKey] = items[i] && items[i].key; vmem.current = null; return focusTop(); }
+      if (d === 'up' && row === 0) { HS.topMem[sKey] = items[i] && items[i].key; vmem.current = null; return focusTop(i); }
+      HS.topBack = null; // any other vertical move ends the top row's one-step memory
       const nr = row + (d === 'up' ? -1 : 1);
       if (nr > maxRow) return true; // bottom row: nothing below
       const tr = homeRowCells(nr, n);
@@ -786,7 +810,8 @@ function homeComponents(R, rt) {
     const rootProps = { className: rootCls.join(' '), 'flow-children': 'column', onButtonDown, 'data-lgs-kind': kind, 'data-lgs-home': '1' };
     if (kind !== 'folder') rootProps['data-lgs-section'] = section;
     if (kind === 'folder') { rootProps.onCancel = () => R.nav.back(); rootProps.onCancelActionDescription = homeStr(R, 'back') || undefined; }
-    // At the Home root B is not handled: it bubbles to Steam's root and opens the tab bar (HA §3.5, SN N3)
+    // At the Home root B is not handled: it bubbles to Steam's root, which goes back in history exactly as on
+    // Steam's own Home (stock probe 2026-10-07: /library/tab/AllGames -> /library/home, B -> AllGames)
     // the page props Steam's own Home passes (its GamepadPage: no header or footer padding, header
     // visibility 'default', minimum opacity 0)
     return jsx(R.ui.ErrorBoundary, { name: 'c2a-home', children: jsx(c.GamepadPage, { scrollable: false, padForHeader: false, padForFooter: false, headerVisibility: 'default', minimumOpacity: 0, children: jsxs(c.Focusable, Object.assign(rootProps, {
@@ -794,12 +819,12 @@ function homeComponents(R, rt) {
         jsx(TopRow, { kind, section, onSection: setSection, title: folder ? folder.title : null, libPath: folder ? folder.lib : null, toGrid }, 'top'),
         jsx(c.Focusable, {
           className: 'lgs-home-grid is-entering', style: { '--lgs-page-dx': (dir * 16) + 'px' },
-          children: items.map((it, i) => jsx(Cell, { item: it, index: i, low, focusMe: i === memIdx, under: covered.has(i), hidden: (showCard || showPlate) && i === attIndex, move: moveFrom,
+          children: items.map((it, i) => jsx(Cell, { item: it, index: i, low, focusMe: i === memIdx, under: covered.has(i), hidden: (showCard || showPlate) && i === attIndex, move: moveFrom, cardOn: showCard,
             card: showCard && i === attIndex ? jsx(Card, { item: attItem, index: attIndex, low, menuOpen: menuKey === attItem.key }, 'card-' + attItem.key) : null }, it.key)),
         }, 'grid-' + sKey + '-' + pg),
         ...peek('next', next), ...peek('prev', prev),
         pages.length > 1 ? jsx('div', { className: 'lgs-home-dots', children: pages.map((_, i) => jsx('i', { className: i === pg ? 'is-on' : undefined }, i)) }, 'dots') : null,
-        ...HOME_BANDS.map(([y0, y1], i) => jsx('div', { className: 'lgs-home-band', 'data-lgs-mosaic': '', style: { top: y0 + 'px', height: (y1 - y0) + 'px' } }, 'band' + i)),
+        ...(low ? HOME_BANDS_LOW : HOME_BANDS).map(([y0, y1], i) => jsx('div', { className: 'lgs-home-band', 'data-lgs-mosaic': '', style: { top: y0 + 'px', height: (y1 - y0) + 'px' } }, 'band' + i)),
         showPlate ? jsx(NamePlate, { item: attItem, index: attIndex, low }, 'plate') : null,
       ],
     })) }) });

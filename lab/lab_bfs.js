@@ -10,7 +10,7 @@
 // keyboard) is recorded and undone.
 (function () {
   const L = window.__LGS_LAB;
-  if (!L || L.single || (L.bfs && L.bfs.v === 9)) return;
+  if (!L || L.single || (L.bfs && L.bfs.v === 10)) return;
   const sleep = L.sleep;
   const CODE = { up: 9, down: 10, left: 11, right: 12 };
   const OPP = { up: 'down', down: 'up', left: 'right', right: 'left' };
@@ -18,8 +18,11 @@
   const W = () => L.surface('main');
   // Steam's focus: the innermost .gpfocus element that has a nav node (test fixtures other agents
   // inject with a .gpfocus class have none).
-  const gp = () => { const a = [...W().document.querySelectorAll('.gpfocus')].filter((e) => !e.closest('[id^="lgs-"]') && L.navNode(e)); return a.length ? a[a.length - 1] : null; };
-  const where = () => { if (gp()) return 'main'; const k = Object.keys(L.focused()); return k.length ? k[0] : null; };
+  // Main has the gamepad only while Steam's active nav tree lives in main's document: after an exit (the frame
+  // menu) or while another window's tree is active (the VR keyboard) main can keep a stale .gpfocus class.
+  const treeInMain = () => { try { const at = FocusNavController.GetActiveNavTree(); const el = at && at.m_Root && at.m_Root.m_element; return !el || el.ownerDocument.defaultView === W(); } catch (_) { return true; } };
+  const gp = () => { if (!treeInMain()) return null; const a = [...W().document.querySelectorAll('.gpfocus')].filter((e) => !e.closest('[id^="lgs-"]') && L.navNode(e)); return a.length ? a[a.length - 1] : null; };
+  const where = () => { if (gp()) return 'main'; const k = Object.keys(L.focused()).filter((n) => n !== 'VR'); return k.length ? k[0] : null; };
   // A label that does not change with focus: aria-label, then the aria-labelledby texts (Steam's library tiles
   // show their name only while focused, but always reference it), then the visible text.
   const labelOf = (el) => {
@@ -93,8 +96,39 @@
     }
     return gp();
   }
+  // Bring gamepad focus back into the main window after a move left it (an `exit:` edge: Left from a row's first
+  // item into the frame menu, REQ C1b->P10 #10, C2a->P10 #14). As a user does it first: the opposite direction
+  // (this also tells whether the exit is reversible), then FocusApplicationRoot (SR 4), then main's own nav tree
+  // made active again in Steam's focus context (FindNavTreeInWindow + SetActiveNavTree) and the root once more.
+  // Returns how focus came back ('opposite' | 'root' | 'tree'), or null when it did not.
+  function ctxOf() { const i = inst(); try { return (i.GetFocusNavContext && i.GetFocusNavContext()) || i.m_FocusNavContext || null; } catch (_) { return null; } }
+  async function regain(S, dir) {
+    if (gp()) return 'kept';
+    if (dir) {
+      FocusNavController.DispatchVirtualButtonClick(CODE[OPP[dir]]);
+      S.moves++;
+      for (let k = 0; k < 15 && !gp(); k++) await sleep(20);
+      if (gp()) return 'opposite';
+    }
+    try { inst().FocusApplicationRoot(); } catch (_) { /* no main */ }
+    for (let k = 0; k < 15 && !gp(); k++) await sleep(20);
+    if (gp()) return 'root';
+    // main's own nav tree (GamepadUI_VR_Full_Root) made the active one again: another window's tree (the frame
+    // menu, the VR keyboard) can keep the gamepad after an exit, and then neither the root nor BTakeFocus reach main
+    const ctx = ctxOf();
+    try {
+      const t = ctx && typeof ctx.FindNavTreeInWindow === 'function' ? ctx.FindNavTreeInWindow(W()) : null;
+      if (t && typeof t.Activate === 'function') t.Activate(true);
+      else if (t && typeof ctx.SetActiveNavTree === 'function') ctx.SetActiveNavTree(t);
+      inst().FocusApplicationRoot();
+    } catch (_) { /* older build */ }
+    for (let k = 0; k < 15 && !gp(); k++) await sleep(20);
+    if (gp()) return 'tree';
+    return null;
+  }
   async function takeDirect(S, i) {
     const n = S.nodes[i];
+    if (!gp()) await regain(S, null);            // focus is outside main (a recovery that did not come back)
     // Edges are measured in the node's own route: Steam Settings keeps the sidebar mounted across
     // pages, and BTakeFocus on a sidebar item does not change the page, so take the route first.
     if (L.route() !== n.route) { L.nav(n.route); await sleep(1300); n.el = null; }
@@ -120,13 +154,13 @@
     if (!(await take(S, p.a, (depth || 0) + 1))) return false;
     const m = await press(S, p.dir);
     if (m.r === 'node' && keyOf(m.el) === S.nodes[i].key) { S.nodes[i].el = m.el; S.replayed++; return true; }
-    if (m.recover) await recover(S);
+    if (m.recover) await recover(S, /^exit:/.test(m.r) ? p.dir : null);
     return false;
   }
-  async function recover(S) {
+  async function recover(S, dir) {
     try { SteamClient.OpenVR.Keyboard.Hide(); } catch (_) { /* none */ }
     if (seg(L.route()) !== seg(S.route)) { L.nav(S.route); await sleep(1300); }
-    if (!gp()) { inst().FocusApplicationRoot(); await sleep(250); }
+    return gp() ? 'kept' : regain(S, dir);
   }
   async function press(S, dir) {
     const before = gp();
@@ -144,13 +178,14 @@
 
   async function init(o) {
     o = o || {};
-    const S = window.__LGS_BFS = { route: L.route(), nodes: [], info: [], byKey: new Map(), edges: {}, rev: [], untested: [], queue: [], parent: {}, replayed: 0, seen: new Set(), moves: 0, t0: Date.now() };
+    const S = window.__LGS_BFS = { route: L.route(), nodes: [], info: [], byKey: new Map(), edges: {}, rev: [], untested: [], exits: [], queue: [], parent: {}, replayed: 0, seen: new Set(), moves: 0, t0: Date.now() };
     inst().FocusApplicationRoot();
     await sleep(300);
     // the first press both activates focus and moves it (SR 4): Down then Up
     FocusNavController.DispatchVirtualButtonClick(10); await sleep(260);
     FocusNavController.DispatchVirtualButtonClick(9); await sleep(260);
     if (seg(L.route()) !== seg(S.route) || L.route() !== S.route) { L.nav(S.route); await sleep(1300); inst().FocusApplicationRoot(); await sleep(300); }
+    if (!gp()) S.initRegain = await regain(S, null);     // another window's nav tree kept the gamepad
     if (o.start) { const el = L.q('main', o.start); if (el) { try { L.gpTakeEl(el); } catch (_) { /* keep */ } await sleep(200); } }
     const start = gp();
     if (!start) return { error: 'no gamepad focus after FocusApplicationRoot (vr-null-tree?)' };
@@ -177,7 +212,10 @@
         const m = await press(S, dir);
         if (m.r !== 'node') {
           S.edges[a][dir] = m.r;
-          if (m.recover) await recover(S);
+          if (m.recover) {
+            const how = await recover(S, /^exit:/.test(m.r) ? dir : null);
+            if (/^exit:/.test(m.r)) S.exits.push({ a, dir, to: m.r, back: how });
+          }
           continue;
         }
         const b = nodeFor(S, m.el);
@@ -188,7 +226,7 @@
         const ok = back.r === 'node' && keyOf(back.el) === S.nodes[a].key;
         if (back.r === 'skip:slider') S.untested.push({ a, dir, b, why: 'opposite move would change a slider' });
         else if (!ok) S.rev.push({ a, dir, b, back: back.r === 'node' ? nodeFor(S, back.el) : back.r });
-        if (back.recover) await recover(S);
+        if (back.recover) await recover(S, /^exit:/.test(back.r) ? OPP[dir] : null);
         const expand = S.nodes[b].route === S.route || S.universe.has(S.nodes[b].key);
         if (!S.seen.has(b) && expand && S.nodes.length <= S.max) { S.seen.add(b); S.queue.push(b); }
       }
@@ -222,6 +260,8 @@
       routes: [...new Set(S.info.map((x) => x.route))],
       irreversible: S.rev.map((r) => ({ from: r.a, dir: r.dir, to: r.b, back: r.back })),
       untested: S.untested.map((r) => ({ from: r.a, dir: r.dir, to: r.b, why: r.why })), universe: S.universe.size,
+      // moves that left the main window, and how focus came back (REQ C1b->P10 #10, C2a->P10 #14)
+      exits: S.exits.map((r) => ({ from: r.a, dir: r.dir, to: r.to, back: r.back })),
       unreached, b, moves: S.moves, replayed: S.replayed, seconds: Math.round((Date.now() - S.t0) / 100) / 10, truncated: S.queue.length > 0,
     };
     res.pass = unreached.length === 0 && res.irreversible.length === 0 && !res.truncated;
@@ -229,5 +269,5 @@
     return res;
   }
 
-  L.bfs = { v: 9, init, step, finish, keyOf, leaves };
+  L.bfs = { v: 10, init, step, finish, keyOf, leaves, regain };
 })();

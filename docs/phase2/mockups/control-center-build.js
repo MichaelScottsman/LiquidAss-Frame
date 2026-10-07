@@ -216,7 +216,7 @@
     const batt = b.mode === 'level' ? `<span class="blev ${b.st || ''}" style="--lvl:${b.v}%"><i></i></span>` : `<b class="bnum ${b.st || ''}">${b.v}</b>`;
     const pst = [pill.state === 'open' ? 'open' : '', pill.state === 'focus' || pill.focus ? 'gp' : '', pill.state === 'hover' ? 'is-hover' : ''].join(' ');
     h += `<span data-id="pill" class="pill ${pst}"><span class="clock">4:56</span>${batt}<i data-i="wifi"></i><i data-i="speaker"></i>${pill.badge ? `<span class="badge">${pill.badge}</span>` : ''}</span>`;
-    h += `<span class="slot" style="width:60px">${`<span data-id="avatar" class="avatar lgk-art ${stateOf('avatar', c)}" data-art="avatar:2:B"></span>`}</span></div>`;
+    h += `<span class="slot" style="width:64px">${`<span data-id="avatar" class="avatar lgk-art ${stateOf('avatar', c)}" data-art="avatar:2:B"></span>`}</span></div>`;
     root.innerHTML = h;
   }
 

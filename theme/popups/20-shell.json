@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "about": [
+    "C1a Shell chrome: the tab bar (frame menu, pooled host type 3) always visible, not only with the laser (WN §3.3.5, PLAN §1.17 S9).",
+    "Behind the flag tabBarAlways (off until AT-7 passes; V1 turns it on in device/defaults.json). Its depth (+25 mm) is P7's tabBarDepth rule in theme/sg/00-base.json, so no zMm here."
+  ],
+  "owns": ["frame.menu"],
+  "hosts": {
+    "frame.menu": {
+      "type": 3,
+      "keyPrefix": "valve.steam.gamepadui.frame.menu",
+      "space": "main",
+      "set": {"only_visible_with_laser": false},
+      "flag": "tabBarAlways"
+    }
+  }
+}

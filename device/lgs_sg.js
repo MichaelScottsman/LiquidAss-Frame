@@ -28,6 +28,8 @@
 //   pop     Steam's texture cropped to the element, max(dz(t), baseDz)
 // Every item of a surface is   panel-anchor(centre u,v) > vsg-transform(0 0 z)
 //                              > [tint >] panel(key, uv, meters-per-pixel)
+// (u,v in the parent's texture uv, which SteamVR maps onto the part of the
+// texture the parent panel displays; see describe())
 // under one shared reparent-to-panel(steamKey). Panels are interactive:false
 // except pops that ask for it in the wearer profile.
 //
@@ -59,8 +61,10 @@
   const DEBUG_TINT = opts.debugTint || null;
   const FLAG_KEYS = ['frame-resize-scale-factor', 'sort-depth-bias', 'sort-order', 'no-depth-test', 'no-depth-write', 'reflect'];
   const DEFAULT_FLAGS = { 'frame-resize-scale-factor': 1 };
-  const KINDS = ['cover', 'base', 'pop', 'slab'];
-  const CAPS = ['depthAnim', 'profile', 'dim', 'window', 'overrides', 'timeline', 'geom', 'sink', 'mosaic', 'cut'];
+  const KINDS = ['cover', 'base', 'pop', 'slab', 'roomdim'];
+  const CAPS = ['depthAnim', 'profile', 'dim', 'window', 'overrides', 'timeline', 'geom', 'sink', 'mosaic', 'cut', 'dimSlabs'];
+  const ROOMDIM_SCALE = 3;        // a dimSlabs cell is drawn this many times its rect's size
+  const ROOMDIM_DZ = -0.05;       // and at least this far behind the window (units)
 
   if (W[GLOBAL]) {
     if (W[GLOBAL].version === VERSION && !opts.force) return JSON.stringify(W[GLOBAL].status());
@@ -143,8 +147,20 @@
   (function locate() {
     let req = null;
     try {
-      W.webpackChunkvrwebui.push([[Symbol('lgs-sg')], {}, (r) => { req = r; }]);
+      const chunks = W.webpackChunkvrwebui;
+      const entry = [[Symbol('lgs-sg')], {}, (r) => { req = r; }];
+      chunks.push(entry);
+      // webpack's push appends the entry to the array after running it: take
+      // it out again, with any left by older installs (R1 m3; only consulted
+      // when the runtime starts, so removing processed entries is harmless)
+      for (let i = chunks.length - 1; i >= 0; i--) {
+        const e = chunks[i];
+        try {
+          if (e === entry || (Array.isArray(e) && Array.isArray(e[0]) && e[0].length === 1 && typeof e[0][0] === 'symbol' && e[0][0].description === 'lgs-sg')) chunks.splice(i, 1);
+        } catch (_) { /* foreign entry */ }
+      }
     } catch (e) { sched.error = 'no webpackChunkvrwebui: ' + e.message; return; }
+    if (!req) { sched.error = 'webpack runtime did not answer'; return; }
     const RETIRE = /^function\s*\w*\((\w+)\)\{\w+\.push\(\1\),\w+\(\)\}$/;
     const tryModule = (id) => {
       let src;
@@ -168,7 +184,13 @@
     if (!tryModule('5723')) {
       for (const id of Object.keys(req.m)) if (tryModule(id)) break;
     }
+    if (opts.noRetire) sched.retire = null;   // tests only: SG-2's fail-closed case
     if (!sched.push) sched.error = 'scene-graph scheduler not found';
+    // Fail closed (R1 m2): without the retire export every removed panel would
+    // leak in the compositor, and about 45 leaked panels stop new panels from
+    // rendering (SP 9.1). So no node of ours is built; overrides (SteamVR's
+    // own nodes, no sgids of ours) still work.
+    else if (!sched.retire) sched.error = 'retire export not found: no scene-graph nodes are built (fail closed)';
   })();
 
   // ------------------------------------------------------------ state
@@ -457,6 +479,15 @@
       reflect: 0,
       debug_name: d.name,
     };
+    // Steam's bar, floating footer and bar popups curve about the dashboard's
+    // curvature origin. A copy of a bar popup with "inherit-from-parent-panel"
+    // came out flat: it crossed the curved popup and hid behind it except for
+    // a middle strip. With the origin named and no "inherit" it curves exactly
+    // like the popup (measured, R1 B1 / SG-POPUP).
+    if (d.curvOrigin) {
+      p['curvature-origin-id'] = d.curvOrigin;
+      delete p.curvature;
+    }
     Object.assign(p, d.flags || {});
     // Wearer profile only (PLAN 1.7, SP 2.6): the crop takes the laser itself.
     if (d.interactive) Object.assign(p, { interactive: true, 'steam-input-appid': 769, 'can-take-keyboard-focus': true });
@@ -512,7 +543,7 @@
 
   // z of animated items is not part of the signature (applyAnimated sets it).
   function sigOf(d) {
-    return [d.parentKey, r6(d.u), r6(d.v), d.popKey ? 'anim' : r6(d.z), d.key, d.uv.map(r6).join(','), d.mpp, d.name,
+    return [d.parentKey, r6(d.u), r6(d.v), d.popKey ? 'anim' : r6(d.z), d.key, d.uv.map(r6).join(','), d.mpp, d.name, d.curvOrigin || '',
       JSON.stringify(d.flags || {}), d.interactive ? 1 : 0, d.dimKey || '', d.popKey ? r6(d.baseDz) + '/' + r6(d.coverDz) : ''].join('|');
   }
 
@@ -654,7 +685,7 @@
         const p = el.buildNode({}, el)[1].properties;
         const uv = [p.uv_min[0], p.uv_min[1], p.uv_max[0], p.uv_max[1]].map(Number);
         if (uv.every(Number.isFinite) && uv[2] > uv[0] && uv[3] > uv[1]) {
-          return { src: 'popup', uv, mpp: num(p['meters-per-pixel'], 0) };
+          return { src: 'popup', uv, mpp: num(p['meters-per-pixel'], 0), curv: curvOriginOf(el, 0) };
         }
       } catch (_) { /* fall through */ }
     }
@@ -666,6 +697,28 @@
       } catch (_) { /* skip */ }
     }
     return { src: 'none', uv: [0, 0, 1, 1], mpp: 0 };
+  }
+
+  // The curvature origin a popup panel really curves about: its own
+  // curvature-origin-id (the bar, the floating footer: the dashboard's), or
+  // else that of the panel it is reparented to (a bar popup hangs off the bar
+  // and inherits it). Our copies name it explicitly; with plain "inherit" a
+  // copy of a bar popup curved about its own centre and crossed Steam's
+  // panel, so only a middle strip of it showed (R1 B1, SG-POPUP).
+  function curvOriginOf(el, depth) {
+    try {
+      const co = el.buildNode({}, el)[1].properties['curvature-origin-id'];
+      if (typeof co === 'string' && co) return co;
+    } catch (_) { /* no props */ }
+    if (depth >= 3) return null;
+    for (let e = el.parentElement; e && e.tagName !== 'VSG-APP'; e = e.parentElement) {
+      if (e.tagName !== 'VSG-NODE' || e.getAttribute('vsg-type') !== 'reparent-to-panel') continue;
+      let k = null;
+      try { k = e.buildNode({}, e)[1].properties['parent-overlay-key']; } catch (_) { return null; }
+      const pe = k ? document.getElementById('PooledPopup-' + k) : null;
+      return pe && typeof pe.buildNode === 'function' ? curvOriginOf(pe, depth + 1) : null;
+    }
+    return null;
   }
 
   function mountsKey(f, key) {
@@ -773,7 +826,8 @@
   }
 
   // Spec surface -> item descriptors. Everything is clipped to the part of
-  // the texture the parent panel shows; anchors are relative to that part.
+  // the texture the parent panel shows; anchors are texture uv (SteamVR maps
+  // them onto that part).
   function describe(s, c) {
     const key = String(s.steamKey);
     const Wd = Math.round(num(s.texW, 0)), Ht = Math.round(num(s.texH, 0));
@@ -781,7 +835,7 @@
     if (!Wd || !Ht || !g || !g.key || !Array.isArray(g.backdrop)) return;
     const P = parentInfo(key, Ht);
     const M = c.Mspec > 0 ? c.Mspec : (P.mpp || c.Mfallback);
-    c.info[key] = { src: P.src, uv: P.uv.map(r6), mpp: M };
+    c.info[key] = { src: P.src, uv: P.uv.map(r6), mpp: M, curv: P.curv || null };
     if (P.src !== 'popup' && P.src !== 'frame') { c.info[key].skipped = 'no parent panel'; return; }
     if (!(M > 0)) return;
     c.built.add(key);
@@ -790,7 +844,7 @@
     const short = key.replace(/^valve\.steam\.gamepadui\./, '');
     const dimKey = st.dims.has(key) ? key : null;
     const add = (k, d) => {
-      c.want.set(key + '#' + k, Object.assign({ parentKey: key, ms: M, flags: c.flags[d.kind] }, d));
+      c.want.set(key + '#' + k, Object.assign({ parentKey: key, ms: M, flags: c.flags[d.kind], curvOrigin: P.curv || null }, d));
       c.counts[d.kind] = (c.counts[d.kind] || 0) + 1;
     };
     // R: the displayed region in texture px; au/av: texture px -> anchor
@@ -799,8 +853,16 @@
       x1: Math.min(Wd, Math.round(P.uv[2] * Wd)), y1: Math.min(Ht, Math.round(P.uv[3] * Ht)),
     };
     if (R.x1 - R.x0 < 2 || R.y1 - R.y0 < 2) return;
-    const au = (x) => (x / Wd - P.uv[0]) / (P.uv[2] - P.uv[0]);
-    const av = (y) => (y / Ht - P.uv[1]) / (P.uv[3] - P.uv[1]);
+    // Anchors are in the parent's TEXTURE uv (0..1 over its whole texture),
+    // not in the displayed range: SteamVR maps anchor-u/v onto the displayed
+    // part (uv_min..uv_max) of the parent panel and clamps what lies outside
+    // it to its edge. Measured on the frame menu (uv x 0.773..1): anchor-u 0.5
+    // put a copy half a panel to the left (clamped to the left edge), 0.8867
+    // (the displayed centre) exactly on Steam's panel (R1 B1, SG-POPUP). The
+    // main window (uv 0..1) and the bar (a symmetric range, centred items
+    // only) never showed the difference.
+    const au = (x) => x / Wd;
+    const av = (y) => y / Ht;
 
     // cover: glassd's backdrop maps linearly onto the Steam texture; plates
     // are drawn by glassd inside it (contracts/glassd.md 1.3)
@@ -845,6 +907,22 @@
       }
     }
 
+    // Room dim (glassd G7, contracts/glassd.md 1.4): each `dimSlabs` cell is
+    // a flat dark tone with a feathered edge. It goes behind the window, centred
+    // on its rect and scaled up, so it darkens the room around the window and
+    // the feather becomes a soft edge. Never interactive, never popped.
+    for (const o of Array.isArray(s.dimSlabs) ? s.dimSlabs : []) {
+      if (!o || o.id === undefined || !Array.isArray(o.slab) || o.slab.length !== 4) continue;
+      const x = num(o.x, NaN), y = num(o.y, NaN), w = num(o.w, 0), h = num(o.h, 0);
+      if (!Number.isFinite(x) || !Number.isFinite(y) || !(w > 0 && h > 0)) continue;
+      const k = Math.max(1, num(o.scaleUp, ROOMDIM_SCALE));
+      add('roomdim:' + o.id, {
+        kind: 'roomdim', id: String(o.id), px: [Math.round(w * k), Math.round(h * k)], u: au(x + w / 2), v: av(y + h / 2),
+        z: Math.min(num(o.dz, ROOMDIM_DZ), ROOMDIM_DZ), key: g.key, uv: o.slab.map(Number), mpp: (M / scale) * k,
+        name: 'lgs:roomdim:' + short + ':' + o.id,
+      });
+    }
+
     // mosaic bands (windowless routes): only these get base pieces
     let bands = null;
     if (Array.isArray(s.mosaic)) {
@@ -870,7 +948,7 @@
     for (const s of (spec && Array.isArray(spec.surfaces)) ? spec.surfaces : []) {
       if (!s || !s.steamKey || s.visible === false) continue;
       const P = parentInfo(String(s.steamKey), Math.round(num(s.texH, 0)));
-      out.push(s.steamKey + ':' + P.src + ':' + P.uv.map(r6).join(',') + ':' + P.mpp);
+      out.push(s.steamKey + ':' + P.src + ':' + P.uv.map(r6).join(',') + ':' + P.mpp + ':' + (P.curv || ''));
     }
     return out.join('|');
   }
@@ -915,13 +993,18 @@
   // ------------------------------------------------------------ build
   function update(spec) {
     if (st.destroyed) return { error: 'destroyed' };
-    contact();
+    contact(false);   // the build below replaces any watchdog rebuild
     st.updates++;
     st.lastSpecAt = Date.now();
-    st.lastSpec = spec || {};
+    st.lastSpec = (spec && typeof spec === 'object') ? spec : {};
     st.specSeq = st.lastSpec.seq !== undefined ? st.lastSpec.seq : null;
     build(st.lastSpec);
-    if (st.lastSpec.window && typeof st.lastSpec.window === 'object') setWindow(st.lastSpec.window);
+    // The spec is declarative: an absent or null `window` is the window at
+    // rest ({dim: 1, recede: 0}, animated back on sheet-out), exactly like an
+    // absent surfaces[].dim (R1 M1). So the daemon dropping the request (the
+    // report's data-lgs-window-dim gone, the sgwindow action's TTL) restores.
+    const w = st.lastSpec.window;
+    setWindow((w && typeof w === 'object') ? w : {});
     return Object.assign({}, st.lastSummary, beat(false));
   }
 
@@ -960,6 +1043,13 @@
     }
     // pops whose surface was not built (no parent panel) go at once
     for (const [k, ps] of st.pops) if (!c.built.has(ps.surface)) st.pops.delete(k);
+    // fail closed without the scheduler or its retire export (R1 m2)
+    if (!sched.push || !sched.retire) {
+      if (c.want.size) c.failClosed = c.want.size;
+      c.want.clear();
+      st.pops.clear();
+      st.dims.clear();
+    }
     st.parents = c.info;
     st.parentSig = parentSig(spec);
     const M = Mspec || st.M;
@@ -984,7 +1074,8 @@
     applyAnimated(now);
     if (anyMoving(now)) startAnim();
     else if (dirty) schedulePush();
-    st.lastSummary = { items: st.items.size, counts: c.counts, changed: dirty, attached, M, profile: st.profile };
+    st.lastSummary = { items: st.items.size, counts: c.failClosed ? {} : c.counts, changed: dirty, attached, M, profile: st.profile };
+    if (c.failClosed) st.lastSummary.error = sched.error + ' (' + c.failClosed + ' items not built)';
     return st.lastSummary;
   }
 
@@ -1020,30 +1111,31 @@
     return true;
   }
 
-  function contact() {
+  // A sign of life from the daemon (update, ping, overrides, windowState,
+  // test.yaw). After a watchdog expiry the first of them, whichever it is,
+  // revives: the last spec is rebuilt and the overrides re-applied (R1 m4).
+  // update() passes revive = false: its own build of the new spec follows.
+  // Returns null when nothing had expired, else whether anything came back.
+  function contact(revive) {
     st.lastContact = Date.now();
-    if (st.expired) {
-      st.expired = false;
-      ov.suspended = false;
-      return true;
+    if (!st.expired) return null;
+    st.expired = false;
+    ov.suspended = false;
+    let rebuilt = false;
+    if (revive !== false && st.lastSpec) {
+      try { build(st.lastSpec); rebuilt = true; st.rebuilds++; } catch (e) { note('rebuild: ' + e.message); }
     }
-    return false;
+    if (ov.rules.length || ov.internal.size || winRules().length) { rebuilt = true; schedulePush(); }
+    // a value that was moving when the watchdog fired finishes its spring
+    if (anyMoving(Date.now())) startAnim();
+    return rebuilt;
   }
 
-  // Heartbeat. After a watchdog expiry the first ping rebuilds the last spec
-  // and re-applies the overrides (the daemon follows with a fresh spec).
+  // Heartbeat. After a watchdog expiry it rebuilds the last spec and
+  // re-applies the overrides (the daemon follows with a fresh spec).
   function ping() {
     if (st.destroyed) return { error: 'destroyed' };
-    let rebuilt = false;
-    if (contact()) {
-      if (st.lastSpec) {
-        try { build(st.lastSpec); rebuilt = true; st.rebuilds++; } catch (e) { note('rebuild: ' + e.message); }
-      }
-      if (ov.rules.length || ov.internal.size || winRules().length) { rebuilt = true; schedulePush(); }
-      // a value that was moving when the watchdog fired finishes its spring
-      if (anyMoving(Date.now())) startAnim();
-    }
-    return beat(rebuilt);
+    return beat(contact() === true);
   }
 
   // ------------------------------------------------------------ overrides
@@ -1205,7 +1297,11 @@
         let changed = false;
         if (rec.tWritten !== null && t !== rec.tWritten) { rec.tBase = t; changed = true; }
         if (rec.rWritten !== null && r !== rec.rWritten) { rec.rBase = r; changed = true; }
-        if (changed) composeEl(el, rec.rules, Date.now());   // before SteamVR's setTimeout(0) push
+        if (changed) {
+          composeEl(el, rec.rules, Date.now());   // before SteamVR's setTimeout(0) push
+          const id = el.getAttribute('sgid');
+          for (const a of ov.applied) if (a.sgid === id) Object.assign(a, { base: rec.tBase, now: el.getAttribute('translation') });
+        }
       });
       try { rec.mo.observe(el, { attributes: true, attributeFilter: ['translation', 'rotation'] }); } catch (_) { rec.mo = null; }
     }
@@ -1405,9 +1501,14 @@
     const dim = Number.isFinite(Number(w.dim)) ? clamp(Number(w.dim), 0, 1) : 1;
     const recede = Number.isFinite(Number(w.recede)) ? Number(w.recede) : 0;
     const off = st.reduce || st.depthToken === 'none';
-    if (dim !== win.dimC.target) chanSet(win.dimC, dim, off ? null : (motion || (dim < chanAt(win.dimC, now)[0] ? 'sheet-in' : 'sheet-out')), now);
-    if (recede !== win.recC.target) chanSet(win.recC, recede, off ? null : (motion || (recede > chanAt(win.recC, now)[0] ? 'sheet-in' : 'sheet-out')), now);
-    if (anyMoving(now)) startAnim(); else schedulePush();
+    let changed = false;
+    if (dim !== win.dimC.target) { chanSet(win.dimC, dim, off ? null : (motion || (dim < chanAt(win.dimC, now)[0] ? 'sheet-in' : 'sheet-out')), now); changed = true; }
+    if (recede !== win.recC.target) { chanSet(win.recC, recede, off ? null : (motion || (recede > chanAt(win.recC, now)[0] ? 'sheet-in' : 'sheet-out')), now); changed = true; }
+    // nothing to push when the window is already where it was asked to be
+    // (every update() passes through here: no pushes at rest)
+    // (a jump back to rest leaves allRules(); the push's applyOverrides()
+    // then restores the transform)
+    if (changed) { if (anyMoving(now)) startAnim(); else schedulePush(); }
     return windowStatus();
   }
   function windowStatus() {
@@ -1477,6 +1578,7 @@
       window: windowStatus(),
       steamPage: (() => { const sp = steamPage(); return sp ? { mountable: sp.mountable, active: sp.active, t1: !!t1Node() } : null; })(),
       sgids: sgidCheck(),
+      tick: { n: st.tickCost.n, lastMs: r6(st.tickCost.lastMs), avgMs: r6(st.tickCost.avgMs), maxMs: r6(st.tickCost.maxMs) },
       errors: st.errors.slice(),
     };
   }
@@ -1488,7 +1590,7 @@
       z: r6(it.d.popKey ? num(it.zNow, it.d.z) : it.d.z), zTarget: r6(it.d.z),
       moving: it.d.popKey ? !!(st.pops.get(it.d.popKey) && !chanSettled(st.pops.get(it.d.popKey).c, now)) : false,
       ghost: !!it.d.ghost,
-      key: it.d.key, uv: it.d.uv.map(r6), mpp: it.d.mpp, flags: it.d.flags, interactive: !!it.d.interactive,
+      key: it.d.key, uv: it.d.uv.map(r6), mpp: it.d.mpp, flags: it.d.flags, interactive: !!it.d.interactive, curv: it.d.curvOrigin || null,
       dimmed: !!it.wrap && !!it.d.dimKey, wrap: it.wrap ? it.wrap.__lgsProps : null,
       px: it.d.px, sizeM: it.d.px ? [r6(it.d.px[0] * it.d.ms), r6(it.d.px[1] * it.d.ms)] : null,
       sgids: [it.top ? it.top.__lgsSgid : null, it.anchor.__lgsSgid, it.xf.__lgsSgid, it.wrap ? it.wrap.__lgsSgid : null, it.panel.__lgsSgid],
@@ -1502,21 +1604,50 @@
     return out;
   }
 
+  // Always uninstalls, even if clear() throws (R1 m5).
   function destroy() {
-    clear();
-    st.destroyed = true;
-    clearInterval(st.tick);
-    clearTimeout(yawTimer);
-    if (W[GLOBAL] === api) delete W[GLOBAL];
+    try {
+      clear();
+    } finally {
+      // nothing of ours may stay on screen: if clear() failed half way, drop
+      // the root and push once (best effort)
+      try {
+        if (st.root && st.root.parentNode) {
+          st.root.remove();
+          if (sched.push) sched.push();
+        }
+      } catch (_) { /* best effort */ }
+      st.destroyed = true;
+      clearInterval(st.tick);
+      clearTimeout(yawTimer);
+      if (st.pushTimer) { clearTimeout(st.pushTimer); st.pushTimer = 0; }
+      if (st.anim.timer) { clearTimeout(st.anim.timer); st.anim.timer = 0; }
+      if (W[GLOBAL] === api) delete W[GLOBAL];
+    }
     return true;
   }
 
   // Housekeeping: re-attach after React re-renders, re-layout when Steam
   // re-crops a parent, re-find override targets, heartbeat watchdog.
+  // Its cost at idle is measured in status().tick (R1 m6: the relayout check
+  // reads each parent panel's buildNode; a popup re-crop must be followed
+  // within 0.5 s, and nothing on the panel can be observed instead).
+  st.tickCost = { n: 0, lastMs: 0, avgMs: 0, maxMs: 0 };
   st.tick = setInterval(() => {
     if (st.destroyed) return;
+    const t0 = performance.now();
+    try { tick(); } finally {
+      const dt = performance.now() - t0;
+      const c = st.tickCost;
+      c.n++;
+      c.lastMs = dt;
+      c.avgMs = c.n === 1 ? dt : c.avgMs + (dt - c.avgMs) / Math.min(c.n, 120);
+      if (dt > c.maxMs) c.maxMs = dt;
+    }
+  }, 500);
+  function tick() {
     if (st.items.size) ensureAttached();
-    if (st.lastSpec && !st.expired) {
+    if (st.lastSpec && !st.expired && Array.isArray(st.lastSpec.surfaces) && st.lastSpec.surfaces.length) {
       try {
         if (parentSig(st.lastSpec) !== st.parentSig) { st.relayouts++; build(st.lastSpec); }
       } catch (e) { note('relayout: ' + e.message); }
@@ -1541,7 +1672,7 @@
       st.expiries++;
       pushNow();
     }
-  }, 500);
+  }
 
   const api = {
     version: VERSION, caps: CAPS, update, ping, overrides, windowState, clear, status, dump, destroy,

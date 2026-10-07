@@ -2,12 +2,17 @@
 """P7 scene-graph acceptance tests (docs/phase2/PLAN.md P7 card, SG-1..SG-4),
 run ON the Frame (no SSH round trips inside a test):
 
-  python3 sg_test.py SRC.js TEST[,TEST...] [--grab DIR] [--motion]
+  python3 sg_test.py SRC.js TEST[,TEST...] [--grab DIR] [--motion] [--lablock]
 
 TEST: sg1, sg2, sg3, sg4, sg6 (watchdog, 12 s), prof (profiles), order
 (z ordering), targets (override targets, tab-bar rule), win (window dim and
-recede), yaw (test hook), or all (everything but sg6). Prints one JSON object
-per test. --motion prepends device/shared/motion.js as the daemon does.
+recede), yaw (test hook), sink, react, frag, roomdim, and the R1 review tests
+win2 (absent window = rest), failclosed (no retire export), revive (any call
+after a watchdog expiry), chunk (no webpack residue), popup (copies on popup
+parents; --lablock, frames measured by sg_popup.py on the PC), tick (idle
+housekeeping cost; --lablock), or all (everything but sg6, popup and tick).
+Prints one JSON object per test. --motion prepends device/shared/motion.js as
+the daemon does. --lablock holds lab.lock + lab-vr.lock for the run.
 
 Safe by construction:
 - installs SRC.js (device/lgs_sg.js or a draft) as a separate instance,
@@ -29,6 +34,7 @@ import sys
 import time
 
 GS = os.path.expanduser("~/.local/share/glass-shell")
+sys.dont_write_bytecode = True   # no __pycache__ left in the install (REQ P10->P7; like lab/lab.py)
 sys.path.insert(0, os.path.join(GS, "device"))
 import lgs  # noqa: E402
 import lgs_vr  # noqa: E402
@@ -68,7 +74,12 @@ def grab(out, tag):
         return None
     path = os.path.join(out, f"p7_{tag}.png")
     try:
-        subprocess.run([HV, path, "3"], capture_output=True, timeout=4)
+        # system.HeadsetView is refreshed only while someone samples it: the
+        # first frame after a pause can be minutes old, so grab twice
+        scale = os.environ.get("HVS", "3")    # hvgrab's downscale (1 = full 1920 x 1080)
+        subprocess.run([HV, path, scale], capture_output=True, timeout=5)
+        time.sleep(0.3)
+        subprocess.run([HV, path, scale], capture_output=True, timeout=5)
     except subprocess.TimeoutExpired:
         return None
     return path if os.path.exists(path) else None
@@ -158,7 +169,7 @@ async def sg2(t, out):
         await t.call("update", {"seq": 999, "depthMotion": "none",
                                 "surfaces": [surface([{"id": "vis", "x": 300, "y": 200, "w": 1300, "h": 650, "dz": 0.0271}])]})
         t1 = time.time()
-        for d in (1.2, 3.0, 6.0):
+        for d in (0.4, 1.2, 3.0):
             await t.keep(d - (time.time() - t1))
             shot.append(grab(out, f"sg2_after_{d}"))
     res = {"test": "SG-2", "cycles": cycles, "seconds": round(took, 1), "pushes": (await t.call("status"))["pushes"],
@@ -399,6 +410,111 @@ async def sgyaw(t, out):
     return res
 
 
+FC_SET = """(v=>{const e=[...document.querySelectorAll('vsg-transform[id$=":bottom-controls-transform"]')]
+.map(e=>[...e.children].find(k=>k.tagName==='VSG-TRANSFORM')).filter(Boolean)[0];e.setAttribute('translation',v);
+return Promise.resolve().then(()=>e.getAttribute('translation'))})"""
+
+
+async def sgreact(t, out):
+    """Section 4.3: React writes a new value while an override is on (simulated by
+    writing the attribute): the observer takes it as the new base and re-applies
+    before any push; removing the rule leaves React's latest value."""
+    res = {"test": "SG-REACT"}
+    orig = (await t.js(FC_ATTR))[0]
+    o = [float(v) for v in orig.split()]
+    react = f"{o[0]:g} {o[1] - 0.01:g} {o[2]:g}"
+    try:
+        r = await t.call("overrides", {"seq": 1, "rules": [{"id": "fc-r", "target": "frame-controls", "addMm": [-40, 0, 0]}]})
+        g = await t.call("geom")
+        res["applied"] = (await t.js(FC_ATTR))[0]
+        res["afterReactWrite"] = await t.js(f"{FC_SET}({json.dumps(react)})")
+        st = await t.call("status")
+        res["base"] = next((a["base"] for a in st["overrides"]["applied"] if a["id"] == "fc-r"), None)
+        await t.call("overrides", {"seq": 2, "rules": []})
+        res["afterRemove"] = (await t.js(FC_ATTR))[0]
+    finally:
+        await t.js(f"{FC_SET}({json.dumps(orig)})")       # React's real value back
+        await t.call("overrides", {"seq": 3, "rules": []})  # and one push carrying it
+        await t.keep(0.3)
+        res["end"] = (await t.js(FC_ATTR))[0]
+    dx = -40 * g["unitsPerMm"]
+    got = [float(v) for v in res["afterReactWrite"].split()]
+    res["expected"] = [round(o[0] + dx, 6), round(o[1] - 0.01, 6), o[2]]
+    res["pass"] = all(abs(a - b) < 1e-6 for a, b in zip(got, res["expected"])) and res["base"] == react and \
+        res["afterRemove"] == react and res["end"] == orig
+    return res
+
+
+async def sgfrag(t, out):
+    """Every rule of every theme/sg/*.json fragment (flags ignored, supersedes
+    honoured as the daemon does) applies on the live page and restores."""
+    rules, order = {}, []
+    d = os.path.join(GS, "theme", "sg")
+    for name in sorted(os.listdir(d)):
+        if not name.endswith(".json") or name.startswith("_"):
+            continue
+        frag = json.load(open(os.path.join(d, name), encoding="utf-8"))
+        for rid in frag.get("supersedes") or []:
+            if rid in rules:
+                del rules[rid]
+                order.remove(rid)
+        for r in frag.get("rules") or []:
+            rules[r["id"]] = r
+            order.append(r["id"])
+    active = [rules[i] for i in order]
+    snap = "JSON.stringify([...document.querySelectorAll('vsg-transform')].filter(e=>!e.closest('[id^=lgs-sg-root]')).map(e=>e.getAttribute('translation')+'|'+e.getAttribute('rotation')).join(';'))"
+    before = await t.js(snap)
+    r = await t.call("overrides", {"seq": 1, "rules": active})
+    await t.keep(0.5)
+    await t.call("overrides", {"seq": 2, "rules": []})
+    await t.keep(0.5)
+    after = await t.js(snap)
+    res = {"test": "SG-FRAG", "rules": order, "applied": {a["id"]: [a["n"], a["base"], a["now"]] for a in r["applied"]},
+           "missing": r["missing"], "errors": r["errors"], "restored": before == after}
+    res["pass"] = not r["errors"] and res["restored"] and len(res["applied"]) + len(r["missing"]) == len(order) and \
+        all(k in res["applied"] for k in order if k != "tips-below")
+    return res
+
+
+async def sgroomdim(t, out):
+    """Room dim (glassd G7): a `dimSlabs` cell goes behind the window (z <= -0.05),
+    centred on its rect, 3x its size, never interactive, removed with the entry.
+    With --grab the cell is a tinted crop of Steam's own texture, so it can be
+    seen in the headset view (the real cell is glassd's dark tone)."""
+    res = {"test": "SG-ROOMDIM"}
+    if out:
+        await t.js(f"{G}.destroy(), 0")
+        await t.install({"debugTint": {"roomdim": [0.25, 0.35, 1]}})
+    glassd = {"key": MAIN, "backdrop": [0, 0, 1, 1], "scale": 1} if out else None
+    dim = {"id": "rd", "x": 660, "y": 340, "w": 600, "h": 400, "dz": 0.0, "slab": [0.40, 0.40, 0.55, 0.55]}
+    if out:   # the visual case: the whole window's rect, so 3x shows well around the window
+        dim.update(x=0, y=0, w=1920, h=1080, slab=[0, 0, 1, 1])   # the cell must span the rect (as glassd's does)
+    s1 = surface([], dimSlabs=[dim])
+    if glassd:
+        s1["glassd"] = glassd
+    r = await t.call("update", {"seq": 1, "surfaces": [s1]})
+    await t.keep(0.5)
+    d = [x for x in await t.call("dump") if x["kind"] == "roomdim"]
+    props = [p for p in await t.js(PANEL_PROPS) if p["name"].startswith("lgs:roomdim:")]
+    shot = grab(out, "roomdim_on") if out else None
+    s2 = surface([])
+    if glassd:
+        s2["glassd"] = glassd
+    await t.call("update", {"seq": 2, "surfaces": [s2]})
+    await t.keep(0.5)
+    left = [x for x in await t.call("dump") if x["kind"] == "roomdim"]
+    sg = (await t.call("status"))["sgids"]
+    await t.call("clear")
+    cover = None
+    it = d[0] if d else {}
+    res.update({"counts": r.get("counts"), "roomdim": it, "props": props, "leftAfterRemove": len(left), "sgids": sg, "shot": shot})
+    scale = 1 if glassd else 0.75
+    res["pass"] = len(d) == 1 and it["z"] <= -0.05 and abs(it["mpp"] - 1.5 / 1080 / scale * 3) < 1e-9 and \
+        it["px"] == ([5760, 3240] if out else [1800, 1200]) and abs(it["anchor"][0] - 0.5) < 1e-6 and abs(it["anchor"][1] - 0.5) < 1e-6 and \
+        props and all(p["interactive"] is False for p in props) and not left and sg["live"] == sg["dom"]
+    return res
+
+
 async def sgsink(t, out):
     """Section 3.3 / 3.4: `from` (units and "cut"), per-pop `motion`, sinking on
     `fade` with the slabsOut cell, `sink: false`, a slot id that moves (the old
@@ -500,6 +616,261 @@ async def sg6(t, out):
     return res
 
 
+# ---------------------------------------------------------------- R1 review tests
+
+# Steam's popups: texture size per overlay key (the reporter's texW / texH)
+STEAM_SIZES = ("JSON.stringify([...g_PopupManager.m_mapPopups.values()].map(p=>{let k='';try{k=(p.params&&p.params.strVROverlayKey)||''}"
+               "catch(e){};let s=null;try{s=[Math.round(p.window.innerWidth*p.window.devicePixelRatio),"
+               "Math.round(p.window.innerHeight*p.window.devicePixelRatio)]}catch(e){};return [k,s]}))")
+PP_PANELS = ("JSON.stringify([...document.querySelectorAll('[id^=PooledPopup]')].map(el=>{try{const p=el.buildNode({},el)[1].properties;"
+             "return {key:p.key,uv:[p.uv_min[0],p.uv_min[1],p.uv_max[0],p.uv_max[1]].map(Number),origin:p.origin}}catch(e){return null}})"
+             ".filter(Boolean))")
+# the surfaces lgs_sg.js builds on popup parents (theme/layers.json)
+POPUP_RE = r"^valve\.steam\.gamepadui\.(bar|barpopup\.\d+|frame\.menu\.\d+|floatingfooter)$"
+# rewrite the cover's anchor as the old (pre-R1) code computed it: relative to
+# the displayed range, so the displayed centre is (0.5, 0.5) (the control case)
+OLD_ANCHOR = ("(()=>{const r=document.getElementById('lgs-sg-root-__LGS_SG_TEST');const a=r&&r.querySelector("
+              "'vsg-node[vsg-type=panel-anchor]');if(!a)return 'none';a.__lgsProps={'anchor-u':0.5,'anchor-v':0.5};"
+              "__LGS_SG_TEST.test.yaw(0);return 'set'})()")
+# docs/inventory/bar.md 0.3 OPEN: close every bar popup, click "+", fake mouseenter
+# so the 2 s auto-close never fires; CLOSE closes them again
+PLUS_OPEN = ("(async()=>{const W=ms=>new Promise(r=>setTimeout(r,ms));for(const p of SteamUIStore.WindowStore."
+             "VRGamepadUIMainWindowInstance.VRDashboardBarPopups)p.closePopup();await W(400);const el=L.q('bar','%{AddWindowButton}');"
+             "L.click('bar','%{AddWindowButton}');el.dispatchEvent(new(L.surface('bar').MouseEvent)('mouseenter'));await W(1200);return 1})()")
+PLUS_CLOSE = ("(async()=>{for(const p of SteamUIStore.WindowStore.VRGamepadUIMainWindowInstance.VRDashboardBarPopups)p.closePopup();"
+              "try{L.unhover&&L.unhover()}catch(e){};await new Promise(r=>setTimeout(r,500));return 1})()")
+COVER_TINT = [1, 0, 1]      # magenta: rare in the room and in Steam's chrome
+
+
+async def steam(expr):
+    """Steam's SharedJSContext (lab.lab_js runs its own event loop: a worker thread)."""
+    import lab  # noqa: E402 (lab/ is on the path in main)
+    r = await asyncio.get_running_loop().run_in_executor(None, lab.lab_js, expr)
+    return json.loads(r) if isinstance(r, str) and r[:1] in "{[" else r
+
+
+async def sgpopup(t, out):
+    """R1 B1: a copy of a popup parent's own displayed texture, anchored by
+    lgs_sg.js, must sit exactly on Steam's panel. Per popup parent present (the
+    bar, the frame menu, a bar popup opened with "+", the floating footer when
+    shown): the cover's anchor is the displayed centre in texture uv, within
+    one texture px (dump). With --grab a magenta-tinted copy of the parent's
+    displayed texture 2 mm in front of Steam's panel gives frame A (it renders;
+    the look strip), the same copy 2 mm behind it frame B, and for an
+    asymmetric displayed range the copy behind with the old anchor
+    (displayed-range centre) frame C (the control). On the spot, Steam's opaque
+    glyphs hide the copy's glyphs in B; misplaced, they show. The measure is
+    inside each frame (the head pose may move between frames).
+    native/spike/sg_popup.py (PC) measures and deletes the frames on both
+    machines. Needs --lablock (route, theme and the opened popup stay ours)."""
+    import re
+    res = {"test": "SG-POPUP", "parents": []}
+    if out:
+        await t.js(f"{G}.destroy(), 0")
+        await t.install({"debugTint": {"cover": COVER_TINT}})
+    sizes = {k: s for k, s in (await steam(STEAM_SIZES)) if k and s}
+
+    async def run_parents(phase):
+        panels = [p for p in await t.js(PP_PANELS) if re.match(POPUP_RE, p["key"] or "")]
+        for p in panels:
+            key = p["key"]
+            if key in [x["key"] for x in res["parents"]]:
+                continue
+            sz = sizes.get(key)
+            row = {"key": key, "phase": phase, "origin": p["origin"], "tex": sz}
+            res["parents"].append(row)
+            if not sz:
+                row["blocked"] = "no Steam popup with this overlay key (texture size unknown)"
+                continue
+            spec = {"seq": 1, "depthMotion": "none", "surfaces": [{
+                "steamKey": key, "texW": sz[0], "texH": sz[1], "visible": True,
+                "glassd": {"key": key, "backdrop": [0, 0, 1, 1], "scale": 1},
+                # just in front of Steam's panel, as the real base is (a copy 11 mm in
+                # front shows a few px of parallax below or beside the eye line)
+                "coverDz": 0.002, "baseDz": 0.003, "popped": [], "mosaic": []}]}
+            r = await t.call("update", spec)
+            await t.keep(0.6)
+            st = await t.call("status")
+            info = (st.get("parents") or {}).get(key) or {}
+            uv = info.get("uv") or p["uv"]
+            d = [x for x in await t.call("dump") if x["kind"] == "cover"]
+            row.update({"uv": uv, "parent": info, "counts": r.get("counts"),
+                        "anchor": d[0]["anchor"] if d else None, "px": d[0]["px"] if d else None,
+                        "sizeM": d[0]["sizeM"] if d else None})
+            # the displayed centre in texture uv (R1 B1), within one texture px
+            # (the displayed region is rounded to whole px)
+            row["expect"] = [round((uv[0] + uv[2]) / 2, 6), round((uv[1] + uv[3]) / 2, 6)]
+            row["curv"] = d[0].get("curv") if d else None
+            row["anchorOk"] = bool(d) and abs(d[0]["anchor"][0] - row["expect"][0]) <= 1 / sz[0] and \
+                abs(d[0]["anchor"][1] - row["expect"][1]) <= 1 / sz[1]
+            row["asymmetric"] = any(abs(e - 0.5) > 0.01 for e in row["expect"])
+            if out and d:
+                n = len(res["parents"])
+                # A: the copy 2 mm in front (it renders, and where: the look strip)
+                row["A"] = grab(out, f"pop_{phase}_{n}_A")
+                # B: the same copy 2 mm BEHIND Steam's panel. On the spot, Steam's
+                # opaque glyphs hide the copy's glyphs exactly; misplaced, the
+                # copy's magenta glyphs show beside them or through the glass.
+                # Pixels of neighbouring panels are white, never magenta, so they
+                # cannot be mistaken for it (unlike any comparison with Steam's glyphs)
+                spec["surfaces"][0]["coverDz"] = -0.002
+                await t.call("update", dict(spec, seq=3))
+                await t.keep(0.6)
+                row["B"] = grab(out, f"pop_{phase}_{n}_B")
+                if row["asymmetric"]:
+                    # control: the old (pre-R1) anchor, copy behind: must leak
+                    row["control"] = await t.js(OLD_ANCHOR)
+                    await t.keep(0.6)
+                    row["C"] = grab(out, f"pop_{phase}_{n}_C")
+            await t.call("update", {"seq": 2, "surfaces": []})
+            await t.keep(0.5)
+
+    await run_parents("p0")
+    # a bar popup with an asymmetric displayed range: "+" (Add Window), opened
+    # as docs/inventory/bar.md 0.3 does and closed again (the lab lock would too)
+    try:
+        res["plus"] = await steam(PLUS_OPEN)
+        await t.keep(0.8)
+        await run_parents("p1")
+    finally:
+        res["closed"] = await steam(PLUS_CLOSE)
+    sg = (await t.call("status"))["sgids"]
+    await t.call("clear")
+    res["sgids"] = sg
+    built = [p for p in res["parents"] if not p.get("blocked")]
+    res["pass"] = bool(built) and all(p.get("anchorOk") for p in built) and \
+        any(p.get("asymmetric") for p in built) and sg["live"] == sg["dom"]
+    return res
+
+
+async def sgwin2(t, out):
+    """R1 M1: an update() without `window` (or window: null) is the window at
+    rest: a dim / recede from an earlier spec animates back and the tint goes;
+    an unchanged window state pushes nothing."""
+    res = {"test": "SG-WIN2"}
+    before = await t.js(T1_ATTR)
+    await t.call("update", {"seq": 1, "surfaces": [], "window": {"dim": 0.5}})
+    await t.keep(1.0)
+    dimmed = await t.js(T1_ATTR)
+    w1 = (await t.call("status"))["window"]
+    p0 = (await t.call("status"))["pushes"]
+    await t.call("update", {"seq": 2, "surfaces": [], "window": {"dim": 0.5}})   # same state: no push
+    await t.keep(0.6)
+    p1 = (await t.call("status"))["pushes"]
+    await t.call("update", {"seq": 3, "surfaces": []})                          # no `window`
+    await t.keep(1.2)
+    absent = await t.js(T1_ATTR)
+    w2 = (await t.call("status"))["window"]
+    await t.call("update", {"seq": 4, "surfaces": [], "window": {"dim": 0.6, "recede": 0.05}})
+    await t.keep(1.2)
+    again = await t.js(T1_ATTR)
+    await t.call("update", {"seq": 5, "surfaces": [], "window": None})          # window: null
+    await t.keep(1.2)
+    null = await t.js(T1_ATTR)
+    w3 = (await t.call("status"))["window"]
+    # reduce motion: the jump back to rest restores in one push
+    await t.call("update", {"seq": 6, "reduceMotion": True, "surfaces": [], "window": {"dim": 0.5}})
+    await t.keep(0.4)
+    rm_on = await t.js(T1_ATTR)
+    await t.call("update", {"seq": 7, "reduceMotion": True, "surfaces": []})
+    await t.keep(0.4)
+    rm_off = await t.js(T1_ATTR)
+    res.update({"before": before, "dimmed": dimmed, "w1": w1, "pushesSameState": p1 - p0, "absent": absent, "w2": w2,
+                "again": again, "null": null, "w3": w3, "reduceOn": rm_on, "reduceOff": rm_off})
+    rest = lambda a: a == before and not a["scaleOwn"]  # noqa: E731
+    res["pass"] = dimmed["scaleNode"] == "tint" and w1["dimTarget"] == 0.5 and p1 - p0 == 0 and rest(absent) and \
+        w2["dimTarget"] == 1 and w2["recedeTarget"] == 0 and again["scaleNode"] == "tint" and again["t"] != before["t"] and \
+        rest(null) and w3["dimTarget"] == 1 and rm_on["scaleNode"] == "tint" and rest(rm_off)
+    return res
+
+
+async def sgfailclosed(t, out):
+    """R1 m2: without the scheduler's retire export (simulated: opts.noRetire)
+    no node is built (fail closed, SP 9.1), status says why, and overrides of
+    SteamVR's own nodes still work."""
+    await t.js(f"{G}.destroy(), 0")
+    await t.install({"noRetire": True})
+    pops = [{"id": "f", "x": 300, "y": 200, "w": 600, "h": 400, "dz": 0.0271, "slab": [0, 0.5, 0.2, 0.7]}]
+    r = await t.call("update", {"seq": 1, "depthMotion": "none", "surfaces": [surface(pops)]})
+    await t.keep(0.5)
+    st = await t.call("status")
+    fc0 = await t.js(FC_ATTR)
+    o = await t.call("overrides", {"seq": 1, "rules": [{"id": "fc-f", "target": "frame-controls", "addMm": [-40, 0, 0]}]})
+    await t.keep(0.4)
+    fc1 = await t.js(FC_ATTR)
+    await t.call("clear")
+    fc2 = await t.js(FC_ATTR)
+    res = {"test": "SG-FAILCLOSED", "update": r, "scheduler": st["scheduler"], "items": st["items"], "sgids": st["sgids"],
+           "root": st["nodes"], "fc": [fc0, fc1, fc2], "ov": o.get("applied")}
+    res["pass"] = st["items"] == 0 and st["sgids"]["created"] == 0 and st["scheduler"]["retire"] is False and \
+        "fail closed" in (st["scheduler"]["error"] or "") and "not built" in (r.get("error") or "") and \
+        fc1 != fc0 and fc2 == fc0
+    return res
+
+
+async def sgrevive(t, out):
+    """R1 m4: after a watchdog expiry, whichever call comes first (overrides,
+    windowState, test.yaw, not only ping) brings the nodes back."""
+    res = {"test": "SG-REVIVE", "cases": []}
+    pops = [{"id": "r", "x": 300, "y": 200, "w": 600, "h": 400, "dz": 0.0271}]
+    for name, call in (("overrides", f"JSON.stringify({G}.overrides({{seq: 9, rules: []}}))"),
+                       ("windowState", f"JSON.stringify({G}.windowState({{dim: 1}}))"),
+                       ("yaw", f"JSON.stringify({G}.test.yaw(0))"),
+                       ("ping", f"JSON.stringify({G}.ping())")):
+        await t.call("update", {"seq": 1, "depthMotion": "none", "surfaces": [surface(pops)]})
+        await asyncio.sleep(WATCHDOG_MS / 1000 + 1.2)        # no heartbeat: expiry
+        s0 = await t.js(SURF)
+        await t.js(call)
+        await asyncio.sleep(0.3)
+        s1 = await t.js(SURF)
+        res["cases"].append({"first": name, "atExpiry": s0["items"], "expired": s0["expired"], "after": s1["items"],
+                             "coverPushed": bool(s1["coverAt"]), "ok": s0["items"] == 0 and s0["expired"] and s1["items"] > 0 and bool(s1["coverAt"])})
+    await t.call("clear")
+    res["pass"] = all(c["ok"] for c in res["cases"])
+    return res
+
+
+CHUNK_COUNT = ("JSON.stringify({n:webpackChunkvrwebui.length,ours:webpackChunkvrwebui.filter(e=>{try{return Array.isArray(e)&&"
+               "Array.isArray(e[0])&&typeof e[0][0]==='symbol'&&e[0][0].description==='lgs-sg'}catch(_){return false}}).length})")
+
+
+async def sgchunk(t, out):
+    """R1 m3: an install leaves no entry in webpackChunkvrwebui (and removes the
+    ones older installs left)."""
+    before = await t.js(CHUNK_COUNT)
+    for _ in range(3):
+        await t.js(f"{G}.destroy(), 0")
+        await t.install()
+    after = await t.js(CHUNK_COUNT)
+    st = await t.call("status")
+    res = {"test": "SG-CHUNK", "before": before, "after": after, "scheduler": st["scheduler"]}
+    res["pass"] = after["ours"] == 0 and after["n"] <= before["n"] and st["scheduler"]["push"] and st["scheduler"]["retire"]
+    return res
+
+
+async def sgtick(t, out):
+    """R1 m6: the cost of the 500 ms housekeeping tick at idle with a native-like
+    spec (main + every popup parent present), and no pushes at rest."""
+    import re
+    sizes = {k: s for k, s in (await steam(STEAM_SIZES)) if k and s}
+    surfs = [surface([{"id": "p", "x": 300, "y": 200, "w": 300, "h": 450, "dz": 0.0407}])]
+    for p in await t.js(PP_PANELS):
+        if re.match(POPUP_RE, p["key"] or "") and sizes.get(p["key"]):
+            surfs.append({"steamKey": p["key"], "texW": sizes[p["key"]][0], "texH": sizes[p["key"]][1], "visible": True,
+                          "glassd": {"key": "glassd.none", "backdrop": [0, 0, 1, 1], "scale": 0.75},
+                          "coverDz": 0.001, "baseDz": 0.002, "popped": []})
+    await t.call("update", {"seq": 1, "depthMotion": "none", "surfaces": surfs})
+    await t.keep(1.5)
+    s0 = await t.call("status")
+    await t.keep(6.0, every=1.0)
+    s1 = await t.call("status")
+    await t.call("clear")
+    res = {"test": "SG-TICK", "surfaces": len(surfs), "items": s1["items"], "tick": s1["tick"],
+           "pushesAtRest": s1["pushes"] - s0["pushes"], "ticks": s1["tick"]["n"] - s0["tick"]["n"]}
+    res["pass"] = res["pushesAtRest"] == 0 and res["ticks"] >= 10 and s1["tick"]["avgMs"] < 2.0
+    return res
+
+
 async def main():
     src_path, test = sys.argv[1], sys.argv[2]
     out = sys.argv[sys.argv.index("--grab") + 1] if "--grab" in sys.argv else None
@@ -529,8 +900,12 @@ async def main():
             return await t.js(f"({src})({json.dumps(opts)})", 20)
         t.install = install
         tests = {"sg1": sg1, "sg2": sg2, "sg3": sg3, "sg4": sg4, "sg6": sg6, "prof": sgprof, "order": sgorder,
-                 "targets": sgtargets, "win": sgwin, "yaw": sgyaw, "sink": sgsink}
-        names = [n for n in tests if n != "sg6"] if test == "all" else test.split(",")
+                 "targets": sgtargets, "win": sgwin, "yaw": sgyaw, "sink": sgsink, "react": sgreact, "frag": sgfrag, "roomdim": sgroomdim,
+                 "win2": sgwin2, "failclosed": sgfailclosed, "revive": sgrevive, "chunk": sgchunk,
+                 "popup": sgpopup, "tick": sgtick}
+        # "all": everything but sg6 (12 s watchdog) and the tests that need Steam's
+        # SharedJSContext under the lab lock (popup, tick: run them with --lablock)
+        names = [n for n in tests if n not in ("sg6", "popup", "tick")] if test == "all" else test.split(",")
         try:
             for n in names:
                 await install()
@@ -544,4 +919,18 @@ async def main():
             print(json.dumps({"cleanup": await t.js(f"{G} ? ({G}.destroy(), 'destroyed') : 'absent'")}), flush=True)
 
 
-asyncio.run(main())
+if "--lablock" in sys.argv:
+    # lab.lock + lab-vr.lock (no route, theme or popup change by others meanwhile;
+    # the lock's exit closes what the step opened). Do not also hold lab-vr.lock
+    # from the shell (flock): that would wait on ourselves.
+    sys.path.insert(0, os.path.join(GS, "lab"))
+    import lab  # noqa: E402
+    _lk = lab.Lock(both=True)
+    _lk.__enter__()
+    try:
+        asyncio.run(main())
+    finally:
+        _lk.__exit__(None, None, None)
+else:
+    sys.path.insert(0, os.path.join(GS, "lab"))
+    asyncio.run(main())

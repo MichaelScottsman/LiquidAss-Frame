@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>P10 gates fixture</title>
+<!--
+  Offline fixture for lab/lab_gates.js (P10, contracts/lab.md section 4 and 6): open it at a 1280 x 720 viewport
+  (python tools/p2/test_gates_page.py prints how), then evaluate `runGateTests()`. Each case states what the sweep
+  must report. The lab helpers run in their single-page mode (no Steam popups), as on SteamVR's pages.
+-->
+<style>
+  html, body { margin: 0; padding: 0; width: 1280px; height: 720px; overflow: hidden; background: #222; font: 500 20px sans-serif; color: #fff; }
+  .btn { position: absolute; display: flex; align-items: center; justify-content: center; background: rgb(60 60 70 / .6); border-radius: 30px; }
+  /* case 1-3: a page scroller under a bottom ornament (chrome outside the scroller) */
+  #page { position: absolute; left: 0; top: 0; width: 640px; height: 720px; overflow-y: auto; }
+  #page .content { position: relative; height: 1600px; }
+  #ornament { position: absolute; left: 0; top: 656px; width: 640px; height: 64px; background: rgb(30 30 36 / .9); }
+  /* case 4: a scroller already at its end: its last row cannot be scrolled clear of the ornament */
+  #stuck { position: absolute; left: 660px; top: 0; width: 300px; height: 720px; overflow-y: auto; }
+  #stuck .content { position: relative; height: 760px; }
+  #ornament2 { position: absolute; left: 660px; top: 656px; width: 300px; height: 64px; background: rgb(30 30 36 / .9); }
+  /* case 5: a control cut by the window bottom, not in a scroller: its visible part (600-720) holds the 80 px
+     box; a non-interactive 20 px band covers the window's last rows (REQ C2a->P10 #13) */
+  #banner { position: absolute; left: 980px; top: 600px; width: 280px; height: 215px; border-radius: 0; background: rgb(80 80 90 / .6); }
+  #band { position: absolute; left: 960px; top: 700px; width: 320px; height: 20px; background: rgb(0 0 0 / .4); }
+  /* case 6: a tab row (E-TAB, horizontal): five 60 x 56 tabs abutting in a 300 px card, at m .83 (pitch 48, across 50) */
+  #tabs { position: absolute; left: 980px; top: 40px; width: 300px; height: 56px; display: flex; }
+  #tabs .tab { width: 60px; height: 56px; border-radius: 28px; display: flex; align-items: center; justify-content: center; }
+  /* case 7: a launcher grid (E-GRID): 72 x 96 cells at m .83; scoped to AUD (SHRUNK only) */
+  #grid { position: absolute; left: 980px; top: 140px; width: 288px; display: grid; grid-template-columns: repeat(4, 72px); grid-auto-rows: 96px; }
+  #grid .cell { border-radius: 24px; display: flex; align-items: flex-end; justify-content: center; font-size: 18px; }
+  #grid.stock { grid-template-columns: 260px; grid-auto-rows: 40px; }
+  /* case 8: a pill with status glyphs Steam marks focusable: false (C3a) */
+  #pill { position: absolute; left: 980px; top: 360px; width: 232px; height: 80px; border-radius: 40px; background: rgb(60 60 70 / .6); display: flex; gap: 6px; align-items: center; justify-content: center; }
+  #pill .glyph { width: 18px; height: 18px; background: #ccc; }
+  /* case 9 (shown alone): context menus, E-MENU rows and Steam's appended Cancel (PLAN 1.16 R2-5) */
+  #menus { display: none; position: absolute; left: 0; top: 0; width: 1280px; height: 720px; }
+  #menus .mhdr { position: absolute; top: 20px; }
+  #menus .mcont { display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
+  #menus .mi { height: 72px; border-radius: 22px; background: rgb(255 255 255 / .1); display: flex; align-items: center; padding: 0 20px; box-sizing: border-box; }
+  #menus .sep { height: 0; }
+  #menus .mi:last-child { align-self: center; height: 60px; min-width: 192px; margin-top: 12px; border-radius: 30px; justify-content: center; }
+  #m1 { left: 20px; } #m1 .mi { width: 340px; }
+  #m2 { left: 380px; } #m2 .mcont { display: grid; grid-template-columns: 290px 290px; grid-template-rows: repeat(4, 72px) auto; grid-auto-flow: column; gap: 6px 8px; }
+  #m2 .mi:last-child, #m2 .sep { grid-column: 1 / -1; grid-row: -2 / -1; justify-self: center; align-self: start; margin-top: 6px; }
+  #m3 { left: 980px; } #m3 .mi { width: 300px; }
+  #m3 .mi:last-child { border: 2px solid transparent; background-clip: padding-box; width: auto; }
+  /* case 10 (shown alone): a pane holding controls (C7) and a leaf target, stock vs themed sizes */
+  #panes { display: none; position: absolute; left: 0; top: 0; width: 1280px; height: 720px; }
+  #pane { position: absolute; left: 0; top: 0; width: 980px; height: 720px; }
+  #pane.themed { width: 768px; height: 652px; top: 68px; }
+  #pane .btn { position: static; width: 200px; height: 80px; margin: 100px; }
+  #leaf { position: absolute; left: 860px; top: 20px; width: 400px; height: 400px; background: rgb(60 60 70 / .6); border-radius: 30px; }
+  #leaf.themed { width: 300px; height: 350px; }
+  #bare { position: absolute; left: 860px; top: 430px; width: 400px; height: 400px; }
+  #bare.themed { width: 320px; height: 300px; }
+</style>
+</head>
+<body>
+<div id="page"><div class="content">
+  <div id="c1" class="btn Focusable" role="button" style="left: 40px; top: 610px; width: 300px; height: 60px;">obscured, room to scroll</div>
+  <div id="c2" class="btn Focusable" role="button" style="left: 40px; top: 300px; width: 300px; height: 80px;">clear</div>
+  <div id="c3" class="btn Focusable" role="button" style="left: 40px; top: 690px; width: 300px; height: 60px;">centre under the ornament</div>
+</div></div>
+<div id="ornament"></div>
+<div id="stuck"><div class="content">
+  <div id="c4" class="btn Focusable" role="button" style="left: 0; top: 690px; width: 300px; height: 60px;">last row, no room</div>
+</div></div>
+<div id="ornament2"></div>
+<div id="banner" class="Focusable" role="button">sale banner</div>
+<div id="band"></div>
+<div id="tabs"><div class="tab Focusable" role="tab">1</div><div class="tab Focusable" role="tab">2</div><div class="tab Focusable" role="tab">3</div><div class="tab Focusable" role="tab">4</div><div class="tab Focusable" role="tab">5</div></div>
+<div id="grid"></div>
+<div id="pill" class="Focusable" role="button"><div class="glyph Panel Focusable"></div><div class="glyph Panel Focusable"></div><div class="glyph Panel Focusable"></div><div id="g4" class="glyph Panel Focusable"></div></div>
+<div id="menus">
+  <div id="m1" class="mhdr"><div class="mcont"><div class="mi Focusable" role="menuitem">One</div><div class="mi Focusable" role="menuitem">Two</div><div class="mi Focusable" role="menuitem">Three</div><div class="sep"></div><div class="mi Focusable" role="menuitem">Cancel</div></div></div>
+  <div id="m2" class="mhdr"><div class="mcont"><div class="mi Focusable">A1</div><div class="mi Focusable">A2</div><div class="mi Focusable">A3</div><div class="mi Focusable">A4</div><div class="mi Focusable">B1</div><div class="mi Focusable">B2</div><div class="mi Focusable">B3</div><div class="sep"></div><div class="mi Focusable">Cancel</div></div></div>
+  <div id="m3" class="mhdr"><div class="mcont"><div class="mi Focusable">Narrow one</div><div class="mi Focusable">Narrow two</div><div class="sep"></div><div class="mi Focusable">Cancel</div></div></div>
+</div>
+<div id="panes"><div id="pane" class="Focusable" role="group"><div class="btn Focusable" role="button">inside</div></div><div id="leaf" class="Focusable" role="button" onclick="void 0">leaf</div><div id="bare" class="Focusable">empty pane</div></div>
+<script src="../../../device/lgs_index.js"></script>
+<script src="../../../lab/lab_helpers.js"></script>
+<script src="../../../lab/lab_p2.js"></script>
+<script src="../../../lab/lab_gates.js"></script>
+<script>
+  const grid = document.getElementById('grid');
+  for (let i = 0; i < 8; i++) {
+    const c = document.createElement('div');
+    c.className = 'cell Focusable';
+    c.setAttribute('role', 'button');
+    c.innerHTML = '<span class="label">App ' + i + '</span>';
+    grid.appendChild(c);
+  }
+  // case 8: React fibers as Steam builds them (wp/P10.md, session 4 probe of the bar): the glyph's Panel says
+  // focusable: false and has no handler; g4 has an onClick of its own and stays a target
+  const fiber = (props, panel) => ({ memoizedProps: props, return: { memoizedProps: { node: {} }, return: { memoizedProps: panel } } });
+  document.querySelectorAll('#pill .glyph').forEach((g) => { g.__reactFiber$fx = g.id === 'g4' ? fiber({ onClick: () => {} }, { focusable: false }) : fiber({ onContextMenu: () => {} }, { focusable: false, onActivate: undefined }); });
+  document.getElementById('page').scrollTop = 0;
+  document.getElementById('stuck').scrollTop = 1e6;          // at its end
+  // Run in a page where the lab helpers are installed (single-page mode).
+  window.runGateTests = function () {
+    const L = window.__LGS_LAB, G = L.gates, out = [];
+    const ok = (name, cond, detail) => out.push({ name, pass: !!cond, detail });
+    G.exemptions({ 'E-TAB': ['#tabs .tab'], 'E-GRID': ['#grid .cell'], _scope: { 'E-GRID': { sweeps: ['aud'], aud: ['SHRUNK'] } } });
+    const s = G.size('main');                        // cases 1-5 at m 1
+    const s2 = G.size('barpopup');                  // cases 6-7 at m .83 (a bar popup)
+    const find = (arr, txt) => (arr || []).find((x) => (x.el || '').includes(txt));
+    // 1: 45 % of its hit box under the ornament, the page can scroll it clear: skipped as obscured
+    ok('1 obscured >= 25 %, room to scroll -> skipped', find(s.skipped, 'obscured, room') && /obscured/.test(find(s.skipped, 'obscured, room').why), find(s.skipped, 'obscured, room'));
+    // 2: a clear control is judged and passes
+    ok('2 clear control judged, passes', !find(s.fails, '"clear"') && !find(s.skipped, '"clear"'), find(s.fails, '"clear"'));
+    // 3: centre under the ornament, room to scroll: skipped (the Phase 2 rule, unchanged)
+    ok('3 centre under chrome -> skipped', find(s.skipped, 'centre under'), find(s.skipped, 'centre under'));
+    // 4: under the ornament with no room left: judged in place, P-08 fails and says why
+    const f4 = find(s.fails, 'last row');
+    ok('4 no room to scroll -> judged in place (P-08 fail, stuck note)', f4 && f4.rule === 'P-08' && /cannot bring it clear/.test(f4.why), f4);
+    // 5: the box centred on the visible rect (600-720): the band at 700-720 is outside it -> no P-08 failure
+    const f5 = (s.fails || []).filter((x) => (x.el || '').includes('sale banner') && x.rule === 'P-08');
+    ok('5 P-08 box on the visible rect -> pass', f5.length === 0, f5);
+    // 6: the tab row is E-TAB, row axis, criterion met
+    const t6 = (s2.exempt || []).filter((e) => e.id === 'E-TAB');
+    ok('6 E-TAB row: five tabs exempt, criterion passes', t6.length === 5 && t6.every((e) => e.pass === true) && /row item/.test(t6[0].why), t6[0]);
+    // 7a: E-GRID is AUD-only: SIZE judges the cells (none exempt in SIZE)
+    ok('7a E-GRID not a SIZE exemption', !(s2.exempt || []).some((e) => e.id === 'E-GRID'), null);
+    // 7b: AUD: stock rows 260 x 40 -> cells 72 x 96: SHRUNK waived with the criterion met; other kinds still reported
+    grid.classList.add('stock');
+    const a = L.snap('barpopup');
+    grid.classList.remove('stock');
+    const b = L.snap('barpopup');
+    const d = G.audDiff(a, b);
+    const shrunk = d.issues.filter((x) => /^SHRUNK/.test(x) && /App|cell/.test(x));
+    ok('7b E-GRID: SHRUNK waived, criterion met', shrunk.length === 0 && d.exempt.some((e) => e.id === 'E-GRID' && e.waived === 'SHRUNK'), { shrunk, ex: d.exempt.slice(0, 2) });
+    // 7c: a cell that fails the criterion (too small) keeps its SHRUNK
+    grid.classList.add('stock');
+    const a2 = L.snap('barpopup');
+    grid.classList.remove('stock');
+    grid.firstChild.style.width = '40px';
+    const b2 = L.snap('barpopup');
+    grid.firstChild.style.width = '';
+    const d2 = G.audDiff(a2, b2);
+    ok('7c E-GRID criterion not met -> SHRUNK reported', d2.issues.some((x) => /^SHRUNK/.test(x) && /criterion not met/.test(x)), d2.issues.slice(0, 3));
+    // 7d: a GONE cell is never waived
+    grid.classList.add('stock');
+    const a3 = L.snap('barpopup');
+    grid.classList.remove('stock');
+    const gone = grid.lastChild; grid.removeChild(gone);
+    const b3 = L.snap('barpopup');
+    grid.appendChild(gone);
+    const d3 = G.audDiff(a3, b3);
+    ok('7d E-GRID: GONE still reported', d3.issues.some((x) => /^GONE/.test(x)), d3.issues.slice(0, 3));
+    // 8: the pill's focusable: false glyphs without a handler are part of the pill; one with its own handler is not
+    ok('8a hosted glyphs skipped as part of their host', (s.skipped || []).filter((x) => /part of its host/.test(x.why)).length === 3, (s.skipped || []).filter((x) => /part of its host/.test(x.why)).length);
+    ok('8b a glyph with its own handler stays a target (P-80 fails)', (s.fails || []).some((x) => x.rule === 'P-80' && /#g4|glyph/.test(x.el) && x.rect[2] === 18), (s.fails || []).filter((x) => x.rect && x.rect[2] === 18));
+    ok('8c the pill is judged whole and passes', !(s.fails || []).some((x) => x.rect && x.rect[2] === 232) && !(s.skipped || []).some((x) => x.el && /^div$|pill/.test(x.el) && x.why), (s.fails || []).filter((x) => x.rect && x.rect[2] === 232));
+    // 9: menus alone. Column rows 340 x 72 at pitch 78; grid rows 290 wide; a 300 wide column row fails; Cancel
+    // 192+ x 60 on its element passes, a Cancel whose fill is inset by a 2 px clear border (56 tall) fails.
+    const others = ['page', 'ornament', 'stuck', 'ornament2', 'banner', 'band', 'tabs', 'grid', 'pill'].map((id) => document.getElementById(id));
+    others.forEach((e) => { e.style.display = 'none'; });
+    document.getElementById('menus').style.display = 'block';
+    G.exemptions({ 'E-MENU': ['#menus .mi'] });
+    const s9 = G.size('main');
+    const m1rows = (s9.exempt || []).filter((e) => /"(One|Two|Three)"/.test(e.el));
+    const m2rows = (s9.exempt || []).filter((e) => /"(A|B)\d"/.test(e.el));
+    const m3rows = (s9.exempt || []).filter((e) => /"Narrow/.test(e.el));
+    const cancels = (s9.exempt || []).filter((e) => /"Cancel"/.test(e.el));
+    ok('9a E-MENU column rows pass (pitch 78, 340 wide)', m1rows.length === 3 && m1rows.every((e) => e.pass === true && /column row/.test(e.why)), m1rows.map((e) => e.why));
+    ok('9b E-MENU grid rows pass at 290 wide', m2rows.length === 7 && m2rows.every((e) => e.pass === true && /grid row/.test(e.why)), m2rows.map((e) => e.why).slice(0, 2));
+    ok('9c E-MENU 300 wide column rows fail', m3rows.length === 2 && m3rows.every((e) => e.pass === false), m3rows.map((e) => e.why));
+    ok('9d Cancel judged by its own line: two pass, the 56 tall fill fails', cancels.length === 3 && cancels.filter((e) => e.pass === true).length === 2 && cancels.filter((e) => e.pass === false && /fill \d+ x 56/.test(e.why)).length === 1, cancels.map((e) => e.why));
+    document.getElementById('menus').style.display = 'none';
+    // 10: a focusable pane holding controls shrinks 980 x 720 -> 768 x 652: listed as container-pane, not SHRUNK;
+    // a leaf target 400 x 400 -> 300 x 350 is still SHRUNK
+    document.getElementById('panes').style.display = 'block';
+    G.exemptions({});
+    const pa = L.snap('main');
+    const tog = (on) => ['pane', 'leaf', 'bare'].forEach((id) => document.getElementById(id).classList.toggle('themed', on));
+    tog(true);
+    const pb = L.snap('main');
+    tog(false);
+    const d10 = G.audDiff(pa, pb);
+    ok('10a pane >= 300 x 300 holding controls: container-pane, not SHRUNK', d10.exempt.some((e) => e.id === 'container-pane') && !d10.issues.some((x) => /^SHRUNK/.test(x) && /980x720/.test(x)), { ex: d10.exempt, issues: d10.issues });
+    ok('10b a leaf target with its own handler that shrinks is still SHRUNK', d10.issues.some((x) => /^SHRUNK/.test(x) && /leaf/.test(x)), d10.issues);
+    ok('10c a focusable pane without a handler (empty) staying >= 300 x 300: container-pane', d10.exempt.some((e) => e.id === 'container-pane' && /400x400 -> 320x300/.test(e.why)) && !d10.issues.some((x) => /empty pane/.test(x)), { ex: d10.exempt, issues: d10.issues });
+    document.getElementById('panes').style.display = 'none';
+    others.forEach((e) => { e.style.display = ''; });
+    return { pass: out.every((x) => x.pass), cases: out, size: { checked: s.checked, fails: s.fails.length, skipped: s.skipped.length, inPlace: (s.inPlace || []).length } };
+  };
+  // `#auto` (tools/p2/test_gates_page.py, headless): run on load and write the result into the page
+  if (location.hash === '#auto') {
+    window.addEventListener('load', () => {
+      let r;
+      try { r = window.runGateTests(); r.viewport = [innerWidth, innerHeight]; } catch (e) { r = { pass: false, error: String(e && e.stack || e) }; }
+      const pre = document.createElement('pre');
+      pre.id = 'result';
+      pre.textContent = JSON.stringify(r);
+      document.body.appendChild(pre);
+    });
+  }
+</script>
+</body>
+</html>

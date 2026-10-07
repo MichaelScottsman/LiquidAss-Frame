@@ -1,0 +1,49 @@
+{
+ "unitsPerMm": 0.00271,
+ "profile": "default",
+ "surfaces": [
+  {
+   "key": "main",
+   "scale": 1.5,
+   "covers": [],
+   "plates": [
+    {
+     "x": 480,
+     "y": 240,
+     "w": 480,
+     "h": 360,
+     "r": 54
+    }
+   ],
+   "pops": [
+    {
+     "id": "square-on-round",
+     "x": 480,
+     "y": 240,
+     "w": 480,
+     "h": 360,
+     "r": 0,
+     "dz": 0.04065,
+     "interactive": false,
+     "shadow": true,
+     "media": false,
+     "destructive": false,
+     "modal": false
+    }
+   ],
+   "focusables": [
+    {
+     "x": 480,
+     "y": 240,
+     "w": 480,
+     "h": 360
+    }
+   ],
+   "forbidden": []
+  }
+ ],
+ "_about": "a square pop (r 0) over a rounded plate (r 54): its drawn corners are outside the plate (R1)",
+ "_expect": [
+  "R1"
+ ]
+}

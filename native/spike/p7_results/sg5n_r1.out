@@ -1,0 +1,23 @@
+reaper 302170
+attempt 1: lab locks busy
+{
+ "waitedS": 173.3,
+ "build": "11094443",
+ "date": "2026-10-07T12:13:20",
+ "native": {
+  "enabled": true,
+  "glassd": true,
+  "reason": "native",
+  "readyS": 2.6
+ },
+ "steps": [],
+ "start": "started (native)",
+ "lgsNativeOnMain": true
+}
+== step: p7
+@@p7 {"test": "popup", "pass": false, "error": "SystemExit('lab: lock busy for 240 s')"}
+step: mode=laser via classes (no rt.input)  native=on
+@@p7 {"test": "SG-5", "shots": ["/tmp/lgs/p7/hv/p7n_win_0_base.png", "/tmp/lgs/p7/hv/p7n_win_1_t1dim.png", "/tmp/lgs/p7/hv/p7n_win_2_t1dim_maindim.png", "/tmp/lgs/p7/hv/p7n_win_3_restored.png", "/tmp/lgs/p7/hv/p7n_home_0_base.png", "/tmp/lgs/p7/hv/p7n_home_1_t1dim.png", "/tmp/lgs/p7/hv/p7n_home_2_t1dim_maindim.png", "/tmp/lgs/p7/hv/p7n_home_3_restored.png"], "routes": {"win": {"route": "/library/tab/AllGames", "ready": {"items": 31, "expired": false, "coverAt": 1791389906389, "cover": 1, "base": 14, "pop": 5, "lastContactMsAgo": 399, "window": {"dim": 1, "dimTarget": 1, "recede": 0, "recedeTarget": 0, "error": null}, "expiries": 0, "rebuilds": 0, "steamPage": {"mountable": "frame:7400001:page:5:mountable", "active": true, "t1": true}, "motion": "motion.js", "version": "f14d16cf2e+a9fdddd1dd"}, "main": {"mosaic": null, "popped": 5, "coverDz": 0.001}, "setWindow": {"dim": 1, "dimTarget": 0.35, "recede": 0, "recedeTarget": 0, "error": null}, "afterWindow": {"dim": 0.35, "dimTarget": 0.35, "recede": 0, "recedeTarget": 0, "error": null}, "windowAtShot1": {"dim": 0.35, "dimTarget": 0.35, "recede": 0, "recedeTarget": 0, "error": null}, "mainDimWrapped": {"cover": [1, 1], "base": [14, 14], "pop": [0, 5], "slab": [0, 5]}, "routeStill": "/library/tab/AllGames", "windowAtShot2": {"dim": 0.35, "dimTarget": 0.35, "recede": 0, "recedeTarget": 0, "error": null}, "restored": {"dim": 1, "dimTarget": 1, "recede": 0, "recedeTarget": 0, "error": null}}, "home": {"route": "/library/home", "ready": {"items": 26, "expired": false, "coverAt": 1791389906389, "cover": 1, "base": 11, "pop": 4, "lastContactMsAgo": 86, "window": {"dim": 1, "dimTarget": 1, "recede": 0, "recedeTarget": 0, "error": null}, "expiries": 0, "rebuilds": 0, "steamPage": {"mountable": "frame:7400001:page:5:mountable", "active": true, "t1": true}, "motion": "motion.js", "version": "f14d16cf2e+a9fdddd1dd"}, "main": {"mosaic": null, "popped": 4, "coverDz": 0.001}, "setWindow": {"dim": 1, "dimTarget": 0.35, "recede": 0, "recedeTarget": 0, "error": null}, "afterWindow": {"dim": 0.35, "dimTarget": 0.35, "recede": 0, "recedeTarget": 0, "error": null}, "windowAtShot1": {"dim": 0.35, "dimTarget": 0.35, "recede": 0, "recedeTarget": 0, "error": null}, "mainDimWrapped": {"cover": [1, 1], "base": [11, 11], "pop": [0, 4], "slab": [0, 4]}, "routeStill": "/library/home", "windowAtShot2": {"dim": 0.35, "dimTarget": 0.35, "recede": 0, "recedeTarget": 0, "error": null}, "restored": {"dim": 1, "dimTarget": 1, "recede": 0, "recedeTarget": 0, "error": null}}}, "route0": "/search/tab/All"}
+@@p7 {"test": "sg6", "pass": false, "error": "SystemExit('lab: lock busy for 240 s')"}
+native-session: back to CSS only: yes
+{"nativeSession": 0, "tests": 3}

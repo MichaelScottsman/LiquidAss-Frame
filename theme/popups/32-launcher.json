@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "about": [
+    "Phase 2 popup fragment 32 (C2b): the bar's \"+\" popup at +25 mm in front of the bar (PLAN 1.7, HA 4).",
+    "Contract: docs/phase2/contracts/reporter.md section 5. The \"+\" popup is the only bar popup whose list has a header",
+    "(Playspace has none; Quick Access and tab menus use other components), so contentSel tells it apart. This entry",
+    "comes after 30-bar.json in merge order, so it wins for the \"+\" popup. Without P6's wrapper (flag wp.p6) Steam's 3.7 mm stays."
+  ],
+  "hosts": {
+    "launcher": {
+      "type": 1,
+      "keyPrefix": "valve.steam.gamepadui.barpopup",
+      "contentSel": "%{DashboardBarPopupListHeader}",
+      "zMm": 25,
+      "space": "bar",
+      "flag": "wp.c2b"
+    }
+  }
+}

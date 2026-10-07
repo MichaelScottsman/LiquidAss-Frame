@@ -1,165 +1,393 @@
-/* Glass Shell, area "steamvr": Now Playing (#nowplayingpanel in vr:systemui,
-   the main panel of a running scene app's frame, 1858x1045, the same
-   window as Steam main). visionOS window glass like the dashboard; the
-   game art is content; Resume Game is the one tinted primary (play
-   green); the other actions are fill capsules; Exit Game / Exit Home turns
-   destructive red only on hover or focus.
-   Gamepad focus here is SteamVR's own .gpfocus (set by React, not Steam's
-   animated focus), drawn by the Steam-owned %{FocusRing}.gpfocus::after:
-   recoloured into a steady ring, its 20x blinker replaced (no pulsing).
-   The Steam-owned ::before hover shadow is only rounded.
-   Wrapped as html.lgs-on { ... }. Look only: panel box, paddings, margins,
-   button sizes and the 1.5em labels are SteamVR's. */
+/* Glass Shell, area "steamvr": Now Playing (package C5b, GP §4.13, §9.7).
+   #nowplayingpanel in vr:systemui: the main panel of a running scene app's
+   frame, 1858 x 1045 NP px (NP px = main px x 1.44), the same window as
+   Steam main. A visionOS now-playing window: window glass, the game art as
+   content, the title in Extra Large Title 1, Resume as the one green
+   Liquid Glass capsule, the sheets' rows (VR Controller Bindings, VR Video
+   Settings, Clear Performance Assessment Status) in one recessed platter,
+   Exit as a capsule below it.
+   - Never the panel's box, padding or size (the panel root is the quad).
+   - Global SteamVR classes only (GamepadUIButton, ResumeButton, gpfocus,
+     Disabled, ...): a hashed token that resolves only in systemui would be
+     unresolved on the binding and keyboard pages (every theme/vr file is
+     bundled into every SteamVR page).
+   - Buttons are found by structure and T2 keys, never by position:
+     Resume = .ResumeButton; sheet rows = buttons whose label is wrapped in
+     a <span> (SteamVR's own markup for bindings, video, perf); Exit has a
+     plain text label. Red only with data-lgs-np="exit" (T2,
+     device/vr/systemui.nowplaying.js, flag wp.c5b); neutral otherwise.
+   - Gamepad focus is SteamVR's own .gpfocus (D-pad Up/Down, A, B =
+     Resume): the focus add as light, no ring; the Steam-owned
+     .gpfocus::after ring is cleared and its 20x blinker stopped.
+   - Laser hover (laser-mouse mode has no gamepad focus) is the strong
+     SteamVR hover (00-vr-tokens.css).
+   Wrapped as html.lgs-on { ... }. */
 
 /* ------------------------------------------------------------------ */
-/* 1. The panel: window glass (inset rim: the panel clips at its box)  */
+/* 1. The panel: window glass (the panel clips: everything inset)      */
 /* ------------------------------------------------------------------ */
 
 .DashboardMain .DashboardPanel.NowPlaying {
-  background: var(--lgs-window-sheen), var(--lgs-window-bg);
-  box-shadow: var(--lgs-window-rim);
+  /* glyphs (white, for chips; black, for masks) */
+  --c5b-g-play: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7.5 4.8c0-.9 1-1.5 1.8-1l10.6 6.4c.8.5.8 1.6 0 2.1L9.3 18.7c-.8.5-1.8-.1-1.8-1z'/%3E%3C/svg%3E");
+  --c5b-g-exit: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 4H6.5A1.5 1.5 0 0 0 5 5.5v13A1.5 1.5 0 0 0 6.5 20H10M15 8l4 4-4 4M19 12H9.5'/%3E%3C/svg%3E");
+  --c5b-g-bind: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23fff' fill-rule='evenodd' d='M7.2 7h9.6a4.6 4.6 0 0 1 4.5 5.6l-.9 4.1a2.3 2.3 0 0 1-4 .9L14.6 16H9.4l-1.8 1.6a2.3 2.3 0 0 1-4-.9l-.9-4.1A4.6 4.6 0 0 1 7.2 7zm.3 2.6v1.3H6.2v1.4h1.3v1.3h1.4v-1.3h1.3v-1.4H8.9V9.6zm8.3.2a.9.9 0 1 0 0 1.8.9.9 0 0 0 0-1.8zm-1.6 1.8a.9.9 0 1 0 0 1.8.9.9 0 0 0 0-1.8z'/%3E%3C/svg%3E");
+  --c5b-g-video: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23fff' fill-rule='evenodd' d='M12 5.5c5 0 8.6 3.9 9.8 6.5-1.2 2.6-4.8 6.5-9.8 6.5S3.4 14.6 2.2 12C3.4 9.4 7 5.5 12 5.5zm0 3a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z'/%3E%3C/svg%3E");
+  --c5b-g-perf: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='2.2' stroke-linecap='round'%3E%3Cpath d='M4 16a8 8 0 1 1 16 0'/%3E%3Cpath d='M12 16l4-5'/%3E%3C/svg%3E");
+  --c5b-g-chev: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.70)' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.5 5.5 16 12l-6.5 6.5'/%3E%3C/svg%3E");
+  --c5b-play-lit: color-mix(in srgb, var(--lgs-green), white 12%);
+  /* the specular light: a lobe at 26 % of the width from the key light,
+     never a full-width top line (PLAN 1.6 E3; G-OUTLINE edge profile) */
+  --c5b-lobe: radial-gradient(30% 55% at 26% 0, rgb(255 255 255 / .16), rgb(255 255 255 / 0));
+  --c5b-raised: var(--c5b-lobe), var(--lgs-fill-thin);
+  --c5b-glow: 0 0 calc(var(--lgs-white-glow-blur) * 1.44) calc(var(--lgs-white-glow-spread) * 1.44) rgb(255 255 255 / var(--lgs-white-glow-a));
+
+  background:
+      radial-gradient(20% 14px at 26% 0, rgb(255 255 255 / .18), rgb(255 255 255 / 0)),
+      var(--lgs-mat-window-bg);
+  /* light from above is the E3 lobe only (no full-width top line) */
+  /* no E4/E5 dark edge: on a transparent SteamVR overlay the inset black
+     shadow comes out as a bright band in the page's pixels (C5b log) */
+  box-shadow: none;
   border-radius: var(--lgs-vr-r-window);
   color: var(--lgs-text-1);
+  font-family: var(--lgs-font);
 }
 .DashboardMain .NowPlaying .HeroBackground {
   border-radius: inherit;
 }
 
 /* ------------------------------------------------------------------ */
-/* 2. Art: content (opaque), concentric card radius, a soft shadow     */
-/*    that stays inside the panel                                      */
+/* 2. Art: content. 540 x 810 (Steam's own --width), radius 29         */
 /* ------------------------------------------------------------------ */
 
 .DashboardMain .NowPlaying .ArtworkColumn {
+  --width: 540px;
+  flex: none;
+  margin-left: 26px;
   border-radius: var(--lgs-vr-r-card);
-  box-shadow: 0 14px 48px rgba(0, 0, 0, 0.38), 0 2px 6px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 14px 50px rgb(0 0 0 / .45);
 }
-/* no art (fallback card with the title): a fill on the glass, not a dark
-   slab. SteamVR paints its placeholder portrait (appimage_default_portrait,
-   opaque #282828) as an inline background-image on the child .Icon, over
-   the card; that placeholder is decoration, not app content, so it goes
-   (inline style, hence !important). Real art and app icons have another
-   URL and are never matched. */
+/* no 600 x 900 art: SteamVR's placeholder portrait (opaque #282828, an
+   inline background-image) is decoration and goes; the card becomes a
+   fill on the glass that keeps .IconBackgroundBlur and shows the title.
+   Real art and app icons have another URL and are never matched. */
 .DashboardMain .NowPlaying .PortraitAppImageContainer.Fallback > .Icon[style*="appimage_default_portrait"] {
   background-image: none !important;
 }
 .DashboardMain .NowPlaying .PortraitAppImageContainer.Fallback {
-  background: var(--lgs-fill-1);
-  box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, 0.16), inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+  background: rgb(255 255 255 / .06);
   border-radius: inherit;
 }
-/* a fill on glass doesn't cast the art's content shadow */
 .DashboardMain .NowPlaying .ArtworkColumn:has(> .PortraitAppImageContainer.Fallback) {
   box-shadow: none;
 }
 .DashboardMain .NowPlaying .PortraitAppImageContainer.Fallback .Title {
+  font: 700 46px/1.15 var(--lgs-font);
+  letter-spacing: -.01em;
   color: var(--lgs-text-1);
-  text-shadow: var(--lgs-text-shadow);
-}
-
-.DashboardMain .NowPlayingAppTitle {
-  color: var(--lgs-text-1);
-  text-shadow: var(--lgs-text-shadow);
 }
 
 /* ------------------------------------------------------------------ */
-/* 3. Actions                                                          */
+/* 3. The info column: 760 wide, 122 after the art (centred in the     */
+/*    panel: art at x 218 (26 into the padding box), column at x 880)  */
 /* ------------------------------------------------------------------ */
 
-.DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton} {
-  background: var(--lgs-fill-2);
-  box-shadow: var(--lgs-control-rim);
-  border-radius: var(--lgs-r-capsule);
+.DashboardMain .NowPlaying .InfoColumn {
+  flex: 0 0 760px;
+  width: 760px;
+  margin-left: 122px;
+  margin-right: 0;
+}
+.DashboardMain .NowPlaying .NowPlayingAppTitle {
+  margin: 0 0 36px;
+  font: 700 92px/1.08 var(--lgs-font);
+  letter-spacing: -.02em;
   color: var(--lgs-text-1);
-  transition-property: opacity, background, color, box-shadow;
-  transition-duration: var(--lgs-t-fast);
-  transition-timing-function: var(--lgs-ease);
+  text-shadow: none;
+  white-space: normal;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
 }
-/* Steam-owned hover shadow layer follows the capsule */
-.DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}::before {
-  border-radius: inherit;
-}
-/* laser hover: the strong SteamVR hover (10-systemui.css section 0). In
-   laser-mouse mode without controllers there is no gamepad focus here, so
-   pointing is the only cue; focus stays distinct (ring + glow). */
-.DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}:hover {
-  background: var(--lgs-vr-hover-fill);
-  box-shadow: var(--lgs-control-rim), var(--lgs-vr-hover-rim);
-  color: var(--lgs-text-1);
-}
-/* gamepad focus: illuminated from within + ring (the ::after) */
-.DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}.gpfocus {
-  background: var(--lgs-focus-fill);
-  box-shadow: var(--lgs-vr-focus-ring);
-  color: var(--lgs-text-1);
-}
-.DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}:active,
-.DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}:active:hover,
-.DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}:active.gpfocus {
-  background: var(--lgs-pressed-fill);
-  box-shadow: var(--lgs-control-rim);
+/* the caption: SteamVR's own "#Now_Playing" string, written by T2 on the
+   column (not on the title: inside the title's two-line clamp it would
+   take one of the title's lines) */
+.DashboardMain .NowPlaying .InfoColumn[data-lgs-np-cap]::before {
+  content: attr(data-lgs-np-cap);
+  display: block;
+  margin-bottom: 8px;
+  font: 600 29px/1.3 var(--lgs-font);
+  letter-spacing: 0;
+  color: var(--lgs-text-2);
 }
 
-/* Resume Game / Return to Home: the one tinted primary. Like Steam's Play
-   capsule (50-appdetails.css) it rests under Apple's dimming layer (deep
-   green) and lights up when pointed at or focused. The lit fill is the
-   play tint with 18% black: white 36px label >= 3.3:1 over any room (the
-   full .86 tint gives 2.4-2.6). Pointing also draws the inner rim, focus
-   the ring. %{Highlighted} (SteamVR: primary + laser-mouse mode + no
-   controllers) keeps the rest look: the deep green already marks the
-   primary, and in that mode hover is the only cue, so rest and hover must
-   differ. Both layers are images so the capsule keeps one fill. */
-.DashboardMain .NowPlaying {
-  --lgs-vr-play-lit: color-mix(in srgb, var(--lgs-tint-play), black 18%);
-}
-.DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}%{GamepadUIButton>Primary}:not(.Disabled),
-.DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}%{GamepadUIButton>Primary}:not(.Disabled)%{Highlighted} {
-  background: linear-gradient(var(--lgs-scrim), var(--lgs-scrim)),
-              linear-gradient(var(--lgs-tint-play), var(--lgs-tint-play));
-  color: #fff;
-}
-.DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}%{GamepadUIButton>Primary}:not(.Disabled):hover {
-  background: linear-gradient(var(--lgs-vr-play-lit), var(--lgs-vr-play-lit));
-  box-shadow: var(--lgs-control-rim), var(--lgs-vr-hover-rim);
-  color: #fff;
-}
-.DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}%{GamepadUIButton>Primary}:not(.Disabled).gpfocus {
-  background: linear-gradient(var(--lgs-vr-play-lit), var(--lgs-vr-play-lit));
-  box-shadow: var(--lgs-vr-focus-ring);
-  color: #fff;
-}
-.DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}%{GamepadUIButton>Primary}:not(.Disabled):active {
-  background: var(--lgs-tint-lift), linear-gradient(var(--lgs-vr-play-lit), var(--lgs-vr-play-lit));
-}
-
-/* Exit Game / Exit Home: the only action whose label is plain text
-   besides Resume (the others are wrapped in <span>): destructive red,
-   but only while it is pointed at or focused */
-.DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}:not(%{GamepadUIButton>Primary}):not(:has(> span)):not(.Disabled):is(:hover, .gpfocus) {
-  background: var(--lgs-tint-danger);
-  color: #fff;
-}
-.DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}:not(%{GamepadUIButton>Primary}):not(:has(> span)):not(.Disabled):active {
-  background: var(--lgs-tint-lift), var(--lgs-tint-danger);
-}
-
-/* disabled (e.g. while the app is starting or quitting) */
-.DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}.Disabled,
-.DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}.Disabled:hover,
-.DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}.Disabled.gpfocus {
-  background: var(--lgs-fill-1);
+/* every action: our geometry, Steam's handlers and order */
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton {
+  position: relative;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 0 40px;
+  font: 600 36px/1.15 var(--lgs-font);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--lgs-text-1);
+  background: var(--c5b-raised);
+  background-size: auto;
+  background-position: 0 0;
   box-shadow: none;
-  color: var(--lgs-text-disabled);
+  transition-property: background-color, box-shadow, color;
+  transition-duration: var(--lgs-d-hover-in);
+  transition-timing-function: var(--lgs-ease-b0);
 }
-
-/* the focus ring element (Steam-owned ::after): the button's own
-   --lgs-vr-focus-ring already draws the one ring (inset + glow), like
-   Steam's DialogButton and Play focus in 10-primitives.css; a second
-   outline outside it read as a bullseye. Its outline goes clear (geometry
-   untouched) and its flash / grow / 20x blinker stop. */
-.DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}%{FocusRing}.gpfocus::after {
-  border-radius: inherit;
+/* Steam's hover shadow layer (::before) becomes our light layer or glyph
+   below; its fade-in transition goes */
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton::before {
+  transition: none;
+  box-shadow: none;
+  opacity: 1;
+}
+/* the Steam-owned focus ring element: no outline, no flash, no blinker */
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton::after,
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton.gpfocus::after {
+  outline: none;
   outline-color: transparent;
   animation: none;
-  opacity: 1;
+  border-radius: inherit;
+  opacity: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* 4. Resume Game / Return to Home: 760 x 128 green Liquid Glass       */
+/*    capsule, 44 px play glyph, dark label (CTL C-D21, REQ C4a)       */
+/* ------------------------------------------------------------------ */
+
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton.ResumeButton {
+  height: 128px;
+  margin-bottom: 36px;
+  justify-content: center;
+  gap: 18px;
+  border-radius: 64px;
+  font: 600 40px/1 var(--lgs-font);
+  background: var(--c5b-lobe), var(--lgs-tint-play);
+  background-size: auto;
+  background-position: 0 0;
+  color: var(--lgs-text-on-color);
+  box-shadow: 0 6px 18px rgb(0 0 0 / .30);
+}
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton.ResumeButton::before {
+  content: "";
+  position: static;
+  inset: auto;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 0;
+  background: currentColor;
+  -webkit-mask: var(--c5b-g-play) center / contain no-repeat;
+  mask: var(--c5b-g-play) center / contain no-repeat;
+}
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton.ResumeButton:hover {
+  background: var(--lgs-tint-lift), var(--c5b-lobe), var(--c5b-play-lit);
+  color: var(--lgs-text-on-color);
+}
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton.ResumeButton.gpfocus {
+  background: var(--lgs-tint-lift), var(--c5b-lobe), var(--c5b-play-lit);
+  color: var(--lgs-text-on-color);
+  box-shadow: var(--c5b-glow);
+}
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton.ResumeButton:active {
+  background: linear-gradient(rgb(255 255 255 / .28), rgb(255 255 255 / .28)), var(--c5b-play-lit);
+}
+
+/* ------------------------------------------------------------------ */
+/* 5. The sheet rows: one recessed platter (black .14, radius 52,      */
+/*    padding 8), rows 116, a 64 px chip, 36 px Medium label, chevron. */
+/*    The rows are siblings, so the platter is drawn row by row; the   */
+/*    light is a 44-radius pill on the row's ::before, inset 8.        */
+/* ------------------------------------------------------------------ */
+
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton:not(.ResumeButton):has(> span) {
+  height: 116px;
+  padding: 0 30px;
+  border-radius: 0;
+  font-weight: 500;
+  background: var(--lgs-fill-regular);
+  box-shadow: none;
+}
+/* first row (right after Resume): the platter's top; last row (no row
+   after it): its bottom */
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton.ResumeButton + .GamepadUIButton:has(> span) {
+  height: 124px;
+  padding-top: 8px;
+  border-top-left-radius: 52px;
+  border-top-right-radius: 52px;
+}
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton:not(.ResumeButton):has(> span):not(:has(+ .GamepadUIButton > span)) {
+  height: 124px;
+  padding-bottom: 8px;
+  margin-bottom: 36px;
+  border-bottom-left-radius: 52px;
+  border-bottom-right-radius: 52px;
+}
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton.ResumeButton + .GamepadUIButton:has(> span):not(:has(+ .GamepadUIButton > span)) {
+  height: 132px;
+}
+/* the light pill */
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton:not(.ResumeButton):has(> span)::before {
+  content: "";
+  position: absolute;
+  inset: 0 8px;
+  z-index: 0;
+  border-radius: 44px;
+  background: transparent;
+  pointer-events: none;
+}
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton.ResumeButton + .GamepadUIButton:has(> span)::before {
+  top: 8px;
+}
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton:not(.ResumeButton):has(> span):not(:has(+ .GamepadUIButton > span))::before {
+  bottom: 8px;
+}
+/* separators between rows (2 px white .08, inset past the chip) */
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton:has(> span) + .GamepadUIButton:has(> span) {
+  background:
+      linear-gradient(rgb(255 255 255 / .08), rgb(255 255 255 / .08)) 120px 0 / calc(100% - 150px) 2px no-repeat,
+      var(--lgs-fill-regular);
+}
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton:has(> span):is(:hover, .gpfocus) + .GamepadUIButton:has(> span),
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton:has(> span) + .GamepadUIButton:has(> span):is(:hover, .gpfocus) {
+  background: var(--lgs-fill-regular);
+}
+/* label: the span grows, the chevron trails */
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton:not(.ResumeButton) > span {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  /* a long label (Clear Performance Assessment Status) wraps to two lines
+     inside the 116 row instead of pushing the chevron out */
+  white-space: normal;
+  line-height: 1.15;
+  text-align: left;
+}
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton:not(.ResumeButton) > span::after {
+  content: "";
+  flex: none;
+  width: 30px;
+  height: 30px;
+  margin-left: auto;
+  background: var(--c5b-g-chev) center / contain no-repeat;
+}
+/* the coloured chip, only where T2 named the row (GQ7) */
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton:is([data-lgs-np="bindings"], [data-lgs-np="video"], [data-lgs-np="perf"]) > span::before {
+  content: "";
+  flex: none;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--c5b-chip-g) center / 36px no-repeat, var(--c5b-chip);
+}
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton[data-lgs-np="bindings"] { --c5b-chip: var(--lgs-indigo); --c5b-chip-g: var(--c5b-g-bind); }
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton[data-lgs-np="video"] { --c5b-chip: var(--lgs-blue); --c5b-chip-g: var(--c5b-g-video); }
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton[data-lgs-np="perf"] { --c5b-chip: var(--lgs-gray); --c5b-chip-g: var(--c5b-g-perf); }
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton:has(> span):is([data-lgs-np="bindings"], [data-lgs-np="video"], [data-lgs-np="perf"]) {
+  padding-left: 22px;
+}
+
+/* row states: laser hover = the strong SteamVR hover; gamepad focus =
+   the focus add as light (no ring) */
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton:not(.ResumeButton):has(> span):hover::before {
+  background: var(--lgs-vr-hover-fill);
+  box-shadow: var(--lgs-vr-hover-rim);
+}
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton:not(.ResumeButton):has(> span).gpfocus::before {
+  background: radial-gradient(60% 90% at 50% 25%, rgb(255 255 255 / var(--lgs-focus-spot)), rgb(255 255 255 / 0) 75%);
+  box-shadow: var(--lgs-vr-focus-ring);
+}
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton:not(.ResumeButton):has(> span):active::before {
+  background: rgb(255 255 255 / .30);
+}
+
+/* ------------------------------------------------------------------ */
+/* 6. Exit Game / Exit Home: 760 x 116 capsule below the platter.      */
+/*    Red label at rest and the red fill on focus or hover ONLY with   */
+/*    the T2 key; neutral (white label) otherwise.                     */
+/* ------------------------------------------------------------------ */
+
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton:not(.ResumeButton):not(:has(> span)) {
+  height: 116px;
+  justify-content: center;
+  gap: 16px;
+  border-radius: 58px;
+}
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton:not(.ResumeButton):not(:has(> span))::before {
+  content: "";
+  position: static;
+  inset: auto;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 0;
+  background: currentColor;
+  -webkit-mask: var(--c5b-g-exit) center / contain no-repeat;
+  mask: var(--c5b-g-exit) center / contain no-repeat;
+}
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton:not(.ResumeButton):not(:has(> span)):hover {
+  background: var(--c5b-lobe), rgb(255 255 255 / .30);   /* one colour layer: stacked translucent layers drew a bright rim */
+  box-shadow: none;
+}
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton:not(.ResumeButton):not(:has(> span)).gpfocus {
+  background: radial-gradient(60% 90% at 50% 25%, rgb(255 255 255 / var(--lgs-focus-spot)), rgb(255 255 255 / 0) 75%), var(--c5b-raised);
+  box-shadow: var(--lgs-vr-focus-ring);
+}
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton[data-lgs-np="exit"] {
+  color: var(--lgs-red);
+}
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton[data-lgs-np="exit"]:not(.Disabled):is(:hover, .gpfocus) {
+  background: var(--c5b-lobe), var(--lgs-fill-danger);
+  color: var(--lgs-text-on-color);
+}
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton[data-lgs-np="exit"]:not(.Disabled):hover {
+  box-shadow: none;   /* the red fill is the cue; a lit top arc read as a line on red (G-OUTLINE) */
+}
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton[data-lgs-np="exit"]:not(.Disabled).gpfocus {
+  box-shadow: var(--c5b-glow);
+}
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton:not(.ResumeButton):not(:has(> span)):active {
+  background: linear-gradient(rgb(255 255 255 / .30), rgb(255 255 255 / .30)), var(--c5b-raised);
+}
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton[data-lgs-np="exit"]:active {
+  background: linear-gradient(rgb(255 255 255 / .22), rgb(255 255 255 / .22)), var(--lgs-fill-danger);
+}
+
+/* ------------------------------------------------------------------ */
+/* 7. Disabled (while the app starts or quits): content at .40, no     */
+/*    light, no red                                                    */
+/* ------------------------------------------------------------------ */
+
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton.Disabled,
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton.Disabled:is(:hover, .gpfocus) {
+  color: rgb(255 255 255 / .40);
+}
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton.ResumeButton.Disabled {
+  background: linear-gradient(rgb(0 0 0 / .45), rgb(0 0 0 / .45)), var(--lgs-tint-play);
+  box-shadow: none;
+}
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton:not(.ResumeButton):not(:has(> span)).Disabled {
+  background: rgb(255 255 255 / .06);
+  box-shadow: none;
+}
+.DashboardMain .NowPlaying .InfoColumn > .GamepadUIButton:has(> span).Disabled::before {
+  background: transparent;
+  box-shadow: none;
 }

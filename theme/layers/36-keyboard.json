@@ -1,0 +1,26 @@
+{
+  "version": 2,
+  "about": [
+    "C4b Keyboard (CTL §12.2, §12.8 K-G1/K-G6; PLAN §1.6, §1.7). The keyboard surface: Steam's VR keyboard overlay as one `thick` cover,",
+    "radius 30 (--lgs-r-platter), sitting 10 mm behind the keys (coverMm -10, K-G6: glassd and the scene graph use the same coverDz).",
+    "The keys stay Steam's content in the base mosaic at dz 0 (K-G4): no pops, no crops, so every hit lands on Steam's panel at the same x/y.",
+    "Cover element: the whole keyboard container (854 x 280) while C4b's echo row is drawn (html.lgs-kb-echo, keys moved down 41 kb px),",
+    "else Steam's contents box (the keys, plus the text buffer in buffered mode). 36-keyboard.css drops the CSS platter where this cover is acked.",
+    "Reported only while wp.c4b.native is on (surface flag; CTL §12.8: the keyboard ships as T1 until K-G1 to K-G5 pass in a native session),",
+    "so V1 can turn wp.c4b (CSS, echo, Enter label) on by default while the native platter waits for its own gate. Test with --flags wp.c4b,wp.c4b.native."
+  ],
+  "flag": "wp.c4b.native",
+  "surfaces": {
+    "keyboard": {
+      "key": "valve.steam.gamepadui.keyboard",
+      "material": "thick",
+      "flag": "wp.c4b.native",
+      "coverMm": -10,
+      "cover": {
+        "sel": "html.lgs-kb-echo %{VirtualKeyboardStandaloneContainer>VirtualKeyboardContainer}:not(:has(.Row_IME, %{Modal>EmojiKeyboard}, %{VirtualKeyboardTextBuffer})), %{VRVirtualKeyboardContents}:has(> %{Modal>Keyboard})",
+        "r": 30
+      },
+      "layers": []
+    }
+  }
+}

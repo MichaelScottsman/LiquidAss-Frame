@@ -127,11 +127,12 @@
 .ChordCalloutPlus {
   color: var(--lgs-text-1);
 }
-/* the input is being pressed right now: lit from within */
+/* the input is being pressed right now: lit from within (+ .32 and the
+   lit top arc, PLAN §1.4), never a ring (VP P-42) */
 .BindingCallout.CalloutInputActive,
 .ChordCalloutContainer.CalloutInputActive {
-  background: var(--lgs-panel-sheen), linear-gradient(var(--lgs-focus-fill), var(--lgs-focus-fill)), var(--lgs-panel-bg);
-  box-shadow: inset 0 0 0 2px var(--lgs-focus-outline);
+  background: var(--lgs-panel-sheen), linear-gradient(rgb(255 255 255 / var(--lgs-focus-add, .32)), rgb(255 255 255 / var(--lgs-focus-add, .32))), var(--lgs-panel-bg);
+  box-shadow: var(--lgs-panel-rim), inset 0 1.5px 1.5px -1px rgb(255 255 255 / var(--lgs-focus-arc, .55));
 }
 .BindingCalloutActionList .ButtonControl,
 .BindingCalloutActionList .ButtonControl.CloseButton:not(:hover) {

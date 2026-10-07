@@ -1,55 +1,80 @@
-/* Glass Shell, area "library": /library/home (Recent Games shelf, the
-   WHAT'S NEW / FRIENDS / RECOMMENDED tabs and their panels), /library and
-   every library tab, collection pages, the library capsules, the laser
-   Sort & Filter capsule, the Library Filters sheet and the grid's
-   secondary chrome (filter header, section headers, fast-scroll letter,
-   empty states).
-   Wrapped as html.lgs-on { ... } by the injector. Look only: colours,
-   fills, radii, rims, blur. Never geometry, never Steam's transforms
-   (capsule translateZ focus depth, glows, carousels, virtualized rows,
-   the VR sub-tab centring, tab-content transitions). Steam-owned
-   pseudo-elements (LibraryItemBox ::before/::after, Collection ::after,
-   TabHeaderRowWrapper ::before, Group>Button ::before, AppGridFilterHeader
-   ::before/::after, AppGridSectionHeader ::after) are only recoloured or
-   rounded; our own pseudo-elements live where Steam has none and never
-   take pointer events. Coverage, shots, audits: docs/coverage/library.md.
+/* Glass Shell, area "library" (package C2c): the library catalogue.
+   Routes: /library/tab/* and /library/collection/* (glass mode `window`),
+   the laser Sort & Filter pill, the bottom ornament's five fixed slots on
+   library routes, the grid's secondary chrome and Library Filters' content.
+   Concept: docs/phase2/concepts/home-apps.md (HA) §7-§9; PLAN §1.3, §1.4,
+   §1.10, §1.12; WN §3.4.6. Home (/library/home) is C2a's (41-home.css).
 
-   Scopes used below:
-   LIB  = %{GamepadLibrary} (every /library tab and collection page)
-   HOME = %{RecentSection} (Recent Games shelf) and
-          %{RecentSection} ~ %{TabbedContent} (home tabs and panels)
-   The search route's tabbed page is styled by shell (20-shell.css). */
+   Wrapped as html.lgs-on { ... } by the injector. Steam's geometry is kept
+   (poster size, columns, virtualized rows, the tab row's horizontal
+   handlers, the VR sub-filter's place); we move the header rows below the
+   toolbar row (C1a's --lgs-hdr-pad), restyle, and put Steam's laser Sort &
+   Filter pill in the toolbar row's trailing side (D-C2c-12).
 
-/* derived faces (tokens only) */
+   Hooks this file reads:
+     #Footer[data-lgs-orn-fixed="library"]   C1a T2: fixed slots registered
+                                             (flag libFixedSlots, off)
+     [data-lgs-lib-sort] on the Y label      C2c T2: the current sort name
+     %{Collection}[data-lgs-empty]           C2c T2: an empty collection   */
+
 & {
-  /* a floating Liquid Glass control face: light glass over Apple's
-     dimming scrim, same recipe as shell's header and search capsules */
-  --lgs-lib-glass-face: var(--lgs-panel-sheen),
-      linear-gradient(var(--lgs-glass-bg), var(--lgs-glass-bg)),
-      linear-gradient(var(--lgs-scrim), var(--lgs-scrim));
-  --lgs-lib-glass-hover: var(--lgs-panel-sheen),
-      linear-gradient(var(--lgs-hover-fill), var(--lgs-hover-fill)),
-      linear-gradient(var(--lgs-glass-bg), var(--lgs-glass-bg)),
-      linear-gradient(var(--lgs-scrim), var(--lgs-scrim));
-  --lgs-lib-glass-focus: var(--lgs-panel-sheen),
-      linear-gradient(var(--lgs-focus-fill), var(--lgs-focus-fill)),
-      linear-gradient(var(--lgs-glass-bg), var(--lgs-glass-bg)),
-      linear-gradient(var(--lgs-scrim), var(--lgs-scrim));
-  /* small dark glass chip over game art (badges, tags) */
-  --lgs-lib-chip: var(--lgs-panel-sheen), var(--lgs-thick-bg);
+  /* the library header: the tab row and the sub-filter, 80 px boxes each */
+  --lgs-lib-row: 80px;
+  --lgs-lib-hdr-top: var(--lgs-hdr-pad, 68px);
 }
 
-
 /* ==================================================================== */
-/* 1. Tab rows (library tabs, home tabs): one Liquid Glass capsule      */
-/*    holding the segments; the selected segment is the white pill.     */
+/* 1. Header rows below the toolbar row; the grid's scroll guard         */
 /* ==================================================================== */
 
-/* The capsule is an ::after of the row wrapper (Steam uses only its
-   ::before, for the pinned band). The wrapper is Steam's preserve-3d
-   layer, so the capsule takes part in the tabbed page's 3D context and
-   its blur sees the content scrolling underneath. Anchored to the first
-   and last tab, it hugs the segments in any language or tab count. */
+/* Steam pins its header (tab row + sub-filter) at the top of the tabbed
+   page (y 40). The toolbar row's fallback (C1a, lgs-hdr-40) puts the
+   search capsule at y 22-86, so the header moves down by --lgs-hdr-pad
+   (68; 0 with lgs-hdr-108) and the grid starts below it (y 270). */
+%{GamepadLibrary} %{TabHeaderRowWrapper} {
+  top: var(--lgs-lib-hdr-top);
+}
+/* Steam's pinned band (shown once the grid scrolls under the header)
+   becomes the scroll edge, reaching up under the toolbar row */
+%{GamepadLibrary} %{TabHeaderRowWrapper}::before {
+  top: calc(-40px - var(--lgs-lib-hdr-top));
+  background: var(--lgs-scroll-band-top);
+  backdrop-filter: blur(12px);
+  -webkit-mask-image: linear-gradient(180deg, #000 72%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 72%, transparent 100%);
+  box-shadow: none;
+}
+/* the grid starts under the two 80 px rows (Steam: 118 for 58 + 46) */
+%{GamepadLibrary} %{TabContentsScroll} {
+  padding-top: calc(var(--lgs-lib-hdr-top) + 154px) !important;
+  /* focused posters stay below the header rows (window y 270) and above
+     the ornament guard (612): VP P-23, C1a's guard variables */
+  scroll-padding-top: calc(var(--lgs-lib-hdr-top) + 162px);
+  scroll-padding-bottom: calc(720px - var(--lgs-guard-bottom, 612px));
+}
+/* Tabs without the sub-filter row (Collections, Non-Steam, Soundtracks)
+   keep the same grid top: rows land where they do on All Games, so the
+   ornament never covers half a row's 80 px hit band (P-08). */
+
+/* ==================================================================== */
+/* 2. Tabs: Steam's tab row as a segmented control (CTL §8.3, E-SEG)     */
+/* ==================================================================== */
+
+/* A 64 px recessed track; segments contiguous, 60 visible and >= 140 wide
+   inside 80 px boxes (10 px transparent borders, so the hit is 80); 22 px
+   Semibold in Steam's own case; selected = white .94 with a dark label. */
+%{GamepadLibrary} %{TabRow} {
+  height: var(--lgs-lib-row);
+  min-height: var(--lgs-lib-row);
+  align-items: center;
+}
+%{GamepadLibrary} %{FixCenterAlignScroll} {
+  height: var(--lgs-lib-row);
+  align-items: center;
+  /* contiguous segments (Steam leaves 2 px between tabs) */
+  gap: 0;
+  anchor-name: --lgs-lib-tabscroll;
+}
 %{GamepadLibrary} %{FixCenterAlignScroll} > :nth-child(1 of %{GamepadTabbedPage>Tab}) {
   anchor-name: --lgs-lib-tab-first;
 }
@@ -59,134 +84,131 @@
 %{GamepadLibrary} %{FixCenterAlignScroll} > :nth-child(1 of %{GamepadTabbedPage>Tab}):nth-last-child(1 of %{GamepadTabbedPage>Tab}) {
   anchor-name: --lgs-lib-tab-first, --lgs-lib-tab-last;
 }
-%{RecentSection} ~ %{TabbedContent} %{FixCenterAlignScroll} > :nth-child(1 of %{GamepadTabbedPage>Tab}) {
-  anchor-name: --lgs-home-tab-first;
+/* the track: our ::before on Steam's tab row (Steam draws none there),
+   held inside the tab scroller's box when the row overflows. (Not the
+   wrapper's ::after: Phase 1's legacy layer rule "tabs" pops that pseudo
+   forward in native mode, and this track is recessed, PLAN §1.7.) */
+%{GamepadLibrary} %{TabHeaderRowWrapper}::after {
+  content: none;
 }
-%{RecentSection} ~ %{TabbedContent} %{FixCenterAlignScroll} > :nth-last-child(1 of %{GamepadTabbedPage>Tab}) {
-  anchor-name: --lgs-home-tab-last;
+%{GamepadLibrary} %{TabRow} {
+  position: relative;
+  isolation: isolate;
 }
-%{RecentSection} ~ %{TabbedContent} %{FixCenterAlignScroll} > :nth-child(1 of %{GamepadTabbedPage>Tab}):nth-last-child(1 of %{GamepadTabbedPage>Tab}) {
-  anchor-name: --lgs-home-tab-first, --lgs-home-tab-last;
-}
-
-:is(%{GamepadLibrary}, %{RecentSection} ~ %{TabbedContent}) %{TabHeaderRowWrapper}::after {
+%{GamepadLibrary} %{TabRow}::before {
   content: "";
   position: absolute;
   z-index: -1;
+  top: calc(anchor(--lgs-lib-tab-first top, 0px) + 8px);
+  height: var(--lgs-seg);
+  left: max(calc(anchor(--lgs-lib-tab-first left, 100%) - 2px), anchor(--lgs-lib-tabscroll left, 0px));
+  right: max(calc(anchor(--lgs-lib-tab-last right, 0px) - 2px), anchor(--lgs-lib-tabscroll right, 0px));
   border-radius: var(--lgs-r-capsule);
-  background: var(--lgs-lib-glass-face);
-  backdrop-filter: var(--lgs-glass-blur);
-  box-shadow: var(--lgs-glass-rim), var(--lgs-glass-shadow);
+  background: var(--lgs-fill-thick);
+  box-shadow: var(--lgs-recessed-shadow);
   pointer-events: none;
 }
-%{GamepadLibrary} %{TabHeaderRowWrapper}::after {
-  top: calc(anchor(--lgs-lib-tab-first top, 0px) - 4px);
-  bottom: calc(anchor(--lgs-lib-tab-first bottom, 100%) - 4px);
-  left: calc(anchor(--lgs-lib-tab-first left, 100%) - 4px);
-  right: calc(anchor(--lgs-lib-tab-last right, 0px) - 4px);
-}
-%{RecentSection} ~ %{TabbedContent} %{TabHeaderRowWrapper}::after {
-  top: calc(anchor(--lgs-home-tab-first top, 0px) - 4px);
-  bottom: calc(anchor(--lgs-home-tab-first bottom, 100%) - 4px);
-  left: calc(anchor(--lgs-home-tab-first left, 100%) - 4px);
-  right: calc(anchor(--lgs-home-tab-last right, 0px) - 4px);
-}
-
-/* Steam's pinned band (50% black slab + 100px blur + drop shadow, shown
-   once content scrolls under the row) becomes a soft scroll edge: the
-   window tint fading out downwards with a lighter blur faded by the same
-   mask, so content dissolves under the capsules. Box, z-index and
-   show/hide stay Steam's. (Same treatment as shell's search row.) */
-:is(%{GamepadLibrary}, %{RecentSection} ~ %{TabbedContent}) %{TabHeaderRowWrapper}::before {
-  background: linear-gradient(180deg, var(--lgs-window-bg) 0%, transparent 100%);
-  backdrop-filter: var(--lgs-glass-blur);
-  -webkit-mask-image: linear-gradient(180deg, #000 55%, transparent 100%);
-  mask-image: linear-gradient(180deg, #000 55%, transparent 100%);
-  box-shadow: none;
-}
-
-/* segments */
-:is(%{GamepadLibrary}, %{RecentSection} ~ %{TabbedContent}) %{GamepadTabbedPage>Tab} {
+%{GamepadLibrary} %{GamepadTabbedPage>Tab} {
+  position: relative;
+  isolation: isolate;
+  box-sizing: border-box;
+  height: var(--lgs-lib-row);
+  max-height: none;
+  min-width: var(--lgs-seg-min-w);
+  width: max-content !important;
+  flex: 0 0 auto !important;
+  gap: 6px;
+  margin: 0;
+  padding: 0 16px;
+  border: 10px solid transparent;
+  border-inline-width: 0;
+  background-clip: padding-box;
+  justify-content: center;
   border-radius: var(--lgs-r-capsule);
+  background-color: transparent;
   color: var(--lgs-text-1);
-  transition: background-color var(--lgs-t-fast) var(--lgs-ease),
-      color var(--lgs-t-fast) var(--lgs-ease), box-shadow var(--lgs-t-fast) var(--lgs-ease);
+  box-shadow: none !important;
+  --lgs-ill: raised;
+  --lgs-ill-inset: 10px 0;
+  --lgs-ill-z: -1;
+  transition: background-color var(--lgs-motion-snappy), color var(--lgs-motion-fade);
 }
-:is(%{GamepadLibrary}, %{RecentSection} ~ %{TabbedContent}) %{GamepadTabbedPage>Tab}:hover {
-  background-color: var(--lgs-hover-fill);
+%{GamepadLibrary} %{GamepadTabbedPage>Tab} %{GamepadTabbedPage>TabTitle} {
+  font: 600 22px/28px var(--lgs-font);
+  text-transform: none;
+  letter-spacing: 0;
+}
+%{GamepadLibrary} %{GamepadTabbedPage>Tab}:hover {
+  background-color: transparent;
   color: var(--lgs-text-1);
 }
-:is(%{GamepadLibrary}, %{RecentSection} ~ %{TabbedContent}) %{GamepadTabbedPage>Tab} %{TabCount} {
+%{GamepadLibrary} %{GamepadTabbedPage>Tab} %{TabCount} {
+  font: 500 22px/28px var(--lgs-font);
+  letter-spacing: 0;
+  text-transform: none;
+  margin: 0;
   color: var(--lgs-text-2);
 }
-/* selected (and focused, which selects): the white pill, dark label */
-:is(%{GamepadLibrary}, %{RecentSection} ~ %{TabbedContent}) %{GamepadTabbedPage>Tab}%{GamepadTabbedPage>Selected},
-:is(%{GamepadLibrary}, %{RecentSection} ~ %{TabbedContent}) %{GamepadTabbedPage>Tab}%{GamepadTabbedPage>Selected}:hover,
-:is(%{GamepadLibrary}, %{RecentSection} ~ %{TabbedContent}) %{GamepadTabbedPage>Tab}.gpfocus {
+%{GamepadLibrary} %{GamepadTabbedPage>Tab}%{GamepadTabbedPage>Selected},
+%{GamepadLibrary} %{GamepadTabbedPage>Tab}%{GamepadTabbedPage>Selected}:hover,
+&:not(.lgs-input-laser) %{GamepadLibrary} %{GamepadTabbedPage>Tab}.gpfocus {
   background-color: var(--lgs-selected-fill) !important;
   color: var(--lgs-text-on-selected) !important;
-  box-shadow: var(--lgs-pill-shadow);
+  box-shadow: none !important;
+  --lgs-ill: white;
 }
-:is(%{GamepadLibrary}, %{RecentSection} ~ %{TabbedContent}) %{GamepadTabbedPage>Tab}%{GamepadTabbedPage>Selected} %{TabCount},
-:is(%{GamepadLibrary}, %{RecentSection} ~ %{TabbedContent}) %{GamepadTabbedPage>Tab}.gpfocus %{TabCount} {
-  color: var(--lgs-text-on-selected) !important;
-  opacity: 0.6;
-}
-/* controller focus: the white pill gets a separated bright ring (a scrim
-   gap, then the focus outline and glow), so focused differs clearly from
-   merely selected */
-:is(%{GamepadLibrary}, %{RecentSection} ~ %{TabbedContent}) %{GamepadTabbedPage>Tab}.gpfocus {
-  box-shadow: 0 0 0 2px var(--lgs-scrim), 0 0 0 4px var(--lgs-focus-outline),
-      var(--lgs-focus-glow) !important;
-}
-/* the home Friends tab's "playing now" count keeps Steam's semantic green
-   (whole fill); only its shape follows the capsule */
-%{FriendsPlayingNowBadge}%{InFriendsTab} {
-  border-radius: var(--lgs-r-capsule);
+%{GamepadLibrary} %{GamepadTabbedPage>Tab}%{GamepadTabbedPage>Selected} %{TabCount},
+&:not(.lgs-input-laser) %{GamepadLibrary} %{GamepadTabbedPage>Tab}.gpfocus %{TabCount} {
+  color: var(--lgs-text-on-selected-2) !important;
+  opacity: 1;
 }
 
-/* row arrows (previous / next tab): round Liquid Glass buttons */
-:is(%{GamepadLibrary}, %{RecentSection} ~ %{TabbedContent}) %{TabHeaderRowWrapper} %{Arrows} {
-  border-radius: var(--lgs-r-capsule);
-  background: var(--lgs-lib-glass-face);
-  box-shadow: var(--lgs-glass-rim), var(--lgs-glass-shadow);
+/* Steam's previous / next tab arrows: 60 px plain circles in 80 px boxes */
+%{GamepadLibrary} %{TabHeaderRowWrapper} %{Arrows} {
+  position: relative;
+  isolation: isolate;
+  box-sizing: border-box;
+  width: 80px;
+  height: 80px;
+  min-width: 80px;
+  padding: 16px;
+  border: 10px solid transparent;
+  border-radius: 50%;
+  background: var(--lgs-raised-bg);
+  background-clip: padding-box;
+  box-shadow: none;
   color: var(--lgs-text-1);
-  transition: background var(--lgs-t-fast) var(--lgs-ease), box-shadow var(--lgs-t-fast) var(--lgs-ease);
+  --lgs-ill: raised;
+  --lgs-ill-inset: 10px;
+  --lgs-ill-z: -1;
+  transition: background var(--lgs-motion-fade);
 }
-:is(%{GamepadLibrary}, %{RecentSection} ~ %{TabbedContent}) %{TabHeaderRowWrapper} %{Arrows}:hover {
-  background: var(--lgs-lib-glass-hover);
-  color: var(--lgs-text-1);
+%{GamepadLibrary} %{TabHeaderRowWrapper} %{Arrows} svg {
+  width: 28px;
+  height: 28px;
 }
-:is(%{GamepadLibrary}, %{RecentSection} ~ %{TabbedContent}) %{TabHeaderRowWrapper} %{Arrows}:active {
-  background: var(--lgs-panel-sheen),
-      linear-gradient(var(--lgs-pressed-fill), var(--lgs-pressed-fill)),
-      linear-gradient(var(--lgs-scrim), var(--lgs-scrim));
-}
-:is(%{GamepadLibrary}, %{RecentSection} ~ %{TabbedContent}) %{TabHeaderRowWrapper} %{Arrows}.gpfocus {
-  background: var(--lgs-lib-glass-focus) !important;
-  box-shadow: var(--lgs-focus-ring) !important;
+&:not(.lgs-input-pad) %{GamepadLibrary} %{TabHeaderRowWrapper} %{Arrows}:is(:hover, :active),
+&:not(.lgs-input-laser) %{GamepadLibrary} %{TabHeaderRowWrapper} %{Arrows}.gpfocus {
+  background: var(--lgs-raised-bg) !important;
+  background-clip: padding-box !important;
+  box-shadow: none !important;
   color: var(--lgs-text-1) !important;
 }
 
-
 /* ==================================================================== */
-/* 2. VR sub-tabs (ALL / VR / NON-VR, STANDALONE / REMOTE PC):          */
-/*    a second floating Liquid Glass capsule with the white pill        */
+/* 3. The VR sub-filter (All · VR · Non-VR), in Steam's place            */
 /* ==================================================================== */
 
-/* The radio group is wider than its three segments (Steam centres them);
-   the capsule is the group's own ::after (Steam has none there), anchored
-   to the first and last segment. The group is Steam-positioned with a
-   transform, which also makes it the stacking context the capsule sits
-   in, below the segments. Steam's 2px segment borders turn transparent:
-   with the capsule's 2px overhang they are the pill's 4px inset.
-   The capsule floats over the grid once it scrolls under the row, so it
-   must really blur: the container and the group opt into the tabbed
-   page's 3D context (transform-style only, a rendering hint: the group is
-   the only positioned descendant and its containing block is already the
-   relative container, so no box moves; verified rect-identical). */
-%{VRSubTabFilterContainer},
-%{VRSubTabFilterContainer} > %{VRLibraryFilterGroup} {
+/* The same segmented control, 3 x 140. The radio group is wider than its
+   segments (Steam centres them), so the track is the group's ::after
+   anchored to the first and last segment. (C4a's %{Group} primitive skips
+   centred pills; this one is the library's.) */
+%{GamepadLibrary} %{VRSubTabFilterContainer} {
+  height: var(--lgs-lib-row);
+  min-height: var(--lgs-lib-row);
+  transform-style: preserve-3d;
+}
+%{GamepadLibrary} %{VRSubTabFilterContainer} > %{VRLibraryFilterGroup} {
   transform-style: preserve-3d;
 }
 %{VRLibraryFilterGroup} > :nth-child(1 of %{Group>Button}) {
@@ -198,631 +220,679 @@
 %{VRLibraryFilterGroup} > :nth-child(1 of %{Group>Button}):nth-last-child(1 of %{Group>Button}) {
   anchor-name: --lgs-vrsub-first, --lgs-vrsub-last;
 }
+%{VRLibraryFilterGroup}%{CenteredPill} {
+  background: none;
+  box-shadow: none;
+  border: 0;
+  gap: 0;
+}
 %{VRLibraryFilterGroup}%{CenteredPill}::after {
   content: "";
   position: absolute;
-  top: calc(anchor(--lgs-vrsub-first top, 0px) - 2px);
-  bottom: calc(anchor(--lgs-vrsub-first bottom, 100%) - 2px);
+  top: calc(anchor(--lgs-vrsub-first top, 0px) + 8px);
+  height: var(--lgs-seg);
   left: calc(anchor(--lgs-vrsub-first left, 100%) - 2px);
   right: calc(anchor(--lgs-vrsub-last right, 0px) - 2px);
   z-index: -1;
   border-radius: var(--lgs-r-capsule);
-  background: var(--lgs-lib-glass-face);
-  backdrop-filter: var(--lgs-glass-blur);
-  box-shadow: var(--lgs-glass-rim), var(--lgs-glass-shadow);
+  background: var(--lgs-fill-thick);
+  box-shadow: var(--lgs-recessed-shadow);
   pointer-events: none;
 }
 %{VRLibraryFilterGroup}%{CenteredPill} > %{Group>Button} {
-  border-color: transparent;
+  position: relative;
+  isolation: isolate;
+  box-sizing: border-box;
+  height: var(--lgs-lib-row);
+  min-height: var(--lgs-lib-row);
+  min-width: var(--lgs-seg-min-w);
+  margin: 0;
+  padding: 0 20px;
+  border: 10px solid transparent;
+  border-inline-width: 0;
+  background-clip: padding-box;
   border-radius: var(--lgs-r-capsule);
   background-color: transparent;
-  background-clip: padding-box;
+  font: 600 22px/28px var(--lgs-font);
+  text-transform: none;
+  letter-spacing: 0;
+  text-shadow: none;
   color: var(--lgs-text-1);
-  transition: background-color var(--lgs-t-fast) var(--lgs-ease), color var(--lgs-t-fast) var(--lgs-ease);
+  --lgs-ill: raised;
+  --lgs-ill-inset: 10px 0;
+  --lgs-ill-z: -1;
+  transition: background-color var(--lgs-motion-snappy), color var(--lgs-motion-fade);
+  /* Steam's 1 px dividers */
+  &::before { background: transparent !important; }
 }
-/* hairline between two unselected segments (Steam hides its own divider
-   pseudo-element inside centred pills; this is a background line) */
-%{VRLibraryFilterGroup}%{CenteredPill} > %{Group>Button}:not(%{Group>Active}):not([aria-checked="true"]) + %{Group>Button}:not(%{Group>Active}):not([aria-checked="true"]) {
-  background-image: linear-gradient(var(--lgs-separator), var(--lgs-separator));
-  background-size: 1px 50%;
-  background-position: left center;
-  background-repeat: no-repeat;
+%{VRLibraryFilterGroup}%{CenteredPill} > %{Group>Button}.gpfocus,
+%{GamepadLibrary} %{GamepadTabbedPage>Tab}.gpfocus {
+  z-index: 2;
 }
-%{VRLibraryFilterGroup}%{CenteredPill} > %{Group>Button}:not(%{Group>Active}):hover {
-  background-color: var(--lgs-hover-fill);
+%{VRLibraryFilterGroup}%{CenteredPill} > %{Group>Button}:not(%{Group>Active}, [aria-checked="true"]):is(:hover, .gpfocus) {
+  background-color: transparent !important;
   color: var(--lgs-text-1);
 }
 %{VRLibraryFilterGroup}%{CenteredPill} > %{Group>Button}:is(%{Group>Active}, [aria-checked="true"]),
 %{VRLibraryFilterGroup}%{CenteredPill} > %{Group>Button}:is(%{Group>Active}, [aria-checked="true"]):hover {
-  background-color: var(--lgs-selected-fill);
-  background-image: none;
-  color: var(--lgs-text-on-selected);
-  box-shadow: var(--lgs-pill-shadow);
+  background-color: var(--lgs-selected-fill) !important;
+  background-clip: padding-box !important;
+  color: var(--lgs-text-on-selected) !important;
+  box-shadow: none !important;
+  --lgs-ill: white;
 }
-
 
 /* ==================================================================== */
-/* 3. Library capsules (grid, Recent Games, Play Next, collections)     */
-/*    Game art is content: opaque, rounded to the card radius, never    */
-/*    tinted. Focus = the outer ring around the art; Steam's depth      */
-/*    (translateZ) and art glow stay.                                   */
+/* 4. Posters (Steam's geometry: 172 x 258, 6 per row)                   */
 /* ==================================================================== */
 
-:is(%{GamepadLibrary}, %{RecentSection}, %{RecentSection} ~ %{TabbedContent}) {
-
-  & %{LibraryItemBox} {
-    border-radius: var(--lgs-r-card);
-  }
-  /* art container (placeholder while art loads) and the art itself */
-  & %{LibraryItemBox} > %{PortraitImage>Container},
-  & %{LibraryItemBox} > %{PortraitImage>Container} > img {
-    border-radius: var(--lgs-r-card);
-  }
-  & %{LibraryItemBox} > %{PortraitImage>Container}%{GreyBackground} {
-    background-color: var(--lgs-fill-2);
-  }
-  /* Steam's focus shine (its ::after) follows the rounded corners */
-  & %{LibraryItemBox}::after {
-    border-radius: inherit;
-  }
-  /* missing art: the title on the glass placeholder */
-  & %{LibraryItemBox} %{PortraitImage>Title} {
-    color: var(--lgs-text-1);
-    text-shadow: var(--lgs-text-shadow);
-  }
-
-  /* focus: a steady white ring + glow around the art (Steam's outline
-     pulses 20x; it is replaced, its grow/fade keyframes left running on a
-     transparent outline). Depth shadow kept, as glass shadow. */
-  & %{LibraryItemBox}:is(.gpfocus, .Focusable:focus) {
-    outline-color: transparent !important;
-    box-shadow: var(--lgs-focus-ring-outer), var(--lgs-glass-shadow) !important;
-  }
-
-  /* compat badge (shown on hover/focus): a dark glass chip over the art */
-  & %{LibraryItemBox} %{SteamDeckCompatInfo} {
-    background: var(--lgs-lib-chip);
-    box-shadow: var(--lgs-glass-rim);
-    border-radius: var(--lgs-r-capsule);
-  }
-  /* uninstalled / download bar: capsule track, white fill */
-  & %{PortraitImage>UninstalledBar} {
-    background-color: var(--lgs-thick-bg);
-    border-radius: var(--lgs-r-capsule);
-  }
-  & %{PortraitImage>UninstalledBar} %{UninstalledProgressBar} {
-    background-color: var(--lgs-slider-fill);
-    border-radius: var(--lgs-r-capsule);
-  }
-  /* friends-playing summary (dot + count) under some capsules */
-  & %{FriendsBar} %{SummaryCount} {
-    color: var(--lgs-text-1);
-    text-shadow: var(--lgs-text-shadow);
-  }
-  /* hover (laser): a faint ring so the target reads before it focuses */
-  & %{PortraitImage>HoversEnabled} %{LibraryItemBox}:hover:not(.gpfocus) {
-    box-shadow: 0 0 0 1px var(--lgs-control-outline), var(--lgs-glass-shadow);
-  }
-}
-
-
-/* ==================================================================== */
-/* 4. Recent Games shelf                                                */
-/* ==================================================================== */
-
-/* header label: primary label on glass (Steam's fade in/out kept) */
-%{RecentGamesHeaderLabel} {
-  color: var(--lgs-text-1);
-  text-shadow: var(--lgs-text-shadow);
-}
-/* label under the focused item: title + sub line */
-%{CarouselGameLabelWrapper} %{Marquee>Content} {
-  color: var(--lgs-text-1);
-  text-shadow: var(--lgs-text-shadow);
-}
-%{BasicGameCarousel>SubMessage}:not(%{FriendsInGame}) {
-  color: var(--lgs-text-2);
-  text-shadow: var(--lgs-text-shadow);
-}
-/* "View more in your Library": a glass fill tile with rim */
-%{BasicGameCarouselItem} %{TextBoxCarouselContents} {
-  background: var(--lgs-panel-sheen), var(--lgs-fill-2);
-  box-shadow: var(--lgs-glass-rim);
+/* Content: opaque art, radius 20, no ring. Steam's focus outline (grow,
+   fade, 20 pulses) and its shine sweep go, so nothing runs at rest
+   (PLAN §1.5, P-42, P-52). The attention target lifts: x1.05 on the
+   independent `scale` (Steam's transform untouched), the +15 mm shadow
+   and a soft glow; gamepad focus at once, laser after the 80 ms dwell. */
+%{GamepadLibrary} %{LibraryItemBox} {
   border-radius: var(--lgs-r-card);
-  color: var(--lgs-text-1);
-  text-shadow: var(--lgs-text-shadow);
-  transition: background var(--lgs-t-fast) var(--lgs-ease), box-shadow var(--lgs-t-fast) var(--lgs-ease);
+  outline: none !important;
+  animation: none !important;
+  /* gamepad focus already grows by Steam's own focus transform (about
+     x1.07, kept); the laser's dwell lifts by x1.05 here */
+  scale: 1;
+  /* Steam's 300 ms transform transition is replaced by MO tokens */
+  transition-property: filter, box-shadow, transform, scale !important;
+  transition-duration: 0s, var(--lgs-d-hover-in), var(--lgs-d-fade), var(--lgs-d-fade) !important;
+  transition-timing-function: linear, var(--lgs-ease-b0), var(--lgs-ease-b0), var(--lgs-ease-b0) !important;
 }
-%{BasicGameCarouselItem} %{TextBoxCarouselContents}:hover {
-  background: var(--lgs-panel-sheen), var(--lgs-hover-fill);
-}
-/* focus: illuminated from within; the ring is Steam's floating focus
-   ring (primitives), which this tile shows */
-%{BasicGameCarouselItem} %{TextBoxCarouselContents}.gpfocus {
-  background: var(--lgs-panel-sheen), var(--lgs-focus-fill) !important;
-  box-shadow: var(--lgs-glass-rim) !important;
-}
-
-
-/* ==================================================================== */
-/* 5. Home panels: section headers, cards and store tiles               */
-/* ==================================================================== */
-
-/* section headers on the window glass */
-%{RecentSection} ~ %{TabbedContent} :is(
-    %{RecentlyCompletedCarousel>Header},
-    %{ItemsCarousel>Header},
-    %{MarketingMessage>Header},
-    %{LibraryHomeFriends>FriendsHeader},
-    %{PlayNextCarouselTitle},
-    %{PersonalCalendarWidget>Title}) {
-  color: var(--lgs-text-1);
-  text-shadow: var(--lgs-text-shadow);
-}
-%{StoreCarouselCtn} %{ItemsCarousel>Header} %{ItemsCarousel>SubHeader},
-%{PlayNextCarouselSubHeading},
-%{PersonalCalendarWidget} %{Subtitle} {
-  color: var(--lgs-text-2);
-  opacity: 1;
-}
-
-/* WHAT'S NEW: sale banner and marketing tiles are content (rounded) */
-%{LibraryHomeWhatsNew} %{SeasonalSale},
-%{MarketingMessages} %{Seen>MarketingMessage} {
+%{GamepadLibrary} %{LibraryItemBox} > %{PortraitImage>Container},
+%{GamepadLibrary} %{LibraryItemBox} > %{PortraitImage>Container} > img {
   border-radius: var(--lgs-r-card);
 }
-
-/* "Recently updated on this device": glass fill cards */
-%{RecentlyCompletedItem} {
-  background: var(--lgs-panel-sheen), var(--lgs-fill-2);
-  box-shadow: var(--lgs-control-rim);
-  border-radius: var(--lgs-r-card);
+%{GamepadLibrary} %{LibraryItemBox} > %{PortraitImage>Container}%{GreyBackground} {
+  background-color: var(--lgs-fill-thin);
 }
-.BasicUI %{RecentlyCompletedItem}%{MajorUpdate} {
-  /* major update keeps Steam's warm highlight, as a tint in the fill */
-  background: linear-gradient(279.65deg, transparent 55%, color-mix(in srgb, var(--lgs-yellow) 28%, transparent) 210%),
-      var(--lgs-panel-sheen), var(--lgs-fill-2);
+%{GamepadLibrary} %{LibraryItemBox}::after {
+  border-radius: inherit;
 }
-/* focus: fill from within; Steam's floating focus ring draws the ring */
-%{RecentlyCompletedItem}.gpfocus {
-  background: var(--lgs-panel-sheen), var(--lgs-focus-fill) !important;
-  box-shadow: var(--lgs-glass-rim) !important;
+%{GamepadLibrary} %{LibraryItemBoxShine} {
+  animation: none !important;
+  opacity: 0 !important;
 }
-.BasicUI %{RecentlyCompletedCarousel>BottomSection} {
-  background-color: var(--lgs-fill-1);
-  border-radius: 0 0 var(--lgs-r-card) var(--lgs-r-card);
+/* at rest and on a plain laser hover (before the dwell): no ring */
+%{GamepadLibrary} %{LibraryItemBox}:is(.gpfocus, .Focusable:focus, :hover) {
+  box-shadow: none !important;
 }
-%{RecentlyCompletedCarousel>GameIconAndName} %{RecentlyCompletedCarousel>GameName} {
-  color: var(--lgs-text-1);
+/* lifted (gamepad: focus; laser: after the dwell; no input runtime: hover) */
+&:not(.lgs-input-laser) %{GamepadLibrary} %{LibraryItemBox}.gpfocus.gpfocus,
+&.lgs-input-laser %{GamepadLibrary} %{LibraryItemBox}:is(.lgs-dwell:hover, .lgs-attend-80),
+&:not(.lgs-input-laser):not(.lgs-input-pad) %{GamepadLibrary} %{PortraitImage>HoversEnabled} %{LibraryItemBox}:hover {
+  box-shadow: var(--lgs-shadow-15mm), 0 0 30px 2px rgb(255 255 255 / .16) !important;
+  --lgs-ill: card;
 }
-%{RecentlyCompletedCarousel>GameIconAndName} img {
-  border-radius: var(--lgs-r-small);
+&.lgs-input-laser %{GamepadLibrary} %{LibraryItemBox}:is(.lgs-dwell:hover, .lgs-attend-80):not(.gpfocus) {
+  scale: var(--lgs-card-lift);
 }
-%{RecentlyCompletedCarousel>DownloadInfo} {
-  color: var(--lgs-text-2);
-}
-%{RecentlyCompletedCarousel>DownloadInfo} %{Bytes} {
-  color: var(--lgs-text-1);
-}
-
-/* store capsules ("Trending among friends", "Recommended new releases",
-   "Top sellers"): art on top, a glass fill bar below, one rounded card */
-%{RecentSection} ~ %{TabbedContent} %{GameCapsule} {
-  background-color: var(--lgs-fill-2);
-  border-radius: var(--lgs-r-card);
-}
-%{RecentSection} ~ %{TabbedContent} %{GameCapsule} > %{PortraitImage>Container},
-%{RecentSection} ~ %{TabbedContent} %{GameCapsule} > %{PortraitImage>Container} > img {
-  border-radius: var(--lgs-r-card) var(--lgs-r-card) 0 0;
-}
-/* the price bar is dark glass (thick material): 12px prices and the
-   struck-through original price stay legible over a bright room */
-%{RecentSection} ~ %{TabbedContent} %{GameCapsule} %{GameCapsule>BottomBar} {
-  background: var(--lgs-panel-sheen), var(--lgs-thick-bg);
-  border-radius: 0 0 var(--lgs-r-card) var(--lgs-r-card);
-  color: var(--lgs-text-1);
-}
-/* focus: the bar lights up; Steam's floating focus ring draws the ring */
-%{RecentSection} ~ %{TabbedContent} %{GameCapsule}.gpfocus %{GameCapsule>BottomBar} {
-  background: var(--lgs-panel-sheen), linear-gradient(var(--lgs-focus-fill), var(--lgs-focus-fill)), var(--lgs-thick-bg);
-}
-/* "In library" tag on the art: a small dark glass chip */
-%{RecentSection} ~ %{TabbedContent} %{GameCapsule>InLibrary} {
-  background: var(--lgs-lib-chip);
-  box-shadow: var(--lgs-glass-rim);
-  color: var(--lgs-text-1);
-  border-radius: 0 var(--lgs-r-capsule) var(--lgs-r-capsule) 0;
-}
-
-/* FRIENDS: "playing now" cards */
-%{InGameGame},
-%{InGameGame}:focus {
-  background: var(--lgs-panel-sheen), var(--lgs-fill-2);
-  box-shadow: var(--lgs-control-rim);
-  border-radius: var(--lgs-r-card);
-}
-%{InGameGame}.gpfocus {
-  background: var(--lgs-panel-sheen), var(--lgs-focus-fill) !important;
-  box-shadow: var(--lgs-glass-rim) !important;
-}
-%{InGameGame} %{CoverImage},
-%{InGameGame} %{CoverImage} img {
-  border-radius: var(--lgs-r-small);
-}
-%{InGameGame} %{LibraryHomeFriends>Title} {
-  color: var(--lgs-text-1);
-}
-%{InGameGame} %{LibraryHomeFriends>InLibrary} {
-  color: var(--lgs-text-2);
-}
-%{InGameGame} %{RemainderInner} {
-  background: var(--lgs-fill-3);
-  box-shadow: var(--lgs-control-rim);
-  border-radius: var(--lgs-r-small);
-}
-
-/* FRIENDS activity feed: friend events (headline + body) read as one
-   recessed card with a hairline gap, r-row like the game page's event
-   cards (appdetails styles the partner events and day headers of this
-   shared feed). Recessed, not a light fill: persona-coloured names and
-   Steam's grey descriptions keep >= 4.5:1 over a bright room. */
-.BasicUI %{LibraryHomeFriends} %{Event} %{EventHeadline},
-.BasicUI %{LibraryHomeFriends} %{Event} %{EventHeadline}:focus {
-  background: var(--lgs-fill-sunken);
-  box-shadow: var(--lgs-control-rim);
-  border-radius: var(--lgs-r-row) var(--lgs-r-row) 0 0;
-  color: var(--lgs-text-2);
-}
-.BasicUI %{LibraryHomeFriends} %{Event} %{EventHeadline}:only-child {
-  border-radius: var(--lgs-r-row);
-}
-.BasicUI %{LibraryHomeFriends} %{Event} %{AppActivityDay>EventBody} {
-  background: var(--lgs-fill-sunken);
+/* Steam's compatibility badge (shown on hover and focus): a dark chip */
+%{GamepadLibrary} %{LibraryItemBox} %{SteamDeckCompatInfo} {
+  background: rgb(0 0 0 / .46);
+  backdrop-filter: blur(10px);
   box-shadow: none;
-  border-radius: 0 0 var(--lgs-r-row) var(--lgs-r-row);
+  border: 0;
+  border-radius: var(--lgs-r-capsule);
 }
-%{LibraryHomeFriends} %{Event} %{EventHeadline} %{HeadlineGameName} {
+/* missing art: Steam's title card, title 22 Bold */
+%{GamepadLibrary} %{LibraryItemBox} %{PortraitImage>Title} {
+  font: 700 22px/1.25 var(--lgs-font);
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--lgs-text-1);
+  text-shadow: var(--lgs-text-shadow);
 }
-/* achievement / item descriptions under the event */
-%{LibraryHomeFriends} %{Event} %{Container>Desc} {
-  color: var(--lgs-text-2);
+/* uninstalled / download bar: capsule track, white fill */
+%{GamepadLibrary} %{PortraitImage>UninstalledBar} {
+  background-color: var(--lgs-fill-thick);
+  border-radius: var(--lgs-r-capsule);
 }
-.BasicUI %{LibraryHomeFriends} %{HiddenLabel} {
-  background: var(--lgs-fill-2);
-  box-shadow: var(--lgs-control-rim);
-  border-radius: var(--lgs-r-small);
-  color: var(--lgs-text-2);
+%{GamepadLibrary} %{PortraitImage>UninstalledBar} %{UninstalledProgressBar} {
+  background-color: var(--lgs-text-1);
+  border-radius: var(--lgs-r-capsule);
+}
+%{GamepadLibrary} %{FriendsBar} %{SummaryCount} {
+  color: var(--lgs-text-1);
+  text-shadow: var(--lgs-text-shadow);
 }
 
-/* RECOMMENDED: personal calendar day columns become glass fill cards
-   (today brighter), discovery queue widget and art rounded */
-%{PersonalCalendarWidget} %{PersonalCalendarWidgetDay},
-%{PersonalCalendarWidget} %{PersonalCalendarWidgetDay}%{FutureCtn} {
-  background: var(--lgs-panel-sheen), var(--lgs-fill-1);
-  box-shadow: var(--lgs-control-rim);
-  border-radius: var(--lgs-r-card);
+/* ==================================================================== */
+/* 5. Grid chrome: the filter notice, section headers, fast scroll        */
+/* ==================================================================== */
+
+/* "N apps hidden due to filter": a 60 px quiet capsule (white .08, Callout
+   Medium white .70); Steam's two 1 px rules go (P-43). The button variant
+   (clears the filter) is a 60 px text button with an 80 px hit. */
+%{GamepadLibrary} %{AppGridFilterHeader} {
+  box-sizing: border-box;
+  min-height: 80px;
+  border: 10px solid transparent;
+  background-clip: padding-box;
+  border-radius: var(--lgs-r-capsule);
+  background-color: rgb(255 255 255 / .08);
+  box-shadow: none !important;
 }
-%{PersonalCalendarWidget} %{PersonalCalendarWidgetDay}%{TodayCtn} {
-  background: var(--lgs-panel-sheen), var(--lgs-fill-3);
-  box-shadow: var(--lgs-glass-rim);
+%{GamepadLibrary} %{AppGridFilterHeader}::before,
+%{GamepadLibrary} %{AppGridFilterHeader}::after {
+  display: none;
 }
-%{PersonalCalendarWidget} %{PersonalCalendarWidgetDay} %{DayTitle} %{DayOfWeek} {
+%{GamepadLibrary} %{AppGridFilterHeader} %{AppGridFilterText} {
+  font: 500 22px/1.3 var(--lgs-font);
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--lgs-text-2);
+  text-shadow: none;
 }
-%{PersonalCalendarWidget} %{PersonalCalendarWidgetDay} %{DayTitle} :is(%{PersonalCalendarWidget>Date}, %{Today}) {
+%{GamepadLibrary} %{AppGridFilterHeader}%{AppGridFilterHeaderAsButton} {
+  background-color: var(--lgs-raised-bg, rgb(255 255 255 / .14));
+  isolation: isolate;
+  --lgs-ill: raised;
+  --lgs-ill-inset: 10px 0;
+  --lgs-ill-z: -1;
+}
+%{GamepadLibrary} %{AppGridFilterHeader}%{AppGridFilterHeaderAsButton} %{AppGridFilterText} {
+  font: 600 24px/1.3 var(--lgs-font);
   color: var(--lgs-text-1);
 }
-%{PersonalCalendarWidget} %{PersonalCalendarWidgetDay} %{DayTitle} %{Today} {
-  border-bottom-color: var(--lgs-text-1);
+
+/* sort sections ("Over 10 hours" ...): Title 3 in Steam's own case; the
+   rule goes; the sticky band becomes the scroll edge */
+%{GamepadLibrary} %{AppGridSectionHeader} %{AppGridSectionLabel} {
+  font: var(--lgs-type-title3);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--lgs-text-1);
+  text-shadow: none;
 }
-%{PersonalCalendarWidgetDay} %{StoreAppCapsule},
-%{PersonalCalendarWidgetDay} %{PersonalCalendarWidget>Image} {
-  border-radius: var(--lgs-r-small);
+%{GamepadLibrary} %{AppGridSectionHeader} %{LibraryImageBackgroundGlow>Rule} {
+  display: none;
 }
-%{PersonalCalendarWidget} %{PersonalCalendarWidgetDay} %{DayAppContainer} %{EmptyDay} {
-  background-color: var(--lgs-fill-1);
-  border-radius: var(--lgs-r-small);
-  color: var(--lgs-text-2);
+%{GamepadLibrary} %{AppGridSectionHeader}::after {
+  background: var(--lgs-scroll-band-top);
+  box-shadow: none;
 }
-%{PersonalCalendarWidget} %{PersonalCalendarWidgetDay} %{MoreGames} {
-  background: var(--lgs-panel-sheen), var(--lgs-thick-bg);
-  box-shadow: var(--lgs-glass-rim);
+
+/* Steam's fast-scroll letter (gamepad): a thick glass circle */
+%{FastScrollOverlay}%{FastScrollOverlay>Visible} {
+  background: var(--lgs-mat-thick-bg);
+  backdrop-filter: var(--lgs-mat-thick-blur);
+  box-shadow: var(--lgs-shadow-10mm);
+  border: 0;
   border-radius: var(--lgs-r-capsule);
   color: var(--lgs-text-1);
-}
-%{PersonalCalendarWidget} %{PersonalCalendarWidgetDay} %{MoreGames}:hover {
-  background: var(--lgs-panel-sheen), linear-gradient(var(--lgs-hover-fill), var(--lgs-hover-fill)), var(--lgs-thick-bg);
-}
-%{Recommended>DiscoveryQueueWidgetCtn} %{DiscoveryQueueWidget} {
-  border-radius: var(--lgs-r-card);
+  text-shadow: none;
 }
 
+/* empty grid message */
+%{GamepadLibrary} %{EmptyGridMessageContainer},
+%{GamepadLibrary} %{EmptyGridMessageContainer} %{EmptyGridMessageLine} {
+  font: var(--lgs-type-callout);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--lgs-text-2);
+}
 
 /* ==================================================================== */
-/* 6. Collections                                                       */
+/* 6. Collections tab and collection pages                               */
 /* ==================================================================== */
 
-/* collection tiles: glass fill tiles with rim (Steam clips its shine and
-   mini capsules to the tile, so the radius rounds everything inside) */
-.BasicUI %{GamepadLibrary} %{Collection} {
-  /* fill-1: the "( n )" count at vibrancy 2 keeps 4.5:1 over a bright room */
-  background: var(--lgs-panel-sheen), var(--lgs-fill-1);
-  box-shadow: var(--lgs-glass-rim);
-  border-radius: var(--lgs-r-card);
+/* Steam's tiles (3D display case kept), radius 30; label 20 Semibold in
+   Steam's case; count Medium .70; empty collections dimmed (T2 tag). The
+   tile lifts like a poster. */
+%{GamepadLibrary} %{Collection} {
+  border-radius: var(--lgs-r-platter);
+  outline: none !important;
+  box-shadow: none !important;
+  scale: calc(1 + (var(--lgs-card-lift) - 1) * var(--lgs-lift));
+  transition: scale var(--lgs-motion-fade), box-shadow var(--lgs-motion-hover-in), opacity var(--lgs-motion-fade);
 }
-.BasicUI %{GamepadLibrary} %{Collection}:hover {
-  background: var(--lgs-panel-sheen), var(--lgs-hover-fill);
-  box-shadow: var(--lgs-glass-rim);
+%{GamepadLibrary} %{Collection} :is(%{CollectionBG}, %{CollectionImage}) {
+  border-radius: inherit;
 }
-/* focus: lit from within + lifted; Steam's floating focus ring (shown on
-   collection tiles) draws the ring */
-.BasicUI %{GamepadLibrary} %{Collection}:is(.gpfocus, :focus) {
-  background: var(--lgs-panel-sheen), var(--lgs-focus-fill) !important;
-  box-shadow: var(--lgs-glass-rim), var(--lgs-glass-shadow) !important;
+&:not(.lgs-input-laser) %{GamepadLibrary} %{Collection}.gpfocus.gpfocus,
+&.lgs-input-laser %{GamepadLibrary} %{Collection}:is(.lgs-dwell:hover, .lgs-attend-80),
+&:not(.lgs-input-laser):not(.lgs-input-pad) %{GamepadLibrary} %{Collection}:hover {
+  box-shadow: var(--lgs-shadow-15mm), 0 0 30px 2px rgb(255 255 255 / .16) !important;
+}
+/* empty: the tile's face dims, its label keeps full contrast (P-39) */
+%{GamepadLibrary} %{Collection}[data-lgs-empty] > %{CollectionImage} {
+  opacity: .62;
+}
+/* the 3D display case's mini capsules: Steam's hairline border goes */
+%{GamepadLibrary} %{Collection} %{Container>CapsuleImage} {
+  border: 0 !important;
 }
 %{GamepadLibrary} %{Collection} %{CollectionLabel} {
+  font: 600 20px/1.25 var(--lgs-font);
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--lgs-text-1);
   text-shadow: var(--lgs-text-shadow);
 }
 %{GamepadLibrary} %{Collection} %{CollectionLabel} %{CollectionLabelCount} {
+  font: 500 20px/1.25 var(--lgs-font);
+  letter-spacing: 0;
   color: var(--lgs-text-2);
 }
-%{GamepadLibrary} %{Collection} %{DynamicCollection} svg {
-  background-color: var(--lgs-thick-bg);
-  border-radius: var(--lgs-r-small);
+/* Steam's count is a 20 px tall focusable tooltip source inside the tile;
+   it is spread over the whole tile (its text stays under the name), so
+   every point of the tile takes the laser and the tile's click (P-08,
+   P-80). The label fills the tile and stacks name and count at its foot. */
+%{GamepadLibrary} %{Collection} > %{CollectionLabel} {
+  inset: 0 !important;
+  width: auto !important;
+  height: auto !important;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: stretch;
+  /* Steam's name column: the tile less 21 px a side (same line breaks) */
+  padding: 0 21px 16px;
+  text-align: center;
 }
-/* collection page title */
-%{GamepadLibrary} %{CollectionHeader} {
+%{GamepadLibrary} %{Collection} > %{CollectionLabel} > :not(.tool-tip-source) {
+  margin-bottom: 26px;
+}
+%{GamepadLibrary} %{Collection} > %{CollectionLabel} > .tool-tip-source {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 21px 16px;
+  border-radius: inherit;
+}
+%{GamepadLibrary} %{Collection} > %{CollectionLabel} > .tool-tip-source > * {
+  flex: 1 1 auto;
+  text-align: center;
+}
+/* collection page title and the Collections header (Steam's own case) */
+%{GamepadLibrary} :is(%{CollectionHeader}, %{CollectionsHeader}) {
+  font: var(--lgs-type-title3);
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--lgs-text-1);
-  text-shadow: var(--lgs-text-shadow);
+  text-shadow: none;
+}
+%{GamepadLibrary} %{CollectionsHeaderHR} {
+  display: none;
 }
 
-
 /* ==================================================================== */
-/* 7. Sort & Filter (laser mode): one floating Liquid Glass capsule     */
+/* 7. Steam's laser Sort & Filter pill: toolbar trailing items           */
 /* ==================================================================== */
 
-%{SortAndFilterContainer} {
-  background: var(--lgs-lib-glass-face);
-  backdrop-filter: var(--lgs-glass-blur);
-  border-color: transparent;
+/* Steam renders the pill only in laser mode, inside the page, at the
+   bottom right (y 628-685). The window's glass clip (C1a, y 656) cuts
+   page content there, so the pill could not show or take clicks in the
+   ornament (D-C2c-12). It becomes the toolbar row's trailing group, as
+   visionOS places a window's sort and filter: one 60 px capsule (raised
+   fill) holding Steam's two buttons, 80 px hits, right-aligned 24 px from
+   the glass edge, in the toolbar row (y 24-84). Steam's current sort and
+   "Filter" stay Steam's text, in Steam's case (P-84). The node, its
+   handlers and its laser-only rendering are untouched (no D-pad change). */
+%{GamepadLibrary} %{SortAndFilterContainer} {
+  position: fixed;
+  z-index: 3;
+  box-sizing: border-box;
+  /* fixed inside Steam's transformed tabbed page (it starts at y 40, or
+     at 108 under lgs-hdr-108), so the toolbar row's y is reached from it */
+  top: calc(var(--lgs-hdr-pad, 68px) - 94px);
+  bottom: auto;
+  left: auto;
+  right: 24px;
+  height: 80px;
+  max-width: 420px;
+  margin: 0;
+  padding: 0;
+  gap: 0;
+  display: flex;
+  align-items: stretch;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  backdrop-filter: none;
+  box-shadow: none;
+  pointer-events: none;
+  isolation: isolate;
+  --lgs-edge: none;
+}
+/* the group's capsule: 60 visible inside the 80 box */
+%{GamepadLibrary} %{SortAndFilterContainer}::before {
+  content: "";
+  position: absolute;
+  inset: 10px 0;
+  z-index: -1;
   border-radius: var(--lgs-r-capsule);
-  box-shadow: var(--lgs-glass-rim), var(--lgs-glass-shadow);
+  background: var(--lgs-raised-bg);
+  pointer-events: none;
 }
 %{SortAndFilterButton} {
-  border-radius: var(--lgs-r-capsule);
+  position: relative;
+  isolation: isolate;
+  box-sizing: border-box;
+  height: 80px;
+  min-width: 0;
+  margin: 0;
+  padding: 0 22px;
+  gap: 10px;
+  border: 10px solid transparent;
+  border-inline-width: 0;
+  background: none !important;
+  background-clip: padding-box !important;
+  /* square hit box (the capsule is the group's ::before and the light
+     layer's radius), so the corners take the laser too (P-08) */
+  border-radius: 0;
+  box-shadow: none !important;
+  justify-content: center;
+  align-items: center;
   color: var(--lgs-text-1);
-  text-shadow: var(--lgs-text-shadow);
-  transition: background-color var(--lgs-t-fast) var(--lgs-ease);
+  text-shadow: none;
+  pointer-events: auto;
+  --lgs-ill: raised;
+  --lgs-ill-inset: 10px 0;
+  --lgs-ill-r: var(--lgs-r-capsule);
+  --lgs-ill-z: -1;
 }
-%{SortAndFilterButton}:hover {
-  background-color: var(--lgs-hover-fill);
+%{SortAndFilterButton},
+%{SortAndFilterButton} * {
+  font-family: var(--lgs-font);
+  font-size: var(--lgs-fs-callout);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
 }
-%{SortAndFilterButton}:active {
-  background-color: var(--lgs-pressed-fill);
+%{SortAndFilterButton} :is(div, span):not(%{CompatFooterIcons}) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-%{SortAndFilterButton}.gpfocus {
-  background-color: var(--lgs-focus-fill) !important;
-  box-shadow: var(--lgs-focus-ring) !important;
+:nth-child(1 of %{SortAndFilterButton}) {
+  max-width: 280px;
+}
+/* collection pages: the 640 search capsule ends at x 960, so the group
+   narrows to 288 (x 968-1256): 14 px padding, and the sort glyph (a
+   decoration; the sort's name stays) steps aside */
+%{BasicUiRoot}[data-lgs-search="nested"] %{GamepadLibrary} %{SortAndFilterContainer} {
+  max-width: 288px;
+}
+%{BasicUiRoot}[data-lgs-search="nested"] %{SortAndFilterButton} {
+  padding: 0 14px;
+}
+%{BasicUiRoot}[data-lgs-search="nested"] :nth-child(1 of %{SortAndFilterButton}) {
+  flex: 1 1 auto;
+  max-width: none;
+}
+%{BasicUiRoot}[data-lgs-search="nested"] :nth-child(1 of %{SortAndFilterButton}) svg {
+  display: none;
+}
+%{BasicUiRoot}[data-lgs-search="nested"] :nth-child(2 of %{SortAndFilterButton}) {
+  flex: none;
+}
+%{SortAndFilterButton} svg {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  opacity: .70;
 }
 %{CompatFooterIcons} {
-  background-color: var(--lgs-fill-2);
-  box-shadow: var(--lgs-control-rim);
+  background-color: rgb(255 255 255 / .16);
+  box-shadow: none;
+  border-radius: var(--lgs-r-capsule);
 }
 
-
 /* ==================================================================== */
-/* 8. Library Filters sheet (X / Filter)                                */
-/*    Thick glass sheet; compat options as one grouped card; buckets as  */
-/*    grouped cards; rows take the focus fill + ring. Controls inside   */
-/*    (checkboxes, dropdowns, buttons, inputs) come from primitives.    */
+/* 8. The ornament on library routes (PLAN §1.10, WN §3.4)               */
 /* ==================================================================== */
 
+/* Default: C1a's capsule hugs Steam's legends in Steam's order (Filter,
+   Sort By, Options, Select, Back in gamepad mode; Options, Select, Back
+   under the laser), so it never shows empty slots when Steam drops its
+   X / Y / menu legends (focus on the header rows, laser mode). Slot 1
+   carries the current sort and ellipsizes at 300 px. */
+%{BasicUiRoot} #Footer%{BasicFooter} [data-lgs-btn="OPTIONS"] {
+  max-width: 300px;
+  min-width: 0;
+}
+%{BasicUiRoot} #Footer%{BasicFooter} [data-lgs-btn="OPTIONS"] :is(%{ActionButtonLabel}, %{CompatFooterDescription}) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* "Sort By · <current sort>" (T2 copies Steam's sort name into the
+   attribute; no new string) */
+%{BasicUiRoot} #Footer%{BasicFooter} [data-lgs-btn="OPTIONS"] [data-lgs-lib-sort]::after {
+  content: "\00a0· " attr(data-lgs-lib-sort);
+  font-weight: 500;
+  color: var(--lgs-text-2);
+}
+
+/* Flag libFixedSlots (off): PLAN §1.10's five fixed slots. C1a's T2 holds
+   the capsule at x 200-1080 (--lgs-orn-x, 880 wide); slots 300 · 130 ·
+   156 · 134 · 120, gap 4, padding 12; each member is its slot plus a 2 px
+   share of each gap, so neighbours' hit boxes abut (P-07). */
+%{BasicUiRoot} #Footer%{BasicFooter}[data-lgs-orn-fixed="library"] %{ActionButtonLegend} {
+  position: absolute;
+  top: 0;
+  box-sizing: border-box;
+  height: var(--lgs-ornament, 84px);
+  margin: 0;
+  padding: 0 18px;
+  justify-content: center;
+  min-width: 0;
+  max-width: none;
+  --lgs-ill-inset: 12px 2px;
+}
+%{BasicUiRoot} #Footer%{BasicFooter}[data-lgs-orn-fixed="library"] [data-lgs-btn="OPTIONS"] {
+  left: calc(var(--lgs-orn-x, 200px) + 10px);
+  width: 304px;
+}
+%{BasicUiRoot} #Footer%{BasicFooter}[data-lgs-orn-fixed="library"] [data-lgs-btn="SECONDARY"] {
+  left: calc(var(--lgs-orn-x, 200px) + 314px);
+  width: 134px;
+}
+%{BasicUiRoot} #Footer%{BasicFooter}[data-lgs-orn-fixed="library"] [data-lgs-btn="MENU"] {
+  left: calc(var(--lgs-orn-x, 200px) + 448px);
+  width: 160px;
+}
+%{BasicUiRoot} #Footer%{BasicFooter}[data-lgs-orn-fixed="library"] [data-lgs-btn="OK"] {
+  left: calc(var(--lgs-orn-x, 200px) + 608px);
+  width: 138px;
+}
+%{BasicUiRoot} #Footer%{BasicFooter}[data-lgs-orn-fixed="library"] [data-lgs-btn="CANCEL"] {
+  left: calc(var(--lgs-orn-x, 200px) + 746px);
+  width: 124px;
+}
+%{BasicUiRoot} #Footer%{BasicFooter}[data-lgs-orn-fixed="library"] %{ActionButtonLegend} :is(%{ActionButtonLabel}, %{CompatFooterDescription}) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+%{BasicUiRoot} #Footer%{BasicFooter}[data-lgs-orn-fixed="library"] %{ActionButtonLegend} + %{ActionButtonLegend}:is([data-lgs-btn="OK"], [data-lgs-btn="CANCEL"]) {
+  margin-left: 0;
+}
+
+/* ==================================================================== */
+/* 9. Library Filters (Steam's dialog in C1c's sheet frame), T1          */
+/* ==================================================================== */
+
+/* C1c draws the sheet (thick glass, <= 960, under the toolbar row). The
+   content: the compatibility rows as 80 px single-choice rows in one
+   platter, each FilterBucket a platter with its header, check rows 80 px
+   (C4a draws the check circles and pop-ups). Nothing is moved or hidden. */
+/* the card: Steam's scroller (%{DialogWrapper}, 660 x <= 488 in C1c's
+   modal box) is not a direct .Panel child of ModalPosition, so C1c's
+   generic sheet rule does not reach it; it takes the same sheet look here
+   (thick glass, radius 44, materialize, no border). Steam's navy dialog
+   fill goes, so the glass shows. */
+%{DialogWrapper}:has(> %{DialogWrapper>CompatFilterDialog}) {
+  border: 0;
+  border-radius: var(--lgs-r-sheet, 44px);
+  /* Steam's modal layer is the backdrop root here, so the blur cannot
+     reach the page: a denser tint under the material keeps the content
+     legible over posters (P-39) */
+  background: linear-gradient(rgb(20 22 30 / .62), rgb(20 22 30 / .62)), var(--lgs-mat-thick-bg) !important;
+  backdrop-filter: var(--lgs-mat-thick-blur);
+  box-shadow: var(--lgs-mat-thick-shade), var(--lgs-shadow-10mm);
+  scroll-padding-block: 24px;
+  --lgs-edge: thick;
+  animation: lgs-sheet-in var(--lgs-motion-sheet-in) backwards;
+}
 %{DialogWrapper>CompatFilterDialog} {
-  background: var(--lgs-panel-sheen), var(--lgs-thick-bg);
-  backdrop-filter: var(--lgs-thick-blur);
-  border-color: transparent;
-  border-radius: var(--lgs-r-sheet);
-  box-shadow: var(--lgs-glass-rim), var(--lgs-glass-shadow);
+  border: 0;
+  border-radius: 0;
+  background: transparent !important;
+  box-shadow: none;
+  /* Body for Steam's unstyled text (section labels such as "Steam Frame
+     Compatibility:"): >= 18 px, >= 500 (P-38) */
+  font: 500 22px/1.3 var(--lgs-font);
+  letter-spacing: 0;
+}
+%{DialogWrapper>CompatFilterLabel} {
+  font: 500 24px/1.3 var(--lgs-font);
+  letter-spacing: 0;
+  text-transform: none;
 }
 %{DialogWrapper>CompatFilterDialogTitle} {
+  font: 700 30px/1.25 var(--lgs-font);
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--lgs-text-1);
-  text-shadow: var(--lgs-text-shadow);
+  text-shadow: none;
 }
 %{DialogWrapper>CompatFilterDialogDescription} {
+  font: var(--lgs-type-callout);
   color: var(--lgs-text-2);
 }
-
-/* compat options: one grouped card (Steam's 2px gaps read as hairlines) */
+%{CompatFilterOptions} {
+  border-radius: var(--lgs-r-platter);
+  background: rgb(0 0 0 / .14);
+  overflow: hidden;
+  gap: 2px;
+}
 %{CompatFilterOptions} %{DialogWrapper>CompatFilterDialogRow} {
-  background-color: var(--lgs-fill-1);
+  position: relative;
+  isolation: isolate;
+  box-sizing: border-box;
+  min-height: 80px;
+  border: 0;
+  border-radius: 0;
+  background-color: transparent;
   color: var(--lgs-text-1);
-  transition: background-color var(--lgs-t-fast) var(--lgs-ease);
-}
-%{CompatFilterOptions} :nth-child(1 of %{DialogWrapper>CompatFilterDialogRow}) {
-  border-top-left-radius: var(--lgs-r-card);
-  border-top-right-radius: var(--lgs-r-card);
-}
-%{CompatFilterOptions} :nth-last-child(1 of %{DialogWrapper>CompatFilterDialogRow}) {
-  border-bottom-left-radius: var(--lgs-r-card);
-  border-bottom-right-radius: var(--lgs-r-card);
+  font: 500 24px/1.3 var(--lgs-font);
+  box-shadow: none !important;
+  --lgs-ill: raised;
+  --lgs-ill-z: -1;
+  transition: background-color var(--lgs-motion-fade);
 }
 %{CompatFilterOptions} %{DialogWrapper>CompatFilterDialogRow}:hover {
-  background-color: var(--lgs-hover-fill);
+  background-color: rgb(255 255 255 / var(--lgs-hover-add, .08));
 }
-%{CompatFilterOptions} %{DialogWrapper>CompatFilterDialogRow}.gpfocus {
-  background-color: var(--lgs-focus-fill) !important;
-  box-shadow: var(--lgs-focus-ring) !important;
+&:not(.lgs-input-laser) %{CompatFilterOptions} %{DialogWrapper>CompatFilterDialogRow}.gpfocus {
+  background-color: rgb(255 255 255 / var(--lgs-focus-add, .32)) !important;
   color: var(--lgs-text-1) !important;
-  border-radius: var(--lgs-r-row);
 }
-%{DialogWrapper>CompatFilterDialogRow} %{DialogWrapper>CompatFilterDescription},
-%{DialogWrapper>CompatFilterDialogRow}.gpfocus %{DialogWrapper>CompatFilterDescription} {
+%{DialogWrapper>CompatFilterDialogRow} %{DialogWrapper>CompatFilterDescription} {
+  font: 500 20px/1.3 var(--lgs-font);
   color: var(--lgs-text-2);
 }
-/* radio dot: a sunken well; chosen = white with the blue ring (Apple's
-   radio), Steam's own shape and transition */
-%{DialogWrapper>CompatFilterDialogRow} %{DialogWrapper>RadioButton} {
-  background-color: var(--lgs-well-bg);
-  box-shadow: var(--lgs-well-shadow), inset 0 0 0 1.5px var(--lgs-control-outline);
-}
-%{DialogWrapper>CompatFilterDialogRow}%{DialogWrapper>Active} %{DialogWrapper>RadioButton} {
-  background-color: var(--lgs-selected-fill);
-  box-shadow: inset 0 0 0 4px var(--lgs-blue);
-}
-
-/* advanced filter buckets: grouped cards */
-%{Filters>Container} %{FilterBucket} {
-  background-color: var(--lgs-fill-1);
-  border-radius: var(--lgs-r-card);
-}
-%{Filters>Container} %{FilterBucket}.gpfocuswithin {
-  background-color: var(--lgs-fill-2);
-}
-%{Filters>Container} %{FilterBucket} %{FilterBucketLabel} {
+/* on the focus fill the secondary line keeps 4.5 : 1 (P-39) */
+%{DialogWrapper>CompatFilterDialogRow}.gpfocus %{DialogWrapper>CompatFilterDescription},
+%{Filters>Container} %{FilterArea>Row}.gpfocuswithin %{Filters>Description} {
   color: var(--lgs-text-1);
 }
+/* the radio: a 40 px circle well; chosen = blue with a white dot */
+%{DialogWrapper>CompatFilterDialogRow} %{DialogWrapper>RadioButton} {
+  background-color: rgb(0 0 0 / .22);
+  box-shadow: var(--lgs-recessed-shadow);
+  border: 0;
+}
+%{DialogWrapper>CompatFilterDialogRow}%{DialogWrapper>Active} %{DialogWrapper>RadioButton} {
+  background-color: var(--lgs-text-1);
+  box-shadow: inset 0 0 0 5px var(--lgs-blue);
+}
+
+/* advanced filter buckets: platters */
+%{Filters>Container} %{FilterBucket} {
+  border: 0;
+  border-radius: var(--lgs-r-platter);
+  background-color: rgb(0 0 0 / .14);
+  box-shadow: none;
+}
+%{Filters>Container} %{FilterBucket} %{FilterBucketLabel},
 %{Filters>Container} %{SearchBucketLabel} {
+  font: 600 22px/1.3 var(--lgs-font);
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--lgs-text-2);
 }
 %{Filters>Container} %{FilterBucket} %{FilterBucketBoxes} %{FilterArea>Row} {
+  box-sizing: border-box;
+  min-height: 80px;
   border-radius: var(--lgs-r-row);
   color: var(--lgs-text-1);
-  transition: background-color var(--lgs-t-fast) var(--lgs-ease);
+  font: 500 24px/1.3 var(--lgs-font);
+  box-shadow: none !important;
+  transition: background-color var(--lgs-motion-fade);
 }
-%{Filters>Container} %{FilterBucket} %{FilterBucketBoxes} %{FilterArea>Row}.gpfocuswithin {
-  background-color: var(--lgs-focus-fill) !important;
-  box-shadow: var(--lgs-focus-ring) !important;
+&:not(.lgs-input-laser) %{Filters>Container} %{FilterBucket} %{FilterBucketBoxes} %{FilterArea>Row}.gpfocuswithin {
+  background-color: rgb(255 255 255 / var(--lgs-focus-add, .32)) !important;
   color: var(--lgs-text-1) !important;
 }
-%{Filters>Container} %{FilterBucket} %{FilterBucketBoxes} %{FilterArea>Row} %{Filters>Description},
-%{Filters>Container} %{FilterBucket} %{FilterBucketBoxes} %{FilterArea>Row}.gpfocuswithin %{Filters>Description} {
+/* Steam's check box line fills its 80 px row, so the row's whole width
+   and height take the laser (P-08, P-80); its label is Body 24 Medium.
+   (C4a draws the box itself.) */
+%{Filters>Container} %{FilterArea>Row} .DialogCheckbox_Container {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 80px;
+  margin: 0;
+  align-items: center;
+}
+%{Filters>Container} %{FilterArea>Row} .DialogCheckbox_Container :is(span, label, div):not(.DialogCheckbox, .DialogCheckbox *) {
+  font: 500 24px/1.3 var(--lgs-font);
+  letter-spacing: 0;
+  text-transform: none;
+}
+%{Filters>Container} %{FilterBucket} %{FilterBucketBoxes} %{FilterArea>Row} %{Filters>Description} {
+  font: 500 20px/1.3 var(--lgs-font);
   color: var(--lgs-text-2);
 }
-/* checkboxes here are 16px: the primitives' r-small would make them read
-   as radio dots, so they keep a square-ish small radius (half r-small) */
-%{Filters>Container} .DialogCheckbox {
-  border-radius: calc(var(--lgs-r-small) / 2);
-}
-/* store-tag / friend search inputs: the primitives' sunken capsule well
-   (Steam's dialog-specific rules out-rank the generic input primitive) */
-%{Filters>Container} %{FilterBucket} .DialogInput_Wrapper .DialogTextInputBase {
-  background: var(--lgs-well-bg);
-  box-shadow: var(--lgs-well-shadow);
-  color: var(--lgs-text-1);
-  caret-color: var(--lgs-caret);
-  border-radius: var(--lgs-r-capsule);
-}
-%{Filters>Container} %{FilterBucket} .DialogInput_Wrapper .DialogTextInputBase:hover {
-  background: var(--lgs-well-bg);
-}
-%{Filters>Container} %{FilterBucket} .DialogInput_Wrapper .DialogTextInputBase.Focusable:is(:focus, .gpfocus) {
-  background: var(--lgs-well-bg) !important;
-  box-shadow: var(--lgs-well-shadow), var(--lgs-focus-ring) !important;
-  color: var(--lgs-text-1) !important;
-}
-%{Filters>Container} %{FilterBucket} .DialogInput_Wrapper {
-  border-radius: var(--lgs-r-capsule);
-}
-/* tag search results drop-down (only while typing): thick-glass menu */
+/* tag search results drop-down (only while typing): thick glass */
 %{Filters>Container} %{FilterBucket}%{SearchResultsBox} %{FilterBucketBoxes} {
-  background: var(--lgs-panel-sheen), var(--lgs-thick-bg);
-  box-shadow: var(--lgs-glass-rim), var(--lgs-glass-shadow);
+  background: var(--lgs-mat-thick-bg);
+  backdrop-filter: var(--lgs-mat-thick-blur);
+  box-shadow: var(--lgs-shadow-10mm);
   border-radius: var(--lgs-r-row);
 }
-/* a compat dropdown with a chosen value keeps Steam's "active" blue, as a
-   tinted capsule (primitives would otherwise make it a neutral fill) */
-%{CompatDropDown}%{ValueSelected} button.DialogButton._DialogInputContainer,
-%{CompatDropDown}%{ValueSelected} ._DialogInputContainer {
-  background: var(--lgs-tint-primary);
-  color: var(--lgs-text-on-tint);
-}
-
 
 /* ==================================================================== */
-/* 9. Grid extras (CSS-only states, see the coverage doc)               */
+/* 10. Reduce Motion, High Contrast                                      */
 /* ==================================================================== */
 
-/* "N apps hidden due to filter": label at vibrancy 2, Steam's rule lines
-   (its ::before/::after) as hairlines; button variant = capsule fill */
-%{AppGridFilterHeader} %{AppGridFilterText} {
-  color: var(--lgs-text-2);
-  text-shadow: var(--lgs-text-shadow);
+@media (prefers-reduced-motion: reduce) {
+  %{GamepadLibrary} :is(%{LibraryItemBox}, %{Collection}) {
+    scale: 1;
+  }
 }
-%{AppGridFilterHeader}::before,
-%{AppGridFilterHeader}::after {
-  background: var(--lgs-separator);
-}
-%{AppGridFilterHeader}%{AppGridFilterHeaderAsButton} {
-  background: var(--lgs-fill-3);
-  box-shadow: var(--lgs-control-rim);
-  border-radius: var(--lgs-r-capsule);
-}
-%{AppGridFilterHeader}%{AppGridFilterHeaderAsButton} %{AppGridFilterText} {
-  color: var(--lgs-text-1);
-}
-%{AppGridFilterHeader}.gpfocus {
-  background: var(--lgs-focus-fill) !important;
-  box-shadow: var(--lgs-focus-ring) !important;
-  border-radius: var(--lgs-r-capsule);
-}
-%{AppGridFilterHeader}.gpfocus %{AppGridFilterText} {
-  color: var(--lgs-text-1) !important;
-}
-
-/* sort sections ("Over 10 hours" ...): label at vibrancy 2, hairline
-   rule, and the sticky band as the same soft window-tint edge as the tab
-   rows (opacity stays Steam's inline variable) */
-%{AppGridSectionHeader} %{AppGridSectionLabel} {
-  color: var(--lgs-text-2);
-  text-shadow: var(--lgs-text-shadow);
-}
-%{AppGridSectionHeader} %{LibraryImageBackgroundGlow>Rule} {
-  background: var(--lgs-separator);
-}
-%{AppGridSectionHeader}::after {
-  background: linear-gradient(180deg, var(--lgs-window-bg) 0%, transparent 100%);
-  box-shadow: none;
-}
-
-/* type-to-jump letter during gamepad fast scroll */
-%{FastScrollOverlay}%{FastScrollOverlay>Visible} {
-  background-color: var(--lgs-thick-bg);
-  color: var(--lgs-text-1);
-  text-shadow: var(--lgs-text-shadow);
-}
-
-/* empty grid and empty home messages */
-%{EmptyGridMessageContainer} %{EmptyGridMessageLine},
-%{EmptyGridMessageContainer} {
-  color: var(--lgs-text-2);
-}
-%{LibraryHomeEmptyGames} %{RecentGamesContainer>Option} {
-  background: var(--lgs-panel-sheen), var(--lgs-fill-2);
-  box-shadow: var(--lgs-control-rim);
-  border-radius: var(--lgs-r-card);
-  color: var(--lgs-text-1);
-}
-%{LibraryHomeEmptyGames} %{RecentGamesContainer>Option}.gpfocus {
-  background: var(--lgs-panel-sheen), var(--lgs-focus-fill) !important;
-  box-shadow: var(--lgs-focus-ring) !important;
-}
-
-
-/* ==================================================================== */
-/* 10. High contrast: solid faces, no art-coloured tints                */
-/* ==================================================================== */
-
 @media (prefers-contrast: more) {
-  :is(%{GamepadLibrary}, %{RecentSection} ~ %{TabbedContent}) %{TabHeaderRowWrapper}::before {
-    background: var(--lgs-thick-bg);
+  %{GamepadLibrary} %{TabHeaderRowWrapper}::before {
+    background: var(--lgs-mat-thick-bg);
+    backdrop-filter: none;
     -webkit-mask-image: none;
     mask-image: none;
   }
-  :is(%{GamepadLibrary}, %{RecentSection} ~ %{TabbedContent}) %{TabHeaderRowWrapper}::after,
-  %{SortAndFilterContainer} {
-    background: var(--lgs-thick-bg);
-    backdrop-filter: none;
+  %{GamepadLibrary} %{SortAndFilterContainer}::before {
+    background: var(--lgs-mat-thick-bg);
   }
 }

@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "about": [
+    "Phase 2 popup fragment 30 (C3a): bar popups at +25 mm in front of the bar (PLAN 1.7; CC 3.4): Playspace, Streaming, the tab",
+    "menus and Quick Access (CC-C, C3b). The \"+\" popup has its own later entry (32-launcher.json, C2b), which wins for it.",
+    "Contract: docs/phase2/contracts/reporter.md section 5. Without P6's wrapper (flag wp.p6) Steam's 3.7 mm stays; this entry",
+    "also waits for wp.c3a. hudPlacement (S21, volume HUD 12 deg below the eye line) is not built: the wrapper may not set the",
+    "popup's y or pitch (section 5.2 'set' fields), so the HUD stays at Steam's placement."
+  ],
+  "owns": ["barpopup"],
+  "hosts": {
+    "barpopup": {
+      "type": 1,
+      "keyPrefix": "valve.steam.gamepadui.barpopup",
+      "zMm": 25,
+      "space": "bar",
+      "flag": "wp.c3a"
+    }
+  }
+}

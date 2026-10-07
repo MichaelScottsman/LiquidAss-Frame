@@ -125,6 +125,8 @@
   --lg-focus-add: .32;
   --lg-focus-spot: .16;
   --lg-focus-arc: .55;
+  --lg-row-hover-add: .06;
+  --lg-nav-hover-spot: .16;
   --lg-focus-first: .60;
   --lg-within-add: .06;
   --lg-press-add: .06;
@@ -212,7 +214,7 @@ body { width: 1920px; height: 1080px; overflow: hidden; font-family: var(--lg-fo
       rgb(255 255 255 / calc(.62 * var(--rim, 1))) 0deg,
       rgb(255 255 255 / calc(.20 * var(--rim, 1))) 38deg,
       transparent 72deg, transparent 148deg,
-      rgb(255 255 255 / calc(.20 * var(--rim, 1))) 180deg,
+      rgb(255 255 255 / calc(.16 * var(--rim, 1))) 180deg,
       transparent 214deg, transparent 288deg,
       rgb(255 255 255 / calc(.22 * var(--rim, 1))) 322deg,
       rgb(255 255 255 / calc(.62 * var(--rim, 1))) 360deg),
@@ -331,12 +333,13 @@ body { width: 1920px; height: 1080px; overflow: hidden; font-family: var(--lg-fo
 .lgk-btn.danger-label { color: var(--lg-red); }
 /* states. The illumination layer (::after) carries hover light, focus light and press glow;
    it never draws an outline (DESIGN2 §10). Same values and normal compositing as the theme's
-   04-states.css (PLAN §1.4): hover + .08 and a .12 spot at the pointer; gamepad focus + .28,
-   a .16 spot in the upper third and the arc; press + .06 and a .22 spot spreading to 120 %. */
+   04-states.css (PLAN §1.4): hover + .08 and a .12 spot at the pointer; gamepad focus + .32,
+   a .16 spot in the upper third and the arc (the E3 lobe on rows and tabs); press + .06 and a .22 spot spreading to 120 %. */
 .lgk-btn::after, .lgk-row::after, .lgk-tab::after, .lgk-seg > *::after {
   content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
   opacity: 0;
   background:
+    radial-gradient(50% 3px at 26% 0, rgb(255 255 255 / var(--lobe-a, 0)) 0, rgb(255 255 255 / calc(var(--lobe-a, 0) * .35)) 55%, rgb(255 255 255 / 0) 100%),
     radial-gradient(circle at var(--hx, 50%) var(--hy, 30%), rgb(255 255 255 / var(--spot, var(--lg-hover-spot))) 0, rgb(255 255 255 / 0) var(--spot-r, 75%)),
     linear-gradient(rgb(255 255 255 / var(--lift, 0)), rgb(255 255 255 / var(--lift, 0)));
 }
@@ -344,7 +347,9 @@ body { width: 1920px; height: 1080px; overflow: hidden; font-family: var(--lg-fo
 .is-focus::after { opacity: 1; --lift: var(--lg-focus-add); --spot: var(--lg-focus-spot); --hx: 50%; --hy: 30%; }
 .is-pressed::after { opacity: 1; --lift: var(--lg-press-add); --spot: var(--lg-press-spot); --spot-r: 120%; }
 /* navigation rows (sidebar, list, tab bar): hover is the light spot only (SM-D13, SET T-SEL) */
-.is-nav-row.is-hover::after, .lgk-tab.is-hover::after { --lift: 0; }
+.is-nav-row.is-hover::after, .lgk-tab.is-hover::after { --lift: 0; --spot: var(--lg-nav-hover-spot); }
+/* wide rows: a lighter uniform add (P-03 over a dim room) */
+.lgk-row:not(.is-nav-row).is-hover::after { --lift: var(--lg-row-hover-add); }
 /* white and coloured fills: focus is the outer glow, never a fill or a ring (VP P-16) */
 .is-selected.is-focus::after, .is-onfill.is-focus::after { --lift: 0; --spot: 0; box-shadow: var(--lg-white-glow); }
 .is-selected.is-hover::after, .is-onfill.is-hover::after { --lift: 0; --spot: 0; box-shadow: 0 0 var(--lg-white-glow-blur) var(--lg-white-glow-spread) rgb(255 255 255 / calc(var(--lg-white-glow-a) * .5)); }
@@ -355,11 +360,21 @@ body { width: 1920px; height: 1080px; overflow: hidden; font-family: var(--lg-fo
 /* a focused control "lifts into glass": it gets its own specular arc (no ring) */
 .lgk-btn.is-focus::before, .lgk-row.is-focus::before, .lgk-tab.is-focus::before {
   content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; padding: 1.5px;
-  background: conic-gradient(from var(--lg-light), rgb(255 255 255 / .75) 0deg, rgb(255 255 255 / .2) 40deg, transparent 75deg, transparent 145deg, rgb(255 255 255 / .22) 180deg, transparent 215deg, transparent 285deg, rgb(255 255 255 / .2) 320deg, rgb(255 255 255 / .75) 360deg);
+  /* the theme's E3 edge with the rim x 1.5 (03-material.css: --_lgs-k under focus) */
+  --k: 1.5;
+  background:
+    conic-gradient(from var(--lg-light),
+      rgb(255 255 255 / calc(.62 * var(--k))) 0deg, rgb(255 255 255 / calc(.20 * var(--k))) 38deg,
+      transparent 72deg, transparent 148deg, rgb(255 255 255 / calc(.16 * var(--k))) 180deg,
+      transparent 214deg, transparent 288deg, rgb(255 255 255 / calc(.22 * var(--k))) 322deg,
+      rgb(255 255 255 / calc(.62 * var(--k))) 360deg),
+    radial-gradient(70% 120% at 26% 0%, rgb(255 255 255 / calc(.18 * var(--k))) 0, rgb(255 255 255 / calc(.06 * var(--k))) 46%, transparent 75%);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
 }
-/* the control's own specular top arc, lit under focus (the theme's --lgs-focus-arc) */
-.lgk-btn.is-focus, .lgk-row.is-focus, .lgk-tab.is-focus { box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / var(--lg-focus-arc)); }
+/* the control's own specular top arc, lit under focus (the theme's --lgs-focus-arc); on rows
+   and tabs it is the E3 lobe at 26 % of the width, never a full-width line (WN D-15) */
+.lgk-btn.is-focus { box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / var(--lg-focus-arc)); }
+.lgk-row.is-focus::after, .lgk-tab.is-focus::after, .is-nav-row.is-focus::after { --lobe-a: var(--lg-focus-arc); }
 .is-disabled.is-focus { box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / calc(var(--lg-focus-arc) * .6)); }
 .is-selected { background: var(--lg-selected-fill) !important; color: var(--lg-text-on-selected) !important; }
 .is-selected .v2, .is-selected .v3 { color: var(--lg-text-on-selected-2); }

@@ -10,8 +10,12 @@
    2. The illumination hook: an element that sets --lgs-ill: <kind> gets the
       light layer on its ::after (style queries; the pseudo-element queries
       its originating element). Opt-in, so inert until an area asks.
-   3. Steam's floating FocusRing as a light plate (CTL §4.5).
-   4. Reduce Motion and High Contrast variants. */
+   3. Steam's floating FocusRing as a light plate (CTL §4.5), off where the
+      focused control lights itself.
+   4. Reduce Motion and High Contrast variants.
+
+   The generated blocks ("lgs-hosts … begin/end") are written by
+   `python docs/phase2/fontkit.py --hooks`; never edit them by hand. */
 
 /* ------------------------------------------------------------------ */
 /* 1. State numbers                                                     */
@@ -55,8 +59,99 @@
 /* 2. The illumination hook (--lgs-ill on the element → its ::after)     */
 /* ------------------------------------------------------------------ */
 
+/* The subjects are generated host lists, never "*": a universal *::after
+   inside @container makes Blink resolve ::after for every element on every
+   style recalc, which cost the virtualised library grid ~20 % of its scroll
+   frame rate (G-PERF, review R1 M1). Each "lgs-hosts" block lists, for every
+   theme rule that sets --lgs-ill (to that kind), the rightmost compound of
+   its selector (a superset; the style query still decides), one flat entry
+   per host so Blink files it under its class. :where() keeps the specificity
+   the universal subject had (0,1,2), so an area's own rule on its host's
+   ::after still wins, and an entry that does not parse matches nothing
+   instead of dropping the rule. A new --lgs-ill selector needs
+   `python docs/phase2/fontkit.py --hooks` (any package may run it;
+   `--hooks-check` says when the lists are stale). */
 @container style(--lgs-ill: raised) or style(--lgs-ill: recessed) or style(--lgs-ill: row) or style(--lgs-ill: nav) or style(--lgs-ill: white) or style(--lgs-ill: card) {
-  *::after {
+/* lgs-hosts ill ::after begin */
+  :where(.lgs-hosts-ill)::after,
+  :where(#Footer [data-lgs-menu-source="white"])::after,
+  :where(%{*BasicContextMenuModal>contextMenuItem})::after,
+  :where(%{*GamepadDialogContent>FieldIcon})::after,
+  :where(%{*GamepadDialogContent>Field})::after,
+  :where(%{*GamepadDialogContent>ToggleRail})::after,
+  :where(%{ActionButtonLegend})::after,
+  :where(%{AddMarkerCtn})::after,
+  :where(%{AppBody})::after,
+  :where(%{AppGridFilterHeader}%{AppGridFilterHeaderAsButton})::after,
+  :where(%{Arrows})::after,
+  :where(%{ButtonBox}%{TopList>Interactable})::after,
+  :where(%{ChatTab})::after,
+  :where(%{Container>MenuButton})::after,
+  :where(%{ContentTypes})::after,
+  :where(%{DashboardMenu>Item})::after,
+  :where(%{DialogWrapper>CompatFilterDialogRow})::after,
+  :where(%{DownloadsPage>PlayButton})::after,
+  :where(%{GamepadTabbedPage>Tab})::after,
+  :where(%{Group>Button})::after,
+  :where(%{IncomingInvites>InvitesRow})::after,
+  :where(%{IncomingInvites>MutualFriendRow})::after,
+  :where(%{InstallFolder})::after,
+  :where(%{LibraryItemBox})::after,
+  :where(%{ListItemAndGlowContainer>ListItem})::after,
+  :where(%{MainBrowserContainer>NavigationButton})::after,
+  :where(%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem})::after,
+  :where(%{PlaybackControls>PlaybackButton})::after,
+  :where(%{RecordingModeOption})::after,
+  :where(%{ResultTemplateImage})::after,
+  :where(%{SectionItemWrapper})::after,
+  :where(%{ShutdownAppButton})::after,
+  :where(%{SortAndFilterButton})::after,
+  :where(%{StreamingSelector})::after,
+  :where(%{TabBumper})::after,
+  :where(%{TextBoxCarouselContents})::after,
+  :where(%{chatSubmitButton})::after,
+  :where(.AddFriendButton)::after,
+  :where(.DialogCheckbox)::after,
+  :where(.FriendsInvitesButton)::after,
+  :where(.NewChatGroupButton)::after,
+  :where(.SortByRecent)::after,
+  :where(.friend)::after,
+  :where(.groupName)::after,
+  :where(.inviteAnotherFriendButton)::after,
+  :where(.lgs-btn)::after,
+  :where(.lgs-cc-cap-face)::after,
+  :where(.lgs-cc-circle-face)::after,
+  :where(.lgs-cc-row-face)::after,
+  :where(.lgs-cc-seg-label)::after,
+  :where(.lgs-cc-side-face)::after,
+  :where(.lgs-cc-tog-face)::after,
+  :where(.lgs-check)::after,
+  :where(.lgs-home-disc)::after,
+  :where(.lgs-home-more-fill)::after,
+  :where(.lgs-home-play-fill)::after,
+  :where(.lgs-home-seg-fill)::after,
+  :where(.lgs-home-wn-glass)::after,
+  :where(.lgs-row)::after,
+  :where(.lgs-search-cap)::after,
+  :where(.lgs-search-disc)::after,
+  :where(.lgs-sheet-close)::after,
+  :where(.lgs-switch)::after,
+  :where(.oneOnOneVoiceChatButton)::after,
+  :where(:is(.lgs-seg) > [aria-pressed="true"])::after,
+  :where(:is(.lgs-seg) > [aria-pressed])::after,
+  :where([data-lgs-ill="card"])::after,
+  :where([data-lgs-ill="nav"])::after,
+  :where([data-lgs-ill="raised"])::after,
+  :where([data-lgs-ill="recessed"])::after,
+  :where([data-lgs-ill="row"])::after,
+  :where([data-lgs-ill="white"])::after,
+  :where([data-lgs-menu-source="white"])::after,
+  :where([data-lgs-sel="on"])::after,
+  :where(button%{DropDownControlButton}.DialogButton[aria-expanded="true"])::after,
+  :where(button.DialogButton%{*GamepadDialogContent>Button})::after,
+  :where(button.DialogButton.GreenPlay)::after
+/* lgs-hosts ill ::after end */
+  {
     content: "";
     position: absolute;
     inset: var(--lgs-ill-inset, 0);
@@ -76,14 +171,21 @@
     --_lgs-win: 0;
     --_lgs-sheen: 0;
     --_lgs-glow: 0;
+    --_lgs-arc: 1;
+    --_lgs-lobe: 0;
     --_lgs-on: calc(1 - var(--lgs-dis));
+    /* laser hover strengths (rows and navigation rows have their own, P-03) */
+    --_lgs-ha: var(--lgs-hover-add);
+    --_lgs-hs: var(--lgs-hover-spot);
     /* uniform light: hover add, focus add, press add, row warmth, disabled focus */
     --_lgs-u: rgb(255 255 255 / calc(
-        var(--lgs-hover-add) * var(--lgs-hover) * var(--_lgs-on) * var(--_lgs-hadd)
+        var(--_lgs-ha) * var(--lgs-hover) * var(--_lgs-on) * var(--_lgs-hadd)
       + var(--lgs-focus-add) * var(--lgs-focus) * var(--_lgs-on) * var(--_lgs-fadd)
       + var(--lgs-dis-focus-add) * var(--lgs-focus) * var(--lgs-dis) * var(--_lgs-fadd)
       + var(--lgs-press-add) * var(--lgs-press) * var(--_lgs-on) * var(--_lgs-fadd)
       + var(--lgs-within-add) * var(--lgs-within) * (1 - var(--lgs-focus)) * var(--_lgs-win)));
+    /* the focus arc's strength (60 % when disabled) */
+    --_lgs-arc-a: calc(var(--lgs-focus-arc) * var(--lgs-focus) * (1 - .4 * var(--lgs-dis)) * var(--_lgs-fadd));
     background:
       /* press: a glow spreading from the hit point (laser) or the centre (A) */
       radial-gradient(circle at var(--hx, 50%) var(--hy, 50%),
@@ -91,12 +193,18 @@
         rgb(255 255 255 / 0) calc(40% + 80% * var(--lgs-press))),
       /* hover: the light spot at the pointer (static without P3's --hx/--hy) */
       radial-gradient(circle at var(--hx, 50%) var(--hy, 30%),
-        rgb(255 255 255 / calc(var(--lgs-hover-spot) * var(--lgs-hover) * var(--_lgs-on) * var(--_lgs-spot))) 0,
+        rgb(255 255 255 / calc(var(--_lgs-hs) * var(--lgs-hover) * var(--_lgs-on) * var(--_lgs-spot))) 0,
         rgb(255 255 255 / 0) 75%),
       /* focus: a static spot in the upper third */
       radial-gradient(circle at 50% 30%,
         rgb(255 255 255 / calc(var(--lgs-focus-spot) * var(--lgs-focus) * var(--_lgs-on) * var(--_lgs-spot))) 0,
         rgb(255 255 255 / 0) 75%),
+      /* wide rows: the focus arc as the E3 lobe from the key light (26 % of
+         the width, fading both ways), never a full-width line (WN D-15) */
+      radial-gradient(50% 3px at 26% 0,
+        rgb(255 255 255 / calc(var(--_lgs-arc-a) * var(--_lgs-lobe))) 0,
+        rgb(255 255 255 / calc(var(--_lgs-arc-a) * var(--_lgs-lobe) * .35)) 55%,
+        rgb(255 255 255 / 0) 100%),
       /* content cards: a diagonal specular sheen (tvOS) */
       linear-gradient(155deg,
         rgb(255 255 255 / calc(.22 * max(var(--lgs-hover), var(--lgs-focus)) * var(--_lgs-sheen))) 0,
@@ -105,8 +213,8 @@
       /* the uniform layer (flat: the same colour at both ends) */
       linear-gradient(var(--_lgs-u), var(--_lgs-u));
     box-shadow:
-      /* the control's own specular arc, lit under focus (60 % when disabled) */
-      inset 0 1.5px 1.5px -1px rgb(255 255 255 / calc(var(--lgs-focus-arc) * var(--lgs-focus) * (1 - .4 * var(--lgs-dis)) * var(--_lgs-fadd))),
+      /* a control's own specular arc, lit under focus */
+      inset 0 1.5px 1.5px -1px rgb(255 255 255 / calc(var(--_lgs-arc-a) * var(--_lgs-arc))),
       /* white and coloured fills: a blurred outer glow, never a ring (VP P-16) */
       0 0 var(--lgs-white-glow-blur) var(--lgs-white-glow-spread)
         rgb(255 255 255 / calc(var(--lgs-white-glow-a) * max(var(--lgs-focus), .5 * var(--lgs-hover)) * var(--_lgs-glow)));
@@ -119,8 +227,12 @@
   }
   /* in: hover-in (294 ms), press on interactive (210 ms); focus jumps in and
      enters through P5's lgs-focus-in (.6 → 1), so the first frame already
-     shows --lgs-focus-first of the look (CTL P-C11) */
-  :is(:hover, .gpfocus, .gpfocuswithin, :active, .lgs-pressed)::after {
+     shows --lgs-focus-first of the look (CTL P-C11). Keyed on the input mode
+     like the numbers (VP P-01). No host list: only hovered, focused or
+     pressed elements match, and the style query keeps it to hosts. */
+  &:not(.lgs-input-pad) :hover::after,
+  &:not(.lgs-input-laser) :is(.gpfocus, .gpfocuswithin)::after,
+  & :is(:active, .lgs-pressed)::after {
     transition:
       --lgs-hover var(--lgs-ill-d-in) var(--lgs-ill-ease),
       --lgs-focus 0s,
@@ -134,48 +246,266 @@
 
 /* kinds */
 @container style(--lgs-ill: row) {
-  *::after {
+/* lgs-hosts ill:row ::after begin */
+  :where(.lgs-hosts-ill-row)::after,
+  :where(%{*BasicContextMenuModal>contextMenuItem})::after,
+  :where(%{*GamepadDialogContent>Field})::after,
+  :where(%{AppBody})::after,
+  :where(%{ChatTab})::after,
+  :where(%{IncomingInvites>InvitesRow})::after,
+  :where(%{IncomingInvites>MutualFriendRow})::after,
+  :where(%{RecordingModeOption})::after,
+  :where(%{SectionItemWrapper})::after,
+  :where(.lgs-cc-row-face)::after,
+  :where(.lgs-row)::after,
+  :where([data-lgs-ill="row"])::after
+/* lgs-hosts ill:row ::after end */
+  {
     inset: var(--lgs-ill-inset, var(--lgs-row-inset));
     border-radius: var(--lgs-ill-r, var(--lgs-r-row));
     --_lgs-win: 1;
+    --_lgs-arc: 0;
+    --_lgs-lobe: 1;
+    --_lgs-ha: var(--lgs-row-hover-add);
   }
 }
 /* navigation rows (sidebar, list, tab bar): hover is the light spot only */
 @container style(--lgs-ill: nav) {
-  *::after { --_lgs-hadd: 0; }
+/* lgs-hosts ill:nav ::after begin */
+  :where(.lgs-hosts-ill-nav)::after,
+  :where(%{DashboardMenu>Item})::after,
+  :where(%{GamepadTabbedPage>Tab})::after,
+  :where(%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem})::after,
+  :where(.friend)::after,
+  :where(.groupName)::after,
+  :where(.lgs-cc-side-face)::after,
+  :where(.lgs-row.lgs-row-nav)::after,
+  :where([data-lgs-ill="nav"])::after
+/* lgs-hosts ill:nav ::after end */
+  { --_lgs-hadd: 0; --_lgs-arc: 0; --_lgs-lobe: 1; --_lgs-hs: var(--lgs-nav-hover-spot); }
 }
 /* white / coloured fills: additive light cannot brighten white; a glow does */
 @container style(--lgs-ill: white) {
-  *::after { --_lgs-hadd: 0; --_lgs-fadd: 0; --_lgs-spot: 0; --_lgs-glow: 1; }
+/* lgs-hosts ill:white ::after begin */
+  :where(.lgs-hosts-ill-white)::after,
+  :where(%{*BasicContextMenuModal>contextMenuItem})::after,
+  :where(%{*GamepadDialogContent>FieldIcon})::after,
+  :where(%{ButtonBox}%{TopList>Interactable}%{TopList>Primary})::after,
+  :where(%{Container>MenuButton}%{MenuActive})::after,
+  :where(%{DownloadsPage>PlayButton})::after,
+  :where(%{GamepadTabbedPage>Tab}%{GamepadTabbedPage>Selected})::after,
+  :where(%{GamepadTabbedPage>Tab}.gpfocus)::after,
+  :where(%{Group>Button})::after,
+  :where(%{InstallFolder}%{IsSelected})::after,
+  :where(%{ShutdownAppButton})::after,
+  :where(%{chatSubmitButton})::after,
+  :where(.DialogCheckbox.Active)::after,
+  :where(.lgs-btn.lgs-btn-danger-fill)::after,
+  :where(.lgs-btn.lgs-btn-danger.gpfocus)::after,
+  :where(.lgs-btn.lgs-btn-play)::after,
+  :where(.lgs-btn.lgs-btn-primary)::after,
+  :where(.lgs-btn[aria-pressed="true"])::after,
+  :where(.lgs-cc-seg-label)::after,
+  :where(.lgs-cc-tog-face)::after,
+  :where(.lgs-check[aria-checked="true"])::after,
+  :where(.lgs-home-more-fill)::after,
+  :where(.lgs-home-play-fill)::after,
+  :where(.lgs-home-seg-fill)::after,
+  :where(.lgs-switch[aria-checked="true"])::after,
+  :where(:is(.lgs-seg) > [aria-pressed="true"])::after,
+  :where([data-lgs-ill="white"])::after,
+  :where([data-lgs-menu-source="white"])::after,
+  :where([data-lgs-sel="on"])::after,
+  :where(button%{DropDownControlButton}.DialogButton[aria-expanded="true"])::after,
+  :where(button.DialogButton%{*GamepadDialogContent>Button})::after,
+  :where(button.DialogButton.GreenPlay)::after
+/* lgs-hosts ill:white ::after end */
+  { --_lgs-hadd: 0; --_lgs-fadd: 0; --_lgs-spot: 0; --_lgs-glow: 1; }
 }
 /* content: no fill on art, a sheen; the lift is the area's (--lgs-lift) */
 @container style(--lgs-ill: card) {
-  *::after { --_lgs-hadd: 0; --_lgs-fadd: 0; --_lgs-spot: 0; --_lgs-sheen: 1; }
+/* lgs-hosts ill:card ::after begin */
+  :where(.lgs-hosts-ill-card)::after,
+  :where(%{LibraryItemBox})::after,
+  :where(%{ListItemAndGlowContainer>ListItem})::after,
+  :where(%{ResultTemplateImage})::after,
+  :where(.lgs-home-disc)::after,
+  :where(.lgs-search-disc)::after,
+  :where([data-lgs-ill="card"])::after
+/* lgs-hosts ill:card ::after end */
+  { --_lgs-hadd: 0; --_lgs-fadd: 0; --_lgs-spot: 0; --_lgs-sheen: 1; }
+}
+
+/* High Contrast: opaque fills, no spot (tokens), focus = white .30 + the
+   allowed 2 px stroke (DESIGN2 §13, CTL §4.6) */
+@media (prefers-contrast: more) {
+  @container style(--lgs-ill: raised) or style(--lgs-ill: recessed) or style(--lgs-ill: row) or style(--lgs-ill: nav) or style(--lgs-ill: white) or style(--lgs-ill: card) {
+/* lgs-hosts ill ::after begin */
+  :where(.lgs-hosts-ill)::after,
+  :where(#Footer [data-lgs-menu-source="white"])::after,
+  :where(%{*BasicContextMenuModal>contextMenuItem})::after,
+  :where(%{*GamepadDialogContent>FieldIcon})::after,
+  :where(%{*GamepadDialogContent>Field})::after,
+  :where(%{*GamepadDialogContent>ToggleRail})::after,
+  :where(%{ActionButtonLegend})::after,
+  :where(%{AddMarkerCtn})::after,
+  :where(%{AppBody})::after,
+  :where(%{AppGridFilterHeader}%{AppGridFilterHeaderAsButton})::after,
+  :where(%{Arrows})::after,
+  :where(%{ButtonBox}%{TopList>Interactable})::after,
+  :where(%{ChatTab})::after,
+  :where(%{Container>MenuButton})::after,
+  :where(%{ContentTypes})::after,
+  :where(%{DashboardMenu>Item})::after,
+  :where(%{DialogWrapper>CompatFilterDialogRow})::after,
+  :where(%{DownloadsPage>PlayButton})::after,
+  :where(%{GamepadTabbedPage>Tab})::after,
+  :where(%{Group>Button})::after,
+  :where(%{IncomingInvites>InvitesRow})::after,
+  :where(%{IncomingInvites>MutualFriendRow})::after,
+  :where(%{InstallFolder})::after,
+  :where(%{LibraryItemBox})::after,
+  :where(%{ListItemAndGlowContainer>ListItem})::after,
+  :where(%{MainBrowserContainer>NavigationButton})::after,
+  :where(%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem})::after,
+  :where(%{PlaybackControls>PlaybackButton})::after,
+  :where(%{RecordingModeOption})::after,
+  :where(%{ResultTemplateImage})::after,
+  :where(%{SectionItemWrapper})::after,
+  :where(%{ShutdownAppButton})::after,
+  :where(%{SortAndFilterButton})::after,
+  :where(%{StreamingSelector})::after,
+  :where(%{TabBumper})::after,
+  :where(%{TextBoxCarouselContents})::after,
+  :where(%{chatSubmitButton})::after,
+  :where(.AddFriendButton)::after,
+  :where(.DialogCheckbox)::after,
+  :where(.FriendsInvitesButton)::after,
+  :where(.NewChatGroupButton)::after,
+  :where(.SortByRecent)::after,
+  :where(.friend)::after,
+  :where(.groupName)::after,
+  :where(.inviteAnotherFriendButton)::after,
+  :where(.lgs-btn)::after,
+  :where(.lgs-cc-cap-face)::after,
+  :where(.lgs-cc-circle-face)::after,
+  :where(.lgs-cc-row-face)::after,
+  :where(.lgs-cc-seg-label)::after,
+  :where(.lgs-cc-side-face)::after,
+  :where(.lgs-cc-tog-face)::after,
+  :where(.lgs-check)::after,
+  :where(.lgs-home-disc)::after,
+  :where(.lgs-home-more-fill)::after,
+  :where(.lgs-home-play-fill)::after,
+  :where(.lgs-home-seg-fill)::after,
+  :where(.lgs-home-wn-glass)::after,
+  :where(.lgs-row)::after,
+  :where(.lgs-search-cap)::after,
+  :where(.lgs-search-disc)::after,
+  :where(.lgs-sheet-close)::after,
+  :where(.lgs-switch)::after,
+  :where(.oneOnOneVoiceChatButton)::after,
+  :where(:is(.lgs-seg) > [aria-pressed="true"])::after,
+  :where(:is(.lgs-seg) > [aria-pressed])::after,
+  :where([data-lgs-ill="card"])::after,
+  :where([data-lgs-ill="nav"])::after,
+  :where([data-lgs-ill="raised"])::after,
+  :where([data-lgs-ill="recessed"])::after,
+  :where([data-lgs-ill="row"])::after,
+  :where([data-lgs-ill="white"])::after,
+  :where([data-lgs-menu-source="white"])::after,
+  :where([data-lgs-sel="on"])::after,
+  :where(button%{DropDownControlButton}.DialogButton[aria-expanded="true"])::after,
+  :where(button.DialogButton%{*GamepadDialogContent>Button})::after,
+  :where(button.DialogButton.GreenPlay)::after
+/* lgs-hosts ill ::after end */
+    {
+      box-shadow: inset 0 0 0 2px rgb(255 255 255 / calc(.70 * var(--lgs-focus) * (1 - .43 * var(--lgs-dis))));
+      --_lgs-lobe: 0;
+    }
+  }
+  /* navigation rows: High Contrast has no light spot, so their laser hover
+     is the uniform add like other rows (else it would not show at all) */
+  @container style(--lgs-ill: nav) {
+/* lgs-hosts ill:nav ::after begin */
+  :where(.lgs-hosts-ill-nav)::after,
+  :where(%{DashboardMenu>Item})::after,
+  :where(%{GamepadTabbedPage>Tab})::after,
+  :where(%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem})::after,
+  :where(.friend)::after,
+  :where(.groupName)::after,
+  :where(.lgs-cc-side-face)::after,
+  :where(.lgs-row.lgs-row-nav)::after,
+  :where([data-lgs-ill="nav"])::after
+/* lgs-hosts ill:nav ::after end */
+    { --_lgs-hadd: 1; }
+  }
+  /* white and coloured fills: an inner white stroke vanishes on white, so
+     focus is the stroke outside, behind a 3 px dark gap */
+  @container style(--lgs-ill: white) {
+/* lgs-hosts ill:white ::after begin */
+  :where(.lgs-hosts-ill-white)::after,
+  :where(%{*BasicContextMenuModal>contextMenuItem})::after,
+  :where(%{*GamepadDialogContent>FieldIcon})::after,
+  :where(%{ButtonBox}%{TopList>Interactable}%{TopList>Primary})::after,
+  :where(%{Container>MenuButton}%{MenuActive})::after,
+  :where(%{DownloadsPage>PlayButton})::after,
+  :where(%{GamepadTabbedPage>Tab}%{GamepadTabbedPage>Selected})::after,
+  :where(%{GamepadTabbedPage>Tab}.gpfocus)::after,
+  :where(%{Group>Button})::after,
+  :where(%{InstallFolder}%{IsSelected})::after,
+  :where(%{ShutdownAppButton})::after,
+  :where(%{chatSubmitButton})::after,
+  :where(.DialogCheckbox.Active)::after,
+  :where(.lgs-btn.lgs-btn-danger-fill)::after,
+  :where(.lgs-btn.lgs-btn-danger.gpfocus)::after,
+  :where(.lgs-btn.lgs-btn-play)::after,
+  :where(.lgs-btn.lgs-btn-primary)::after,
+  :where(.lgs-btn[aria-pressed="true"])::after,
+  :where(.lgs-cc-seg-label)::after,
+  :where(.lgs-cc-tog-face)::after,
+  :where(.lgs-check[aria-checked="true"])::after,
+  :where(.lgs-home-more-fill)::after,
+  :where(.lgs-home-play-fill)::after,
+  :where(.lgs-home-seg-fill)::after,
+  :where(.lgs-switch[aria-checked="true"])::after,
+  :where(:is(.lgs-seg) > [aria-pressed="true"])::after,
+  :where([data-lgs-ill="white"])::after,
+  :where([data-lgs-menu-source="white"])::after,
+  :where([data-lgs-sel="on"])::after,
+  :where(button%{DropDownControlButton}.DialogButton[aria-expanded="true"])::after,
+  :where(button.DialogButton%{*GamepadDialogContent>Button})::after,
+  :where(button.DialogButton.GreenPlay)::after
+/* lgs-hosts ill:white ::after end */
+    {
+      box-shadow: 0 0 0 3px rgb(11 13 16 / calc(.94 * var(--lgs-focus))), 0 0 0 5px rgb(255 255 255 / calc(.90 * var(--lgs-focus)));
+    }
+  }
 }
 
 /* ------------------------------------------------------------------ */
 /* 3. Steam's floating FocusRing becomes a light plate (CTL §4.5)        */
 /* ------------------------------------------------------------------ */
 
-/* The only focus cue for radio segments, check boxes, recording-mode cards,
-   links and scroll panels. Geometry stays inline (Steam's); only paint and
-   its flash / grow / 20x pulse change: nothing runs at rest. */
-/* Written as "&.lgs-on" (html.lgs-on.lgs-on, specificity 0,3,1) so the plate
-   beats Phase 1's ring in 10-primitives.css section 10 ("outline: 2px solid
-   ... !important", 0,2,1, later in the bundle), measured live on Settings >
-   Notifications: no ring (VP P-17) even before C4a's rewrite drops it. */
+/* For focus targets that have no light of their own (links, scroll panels,
+   recording-mode cards, any control no area has hooked). Geometry stays
+   inline (Steam's); only paint and its flash / grow / 20x pulse change:
+   nothing runs at rest. Written as "&.lgs-on" (html.lgs-on.lgs-on, 0,3,1)
+   so the plate beats any later ring rule of equal weight (VP P-17). */
 &.lgs-on %{FocusRing}, &.lgs-on %{FocusRing}::before, &.lgs-on %{FocusRing}::after {
   animation: none !important;
 }
 &.lgs-on %{FocusRing} {
   outline-color: transparent !important;
-  border-radius: min(var(--lgs-r-row), 50%) !important;
+  /* --lgs-ring-r: an area whose ringed targets are capsules sets 999px on an
+     ancestor of the FocusRing (it lives in %{FocusRingRoot} under the page) */
+  border-radius: var(--lgs-ring-r, min(var(--lgs-r-row), 50%)) !important;
   background:
     radial-gradient(circle at 50% 30%, rgb(255 255 255 / var(--lgs-focus-spot)), rgb(255 255 255 / 0) 75%),
     rgb(255 255 255 / .12) !important;
-  /* the glow is the only cue where the ring sits on a white (selected) radio
-     segment: CTL's 18/2/.22 measured +8 L in P-16's band there, so the plate
-     takes the white-glow token at 3/4 spread and 4/5 alpha (22/6/.44) */
+  /* where the ring sits on a white fill the glow is the cue: CTL's 18/2/.22
+     measured +8 L in P-16's band there, so the plate takes the white-glow
+     token at 3/4 spread and 4/5 alpha (22/6/.44) */
   box-shadow: 0 0 var(--lgs-white-glow-blur) calc(var(--lgs-white-glow-spread) * .75)
     rgb(255 255 255 / calc(var(--lgs-white-glow-a) * .8));
   opacity: 1 !important;
@@ -198,6 +528,154 @@
   pointer-events: none;
   background: radial-gradient(circle, rgb(255 255 255 / .34) 0, rgb(255 255 255 / .22) 42%, rgb(255 255 255 / 0) 72%);
 }
+/* The focused control lights itself (it is an --lgs-ill host: C4a's radio
+   segments and check circles, rows, buttons): the plate paints nothing, or
+   it would frame the capsule, double its glow and grey its label (review R1
+   M2). The list is the hosts' whole selectors, generated; html.lgs-on.lgs-on
+   :has() (0,4,1) also beats the High Contrast plate below. */
+/* lgs-hosts ring begin */
+&.lgs-on:has(.gpfocus:where(
+    .lgs-hosts-ill,
+    #Footer [data-lgs-menu-source="white"],
+    %{*BasicContextMenuHeader>BasicContextMenuModal} %{*BasicContextMenuModal>BasicContextMenuContainer} > %{*BasicContextMenuModal>contextMenuContents}:first-child > %{*BasicContextMenuModal>contextMenuItem}:last-child,
+    %{*BasicContextMenuHeader>BasicContextMenuModal} %{*BasicContextMenuModal>contextMenuContents} > %{*BasicContextMenuModal>contextMenuItem},
+    %{*BasicContextMenuHeader>BasicContextMenuModal} %{*BasicContextMenuModal>contextMenuContents} > %{*BasicContextMenuModal>contextMenuItem}%{*BasicContextMenuModal>active},
+    %{*BasicContextMenuHeader>BasicContextMenuModal} %{*BasicContextMenuModal>contextMenuContents} > %{*BasicContextMenuModal>contextMenuItem}:is(%{*BasicContextMenuModal>Emphasis}, .Install, .Download, .Update, .PreLoad),
+    %{*BasicContextMenuHeader>BasicContextMenuModal} %{*BasicContextMenuModal>contextMenuContents} > %{*BasicContextMenuModal>contextMenuItem}:is(%{*BasicContextMenuModal>Positive}, .Play, .Launch, .Resume, .Stream, .Connect, .PlayMusic, .BorrowApp),
+    %{*GamepadDialogContent>FieldChildrenWithIcon}:not([data-lgs-noprim] *) > %{*GamepadDialogContent>FieldIcon}:is(%{ClickableSliderIcon}, :has(%{ClickableSliderIcon})),
+    %{*GamepadDialogContent>Field}:not(%{*GamepadDialogContent>Classic}):not([data-lgs-noprim] *),
+    %{*GamepadDialogContent>ModalPosition} .DialogFooter button.DialogButton%{*GamepadDialogContent>Button},
+    %{*GamepadDialogContent>ModalPosition} .DialogFooter button.DialogButton%{*GamepadDialogContent>Button}.Primary,
+    %{*GamepadDialogContent>ModalPosition} .DialogFooter button.DialogButton%{*GamepadDialogContent>Button}:is(.Destructive, [data-lgs-destructive]),
+    %{*GamepadDialogContent>ModalPosition} > div.Panel:not(%{*GamepadDialogContent>ModalClickToDismiss}, %{FocusRing}, %{FocusRingRoot}, .BasicUIContextMenu, %{*GamepadDialogContent_InnerWidth>GamepadDialogContent}) > button.DialogButton%{*GamepadDialogContent>Button},
+    %{*GamepadDialogContent>ModalPosition} > div.Panel:not(%{*GamepadDialogContent>ModalClickToDismiss}, %{FocusRing}, %{FocusRingRoot}, .BasicUIContextMenu, %{*GamepadDialogContent_InnerWidth>GamepadDialogContent}) > button.DialogButton%{*GamepadDialogContent>Button}.Primary,
+    %{*GamepadDialogContent>ModalPosition} > div.Panel:not(%{*GamepadDialogContent>ModalClickToDismiss}, %{FocusRing}, %{FocusRingRoot}, .BasicUIContextMenu, %{*GamepadDialogContent_InnerWidth>GamepadDialogContent}) > button.DialogButton%{*GamepadDialogContent>Button}:is(.Destructive, [data-lgs-destructive]),
+    %{*GamepadDialogContent>Toggle}:not([data-lgs-noprim] *) > %{*GamepadDialogContent>ToggleRail},
+    %{BasicGameCarouselItem} %{TextBoxCarouselContents},
+    %{BasicUiRoot} #Footer%{BasicFooter} %{ActionButtonLegend},
+    %{ButtonBox}%{TopList>Interactable},
+    %{CompatFilterOptions} %{DialogWrapper>CompatFilterDialogRow},
+    %{DashboardMenu}%{Variant_FrameMenu} %{DashboardMenu>Item},
+    %{DashboardMenu}%{Variant_TabMenu} %{DashboardMenu>Item},
+    %{DownloadsPage} %{ContentTypes},
+    %{DownloadsPage} %{SectionItemWrapper},
+    %{DownloadsPage} %{SectionItem} %{DownloadsPage>PlayButton},
+    %{FriendsChats} %{chatEntryControls} %{chatSubmitButton},
+    %{FriendsChats} %{chatEntryControls} %{chatSubmitButton}:not(%{chatSubmitButton>disabled}),
+    %{FriendsChats} .SteamDeckChats .RightSideButtonContainer :is(.oneOnOneVoiceChatButton, .inviteAnotherFriendButton, .AddFriendButton),
+    %{FriendsChats} .friendGroup .SortByRecent,
+    %{FriendsChats} .friendGroup .groupName,
+    %{FriendsChats} .friendlist.GamepadMode .FriendsListSteamDeckTabs %{TabBumper},
+    %{FriendsChats} .friendlist.GamepadMode .TabPanelHeader :is(.AddFriendButton, .NewChatGroupButton, .FriendsInvitesButton),
+    %{FriendsChats} .friendlistListContainer .friend,
+    %{FriendsChats} .friendlistListContainer .friend.gpfocus,
+    %{FriendsChats} .multiChatDialog %{ChatTab},
+    %{FriendsChats} .multiChatDialog %{ChatTab}%{ChatTabTransitionGroup>Active},
+    %{FriendsChats} .multiChatDialog %{ChatTab}%{ChatTabTransitionGroup>Active}.gpfocus,
+    %{GamepadLibrary} %{AppGridFilterHeader}%{AppGridFilterHeaderAsButton},
+    %{GamepadLibrary} %{GamepadTabbedPage>Tab},
+    %{GamepadLibrary} %{GamepadTabbedPage>Tab}%{GamepadTabbedPage>Selected},
+    %{GamepadLibrary} %{GamepadTabbedPage>Tab}%{GamepadTabbedPage>Selected}:hover,
+    %{GamepadLibrary} %{TabHeaderRowWrapper} %{Arrows},
+    %{GamepadSearch} %{GamepadTabbedPage>Tab},
+    %{GamepadSearch} %{GamepadTabbedPage>Tab}%{GamepadTabbedPage>Selected},
+    %{GamepadSearch} %{GamepadTabbedPage>Tab}%{GamepadTabbedPage>Selected}:hover,
+    %{GamepadSearch} %{GamepadTabbedPage>Tab}.gpfocus,
+    %{GamepadSearch} %{ResultTemplateImage},
+    %{GamepadSearch} %{TabHeaderRowWrapper} %{Arrows},
+    %{HiddenFrame>InvitesList} :is(%{IncomingInvites>InvitesRow}, %{IncomingInvites>MutualFriendRow}),
+    %{MainBrowserContainer>NavigationButton},
+    %{PlaybackControls} %{AddMarkerCtn},
+    %{PlaybackControls} %{PlaybackControls>PlaybackButton},
+    %{RecentSection} ~ %{TabbedContent} %{GamepadTabbedPage>Tab},
+    %{RecentSection} ~ %{TabbedContent} %{GamepadTabbedPage>Tab}%{GamepadTabbedPage>Selected},
+    %{RecentSection} ~ %{TabbedContent} %{GamepadTabbedPage>Tab}%{GamepadTabbedPage>Selected}:hover,
+    %{RecentSection} ~ %{TabbedContent} %{TabHeaderRowWrapper} %{Arrows},
+    %{ScreenshotList} %{ListItemAndGlowContainer>ListItem},
+    %{ScreenshotList} %{ListItemAndGlowContainer>ListItem}.gpfocus,
+    %{SortAndFilterButton},
+    %{VRLibraryFilterGroup}%{CenteredPill} > %{Group>Button},
+    %{VRLibraryFilterGroup}%{CenteredPill} > %{Group>Button}:is(%{Group>Active}, [aria-checked="true"]),
+    %{VRLibraryFilterGroup}%{CenteredPill} > %{Group>Button}:is(%{Group>Active}, [aria-checked="true"]):hover,
+    &.lgs-input-laser %{GamepadLibrary} %{LibraryItemBox}:is(.lgs-dwell:hover, .lgs-attend-80),
+    &:not(.lgs-input-laser) %{*BasicContextMenuHeader>BasicContextMenuModal} %{*BasicContextMenuModal>contextMenuContents} > %{*BasicContextMenuModal>contextMenuItem}:is(%{*BasicContextMenuModal>Destructive}, .Stop):is(.gpfocus, %{*BasicContextMenuModal>Focused}),
+    &:not(.lgs-input-laser) %{GamepadLibrary} %{GamepadTabbedPage>Tab}.gpfocus,
+    &:not(.lgs-input-laser) %{GamepadLibrary} %{LibraryItemBox}.gpfocus.gpfocus,
+    &:not(.lgs-input-laser) %{RecentSection} ~ %{TabbedContent} %{GamepadTabbedPage>Tab}.gpfocus,
+    &:not(.lgs-input-laser) .lgs-btn.lgs-btn-danger.gpfocus,
+    &:not(.lgs-input-laser) button.DialogButton%{*GamepadDialogContent>Button}.Destructive.gpfocus:not(.Disabled, [disabled]):not(:is(.DialogFooter, %{ModalButtonRow}, .DialogTwoColLayout) *):not([data-lgs-noprim] *),
+    &:not(.lgs-input-laser):not(.lgs-input-pad) %{GamepadLibrary} %{PortraitImage>HoversEnabled} %{LibraryItemBox}:hover,
+    .DialogCheckbox:not([data-lgs-noprim] *),
+    .lgs-btn,
+    .lgs-cc-cap-face,
+    .lgs-cc-circle-face,
+    .lgs-cc-row-face,
+    .lgs-cc-seg-item.is-selected .lgs-cc-seg-label,
+    .lgs-cc-seg-label,
+    .lgs-cc-side-face,
+    .lgs-cc-tog-face,
+    .lgs-cc-tog.is-on .lgs-cc-tog-face,
+    .lgs-check,
+    .lgs-home-disc,
+    .lgs-home-more-fill,
+    .lgs-home-more.is-open .lgs-home-more-fill,
+    .lgs-home-play-fill,
+    .lgs-home-seg-fill,
+    .lgs-home-seg-item.is-selected > .lgs-home-seg-fill,
+    .lgs-home-wn-glass,
+    .lgs-row,
+    .lgs-search-cap,
+    .lgs-search-disc,
+    .lgs-sheet-close,
+    .lgs-switch,
+    :is(%{AchievementList>Page}) %{AchievementTabs} %{GamepadTabbedPage>Tab},
+    :is(%{AchievementList>Page}) %{AchievementTabs} %{GamepadTabbedPage>Tab}%{GamepadTabbedPage>Selected},
+    :is(%{AchievementList>Page}) %{AchievementTabs} %{GamepadTabbedPage>Tab}%{GamepadTabbedPage>Selected}:is(.gpfocus, :hover),
+    :is(%{Group}:not(%{CenteredPill}):not([data-lgs-noprim] *)) > %{Group>Button},
+    :is(%{Group}:not(%{CenteredPill}):not([data-lgs-noprim] *)) > %{Group>Button}%{Group>Active},
+    :is(%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog}%{AppProperties}) %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem},
+    :is(%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog}:not(%{AppProperties}, %{NotesPagedSettings})) %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem},
+    :is(%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog}:not(%{AppProperties}, %{NotesPagedSettings})) %{RecordingModeOption},
+    :is(%{PartnerEventOverlayContainer>AppDetailsMain}) %{AppButtons} %{Container>MenuButton},
+    :is(%{PartnerEventOverlayContainer>AppDetailsMain}) %{AppButtons} %{Container>MenuButton}%{MenuActive},
+    :is(%{PartnerEventOverlayContainer>AppDetailsMain}) %{AppDetailsContainer} %{GamepadTabbedPage>Tab},
+    :is(%{PartnerEventOverlayContainer>AppDetailsMain}) %{AppDetailsContainer} %{GamepadTabbedPage>Tab}%{GamepadTabbedPage>Selected},
+    :is(%{PartnerEventOverlayContainer>AppDetailsMain}) %{AppDetailsContainer} %{GamepadTabbedPage>Tab}%{GamepadTabbedPage>Selected}:is(.gpfocus, :hover),
+    :is(%{PartnerEventOverlayContainer>AppDetailsMain}) %{PlayButtonContainer} %{StreamingSelector},
+    :is(%{PartnerEventOverlayContainer>AppDetailsMain}) %{ShutdownAppButton},
+    :is(%{PartnerEventOverlayContainer>AppDetailsMain}) %{ShutdownAppButton}%{ForceShutdownButton},
+    :is(%{PartnerEventOverlayContainer>AppDetailsMain}) %{ShutdownAppButton}:is(.gpfocus, :hover),
+    :is(.BasicUI %{ContentManagement}%{InPagedSettings}) %{AppBody},
+    :is(.BasicUI %{ContentManagement}%{InPagedSettings}) %{InstallFolder},
+    :is(.BasicUI %{ContentManagement}%{InPagedSettings}) %{InstallFolder}%{IsSelected},
+    :is(.DialogFooter, %{ModalButtonRow}, .DialogTwoColLayout) button.DialogButton%{*GamepadDialogContent>Button}.Destructive:not(.Disabled, [disabled]):not([data-lgs-noprim] *),
+    :is(.DialogFooter, %{ModalButtonRow}, .DialogTwoColLayout) button.DialogButton%{*GamepadDialogContent>Button}.Primary:not(.Disabled, [disabled]):not([data-lgs-noprim] *),
+    :is(.lgs-btn).lgs-btn-danger-fill,
+    :is(.lgs-btn).lgs-btn-play,
+    :is(.lgs-btn).lgs-btn-primary,
+    :is(.lgs-btn)[aria-pressed="true"],
+    :is(.lgs-check)[aria-checked="true"],
+    :is(.lgs-row).lgs-row-nav,
+    :is(.lgs-seg) > [aria-pressed="true"],
+    :is(.lgs-seg) > [aria-pressed],
+    :is(.lgs-switch)[aria-checked="true"],
+    [data-lgs-ill="card"],
+    [data-lgs-ill="nav"],
+    [data-lgs-ill="raised"],
+    [data-lgs-ill="recessed"],
+    [data-lgs-ill="row"],
+    [data-lgs-ill="white"],
+    [data-lgs-menu-source="white"],
+    [data-lgs-mute="muted"] > %{*GamepadDialogContent>FieldIcon},
+    [data-lgs-sel="on"],
+    button%{DropDownControlButton}.DialogButton[aria-expanded="true"]:not([data-lgs-noprim] *),
+    button.DialogButton%{*GamepadDialogContent>Button}:not([data-lgs-noprim] *),
+    button.DialogButton.GreenPlay:not(.Disabled, [disabled]):not([data-lgs-noprim] *)))
+/* lgs-hosts ring end */
+  %{FocusRing} {
+  background: none !important;
+  box-shadow: none !important;
+}
 
 /* ------------------------------------------------------------------ */
 /* 4. Reduce Motion, High Contrast (DESIGN2 §13, CTL §4.6)               */
@@ -214,20 +692,9 @@
 }
 
 @media (prefers-contrast: more) {
-  /* opaque fills, no spot (tokens), focus = white .30 + the allowed 2 px stroke */
+  /* opaque fills, no spot (tokens), focus = white .30 + the allowed 2 px
+     stroke; the hook's variant is in §2 */
   & { --lgs-focus-add: .30; --lgs-dis-focus-add: .18; }
-  @container style(--lgs-ill: raised) or style(--lgs-ill: recessed) or style(--lgs-ill: row) or style(--lgs-ill: nav) or style(--lgs-ill: white) or style(--lgs-ill: card) {
-    *::after {
-      box-shadow: inset 0 0 0 2px rgb(255 255 255 / calc(.70 * var(--lgs-focus) * (1 - .43 * var(--lgs-dis))));
-    }
-  }
-  /* white and coloured fills: an inner white stroke vanishes on white, so
-     focus is the stroke outside, behind a 3 px dark gap */
-  @container style(--lgs-ill: white) {
-    *::after {
-      box-shadow: 0 0 0 3px rgb(11 13 16 / calc(.94 * var(--lgs-focus))), 0 0 0 5px rgb(255 255 255 / calc(.90 * var(--lgs-focus)));
-    }
-  }
   &.lgs-on %{FocusRing} {
     background: rgb(255 255 255 / .30) !important;
     box-shadow: inset 0 0 0 2px rgb(255 255 255 / .70);

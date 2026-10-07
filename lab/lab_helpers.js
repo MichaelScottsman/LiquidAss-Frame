@@ -7,7 +7,10 @@
   const SINGLE = typeof window.g_PopupManager === 'undefined';
   // The class index is read at call time (REQ C1a->P10): the core may rebuild window.__LGS_INDEX after a bad
   // index, and the helpers must follow it rather than keep the object they saw at install.
-  const IX = () => ((window.__LGS_INDEX && window.__LGS_INDEX.selector) ? window.__LGS_INDEX : (window.__LGS_INDEX = lgsBuildIndex()));
+  // Through P1's lgsIndexShared() (device/lgs_index.js, REQ P1->P10): it reuses the cache only while it is ok and
+  // current, caches only an ok index and drops a bad one (a short index built while Steam reloads).
+  const IX = () => (typeof lgsIndexShared === 'function' ? lgsIndexShared()
+    : ((window.__LGS_INDEX && window.__LGS_INDEX.selector) ? window.__LGS_INDEX : (window.__LGS_INDEX = lgsBuildIndex())));
 
   const ALIAS = {
     main: /^VR_uid/,
@@ -125,8 +128,21 @@
   let cmx = null;
   function contextMenus() {
     if (!cmx) {
-      let req;
-      window.webpackChunksteamui.push([[Symbol('lgs-cm')], {}, (r) => { req = r; }]);
+      let req = typeof lgsWebpackRequire === 'function' ? lgsWebpackRequire() : null;   // splices its probe record
+      if (!req) {
+        const chunks = window.webpackChunksteamui, rec = [[Symbol('lgs-cm')], {}, (r) => { req = r; }];
+        chunks.push(rec);
+        const i = chunks.indexOf(rec);
+        if (i >= 0) chunks.splice(i, 1);          // webpack keeps pushed records for the context's life (REQ P1->P10)
+      }
+      try {   // records older helper builds left behind (they keep their closures alive)
+        const chunks = window.webpackChunksteamui;
+        for (let i = chunks.length - 1; i >= 0; i--) {
+          const c = chunks[i], id = c && Array.isArray(c[0]) ? c[0][0] : null;
+          if (typeof id === 'symbol' && id.description === 'lgs-cm') chunks.splice(i, 1);
+        }
+      } catch (_) { /* array gone */ }
+      if (!req || !req.m) return [];
       for (const id of Object.keys(req.m)) {
         if (!req.m[id].toString().includes('GetContextMenuManagerFromWindow')) continue;
         const m = req(id);
@@ -330,6 +346,7 @@
     const w = surface(alias);
     const doc = w.document;
     const out = {};
+    const exCache = new Map();
     const add = (el, kind) => {
       if (el.closest('[id^="lgs-"]')) return;
       const key = pathOf(el, doc.body);
@@ -344,9 +361,23 @@
       };
       // Phase 2 (P10): scroll containers (gates' AUD does not report a sheet capped in size as SHRUNK)
       if (/(auto|scroll)/.test(cs.overflowY + cs.overflowX) && (el.scrollHeight > el.clientHeight + 2 || el.scrollWidth > el.clientWidth + 2)) rec.sc = true;
-      // Phase 2 (P10): PLAN 1.16 exemption of this element, for `gates` (audit ignores it)
+      // Phase 2 (P10, REQ C7->P10): a control that holds other controls is a pane, not a target (gates' AUD)
+      if (kind === 'ctl' && el.querySelector(INTERACTIVE)) rec.nl = true;
+      if (kind === 'ctl' && window.__LGS_LAB && window.__LGS_LAB.gates && window.__LGS_LAB.gates.ownHandler) {
+        try { rec.act = window.__LGS_LAB.gates.ownHandler(el); } catch (_) { /* no fibers */ }
+      }
+      // Phase 2 (P10): PLAN 1.16 exemption of this element, for `gates` (audit ignores it). A scoped exemption
+      // (exemptions.json "_scope", e.g. E-GRID: AUD waives SHRUNK only) carries its kinds and its own criterion.
       const g = window.__LGS_LAB && window.__LGS_LAB.gates;
-      if (g) { try { const ex = g.exemptId(alias, el); if (ex) rec.ex = ex; } catch (_) { /* none */ } }
+      if (g) {
+        try {
+          const mx = g.exemptMatch ? g.exemptMatch(alias, el, 'aud') : null;
+          const ex = mx ? mx.id : g.exemptId(alias, el);
+          if (ex) rec.ex = ex;
+          const sc = mx && (g.exemptions()._scope || {})[mx.id];
+          if (sc && Array.isArray(sc.aud)) { rec.exKinds = sc.aud; rec.exc = g.exemptCriterion(alias, mx.id, mx.host, exCache); }
+        } catch (_) { /* none */ }
+      }
       if (kind === 'text') {
         const fg = parseColor(cs.color) || [255, 255, 255, 1];
         const size = parseFloat(cs.fontSize), weight = parseInt(cs.fontWeight, 10) || 400;

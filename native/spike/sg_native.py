@@ -5,7 +5,12 @@
                                     Frames: base, window.dim 0.35, + main.dim 0.35 (CC-A), restored
   python3 sg_native.py sg6          SG-6: lgs-shell SIGSTOP 15 s: the scene-graph nodes go at the 12 s
                                     watchdog, and come back within 1 s of SIGCONT
-  python3 sg_native.py daemon       CSS only (no native session): the daemon's own lgs_sg.js install with
+  python3 sg_native.py rate         card item 1 with the real daemon: pushes per second at rest, while the
+                                    gamepad moves over posters, and after (native session)
+  python3 sg_native.py popup OUTDIR R1 B1 with the daemon (native session): frames A as built, B with the
+                                    frame-menu surface removed from the daemon's spec, C restored; the
+                                    anchors and curvature origins of every popup item
+  python3 sg_native.py daemon      CSS only (no native session): the daemon's own lgs_sg.js install with
                                     the flag tabBarDepth (this step only), SIGSTOP 15 s (the watchdog
                                     restores the chrome), SIGCONT (re-applied), flag off (removed)
 
@@ -30,6 +35,7 @@ import sys
 import time
 
 GS = os.path.expanduser("~/.local/share/glass-shell")
+sys.dont_write_bytecode = True   # no __pycache__ left in the install (REQ P10->P7; like lab/lab.py)
 sys.path.insert(0, os.path.join(GS, "device"))
 sys.path.insert(0, os.path.join(GS, "lab"))
 import lgs  # noqa: E402
@@ -54,13 +60,54 @@ def daemon_pid():
         return 0
 
 
+def stop_daemon(pid, secs=15):
+    """SIGSTOP the daemon for a freeze test. First a detached guard (its own
+    session, so a killed script or a dropped SSH session cannot take it down)
+    sends SIGCONT after secs + 5 s whatever happens to us (R1 m7); the caller
+    still sends SIGCONT itself in its finally."""
+    subprocess.Popen(["sh", "-c", f"sleep {int(secs) + 5}; kill -CONT {int(pid)} 2>/dev/null"],
+                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                     start_new_session=True, close_fds=True)
+    os.kill(pid, signal.SIGSTOP)
+
+
 def grab(out, tag):
     path = os.path.join(out, f"p7n_{tag}.png")
     try:
-        subprocess.run(["env", "-u", "LD_PRELOAD", lab_p2cmd.HVGRAB, path, "2"], capture_output=True, timeout=6)
+        # twice: the first frame after a pause can be an old one (HeadsetView
+        # is refreshed only while sampled)
+        subprocess.run(["env", "-u", "LD_PRELOAD", lab_p2cmd.HVGRAB, path, os.environ.get("HVS", "2")], capture_output=True, timeout=6)
+        time.sleep(0.3)
+        subprocess.run(["env", "-u", "LD_PRELOAD", lab_p2cmd.HVGRAB, path, os.environ.get("HVS", "2")], capture_output=True, timeout=6)
     except subprocess.TimeoutExpired:
         return None
     return path if os.path.exists(path) else None
+
+
+class ALock:
+    """lab.Lock(both=True) from async code: its enter and exit run their own
+    asyncio.run() (Steam evals), so they go to a worker thread."""
+
+    def __init__(self):
+        self.lock = lab.Lock(both=True)
+
+    async def __aenter__(self):
+        # lab.Lock gives up after 240 s; with ~20 agents queueing that happens, so
+        # wait again (up to LABTRIES x 240 s, default 5) instead of losing the test
+        tries = max(1, int(os.environ.get("LABTRIES", "5")))
+        for i in range(tries):
+            try:
+                await asyncio.get_running_loop().run_in_executor(None, self.lock.__enter__)
+                return self
+            except SystemExit:
+                if i == tries - 1:
+                    raise
+                self.lock = lab.Lock(both=True)
+        return self
+
+    async def __aexit__(self, *exc):
+        await asyncio.get_running_loop().run_in_executor(None, self.lock.__exit__, None, None, None)
+        return False
 
 
 class Sys:
@@ -83,40 +130,214 @@ class Sys:
         return st
 
 
+async def steam_js(expr):
+    """lab_js (SharedJSContext, its own asyncio.run) from async code."""
+    return await asyncio.get_running_loop().run_in_executor(None, lab.lab_js, expr)
+
+
+SG5_ROUTES = [("win", "/library/tab/AllGames"), ("home", "/library/home")]
+
+
 async def sg5(out):
+    """Holds lab.lock + lab-vr.lock (no other agent moves the route meanwhile); a
+    windowed route and windowless Home; per route: base, window.dim 0.35 (t1),
+    + main.dim 0.35 (cover and base wrappers: CC-A in native mode), restored."""
     os.makedirs(out, exist_ok=True)
     tg = next(x for x in lgs_vr.targets() if x["title"] == "systemui")
-    res = {"test": "SG-5", "shots": []}
+    res = {"test": "SG-5", "shots": [], "routes": {}}
     async with lgs.Session(tg["webSocketDebuggerUrl"]) as s:
         q = Sys(s)
-        res["ready"] = await q.ready()
-        if not (res["ready"] and res["ready"].get("coverAt")):
-            res["blocked"] = "the daemon's scene graph never pushed main's cover"
-            return res
-        spec0 = await q.js(f"JSON.stringify({G}.spec())")
-        try:
-            res["shots"].append(grab(out, "0_base"))
-            res["setWindow"] = await q.js(f"JSON.stringify({G}.windowState({{dim: 0.35}}))")
-            await asyncio.sleep(1.3)
-            res["afterWindow"] = await q.js(STATUS)
-            res["shots"].append(grab(out, "1_t1dim"))
-            # CC-A in native mode: also the cover and base wrappers of main
-            if isinstance(spec0, dict) and spec0.get("surfaces"):
-                spec1 = dict(spec0, surfaces=[dict(x, dim=0.35) if x.get("steamKey") == MAIN else x
-                                              for x in spec0["surfaces"]])
-                res["setMainDim"] = await q.js(f"JSON.stringify({G}.update({json.dumps(spec1)}).counts||null)")
-                await asyncio.sleep(1.3)
-                dump = await q.js(f"JSON.stringify({G}.dump().map(d=>[d.kind,d.dimmed]))")
-                res["mainDimWrapped"] = {k: sum(1 for d in dump if d[0] == k and d[1]) for k in ("cover", "base", "pop", "slab")}
-                res["mainDimPanels"] = {k: sum(1 for d in dump if d[0] == k) for k in ("cover", "base", "pop", "slab")}
-                res["shots"].append(grab(out, "2_t1dim_maindim"))
-        finally:
-            if isinstance(spec0, dict):
-                await q.js(f"{G} && {G}.update({json.dumps(spec0)}), 0")
-            await q.js(f"{G} && {G}.windowState({{dim: 1, recede: 0}}), 0")
-            await asyncio.sleep(1.3)
-            res["restored"] = await q.js(STATUS)
-            res["shots"].append(grab(out, "3_restored"))
+        async with ALock():
+            route0 = await steam_js("L.route()")
+            res["route0"] = route0
+            try:
+                for tag, route in SG5_ROUTES:
+                    r = res["routes"][tag] = {"route": route}
+                    await steam_js(f"L.nav({json.dumps(route)})")
+                    await asyncio.sleep(3.0)            # the reporter and the daemon settle
+                    r["ready"] = await q.ready()
+                    if not (r["ready"] and r["ready"].get("coverAt")):
+                        r["blocked"] = "the daemon's scene graph never pushed main's cover"
+                        continue
+                    spec0 = await q.js(f"JSON.stringify({G}.spec())")
+                    main0 = next((x for x in (spec0 or {}).get("surfaces", []) if x.get("steamKey") == MAIN), {})
+                    r["main"] = {"mosaic": len(main0.get("mosaic") or []) if "mosaic" in main0 else None,
+                                 "popped": len(main0.get("popped") or []), "coverDz": main0.get("coverDz")}
+                    try:
+                        res["shots"].append(grab(out, f"{tag}_0_base"))
+                        r["setWindow"] = await q.js(f"JSON.stringify({G}.windowState({{dim: 0.35}}))")
+                        await asyncio.sleep(1.3)
+                        r["afterWindow"] = (await q.js(STATUS))["window"]
+                        res["shots"].append(grab(out, f"{tag}_1_t1dim"))
+                        # the daemon's own spec has no `window`, which (R1 M1) is the window at rest: a
+                        # spec the daemon sends meanwhile restores it, so record the state after each grab
+                        r["windowAtShot1"] = (await q.js(STATUS))["window"]
+                        if isinstance(spec0, dict) and spec0.get("surfaces"):
+                            spec1 = dict(spec0, window={"dim": 0.35},
+                                         surfaces=[dict(x, dim=0.35) if x.get("steamKey") == MAIN else x
+                                                   for x in spec0["surfaces"]])
+                            await q.js(f"{G}.update({json.dumps(spec1)}), 0")
+                            await asyncio.sleep(1.3)
+                            dump = await q.js(f"JSON.stringify({G}.dump().map(d=>[d.kind,d.dimmed,d.parent]))")
+                            r["mainDimWrapped"] = {k: [sum(1 for d in dump if d[0] == k and d[1] and d[2] == MAIN),
+                                                       sum(1 for d in dump if d[0] == k and d[2] == MAIN)]
+                                                   for k in ("cover", "base", "pop", "slab")}
+                            r["routeStill"] = await steam_js("L.route()")
+                            res["shots"].append(grab(out, f"{tag}_2_t1dim_maindim"))
+                            r["windowAtShot2"] = (await q.js(STATUS))["window"]
+                    finally:
+                        if isinstance(spec0, dict):
+                            await q.js(f"{G} && {G}.update({json.dumps(spec0)}), 0")
+                        await q.js(f"{G} && {G}.windowState({{dim: 1, recede: 0}}), 0")
+                        await asyncio.sleep(1.3)
+                        r["restored"] = (await q.js(STATUS))["window"]
+                        res["shots"].append(grab(out, f"{tag}_3_restored"))
+            finally:
+                if route0:
+                    await steam_js(f"L.nav({json.dumps(route0)})")
+    return res
+
+
+POPUP_ROUTE = "/library/tab/AllGames"
+DUMP_POP = ("JSON.stringify(__LGS_SG.dump().filter(d=>d.parent!=='" + MAIN + "').map(d=>({k:d.k,kind:d.kind,anchor:d.anchor,"
+            "uv:d.uv,px:d.px,curv:d.curv||null,z:d.z})))")
+
+
+PLUS_OPEN = ("(async()=>{const W=ms=>new Promise(r=>setTimeout(r,ms));for(const p of SteamUIStore.WindowStore."
+             "VRGamepadUIMainWindowInstance.VRDashboardBarPopups)p.closePopup();await W(400);const el=L.q('bar','%{AddWindowButton}');"
+             "L.click('bar','%{AddWindowButton}');el.dispatchEvent(new(L.surface('bar').MouseEvent)('mouseenter'));await W(1200);return 1})()")
+PLUS_CLOSE = ("(async()=>{for(const p of SteamUIStore.WindowStore.VRGamepadUIMainWindowInstance.VRDashboardBarPopups)p.closePopup();"
+              "try{L.unhover&&L.unhover()}catch(e){};await new Promise(r=>setTimeout(r,500));return 1})()")
+
+
+async def popup(out):
+    """R1 B1 in native mode, the reviewer's A/B with the daemon's own instance:
+    frame A as the daemon built it, frame B with one popup surface taken out of
+    the daemon's spec (Steam's real panel alone), frame C restored. Before the
+    fix A and C showed the frame menu (tab bar) twice; now A, B and C must show
+    one panel, in the same place. The parent is the frame menu when the daemon
+    builds it (P6 made it a laser-only surface: only in Steam's laser mode,
+    MODE=laser), else the "+" bar popup (asymmetric too: v 0.36..1), opened
+    as inventory/bar.md 0.3 does and closed again. Also records every popup
+    item's anchor and curvature origin. Frames show the room: look, then
+    delete on both machines."""
+    os.makedirs(out, exist_ok=True)
+    tg = next(x for x in lgs_vr.targets() if x["title"] == "systemui")
+    res = {"test": "SG-POPUP-N", "shots": []}
+
+    def pick(surfs):
+        return next((k for k in surfs if k and ".frame.menu." in k), None) or \
+            next((k for k in surfs if k and ".barpopup." in k), None)
+
+    async with lgs.Session(tg["webSocketDebuggerUrl"]) as s:
+        q = Sys(s)
+        async with ALock():
+            route0 = await steam_js("L.route()")
+            res["route0"] = route0
+            res["mode"] = lab.STEP.get("mode")
+            opened = False
+            try:
+                await steam_js(f"L.nav({json.dumps(POPUP_ROUTE)})")
+                await asyncio.sleep(3.0)
+                res["ready"] = await q.ready()
+                surfs = []
+                for phase in ("menu", "plus"):
+                    if phase == "plus":
+                        res["plus"] = await steam_js(PLUS_OPEN)
+                        opened = True
+                    t0 = time.time()
+                    while True:
+                        spec0 = await q.js(f"JSON.stringify({G}.spec())")
+                        surfs = [x.get("steamKey") for x in (spec0 or {}).get("surfaces", [])]
+                        if pick(surfs) or time.time() - t0 > 10:
+                            break
+                        await asyncio.sleep(0.5)
+                    if pick(surfs):
+                        break
+                await asyncio.sleep(1.5)        # its nodes pushed
+                spec0 = await q.js(f"JSON.stringify({G}.spec())")
+                surfs = [x.get("steamKey") for x in (spec0 or {}).get("surfaces", [])]
+                res["surfaces"] = surfs
+                res["parents"] = (await q.js(f"JSON.stringify({G}.status().parents)"))
+                res["items"] = await q.js(DUMP_POP)
+                fm = pick(surfs)
+                res["target"] = fm
+                if not fm:
+                    res["blocked"] = "no frame-menu or bar-popup surface in the daemon's spec"
+                    return res
+                try:
+                    res["shots"].append(grab(out, "pop_A_built"))
+                    spec1 = dict(spec0, surfaces=[x for x in spec0["surfaces"] if x.get("steamKey") != fm])
+                    await q.js(f"{G}.update({json.dumps(spec1)}), 0")
+                    await asyncio.sleep(1.0)
+                    res["itemsB"] = len([d for d in (await q.js(DUMP_POP)) if d["k"].startswith(fm + "#")])
+                    res["shots"].append(grab(out, "pop_B_removed"))
+                finally:
+                    await q.js(f"{G} && {G}.update({json.dumps(spec0)}), 0")
+                await asyncio.sleep(1.0)
+                res["itemsC"] = len([d for d in (await q.js(DUMP_POP)) if d["k"].startswith(fm + "#")])
+                res["shots"].append(grab(out, "pop_C_restored"))
+            finally:
+                if opened:
+                    res["closed"] = await steam_js(PLUS_CLOSE)
+                if route0:
+                    await steam_js(f"L.nav({json.dumps(route0)})")
+    fmi = [d for d in res.get("items") or [] if d["k"].startswith((res.get("target") or "?") + "#")]
+    P = (res.get("parents") or {}).get(res.get("target") or "", {})
+    uv = P.get("uv") or [0, 0, 1, 1]
+    want = [(uv[0] + uv[2]) / 2, (uv[1] + uv[3]) / 2]
+    res["targetItems"] = fmi
+    # the cover spans the displayed range: its anchor is the displayed centre (texture uv)
+    cov = [d for d in fmi if d["kind"] == "cover"]
+    res["anchorOk"] = bool(cov) and abs(cov[0]["anchor"][0] - want[0]) < 0.005 and abs(cov[0]["anchor"][1] - want[1]) < 0.005
+    res["curv"] = cov[0].get("curv") if cov else None
+    return res
+
+
+RATE = ("JSON.stringify((()=>{const s=__LGS_SG.status();return {pushes:s.pushes,frames:s.anim.frames,finals:s.anim.finals,"
+        "items:s.items,seq:s.specSeq,anim:s.anim.active}})())")
+
+
+async def rate():
+    """Card item 1 with the real daemon: pushes per second at rest, while the
+    gamepad moves the focus over posters (pops lift and settle), and after."""
+    tg = next(x for x in lgs_vr.targets() if x["title"] == "systemui")
+    res = {"test": "SG-RATE"}
+    async with lgs.Session(tg["webSocketDebuggerUrl"]) as s:
+        q = Sys(s)
+        async with ALock():
+            route0 = await steam_js("L.route()")
+            try:
+                await steam_js("L.nav('/library/tab/AllGames')")
+                await asyncio.sleep(3.0)
+                res["ready"] = await q.ready()
+
+                async def sample(secs, during=None):
+                    a = await q.js(RATE)
+                    t0 = time.time()
+                    per, last = [], a
+                    task = asyncio.ensure_future(during()) if during else None
+                    while time.time() - t0 < secs:
+                        await asyncio.sleep(1.0)
+                        b = await q.js(RATE)
+                        per.append(b["pushes"] - last["pushes"])
+                        last = b
+                    if task:
+                        await task
+                    return {"perSecond": per, "max": max(per) if per else None, "frames": last["frames"] - a["frames"],
+                            "finals": last["finals"] - a["finals"], "specs": (last["seq"] or 0) - (a["seq"] or 0)}
+
+                res["rest"] = await sample(5)
+
+                async def moves():
+                    await steam_js("(async()=>{L.root(); for (let i = 0; i < 6; i++) { await L.pad(i % 2 ? 'left' : 'right'); await L.sleep(500); } return 1})()")
+                res["moving"] = await sample(5, moves)
+                res["after"] = await sample(5)
+            finally:
+                if route0:
+                    await steam_js(f"L.nav({json.dumps(route0)})")
+    res["pass"] = bool(res.get("rest")) and res["rest"]["max"] <= 15 and res["moving"]["max"] <= 60 and \
+        res["after"]["max"] <= 15
     return res
 
 
@@ -136,9 +357,9 @@ async def sg6():
             return res
         samples = []
         off = back = None
-        with lab.Lock(both=True):
+        async with ALock():
             st0 = await q.js(STATUS)
-            os.kill(pid, signal.SIGSTOP)
+            stop_daemon(pid, 15)
             t_stop = time.time()
             try:
                 res["atStop"] = {"lastContactMsAgo": st0.get("lastContactMsAgo"), "items": st0.get("items")}
@@ -188,7 +409,7 @@ async def css_daemon():
         pid = daemon_pid()
         lab.STEP["flags"].clear()
         lab.STEP["flags"]["tabBarDepth"] = True
-        with lab.Lock(both=True):
+        async with ALock():
             t0 = time.time()
             on = None
             while time.time() - t0 < 15:
@@ -199,7 +420,7 @@ async def css_daemon():
                 await asyncio.sleep(0.2)
             res["applied"] = on
             if on and pid > 1:
-                os.kill(pid, signal.SIGSTOP)
+                stop_daemon(pid, 15)
                 t_stop = time.time()
                 off = None
                 try:
@@ -244,16 +465,27 @@ def main():
         print("@@p7 " + json.dumps(asyncio.run(css_daemon())), flush=True)
         return
 
-    def step(argv):
+    # several tests in one native session: sg_native.py popup,sg5,sg6 OUTDIR
+    def step(argv, **kw):
         if argv and argv[0] == "p7":
-            r = asyncio.run(sg5(out) if test == "sg5" else sg6())
-            results.append(r)
-            print("@@p7 " + json.dumps(r), flush=True)
+            # the session's step options, and MODE=laser|pad for every test: Steam's laser mode makes the
+            # reporter report laser-only surfaces (the frame menu, P6's `laserOnly`), so the daemon builds them
+            lab_p2cmd.set_step(kw.get("base"))
+            if os.environ.get("MODE") in ("laser", "pad"):
+                lab.STEP["mode"] = os.environ["MODE"]
+            for name in test.split(","):
+                try:
+                    r = asyncio.run({"sg5": lambda: sg5(out), "sg6": sg6, "rate": rate, "popup": lambda: popup(out)}[name]())
+                except (Exception, SystemExit) as e:  # noqa: BLE001 - a busy lab lock exits; the next test still runs
+                    r = {"test": name, "pass": False, "error": repr(e)}
+                results.append(r)
+                print("@@p7 " + json.dumps(r), flush=True)
             return 0
         return 0
 
     lab_p2cmd.run_step = step
-    code = lab_p2cmd.native_session(["--step", "p7"])
+    # NWAIT: seconds to queue for native.lock (other agents' sessions; default 1800)
+    code = lab_p2cmd.native_session(["--wait", os.environ.get("NWAIT", "1800"), "--step", "p7"])
     print(json.dumps({"nativeSession": code, "tests": len(results)}), flush=True)
 
 

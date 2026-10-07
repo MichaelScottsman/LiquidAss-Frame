@@ -13,6 +13,7 @@
 
   const LAB = '/library/lgs/lab';
   const SELF = '/library/lgs/lab/selftest';
+  const RAW = '/library/lgs/lab/raw';
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const BTN = { A: 1, B: 2, X: 3, Y: 4, MENU: 14, UP: 9, DOWN: 10, LEFT: 11, RIGHT: 12 };
 
@@ -35,7 +36,8 @@
 `;
 
   function newState() {
-    return { fixtures: new Map(), events: [], listeners: new Set(), handles: [], labRoute: null, labEl: null, menu: null, spies: [] };
+    return { fixtures: new Map(), events: [], listeners: new Set(), handles: [], labRoute: null, labEl: null, labSeq: 0, labError: null,
+      rawRoute: null, rawEl: null, menu: null, spies: [] };
   }
   function emit(type, item) {
     const e = { t: Date.now(), type, kind: item && item.kind, id: item && item.id, name: item && item.name };
@@ -59,6 +61,16 @@
       r.c.DialogButtonPrimary ? r.jsx(r.c.DialogButtonPrimary, { onClick: noop, children: 'Primary' }, 'b') : null,
     ] }));
     S.fixtures.set('fields', (r) => r.jsx(FieldsFixture, {}));
+    // A component that throws while rendering (ui.ErrorBoundary, lab.open() error reporting, RX-FAIL).
+    S.fixtures.set('boom', (r) => r.jsx(BoomFixture, {}));
+  }
+  function BoomFixture() { throw new Error('react-lab: forced render error (fixture boom)'); }
+  // A lab click: the events P10's L.click dispatches (untrusted pointer and mouse events; the 'click'
+  // itself is a MouseEvent).
+  function labClick(el) {
+    const w = react.nav.win(), r = el.getBoundingClientRect();
+    const o = { bubbles: true, cancelable: true, view: w, clientX: r.x + r.width / 2, clientY: r.y + r.height / 2, button: 0 };
+    for (const t of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click']) el.dispatchEvent(new (t.startsWith('pointer') ? w.PointerEvent : w.MouseEvent)(t, Object.assign({ pointerType: 'mouse', isPrimary: true }, o)));
   }
   function FieldsFixture() {
     const R = react.React;
@@ -72,40 +84,68 @@
   }
 
   // ------------------------------------------------------------ lab route
+  // The fixture renders inside its own ui.ErrorBoundary, keyed per open() so a new fixture never inherits
+  // an earlier one's error state; the boundary reports what it caught (contract §9: {mounted, error}).
   function LabPage() {
     const el = S && S.labEl;
+    const seq = S ? S.labSeq : 0;
     return react.jsx(react.ui.Page, {
       name: 'lab', className: 'lgsx-lab',
       onCancel: () => react.nav.back(),
-      children: [react.ui.style(CSS), el ? react.jsx(react.ui.ErrorBoundary, { name: 'lab fixture', key: 'f', children: el }) : null],
+      children: [react.ui.style(CSS), el ? react.jsx(react.ui.ErrorBoundary, {
+        name: 'lab fixture', key: 'f' + seq,
+        onError: (e) => { if (S && S.labSeq === seq) S.labError = String((e && e.message) || e); },
+        children: el,
+      }) : null],
     });
+  }
+  function fixtureElement(what, opts) {
+    if (typeof what !== 'string') return what;
+    const f = S.fixtures.get(what);
+    if (!f) throw new Error('react-lab: no fixture ' + what);
+    return f(react, (opts && opts.props) || {});
   }
   async function open(what, opts) {
     opts = opts || {};
-    let el = what;
-    if (typeof what === 'string') {
-      const f = S.fixtures.get(what);
-      if (!f) throw new Error('react-lab: no fixture ' + what);
-      el = f(react, opts.props || {});
-    }
+    const el = fixtureElement(what, opts);
+    S.labSeq++;
+    S.labError = null;
     S.labEl = el;
     if (!S.labRoute) S.labRoute = react.routes.add(LAB, LabPage, { exact: true, owner: 'react-lab' });
-    react.nav.go(LAB);
+    if (route() === LAB) react.nav.go(LAB, true); else react.nav.go(LAB);
     let mounted = false;
     for (let i = 0; i < 20 && !mounted; i++) { await sleep(100); mounted = !!doc().querySelector('.lgsx-lab'); }
     await sleep(300);
-    return { mounted, route: route(), nodes: mounted ? doc().querySelector('.lgsx-lab').querySelectorAll('*').length : 0 };
+    const lab = doc().querySelector('.lgsx-lab');
+    // The fixture's boundary caught: not mounted, with the error (C7 labels such fixtures "unverified").
+    const failNode = !!(lab && lab.querySelector('.lgs-react-fail'));
+    const error = S.labError || (failNode ? 'fixture render failed (error page shown)' : null);
+    return { mounted: mounted && !error, error, route: route(), nodes: lab ? lab.querySelectorAll('*').length : 0 };
+  }
+  // A fixture as the WHOLE page of a real added route (no lab wrapper around it), at /library/lgs/lab/raw:
+  // what a package's routes.add() page gets, e.g. ui.ErrorBoundary's error page (RX-FAIL, shots).
+  async function openRaw(what, opts) {
+    opts = opts || {};
+    const el = fixtureElement(what, opts);
+    S.rawEl = el;
+    if (!S.rawRoute) S.rawRoute = react.routes.add(RAW, function LabRaw() { return S && S.rawEl ? S.rawEl : null; }, { exact: true, owner: 'react-lab' });
+    if (route() === RAW) react.nav.go(RAW, true); else react.nav.go(RAW);
+    await sleep(opts.settleMs || 1200);
+    return { route: route(), failPage: !!doc().querySelector('.lgs-react-fail') };
   }
   async function close() {
-    if (route() === LAB) {
-      react.nav.back();
-      await sleep(900);
-      if (route() === LAB) { react.nav.go('/library/home', true); await sleep(600); }
+    for (const p of [LAB, RAW]) {
+      if (route() === p) {
+        react.nav.back();
+        await sleep(900);
+        if (route() === p) { react.nav.go('/library/home', true); await sleep(600); }
+      }
     }
     if (S.labRoute) { S.labRoute.remove(); S.labRoute = null; }
-    S.labEl = null;
+    if (S.rawRoute) { S.rawRoute.remove(); S.rawRoute = null; }
+    S.labEl = null; S.rawEl = null; S.labError = null;
     await sleep(300);
-    return { routeLeft: route() !== LAB, route: route(), nodesLeft: doc().querySelectorAll('.lgsx-lab').length, routes: react.routes.list() };
+    return { routeLeft: route() !== LAB && route() !== RAW, route: route(), nodesLeft: doc().querySelectorAll('.lgsx-lab').length, routes: react.routes.list() };
   }
 
   // ------------------------------------------------------------ RX-1: the SR §6 selftest, ported
@@ -162,9 +202,11 @@
     if (f.closest('.BasicUIContextMenu') || f.closest('[role=menu]')) return 'menu:' + (f.innerText || '').trim().split('\n')[0];
     if (f.closest('.lgsx-toggle')) return 'toggle';
     if (f.closest('.lgsx-root')) return f.classList.contains('lgsx-back') || f.closest('.lgsx-back') ? 'back-button' : 'page';
+    // ui.ErrorBoundary's error page, only on the lab's own raw route (RX-FAIL).
+    if (f.closest('.lgs-react-fail') && route() === RAW) return 'fail-page';
     return 'outside';
   }
-  const inPage = (w) => /^(game|program):/.test(w) || ['toggle', 'back-button', 'page'].includes(w);
+  const inPage = (w) => /^(game|program):/.test(w) || ['toggle', 'back-button', 'page', 'fail-page'].includes(w);
   // A, B and MENU only while controller focus is inside our page or our own menu, and main is the
   // active focus context (never on Steam's own controls; never-list).
   function press(name) {
@@ -214,11 +256,7 @@
       if (!/^(game|program):/.test(where())) rep.steps.push('NOTE focus not on a tile after refocus: ' + where() + ' (' + navState() + ')');
       return where();
     };
-    const click = (el) => {
-      const w = react.nav.win(), r = el.getBoundingClientRect();
-      const o = { bubbles: true, cancelable: true, view: w, clientX: r.x + r.width / 2, clientY: r.y + r.height / 2, button: 0 };
-      for (const t of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click']) el.dispatchEvent(new (t.startsWith('pointer') ? w.PointerEvent : w.MouseEvent)(t, Object.assign({ pointerType: 'mouse', isPrimary: true }, o)));
-    };
+    const click = labClick;
     const since = (n) => S.events.slice(n).map((e) => e.type + (e.id ? ' ' + e.id : ''));
     if (route() !== SELF) { react.nav.go(SELF); await sleep(1600); }
     check('route', route(), SELF);
@@ -323,6 +361,76 @@
       const m = new RegExp('[{,]' + key.replace(/\$/g, '\\$') + ':\\(\\)=>([A-Za-z_$][\\w$]*)').exec(src);
       return { key, local: m ? m[1] : null, src };
     } catch (e) { return { key, local: null, src: '', error: String(e) }; }
+  }
+
+  // RX-7, gamepad path (review R1 M1): the A button on Steam's DialogButton and on a ui.menu item reaches
+  // the action as Steam's own click (HTMLElement.click(): an untrusted PointerEvent 'click', pointerType
+  // ''), which must NOT count as a synthetic lab click, while a lab MouseEvent click on the same button
+  // still does. Test mode stays on through the whole phase (actions.test(true) and the action logger), and
+  // spies make sure nothing reaches Steam's launch calls; the actions only log.
+  async function rx7Gamepad(out, pass, A) {
+    const P = '/library/lgs/lab/rx7';
+    const seen = {};
+    let phase = 'buttonA';
+    const evInfo = (e) => {
+      const ne = e && (e.nativeEvent || e);
+      return ne && typeof ne === 'object' ? { type: ne.type, ctor: ne.constructor && ne.constructor.name, trusted: ne.isTrusted, pointerType: ne.pointerType, pointerId: ne.pointerId } : null;
+    };
+    const record = (key, e) => { seen[key] = { ev: evInfo(e), reasons: A.mode(e).reasons, res: A.launchNonSteam('/usr/bin/true', e) }; };
+    const synthetic = (x) => !!x && x.reasons.includes('synthetic pointer event');
+    const c = react.c;
+    const Page = () => react.jsx(react.ui.Page, { name: 'rx7', className: 'lgsx-root', children: [
+      react.ui.style(CSS),
+      react.jsx('div', { className: 'lgsx-title', children: 'RX-7 gamepad path' }, 'h'),
+      react.jsx(c.DialogButton, { className: 'lgsx-rx7', autoFocus: true, onClick: (e) => record(phase, e), children: 'Action (logged only)' }, 'b'),
+    ] });
+    const routeBefore = route();
+    let h = null;
+    const calls = [];
+    try {
+      h = react.routes.add(P, Page, { exact: true, owner: 'react-lab' });
+      S.handles.push(h);
+      react.nav.go(P); await sleep(1500);
+      react.nav.focusRoot(); await sleep(500);
+      const btn = () => doc().querySelector('.lgsx-rx7');
+      for (let i = 0; i < 4 && !(btn() && btn().classList.contains('gpfocus')); i++) { FNC().DispatchVirtualButtonClick(BTN.DOWN); await sleep(300); }
+      pass(!!btn() && btn().classList.contains('gpfocus'), 'gamepad focus on the lab DialogButton (' + where() + ')');
+      const M = react.M, inst = react.nav.inst();
+      spy(window.SteamClient.Apps, 'LaunchNonSteamApp', 'LaunchNonSteamApp', calls);
+      spy(window.SteamClient.Apps, 'RunGame', 'RunGame', calls);
+      spy(M.VRMessages && M.VRMessages.SteamVR, 'DashboardDesktopWindowClicked', 'DashboardDesktopWindowClicked', calls);
+      spy(inst, 'Navigate', 'Navigate', calls);
+      phase = 'buttonA';
+      press('A'); await sleep(500);
+      const b = seen.buttonA;
+      pass(!!b && !synthetic(b) && b.res.mode === 'logged',
+        'A on a DialogButton reaches the action as the gamepad path, not a lab click: ' + JSON.stringify(b && b.ev) + ', reasons [' + (b ? b.reasons.join('; ') : 'onClick not called') + '], ' + (b && b.res.mode));
+      // A ui.menu item (Steam's MenuItem): onSelected on A.
+      S.menu = react.ui.menu([{ label: 'Menu action (logged only)', onSelected: (e) => record('menuA', e) }], btn(), { label: 'RX-7' });
+      await sleep(900);
+      const wm = where();
+      pass(/^menu:Menu action/.test(wm), 'gamepad focus in the ui.menu sheet: ' + wm);
+      if (/^menu:/.test(wm)) { press('A'); await sleep(700); }
+      const m = seen.menuA;
+      pass(!!m && !synthetic(m) && m.res.mode === 'logged',
+        'A on a ui.menu item reaches the action as the gamepad path: ' + JSON.stringify(m && m.ev) + ', reasons [' + (m ? m.reasons.join('; ') : 'onSelected not called') + '], ' + (m && m.res.mode));
+      if (doc().querySelector('.BasicUIContextMenu') && S.menu) { try { S.menu.Hide(); } catch (_) { /* closed */ } await sleep(400); }
+      S.menu = null;
+      // A lab click (MouseEvent) on the same button is still a synthetic pointer event.
+      phase = 'labClick';
+      if (btn()) labClick(btn());
+      await sleep(300);
+      const k = seen.labClick;
+      pass(!!k && synthetic(k) && k.res.mode === 'logged', 'a lab MouseEvent click is still a synthetic pointer event: ' + JSON.stringify(k && k.ev) + ', reasons [' + (k ? k.reasons.join('; ') : 'onClick not called') + ']');
+      pass(calls.length === 0, 'gamepad phase: no Steam launch or navigation call reached a spy: ' + JSON.stringify(calls));
+      out.gamepad = seen;
+    } finally {
+      unspy();
+      if (S.menu) { try { S.menu.Hide(); } catch (_) { /* closed */ } S.menu = null; }
+      if (route() === P) { react.nav.back(); await sleep(900); }
+      if (route() === P) { react.nav.go(routeBefore, true); await sleep(600); }
+      if (h) { h.remove(); S.handles = S.handles.filter((x) => x !== h); }
+    }
   }
 
   // A main-window snapshot once gamepad focus has settled (L.snap), with where focus is. Steam's footer
@@ -438,7 +546,8 @@
         react.nav.focusRoot();
         await sleep(500);
         let before = focusKey();
-        if (!before) { FNC().DispatchVirtualButtonClick(BTN.DOWN); await sleep(400); before = focusKey(); }
+        // Start on a poster (focus may land on the library's tab row first): D-pad down into the grid.
+        for (let i = 0; i < 3 && !(before && before.app != null); i++) { FNC().DispatchVirtualButtonClick(BTN.DOWN); await sleep(400); before = focusKey(); }
         out.focusBefore = before && before.text;
         const n0 = routeNodes();
         out.nodesBefore = n0;
@@ -484,9 +593,11 @@
         }
         pass(cancelled === 1 && !d.querySelector('.lgsx-modal'), 'B closes it (onCancel ' + cancelled + ', modal ' + (d.querySelector('.lgsx-modal') ? 'still open' : 'gone') + ')');
         let after = focusKey();
+        out.restoredByItself = !!after;
         if (!after) { react.nav.focusRoot(); await sleep(500); after = focusKey(); out.steps.push('NOTE focus parked after close; FocusApplicationRoot() (' + navState() + ')'); }
         out.focusAfter = after && after.text;
-        pass(!!(before && after && (after.el === before.el || (after.text && after.text === before.text))), 'focus back on the same poster: "' + (before && before.text) + '" -> "' + (after && after.text) + '"');
+        pass(!!(before && after && before.app != null && (after.el === before.el || (after.text && after.text === before.text))), 'focus back on the same poster: "' + (before && before.text) + '" -> "' + (after && after.text) + '"');
+        pass(out.restoredByItself, 'focus came back by itself within 800 ms (ui.modal gives it back, D-P2-7), no FocusApplicationRoot() needed');
         pass(routeNodes() === n0, 'route DOM node count after close: ' + routeNodes());
       } catch (e) {
         out.ok = false; out.steps.push('ERROR ' + ((e && e.message) || e));
@@ -650,10 +761,15 @@
           pass(['launchNonSteam', 'primary', 'desktopWindow', 'navigate'].every((f) => added.includes(f)), 'runtime action log has every call: ' + added.join(', '));
         }
         out.reactLog = A.log.slice(-6).map((e) => e.fn + ' ' + e.mode);
+        // The gamepad path needs navigation into a lab page: the Navigate spy goes first, and the phase
+        // installs its own spies once it is there.
+        unspy();
+        await rx7Gamepad(out, pass, A);
       } catch (e) {
         out.ok = false; out.steps.push('ERROR ' + ((e && e.message) || e));
       } finally {
         unspy();
+        if (S.menu) { try { S.menu.Hide(); } catch (_) { /* closed */ } S.menu = null; }
         A.test(false);
         // Give the step's action logger back as it was (P10 turns it on for every locked step).
         try { if (t && t.enable && !loggerWasOn) t.enable(false); } catch (_) { /* shim */ }
@@ -671,10 +787,17 @@
       const routeBefore = route();
       const home = react.Routes.Library.Home();
       const count = () => d.querySelectorAll('*').length;
+      // Steam's route transition keeps the old and new page in the DOM for a moment (Home 802 + AllGames 843
+      // = 1645 nodes at 13:01): measure only once the count has held for 600 ms (at most 6 s).
+      const stableCount = async () => {
+        let last = -1, same = 0;
+        for (let i = 0; i < 30; i++) { const n = count(); if (n === last) { if (++same >= 3) return n; } else { same = 0; last = n; } await sleep(200); }
+        return last;
+      };
       const handles = [];
       try {
         react.nav.go(home, true); await sleep(1500);
-        const n0 = count();
+        const n0 = await stableCount();
         let calls = 0;
         handles.push(react.routes.override(home, (steam, ctx) => { calls++; return react.jsx('div', { className: 'lgsx-ov', 'data-path': ctx.match && ctx.match.path, children: steam }); }));
         await sleep(1200);
@@ -682,13 +805,13 @@
         pass(!!ov && calls > 0, 'override renders at ' + home + ' (' + calls + ' calls, match ' + (ov && ov.getAttribute('data-path')) + ')');
         pass(!!ov && ov.querySelectorAll('*').length > 100, 'Steam Home is kept inside it: ' + (ov ? ov.querySelectorAll('*').length : 0) + ' nodes');
         handles.pop().remove(); await sleep(1200);
-        const n1 = count();
+        const n1 = await stableCount();
         pass(!d.querySelector('.lgsx-ov') && Math.abs(n1 - n0) <= Math.max(10, n0 * 0.05), 'removed: Steam Home back, ' + n0 + ' -> ' + n1 + ' nodes');
         // a throwing override degrades to Steam's own page
         function Boom() { throw new Error('lab: forced render error'); }
         handles.push(react.routes.override(home, () => react.jsx(Boom, {})));
         await sleep(1200);
-        const n2 = count();
+        const n2 = await stableCount();
         pass(Math.abs(n2 - n0) <= Math.max(10, n0 * 0.05), 'a throwing override shows Steam Home instead: ' + n2 + ' nodes');
         handles.pop().remove(); await sleep(900);
         // function children (Steam's achievements route): Steam's own children still get the route props
@@ -827,7 +950,10 @@
         pass(!!doc().querySelector('.lgsx-rm') && s1.patches.length === 2 && s1.overrides.length === 1 && M.jsx.jsx !== jsx0, 'all live: route rendered, 2 patches, 1 override, element factories hooked');
         const rep = react.test.cycle();
         out.report = rep;
-        await sleep(1200);
+        // Steam's route transition keeps the exiting page in the DOM for a moment (over 1.2 s under load,
+        // 13:44): wait for it to go, at most 4 s.
+        for (let i = 0; i < 20 && doc().querySelector('.lgsx-rm'); i++) await sleep(200);
+        await sleep(400);
         pass(rep.patchedLeft === 0, 'removal report: patchedLeft ' + rep.patchedLeft + ', restored ' + rep.restored + ', route ' + rep.routeBefore + ' -> ' + rep.routeAfter);
         pass(M.jsx.jsx === jsx0 && M.React.createElement === ce0, 'Steam jsx and createElement are the originals again');
         pass(rep.routeAfter !== P && !doc().querySelector('.lgsx-rm'), 'our route was left: ' + route());
@@ -897,6 +1023,193 @@
       out.routeAfter = route();
       return out;
     },
+
+    // RX-OPT (review R1 M2, m5): an optional patch.byProps that is the module's ONLY registration attaches
+    // once its target mounts (the watchers count a pending handle; the late-attach series runs after the
+    // navigation commits), for appButtons (forwardRef, game page) and pagedSettings (bare function,
+    // Settings). A second layer on appButtons matches although the first layer replaced its render.
+    async 'RX-OPT'() {
+      const out = { ok: true, steps: [] };
+      const pass = (c, msg) => { out.steps.push((c ? 'PASS ' : 'FAIL ') + msg); if (!c) out.ok = false; };
+      const st0 = react.status();
+      if (st0.routes.length || st0.overrides.length || st0.patches.length) return { ok: false, blocked: 'react has live routes or patches from other modules; RX-OPT needs the optional patch to be the only registration', status: st0 };
+      const g = react.data.installedGames({ limit: 1 })[0];
+      if (!g) return { ok: false, blocked: 'no installed game for the game page' };
+      const routeBefore = route();
+      const page = '/library/app/' + g.appid;
+      const sys = react.Routes.Settings.System();
+      const pl = (id) => react.status().patches.find((p) => p.id === id) || {};
+      // Which runtime and module instance the test ran in (a reload or a module re-install by another agent
+      // during the step kills the module's scoped timers).
+      const rtState = () => { try { const g = window.__LGS_RT, s = g.status({ log: 80 }); const m = (s.modules || []).find((x) => x.name === 'react') || {};
+        return { since: s.since, runtime: s.runtime, react: m.state, warn: (s.log || []).filter((e) => e.mod === 'react' && e.level !== 'info').slice(-3).map((e) => e.msg) }; } catch (e) { return String(e); } };
+      out.runtimeAtStart = rtState();
+      let h1 = null, h2 = null, h3 = null, c1 = 0, c2 = 0, c3 = 0;
+      try {
+        react.nav.go('/library/home'); await sleep(1300);
+        h1 = react.patch.byProps('p2.opt.app', react.patch.targets.appButtons, (o) => function rxOptApp(p, r) { c1++; return o.call(this, p, r); }, { optional: true });
+        const s1 = react.status();
+        pass(h1.count === 0 && pl('p2.opt.app').pending === true && s1.watching === true,
+          'optional appButtons registered on /library/home as the only registration: count ' + h1.count + ', pending ' + pl('p2.opt.app').pending + ', watching ' + s1.watching + ', late timers ' + s1.lateTimers);
+        await sleep(3000);
+        const s1b = react.status();
+        pass(h1.count === 0 && s1b.watching === true && s1b.lateTimers === 0, 'nothing to attach on Home: still pending and watching after the registration series (late timers ' + s1b.lateTimers + ')');
+        react.nav.go(page); await sleep(3000);
+        pass(h1.count === 1 && pl('p2.opt.app').pending === false, 'attached after navigating to ' + page + ': count ' + h1.count + ' ' + h1.kinds.join() + ', attached by "' + pl('p2.opt.app').late + '"');
+        pass(c1 > 0, 'patched render ran: ' + c1 + ' calls');
+        // A second layer on the same component: appButtons reads the row's source through our trampoline.
+        let threw = null;
+        try { h2 = react.patch.byProps('p2.opt.app2', react.patch.targets.appButtons, (o) => function rxOptApp2(p, r) { c2++; return o.call(this, p, r); }); } catch (e) { threw = e.message; }
+        pass(!!h2 && h2.count === 1, 'a second layer on appButtons matches the patched component: ' + (h2 ? h2.count + ' ' + h2.kinds.join() : threw));
+        if (h2) {
+          const a1 = c1;
+          react.nav.go('/library/home'); await sleep(1200);
+          react.nav.go(page); await sleep(2000);
+          pass(c2 > 0 && c1 > a1, 'both layers run after a remount: layer 1 +' + (c1 - a1) + ', layer 2 ' + c2);
+          h2.remove(); h2 = null;
+        }
+        h1.remove(); h1 = null;
+        const s2 = react.status();
+        pass(s2.patchedLeft === 0 && s2.watching === false && s2.lateTimers === 0, 'removed: patchedLeft ' + s2.patchedLeft + ', watching ' + s2.watching + ', late timers ' + s2.lateTimers);
+        // pagedSettings (a bare function): registered on Home, attached on entering Settings.
+        react.nav.go('/library/home'); await sleep(1300);
+        h3 = react.patch.byProps('p2.opt.paged', react.patch.targets.pagedSettings, (o) => function rxOptPaged(p, r) { c3++; return o.call(this, p, r); }, { optional: true });
+        pass(h3.count === 0 && react.status().watching === true, 'optional pagedSettings registered on Home (only registration): count ' + h3.count + ', watching ' + react.status().watching);
+        react.nav.go(sys); await sleep(2500);
+        pass(h3.count === 1 && h3.kinds[0] === 'fn', 'attached after entering ' + sys + ': count ' + h3.count + ' ' + h3.kinds.join() + ', attached by "' + pl('p2.opt.paged').late + '"');
+        if (!c3) {
+          // A bare function shows the patch at its next render: move to another Settings page (plain navigation).
+          const f = react.fiber.findAll(react.patch.targets.pagedSettings, { max: 1 })[0];
+          const other = f ? (f.memoizedProps.pages || []).find((pg) => pg && pg.visible !== false && typeof pg.route === 'string' && pg.route !== sys) : null;
+          if (other) { react.nav.go(other.route, true); await sleep(1500); out.steps.push('NOTE moved to ' + other.route + ' for a render'); }
+        }
+        pass(c3 > 0, 'patched PagedSettings render ran: ' + c3 + ' calls');
+        h3.remove(); h3 = null;
+        const s3 = react.status();
+        pass(s3.patchedLeft === 0 && s3.watching === false && !s3.jsxHooked, 'removed: patchedLeft ' + s3.patchedLeft + ', watching ' + s3.watching + ', element factories hooked ' + s3.jsxHooked);
+      } catch (e) {
+        out.ok = false; out.steps.push('ERROR ' + ((e && e.message) || e));
+      } finally {
+        for (const h of [h2, h1, h3]) if (h) { try { h.remove(); } catch (_) { /* gone */ } }
+        if (route() !== routeBefore) { react.nav.go(routeBefore, true); await sleep(900); }
+      }
+      out.runtimeAtEnd = rtState();
+      out.patchedLeft = react.test.countPatchedLeft();
+      out.routeAfter = route();
+      return out;
+    },
+
+    // RX-RETRY (review R1 m7): a transient ready() failure (no route switch yet, as while Steam's UI mounts
+    // after a renderer restart) is retried by ready() itself after a backoff, without reset(); the finders
+    // are not scanned again. A missing required finder stays sticky (RX-5).
+    async 'RX-RETRY'() {
+      const out = { ok: true, steps: [] };
+      const pass = (c, msg) => { out.steps.push((c ? 'PASS ' : 'FAIL ') + msg); if (!c) out.ok = false; };
+      const st0 = react.status();
+      if (st0.routes.length || st0.overrides.length || st0.patches.length) return { ok: false, blocked: 'react has live routes or patches from other modules; run with only reactLab on', status: st0 };
+      try {
+        react.reset();
+        react.test.noSwitch(true);
+        let e1 = null; try { react.ready(); } catch (e) { e1 = e; }
+        pass(!!e1 && e1.transient === true && e1.retryAfterMs > 0 && /route switch not found/.test(e1.message),
+          'no route switch: ready() throws a transient error: ' + (e1 && e1.message) + ' (retry after ' + (e1 && e1.retryAfterMs) + ' ms)');
+        let e2 = null; try { react.ready(); } catch (e) { e2 = e; }
+        pass(e2 === e1, 'within the backoff the same error is thrown again, nothing rescanned');
+        let e3 = null; try { react.routes.add('/library/lgs/lab/rxretry', () => null); } catch (e) { e3 = e; }
+        pass(!!e3 && react.test.countPatchedLeft() === 0 && !react.status().routes.length, 'a caller still fails closed meanwhile: ' + (e3 && e3.message));
+        await sleep(e1.retryAfterMs + 150);
+        let e4 = null; try { react.ready(); } catch (e) { e4 = e; }
+        pass(!!e4 && e4 !== e1 && e4.transient && e4.retryAfterMs === 2 * e1.retryAfterMs, 'still missing after the backoff: retried, next backoff ' + (e4 && e4.retryAfterMs) + ' ms (attempt ' + (e4 && e4.attempt) + ')');
+        react.test.noSwitch(false);
+        await sleep(e4.retryAfterMs + 150);
+        const t0 = performance.now();
+        let ok = false; try { ok = react.ready(); } catch (e) { out.steps.push('NOTE ' + e.message); }
+        const ms = Math.round(performance.now() - t0);
+        const s = react.status();
+        pass(ok === true && react.isReady && !s.error, 'once the switch is there, ready() succeeds by itself without reset() in ' + ms + ' ms (finders reused from the first scan)');
+      } catch (e) {
+        out.ok = false; out.steps.push('ERROR ' + ((e && e.message) || e));
+      } finally {
+        try { react.test.noSwitch(false); } catch (_) { /* gone */ }
+        if (!react.isReady) { try { react.reset(); react.ready(); } catch (_) { /* reported above */ } }
+      }
+      out.ready = react.isReady;
+      return out;
+    },
+
+    // RX-FAIL (review R1 M3, m8): ui.ErrorBoundary's error page as the whole page of a real added route
+    // (not the lab wrapper, whose own centring hid the bug): the root spans the page, title and Back sit on
+    // the page's centre line inside 48 px insets, the title is Title 2, Back is a focused 60 px capsule
+    // with no outline or border, and B leaves.
+    async 'RX-FAIL'() {
+      const out = { ok: true, steps: [] };
+      const pass = (c, msg) => { out.steps.push((c ? 'PASS ' : 'FAIL ') + msg); if (!c) out.ok = false; };
+      const routeBefore = route();
+      try {
+        const o = await openRaw('boom', { settleMs: 1500 });
+        // Back takes focus on entry (autoFocus). Steam draws .gpfocus only while the navigation source is
+        // the gamepad: after another agent's laser step it is not, so DOM focus is read first, then a
+        // D-pad press (Back is the page's only control; nothing acts) brings the gamepad source back, as
+        // RX-1's refocus does (SR §4 vr-null-tree).
+        const backEl = () => doc().querySelector('.lgs-react-fail-back');
+        out.domFocusOnEntry = !!backEl() && doc().activeElement === backEl();
+        for (let i = 0; i < 6 && where() !== 'fail-page'; i++) {
+          react.nav.focusRoot(); await sleep(400);
+          if (where() === 'none') { FNC().DispatchVirtualButtonClick(BTN.DOWN); await sleep(400); }
+        }
+        if (where() !== 'fail-page') out.steps.push('NOTE focus after FocusApplicationRoot() and D-pad: ' + where() + ' (' + navState() + ')');
+        const d = doc(), w = react.nav.win();
+        const fail = d.querySelector('.lgs-react-fail');
+        pass(o.route === RAW && !!fail, 'error page shown on the real added route ' + o.route);
+        if (fail) {
+          const R = (e) => { const q = e.getBoundingClientRect(); return { x: Math.round(q.x), y: Math.round(q.y), w: Math.round(q.width), h: Math.round(q.height) }; };
+          const cx = (e) => { const q = e.getBoundingClientRect(); return Math.round(q.x + q.width / 2); };
+          const pr = R(fail.parentElement), fr = R(fail);
+          const t = d.querySelector('.lgs-react-fail-title'), b = d.querySelector('.lgs-react-fail-back');
+          const mid = Math.round(pr.x + pr.w / 2);
+          out.rects = { parent: pr, root: fr, title: t ? R(t) : null, back: b ? R(b) : null, window: w.innerWidth };
+          pass(Math.abs(fr.w - pr.w) <= 1 && fr.x === pr.x, 'the page root spans its parent: ' + JSON.stringify(fr) + ' in ' + JSON.stringify(pr));
+          pass(!!b && Math.abs(cx(b) - mid) <= 2 && (!t || Math.abs(cx(t) - mid) <= 2), 'title and Back on the centre line: title ' + (t ? cx(t) : '-') + ', Back ' + (b ? cx(b) : '-') + ', centre ' + mid + ' (window ' + w.innerWidth + ')');
+          pass(!t || R(t).x >= pr.x + 47, 'the title keeps the 48 px inset: x ' + (t ? R(t).x : '-'));
+          if (t) {
+            const ts = w.getComputedStyle(t);
+            pass(ts.fontSize === '30px' && ts.fontWeight === '700', 'title is Title 2: ' + ts.fontSize + ' / ' + ts.fontWeight);
+          }
+          if (b) {
+            const bs = w.getComputedStyle(b), br = R(b);
+            out.back = { radius: bs.borderRadius, font: bs.fontSize + '/' + bs.fontWeight, outline: bs.outlineStyle + ' ' + bs.outlineWidth, border: bs.borderTopWidth };
+            pass(br.h >= 59 && br.w >= 239 && parseFloat(bs.borderRadius) >= br.h / 2 - 1 && (bs.outlineStyle === 'none' || parseFloat(bs.outlineWidth) === 0) && parseFloat(bs.borderTopWidth) === 0,
+              'Back is a capsule with no outline or border: ' + br.w + ' x ' + br.h + ', radius ' + bs.borderRadius + ', ' + out.back.font + ', outline ' + out.back.outline + ', border ' + bs.borderTopWidth);
+            pass(b.classList.contains('gpfocus'), 'Back has gamepad focus: ' + where() + ' (DOM focus on Back at entry: ' + out.domFocusOnEntry + ')');
+          }
+          press('B'); await sleep(1100);
+          pass(route() !== RAW, 'B leaves the error page: ' + route());
+        }
+      } catch (e) {
+        out.ok = false; out.steps.push('ERROR ' + ((e && e.message) || e));
+      } finally {
+        try { await close(); } catch (_) { /* best effort */ }
+        if (route() !== routeBefore) { react.nav.go(routeBefore, true); await sleep(900); }
+      }
+      out.routeAfter = route();
+      out.routes = react.routes.list();
+      return out;
+    },
+
+    // RX-OPEN (review R1 m6): lab.open() reports a fixture that throws as {mounted: false, error}.
+    async 'RX-OPEN'() {
+      const out = { ok: true, steps: [] };
+      const pass = (c, msg) => { out.steps.push((c ? 'PASS ' : 'FAIL ') + msg); if (!c) out.ok = false; };
+      try {
+        const a = await open('boom');
+        pass(a.mounted === false && /forced render error/.test(a.error || ''), 'throwing fixture: ' + JSON.stringify(a));
+        const b = await open('buttons');
+        pass(b.mounted === true && b.error === null, 'the next fixture on the same route mounts cleanly: ' + JSON.stringify(b));
+        const c = await close();
+        pass(c.routeLeft && !c.routes.added.includes(LAB), 'closed: ' + JSON.stringify({ route: c.route, routes: c.routes }));
+      } catch (e) { out.ok = false; out.steps.push('ERROR ' + ((e && e.message) || e)); try { await close(); } catch (_) { /* best effort */ } }
+      return out;
+    },
   };
 
   async function run(id, L) {
@@ -922,7 +1235,7 @@
       const api = {
         fixture(name, factory) { if (typeof factory !== 'function') throw new Error('fixture: factory must be a function'); S.fixtures.set(name, factory); return name; },
         fixtures: () => [...S.fixtures.keys()],
-        open, close, selftest, run, press, where,
+        open, openRaw, close, selftest, run, press, where,
         get events() { return S.events.slice(); },
         tests: Object.keys(runners),
       };
@@ -936,6 +1249,7 @@
       try { unspy(); } catch (_) { /* none */ }
       if (st.menu) { try { st.menu.Hide(); } catch (_) { /* closed */ } }
       try { if (st.labRoute) st.labRoute.remove(); } catch (_) { /* gone */ }
+      try { if (st.rawRoute) st.rawRoute.remove(); } catch (_) { /* gone */ }
       for (const h of st.handles) { try { h.remove(); } catch (_) { /* gone */ } }
       try { if (react && react.lab) delete react.lab; } catch (_) { /* gone */ }
       S = null; react = null; rt = null;

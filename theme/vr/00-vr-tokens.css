@@ -16,11 +16,16 @@
   --lgs-vr-r-card: calc(var(--lgs-r-card) * var(--lgs-vr-scale));
   --lgs-vr-r-row: calc(var(--lgs-r-row) * var(--lgs-vr-scale));
   --lgs-vr-ring-w: calc(2px * var(--lgs-vr-scale));
-  /* focus ring and glow for window-level controls at this scale */
+  /* gamepad focus for window-level controls at this scale. The name is
+     Phase 1's; the look is Phase 2's light, never a ring (D2 §6.2 R1, VP
+     P-17; review R1 m3): the focus add as an inset layer under the label
+     (a spread larger than any control fills its padding box), the lit top
+     arc and a soft outer glow. SteamVR pages get no --lgs-ill hook (the
+     hooks are not bundled there), so this token is their focus look. */
   --lgs-vr-focus-ring:
-      inset 0 0 0 var(--lgs-vr-ring-w) rgba(255, 255, 255, 0.90),
-      0 0 0 1px rgba(255, 255, 255, 0.25),
-      0 0 32px rgba(255, 255, 255, 0.30);
+      inset 0 0 0 999px rgb(255 255 255 / var(--lgs-focus-add, .32)),
+      inset 0 calc(1.5px * var(--lgs-vr-scale)) calc(1.5px * var(--lgs-vr-scale)) calc(-1px * var(--lgs-vr-scale)) rgb(255 255 255 / var(--lgs-focus-arc, .55)),
+      0 0 32px rgb(255 255 255 / .30);
   /* the window grabber: a translucent white Liquid Glass capsule with a
      two-tone edge: the white body reads over a dark room, the dark inner
      and outer rings over a bright one (the white alone vanishes there).
@@ -42,11 +47,13 @@
   /* laser hover on SteamVR's laser-only pages (settings, bindings, keyboard,
      message overlays, room setup, Now Playing in laser mode). There is no
      gamepad focus there, so pointing must read at a glance: the focus fill
-     plus a thin inner rim (Steam's own pages light a pointed control with
-     .gpfocus; this is the same fill without the glow). Pages with their own
-     scale restate the rim (40-bindings.css, 50-keyboard.css). */
+     plus the control's lit top arc (Steam's own pages light a pointed
+     control with .gpfocus; this is the same fill without the glow). The
+     name is Phase 1's; since review R1 m3 it is no longer a closed inner
+     ring (D2 §6.2 R1). Pages with their own scale restate it
+     (40-bindings.css, 50-keyboard.css). */
   --lgs-vr-hover-fill: var(--lgs-focus-fill);
-  --lgs-vr-hover-rim: inset 0 0 0 calc(1.5px * var(--lgs-vr-scale)) var(--lgs-control-outline);
+  --lgs-vr-hover-rim: inset 0 calc(1.5px * var(--lgs-vr-scale)) calc(1.5px * var(--lgs-vr-scale)) calc(-1px * var(--lgs-vr-scale)) rgb(255 255 255 / .45);
   /* the panel tint (--lgs-panel-bg's colour), opaque: for small capsules
      SteamVR itself fades (the frame controls' .6 idle opacity) and chips it
      lays over text (the unbound-actions count) */

@@ -154,6 +154,8 @@ GLASSD_CRASH_WINDOW = 120
 GLASSD_TEMP_EXIT = 75              # EX_TEMPFAIL from glassd: SteamVR gone, lock held; not a crash
 GLASSD_STALE_S = 6.0               # glassd rewrites glassd-out.json every 2 s ("updated")
 GLASSD_FIRST_OUT_S = 20.0          # time for glassd's first glassd-out.json
+STALL_S = 1.5                      # the daemon's event loop did not run this long: it was stopped (SIGSTOP) or
+                                   # starved; its own silence is not glassd's or Steam's (REQ P7->P8, SG-6)
 MAIN_QUAD_W = 0.98                 # main window's nominal world width (m), NATIVE.md fact 4
 MAIN_QUAD_TOL = 0.12               # glassd's quadW off by more than this: main stays CSS only
 BUG_LIMIT, BUG_WINDOW = 5, 120     # unexpected exceptions in one loop before it is fatal
@@ -608,11 +610,20 @@ GEOM_JS = r"""
   try {
     const FS = window.FrameStore, DS = window.DashboardStore;
     if (!FS || !DS || !FS.frames || !FS.frames.length) { out.err = 'no FrameStore'; return JSON.stringify(out); }
-    const f = FS.frames.find((x) => /page:3/.test(x.activePage && x.activePage.mountableID)) || FS.frames[0];
-    const z = f.activePage.size, S = DS.dashboardScale, H0 = f.size.mainPanelHeightOverride || 1.5;
+    const MAIN = 'valve.steam.gamepadui.main';
+    // Steam's page by its summon key (page ids are handed out at run time: page 3
+    // once, page 4 now), not /page:3/ or the frame's active page, which is SteamVR
+    // Settings or the binding UI while those show (REQ P7->P8, sg.md §4.2)
+    let f = null, sp = null;
+    for (const x of FS.frames) {
+      const ps = x.pages ? [...(typeof x.pages.values === 'function' ? x.pages.values() : x.pages)] : [];
+      const p = ps.find((q) => q && q.m_sSummonOverlayKey === MAIN);
+      if (p) { f = x; sp = p; break; }
+    }
+    if (!f) { f = FS.frames[0]; sp = f.activePage; }
+    const z = sp.size, S = DS.dashboardScale, H0 = f.size.mainPanelHeightOverride || 1.5;
     const r = z.latestMeasuredPanelLocalHeight / H0, Hw = z.latestMeasuredPanelWorldHeight;
     const g = { S, H0, r, Hm: Hw, unitM: S * r, mmPerCssPx: 1500 * Hw / 1080, dashDist: DS.dashboardDistance, frameMenu: null };
-    const MAIN = 'valve.steam.gamepadui.main';
     const sf = FS.frames.find((x) => x.m_mapPages && [...x.m_mapPages.values()].some((p) => p.m_sSummonOverlayKey === MAIN)) || f;
     const pages = {};
     if (sf.m_mapPages) for (const [id, p] of sf.m_mapPages) pages[id] = p.m_sSummonOverlayKey;
@@ -921,6 +932,9 @@ class Shell:
         self.steam_restarted = False          # ... and the theme has not been seen on since
         self.steam_lost_at = None             # Steam's devtools unreachable since
         self.slow_evals = 0                   # Steam evaluations that timed out (connection kept)
+        self.loop_beat = time.monotonic()     # stall_loop's last tick
+        self.stall_at = -1e9                  # monotonic time the last stall of our own loop ended
+        self.stalls, self.last_stall_s = 0, None
         self.report = None
         self.report_at = 0.0
         self.reports = 0
@@ -1272,6 +1286,8 @@ class Shell:
                          "expiries": sg.get("expiries"), "rebuilds": sg.get("rebuilds"),
                          "flags": self.flags, "sgErrors": sg.get("errors")},
             "steamvrPages": {"paused": os.path.exists(VR_PAUSE), "version": self.vr_version, "pages": self.vr_pages},
+            "stalls": {"count": self.stalls, "lastS": self.last_stall_s,
+                       "agoS": round(time.monotonic() - self.stall_at, 1) if self.stalls else None},
             "errors": list(self.errors),
         }
 
@@ -1651,7 +1667,7 @@ class Shell:
                 continue
             name = names.get(key)
             g = gsurf.get(name) if isinstance(gsurf.get(name), dict) else {}
-            at = _num(sm.get("coverAt") or 0) or 0
+            at = _num(sm.get("coverAt") or 0, 0, 1e15) or 0      # epoch ms
             if not at or now_ms - at < SHOWN_MS:
                 continue
             # plates: drawn by glassd (listed in its output), in the cover's
@@ -1674,7 +1690,7 @@ class Shell:
                 plates[key] = sorted(pl)
             pops = sm.get("pops") if isinstance(sm.get("pops"), dict) else {}
             acks[key] = sorted(i for i, t in pops.items()
-                               if _num(t) and now_ms - _num(t) >= SHOWN_MS and i in spec[key])
+                               if _num(t, 0, 1e15) and now_ms - _num(t, 0, 1e15) >= SHOWN_MS and i in spec[key])
         return sorted(keys), acks, plates, sorted(covers)
 
     # ---------------------------------------------------------------- Steam
@@ -2063,7 +2079,8 @@ class Shell:
         window is native. Cleared at once when systemui or glassd drops out."""
         sent, sent_at = None, 0.0
         while not self.stopping:
-            await asyncio.sleep(0.1)
+            # 10 Hz only while there is a native layer to follow (CSS only: 1 Hz; review R1 m4)
+            await asyncio.sleep(0.1 if self.native_possible() or self.native_applied or self.native_force else 1.0)
             s = self.steam
             if not self.steam_ok or s is None or s.closed:
                 sent = None
@@ -2097,7 +2114,8 @@ class Shell:
                 if not self.stopping:
                     self.note(f"steam: lgs-native: {e!r}")
                 sent = None
-                await asyncio.sleep(1)
+                # right after a stall of ours the late answer was ours: again at once (SG-6)
+                await asyncio.sleep(0 if self.stalled_recently() else 1)
             except Exception as e:  # noqa: BLE001 - see bug()
                 if not self.stopping:
                     sent = None
@@ -2233,82 +2251,103 @@ class Shell:
                 await self.inject_sg()
                 self.sysui_ok = True
                 log("systemui: connected")
-                next_beat, next_status = 0.0, 0.0
+                next_beat, next_status, it_at, slow = 0.0, 0.0, time.monotonic(), 0
                 while not self.stopping and not self.sysui.closed:
-                    now = time.time()
-                    # wake for a layer that becomes still and for a fade-out that ends
-                    # (its phase-0 item leaves glassd.json and slabsOut on time)
-                    fade_end = min((u for _, u in self.fading.values()), default=now + 0.5) + 0.01
-                    until = min(next_beat, now + 0.5, self.wake_at or now + 0.5, fade_end)
                     try:
-                        await asyncio.wait_for(self.changed.wait(), max(0.02, until - now))
-                    except asyncio.TimeoutError:
-                        pass
-                    self.changed.clear()
-                    if self.stopping:
-                        break
-                    if not self.sg_wanted():   # glassd gave up, its binary was removed, overrides off
-                        await self.sysui.eval(SG_DESTROY_JS, 10)
-                        log("systemui: nothing left to show (native off, no overrides); scene graph removed")
-                        break
-                    if self.sg_reset:                  # page reloaded under us
-                        self.sg_reset = False
-                        log("systemui: page context reset (reload?); re-injecting")
-                        await asyncio.sleep(0.5)       # let the new page come up
-                        await self.inject_sg()
-                        next_beat = 0.0
-                    if self.sg_source_version() != self.sg_version:
-                        await self.inject_sg()
-                        next_beat = 0.0
-                    await self.send_overrides()
-                    self.write_glassd_json()
-                    spec = self.build_spec()
-                    js = json.dumps(spec, separators=(",", ":"))
-                    if js != self.spec_sent:
-                        wait = self.spec_sent_at + SPEC_MIN_INTERVAL - time.time()
-                        if wait > 0:
-                            await asyncio.sleep(wait)
-                            spec = self.build_spec()
-                            js = json.dumps(spec, separators=(",", ":"))
-                        res = await self.send_spec(spec, js)
-                        # look again right after lgs_sg.js pushed, to learn when
-                        pin = res.get("pushIn")
-                        next_beat = min(next_beat, time.time() + (pin if isinstance(pin, (int, float)) else 50) / 1000 + 0.04)
-                    now = time.time()
-                    if now >= next_beat:
-                        r = await self.sysui.eval("window.__LGS_SG ? JSON.stringify(window.__LGS_SG.ping()) : null", 10)
-                        if r is None:
-                            log("systemui: __LGS_SG gone (page reloaded?); re-injecting")
+                        now = time.time()
+                        # wake for a layer that becomes still and for a fade-out that ends
+                        # (its phase-0 item leaves glassd.json and slabsOut on time)
+                        fade_end = min((u for _, u in self.fading.values()), default=now + 0.5) + 0.01
+                        until = min(next_beat, now + 0.5, self.wake_at or now + 0.5, fade_end)
+                        try:
+                            await asyncio.wait_for(self.changed.wait(), max(0.02, until - now))
+                        except asyncio.TimeoutError:
+                            pass
+                        self.changed.clear()
+                        if self.stopping:
+                            break
+                        gap, it_at = time.monotonic() - it_at, time.monotonic()
+                        if gap > STALL_S and self.sg_wanted():
+                            # we were stopped (SIGSTOP / SIGCONT) or starved: the heartbeat
+                            # first, so lgs_sg.js rebuilds its last spec at once (REQ P7->P8, SG-6)
+                            r = await self.sysui.eval("window.__LGS_SG ? JSON.stringify(window.__LGS_SG.ping()) : null", 10)
+                            if r:
+                                self.set_beat(json.loads(r))
+                            log(f"systemui: heartbeat sent first after a {gap:.1f} s stall of ours")
+                            next_beat = 0.0
+                        if not self.sg_wanted():   # glassd gave up, its binary was removed, overrides off
+                            await self.sysui.eval(SG_DESTROY_JS, 10)
+                            log("systemui: nothing left to show (native off, no overrides); scene graph removed")
+                            break
+                        if self.sg_reset:                  # page reloaded under us
+                            self.sg_reset = False
+                            log("systemui: page context reset (reload?); re-injecting")
+                            await asyncio.sleep(0.5)       # let the new page come up
                             await self.inject_sg()
                             next_beat = 0.0
-                            continue
-                        b = json.loads(r)
-                        self.set_beat(b)
-                        if b.get("push"):
-                            self.sg_nosched = 0
-                        elif now - self.sg_injected_at > min(60, 3 * 2 ** self.sg_nosched):
-                            # installed before the page's bundle was ready (or the
-                            # module moved): no scheduler, so nothing reaches the
-                            # compositor and nothing is native. Retry, backing off.
-                            self.sg_nosched += 1
-                            self.note(f"systemui: scene-graph scheduler not found; re-injecting (try {self.sg_nosched})")
-                            await self.inject_sg(force=True)
-                            next_beat = time.time() + 1
-                            continue
-                        if b.get("rebuilt") or b.get("expired") or (not b.get("items") and spec["surfaces"]):
-                            if b.get("rebuilt") or b.get("expired"):
-                                self.note(f"systemui: scene-graph watchdog had fired (rebuilt {b.get('rebuilt')}); "
-                                          "sending the spec again")
-                            self.spec_sent = None
-                            self.changed.set()
-                        # poll fast only while a push is pending shortly after a change
-                        fast = b.get("pending") and now - self.spec_sent_at < 3
-                        next_beat = now + (0.1 if fast else NATIVE_BEAT_S)
-                    if now >= next_status:
-                        next_status = now + 2
-                        r = await self.sysui.eval("window.__LGS_SG ? JSON.stringify(window.__LGS_SG.status()) : null", 10)
-                        if r:
-                            self.sg_status = json.loads(r)
+                        if self.sg_source_version() != self.sg_version:
+                            await self.inject_sg()
+                            next_beat = 0.0
+                        await self.send_overrides()
+                        self.write_glassd_json()
+                        spec = self.build_spec()
+                        js = json.dumps(spec, separators=(",", ":"))
+                        if js != self.spec_sent:
+                            wait = self.spec_sent_at + SPEC_MIN_INTERVAL - time.time()
+                            if wait > 0:
+                                await asyncio.sleep(wait)
+                                spec = self.build_spec()
+                                js = json.dumps(spec, separators=(",", ":"))
+                            res = await self.send_spec(spec, js)
+                            # look again right after lgs_sg.js pushed, to learn when
+                            pin = res.get("pushIn")
+                            next_beat = min(next_beat, time.time() + (pin if isinstance(pin, (int, float)) else 50) / 1000 + 0.04)
+                        now = time.time()
+                        if now >= next_beat:
+                            r = await self.sysui.eval("window.__LGS_SG ? JSON.stringify(window.__LGS_SG.ping()) : null", 10)
+                            if r is None:
+                                log("systemui: __LGS_SG gone (page reloaded?); re-injecting")
+                                await self.inject_sg()
+                                next_beat = 0.0
+                                continue
+                            b = json.loads(r)
+                            self.set_beat(b)
+                            if b.get("push"):
+                                self.sg_nosched = 0
+                            elif now - self.sg_injected_at > min(60, 3 * 2 ** self.sg_nosched):
+                                # installed before the page's bundle was ready (or the
+                                # module moved): no scheduler, so nothing reaches the
+                                # compositor and nothing is native. Retry, backing off.
+                                self.sg_nosched += 1
+                                self.note(f"systemui: scene-graph scheduler not found; re-injecting (try {self.sg_nosched})")
+                                await self.inject_sg(force=True)
+                                next_beat = time.time() + 1
+                                continue
+                            if b.get("rebuilt") or b.get("expired") or (not b.get("items") and spec["surfaces"]):
+                                if b.get("rebuilt") or b.get("expired"):
+                                    self.note(f"systemui: scene-graph watchdog had fired (rebuilt {b.get('rebuilt')}); "
+                                              "sending the spec again")
+                                self.spec_sent = None
+                                self.changed.set()
+                            # poll fast only while a push is pending shortly after a change
+                            fast = b.get("pending") and now - self.spec_sent_at < 3
+                            next_beat = now + (0.1 if fast else NATIVE_BEAT_S)
+                        if now >= next_status:
+                            next_status = now + 2
+                            r = await self.sysui.eval("window.__LGS_SG ? JSON.stringify(window.__LGS_SG.status()) : null", 10)
+                            if r:
+                                self.sg_status = json.loads(r)
+                        slow = 0
+                    except (asyncio.TimeoutError, TimeoutError):
+                        # an answer that was due while we were stopped: not a lost page.
+                        # Keep the socket and ping at once (REQ P7->P8, SG-6); twice in a row
+                        # without a stall drops it as before
+                        slow += 1
+                        if self.sysui.closed or (slow >= 2 and not self.stalled_recently()):
+                            raise
+                        log("systemui: an evaluation timed out" + (" across a stall of ours" if self.stalled_recently()
+                                                                   else " (systemui busy?)") + "; connection kept")
+                        next_beat, it_at = 0.0, time.monotonic()
             except asyncio.CancelledError:
                 raise
             except NET_ERRORS as e:
@@ -2329,7 +2368,7 @@ class Shell:
     async def glassd_out_loop(self):
         last_check = 0.0
         while not self.stopping:
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.1 if self.native_possible() or self.glassd_running() else 1.0)   # CSS only: 1 Hz
             now = time.time()
             if now - last_check >= 1.0:
                 last_check = now
@@ -2362,7 +2401,7 @@ class Shell:
                 log("glassd: output fresh again")
             was_ready = self.glassd_ready()
             self.gout = d
-            if not self.g_frames and ((_num(d.get("fps") or 0) or 0) > 0 or (_num(d.get("frames") or 0) or 0) > 0):
+            if not self.g_frames and ((_num(d.get("fps") or 0) or 0) > 0 or (_num(d.get("frames") or 0, 0, 1e15) or 0) > 0):
                 self.g_frames = True
                 log(f"glassd: producing frames (fps {d.get('fps')}, gpu {d.get('gpu_ms')} ms); native mode")
             if was_ready != self.glassd_ready():
@@ -2370,10 +2409,35 @@ class Shell:
                     f"exiting {d.get('exiting', False)})")
             self.changed.set()
 
+    def stalled_recently(self, within=3.0):
+        """True while our own event loop is (or just was) stalled: SIGSTOP /
+        SIGCONT (NAT freeze), a starved CPU. Read before stall_loop has run
+        again, it still sees the gap (loop_beat is old)."""
+        now = time.monotonic()
+        return now - self.loop_beat > STALL_S or now - self.stall_at < within
+
+    async def stall_loop(self):
+        """Notices that the daemon itself did not run (REQ P7->P8, SG-6): the
+        silence of glassd and the late Steam / systemui answers during that
+        time are ours, so glassd is not restarted as hung, and systemui gets
+        its heartbeat first (sysui_loop)."""
+        self.loop_beat = time.monotonic()
+        while not self.stopping:
+            await asyncio.sleep(0.25)
+            now = time.monotonic()
+            gap = now - self.loop_beat
+            self.loop_beat = now
+            if gap > STALL_S:
+                self.stall_at, self.stalls, self.last_stall_s = now, self.stalls + 1, round(gap, 1)
+                self.gout_seen = time.time()       # glassd gets a fresh window to show it is alive
+                log(f"daemon: our event loop stalled {gap:.1f} s (stopped or starved); not held against "
+                    "glassd or Steam")
+                self.changed.set()
+
     async def supervise_glassd(self, now):
         """Once a second: binary removed -> CSS only; dormant -> glassd stopped
         (glassd_loop starts it again when the theme is back); output stale ->
-        restart."""
+        restart (not right after a stall of our own)."""
         if not self.native_possible():
             if self.glassd_running():
                 await self.kill_glassd()
@@ -2394,6 +2458,11 @@ class Shell:
                 self.gjson_full = self.gjson_struct = None
             return
         if not self.glassd_running():
+            return
+        if self.stalled_recently():
+            # we were stopped (SIGSTOP) or starved, not glassd: its output time
+            # restarts now (it rewrites glassd-out.json within 2 s if alive)
+            self.gout_seen = max(self.gout_seen, time.time())
             return
         # The real glassd rewrites glassd-out.json every 2 s ("updated"); the
         # stand-in (fakeglassd) only on changes, so staleness is not checked for it.
@@ -2890,7 +2959,8 @@ class Shell:
                else f"css only: {self.css_reason}") + ")")
         self.refresh_flags()
         self.tasks = [loop.create_task(c) for c in (
-            self.steam_loop(), self.native_loop(), self.sysui_loop(), self.glassd_loop(), self.glassd_out_loop(),
+            self.stall_loop(), self.steam_loop(), self.native_loop(), self.sysui_loop(), self.glassd_loop(),
+            self.glassd_out_loop(),
             self.vr_theme_loop(), self.status_loop(), self.geom_loop(), self.actions_loop())]
         pending = set(self.tasks)
         while self.stop_task is None and pending:
@@ -3133,8 +3203,10 @@ TEST_SCRIPT_JS = r"""// lgs_shell.py selftest dm5: a test page script (RAM only;
 })
 """
 TEST_SCRIPT = "/tmp/lgs/vr-scripts/systemui.p8echo.js"
-SP12_SNIPPET = ("(()=>{const f=FrameStore.frames.find(x=>/page:3/.test(x.activePage&&x.activePage.mountableID))"
-                "||FrameStore.frames[0]; const z=f.activePage.size, S=DashboardStore.dashboardScale, "
+# the SP §1.2 snippet, with Steam's page found by its summon key (REQ P7->P8: page ids change at run time)
+SP12_SNIPPET = ("(()=>{let f=null,p=null; for (const x of FrameStore.frames) { for (const q of x.pages.values()) "
+                "if (q.m_sSummonOverlayKey==='valve.steam.gamepadui.main') { f=x; p=q; } } "
+                "const z=p.size, S=DashboardStore.dashboardScale, "
                 "H0=f.size.mainPanelHeightOverride||1.5; const r=z.latestMeasuredPanelLocalHeight/H0, "
                 "Hw=z.latestMeasuredPanelWorldHeight; return JSON.stringify({S,H0,r,Hw,unitToM:S*r,"
                 "mmPerCssPx:1500*Hw/1080,dashDist:DashboardStore.dashboardDistance});})()")
@@ -3250,9 +3322,9 @@ def _main_size():
     return [1920, 1080]
 
 
-def _native_start(report, caps=None, gargs=None):
+def _native_start(report, caps=None, gargs=None, glassd=None):
     write_json_atomic(TEST_REPORT, report)
-    print("start native:", start(glassd=FAKEGLASSD, stay=True, glassd_args=gargs or [], native="on",
+    print("start native:", start(glassd=glassd or FAKEGLASSD, stay=True, glassd_args=gargs or [], native="on",
                                  test_report=TEST_REPORT, assume_caps=caps), flush=True)
     st = _wait(lambda: (lambda s: s if s.get("mode") == "native" else None)(status()), 45, 0.5)
     return st or status()
@@ -3370,6 +3442,52 @@ def _selftest_dm1(check, args):
           f"{_main_native()} {_sg_items()} {os.path.exists(GLASSD_JSON)}")
 
 
+def _selftest_freeze(check, args):
+    """A freeze of the daemon itself with the real glassd (--no-feed: no camera),
+    which rewrites glassd-out.json every 2 s (REQ P7->P8, SG-6): after SIGCONT
+    glassd is not taken for hung (same pid, no restart), systemui gets its
+    heartbeat first, nodes and lgs-native are back within 1 s."""
+    import signal as sg
+    W, H = _main_size()
+    st = _native_start(_report_window(W, H), glassd=GLASSD_BIN, gargs=["--no-feed"])
+    check("native mode with the real glassd (--no-feed)", st.get("mode") == "native", st.get("mode"))
+    check("lgs-native on main", _wait(lambda: _main_native() is True, 20, 0.5))
+    g0 = (status().get("glassd") or {})
+    check("glassd writes 'updated' (so its silence is watched)", "updated" in (read_json(GLASSD_OUT) or {}),
+          sorted((read_json(GLASSD_OUT) or {}).keys())[:12])
+    since = time.strftime("%Y-%m-%d %H:%M:%S")
+    pid = status().get("pid")
+    os.kill(pid, sg.SIGSTOP)
+    try:
+        nodes_off = _wait(lambda: (lambda s: s is None or not s.get("items") or s.get("expired"))(_sg_items()), 15, 0.25)
+        time.sleep(max(0, 15 - 12.5))
+    finally:
+        os.kill(pid, sg.SIGCONT)
+    t1 = time.time()
+    t_nb = t_sb = None
+    while time.time() - t1 < 10 and (t_nb is None or t_sb is None):
+        si = _sg_items() or {}
+        if t_sb is None and (si.get("items") or 0) > 0 and si.get("expired") is False:
+            t_sb = round(time.time() - t1, 2)
+        if t_nb is None and _main_native() is True:
+            t_nb = round(time.time() - t1, 2)
+        time.sleep(0.05)
+    check("freeze: nodes gone (watchdog) while we were stopped", bool(nodes_off))
+    check("after SIGCONT: nodes back within 1 s", t_sb is not None and t_sb <= 1.0, t_sb)
+    check("after SIGCONT: lgs-native back within 1.5 s", t_nb is not None and t_nb <= 1.5, t_nb)
+    time.sleep(8)          # past glassd's stale limit (6 s)
+    g1 = (status().get("glassd") or {})
+    lines = _journal(since)
+    check("glassd not taken for hung: same pid, no restart", g1.get("pid") == g0.get("pid")
+          and g1.get("restarts") == g0.get("restarts") and not any("hung?" in x for x in lines),
+          (g0.get("pid"), g1.get("pid"), [x for x in lines if "hung" in x][:2]))
+    check("the stall was noticed and systemui got its heartbeat first",
+          any("event loop stalled" in x for x in lines) and any("heartbeat sent first" in x for x in lines),
+          [x for x in lines if "stall" in x][:3])
+    st = status()
+    check("still native 8 s later", st.get("mode") == "native" and _main_native() is True, st.get("mode"))
+
+
 def _selftest_dm2(check, args):
     """glassd.json v3: plates, holes, tints, masks, coverDz, unitM, materialize
     and fades, with fakeglassd (and --assume-caps when its caps lack them)."""
@@ -3385,7 +3503,10 @@ def _selftest_dm2(check, args):
                            "fill": "rgba(0, 0, 0, 0.14)"},
                           {"id": "p8-dim", "x": 1300, "y": 200, "w": 300, "h": 200, "r": 40, "material": "dim"}],
                "layers": [{"id": "p8-play", "x": 320, "y": 820, "w": 420, "h": 120, "r": 60, "dz": 0.0407,
-                           "material": "liquid", "tint": "rgb(48 199 89 / 0.55)", "hole": {"fill": "rgb(18 20 26 / 0.9)"}},
+                           "material": "liquid", "tint": "rgb(48 199 89 / 0.55)",
+                           "hole": {"fill": "rgb(18 20 26 / 0.9)",
+                                    "edges": {"top": "rgb(80 52 37)", "left": ["rgb(70 50 40)", "nope" * 20,
+                                                                               [0.3, 0.2, 0.15]], "right": []}}},
                           {"id": "p8-info", "x": 780, "y": 830, "w": 100, "h": 100, "r": 50, "dz": 0.0271,
                            "material": "none", "hole": True, "tint": [0.1, 0.45, 1.0, 0.5]},
                           {"id": "p8-roomdim", "x": 1700, "y": 900, "w": 64, "h": 64, "r": 0, "dz": -0.05,
@@ -3396,7 +3517,7 @@ def _selftest_dm2(check, args):
                 "shapes": [{"x": 0, "y": 0, "w": 1500, "h": 540, "r": 48}], "coverDz": -0.027, "scaleFrom": "overlay",
                 "layers": []}]}
     caps = ["plates", "holes", "tint", "masks", "coverDz", "none", "offset", "unitM", "dim", "scaleFrom", "roomDim",
-            "dimSlab"]
+            "dimSlab", "holeEdges"]
     os.makedirs(TEST_DUMP, exist_ok=True)       # fakeglassd writes into it, it does not create it
     st = _native_start(rep, caps=caps, gargs=["--dump", TEST_DUMP])
     check("native mode with fakeglassd", st.get("mode") == "native", st.get("mode"))
@@ -3414,6 +3535,9 @@ def _selftest_dm2(check, args):
     check("slab tint (CSS string) and hole fill carried",
           (sl.get("p8-play") or {}).get("tint") == "rgb(48 199 89 / 0.55)"
           and ((sl.get("p8-play") or {}).get("hole") or {}).get("fill") == "rgb(18 20 26 / 0.9)", sl.get("p8-play"))
+    check("hole.edges carried and cleaned (REQ P9->P8: bad sample and empty edge dropped)",
+          ((sl.get("p8-play") or {}).get("hole") or {}).get("edges") == {
+              "top": "rgb(80 52 37)", "left": ["rgb(70 50 40)", [0.3, 0.2, 0.15]]}, (sl.get("p8-play") or {}).get("hole"))
     check("material none slab with hole: true and a colour list tint",
           (sl.get("p8-info") or {}).get("material") == "none" and (sl.get("p8-info") or {}).get("hole") is True
           and (sl.get("p8-info") or {}).get("tint") == [0.1, 0.45, 1, 0.5], sl.get("p8-info"))
@@ -3484,7 +3608,22 @@ FM_DUMP_JS = ("(async()=>{const d=await OverlayStore.DumpLaserOverlays();const o
 def _selftest_dm3(check, args):
     """Geometry against the SP §1.2 snippet, and the frame menu's panel against
     a DumpLaserOverlays of our own: atomic (review R1 m3), i.e. the daemon's own
-    dump came after ours and the panel did not change between our two dumps."""
+    dump came after ours and the panel did not change between our two dumps.
+    Other agents restart the daemon (native-session, lgs on): a run during
+    which the daemon's pid changed is repeated (up to 3 times)."""
+    for run in range(3):
+        res = []
+        pid0 = _wait(lambda: (lambda s: s.get("pid") if s.get("geom") and s.get("geomDumpAt") else None)(status()),
+                     20, 0.5)
+        _selftest_dm3_once(lambda n, ok, info="": res.append((n, ok, info)))
+        if pid0 and status().get("pid") == pid0:
+            break
+        print(f"NOTE the daemon was restarted during the run (pid {pid0} -> {status().get('pid')}); again", flush=True)
+    for r in res:
+        check(*r)
+
+
+def _selftest_dm3_once(check):
     st = status()
     g = st.get("geom") or {}
     ref = json.loads(_vr_js("systemui", SP12_SNIPPET))
@@ -3620,6 +3759,211 @@ def _selftest_plates(check, args):
         _steam_js(f"({P8_FIX_JS})(false)")
 
 
+TEST_PLUGIN_PY = '''# lgs_shell.py selftest dm4: a RAM test plugin (kind read; the test removes it)
+ACTIONS = {"p8.probe": {"args": {"n": {"type": "int", "min": 0, "max": 99}}, "sources": ["main"], "kind": "read",
+                        "rate": 0}}
+
+
+async def run(ctx, type, args):
+    return {"probe": args["n"] + 1, "plugin": ctx.name}
+'''
+TEST_PLUGIN_NAV_PY = '''# lgs_shell.py selftest dm4: a test plugin that asks for kind nav (must be refused from the RAM folder)
+ACTIONS = {"p8.go": {"args": {}, "kind": "nav"}}
+
+
+async def run(ctx, type, args):
+    return 1
+'''
+
+
+def _selftest_dm4(check, args):
+    """Actions through the binding: echo, unknown type, wrong source, bad args,
+    rate, all logged; then a plugin file loaded live from the RAM test folder
+    (TEST_EXT_DIR), called, refused when it asks for kind nav, unloaded when
+    its file goes (review R1 m8)."""
+    if _steam_js("typeof window.lgsAction") != "function":
+        check("lgsAction binding present", False, "typeof window.lgsAction != function")
+        return
+    n = os.urandom(3).hex()
+
+    def call(cid, obj):
+        return _steam_js(f"(window.lgsAction(JSON.stringify({json.dumps(dict(obj, id=cid))})), 0)")
+    call(f"t-echo-{n}", {"type": "echo", "args": {"text": "hi"}, "src": "main"})
+    time.sleep(0.3)
+    call(f"t-unknown-{n}", {"type": "nope.nope", "args": {}, "src": "main"})
+    call(f"t-src-{n}", {"type": "echo.main", "args": {}, "src": "bar"})
+    call(f"t-args-{n}", {"type": "echo", "args": {"text": "x" * 300}, "src": "main"})
+    time.sleep(0.3)
+    _steam_js(f"(window.lgsAction(JSON.stringify({json.dumps({'id': 't-rate1-' + n, 'type': 'echo', 'args': {}, 'src': 'main'})})),"
+              f" window.lgsAction(JSON.stringify({json.dumps({'id': 't-rate2-' + n, 'type': 'echo', 'args': {}, 'src': 'main'})})), 0)")
+    time.sleep(2.6)
+    st = status()
+    reps = {r.get("id"): r for r in (st.get("actions") or {}).get("replies") or []}
+    rej = {r.get("id"): r for r in (st.get("actions") or {}).get("rejected") or []}
+    exp = {f"t-echo-{n}": None, f"t-unknown-{n}": "unknown-type", f"t-src-{n}": "bad-source",
+           f"t-args-{n}": "bad-args", f"t-rate1-{n}": None, f"t-rate2-{n}": "rate"}
+    for cid, err in exp.items():
+        r = reps.get(cid) or {}
+        if err is None:
+            check(f"{cid.rsplit('-', 1)[0]} answered ok", r.get("ok") is True, str(r))
+        else:
+            check(f"{cid.rsplit('-', 1)[0]} rejected {err} and logged",
+                  r.get("ok") is False and r.get("error") == err and (rej.get(cid) or {}).get("error") == err,
+                  f"{r} / {rej.get(cid)}")
+    bridge_js = ("(() => { const R = window.__LGS_RT, b = R && R.bridge; return b && b.get ?"
+                 " JSON.stringify(b.get('reply')) : null; })()")
+    last = _steam_js(bridge_js)
+    if last is None:
+        print("NOTE bridge: no __LGS_RT.bridge in Steam (runtime off); replies checked in shell.json only",
+              flush=True)
+    else:
+        lr = json.loads(last) or {}
+        check("bridge carries the last reply", lr.get("id") == f"t-rate2-{n}" and lr.get("error") == "rate",
+              str(lr)[:160])
+    lines = [x for x in _journal("-2min") if n in x]
+    check("every call logged in the journal", len(lines) >= 6, f"{len(lines)} lines")
+    # a plugin file, live: the running daemon scans TEST_EXT_DIR (RAM) once a second
+    plug, nav = os.path.join(TEST_EXT_DIR, "p8probe.py"), os.path.join(TEST_EXT_DIR, "p8nav.py")
+    os.makedirs(TEST_EXT_DIR, exist_ok=True)
+    try:
+        with open(plug, "w", encoding="utf-8") as f:
+            f.write(TEST_PLUGIN_PY)
+        with open(nav, "w", encoding="utf-8") as f:
+            f.write(TEST_PLUGIN_NAV_PY)
+        a = _wait(lambda: (lambda x: x if "p8.probe" in (x.get("types") or []) and "test:p8nav" in (x.get("failed") or {})
+                           else None)(status().get("actions") or {}), 6, 0.5) or status().get("actions") or {}
+        check("plugin file loaded live by the running daemon (p8.probe)", "p8.probe" in (a.get("types") or []),
+              a.get("types"))
+        check("a RAM test plugin asking for kind nav is refused", "test:p8nav" in (a.get("failed") or {})
+              and "p8.go" not in (a.get("types") or []), (a.get("failed") or {}).get("test:p8nav"))
+        call(f"t-plug-{n}", {"type": "p8.probe", "args": {"n": 41}, "src": "main"})
+        r = _wait(lambda: {x.get("id"): x for x in (status().get("actions") or {}).get("replies") or []}
+                  .get(f"t-plug-{n}"), 5, 0.5) or {}
+        check("plugin call answered ok", r.get("ok") is True, r)
+        last = _steam_js(bridge_js)
+        if last is not None:
+            lr = json.loads(last) or {}
+            check("plugin result on the bridge: {probe: 42, plugin: test:p8probe}", lr.get("id") == f"t-plug-{n}"
+                  and (lr.get("result") or {}).get("probe") == 42
+                  and (lr.get("result") or {}).get("plugin") == "test:p8probe", str(lr)[:160])
+    finally:
+        for p in (plug, nav):
+            try:
+                os.remove(p)
+            except OSError:
+                pass
+    a = _wait(lambda: (lambda x: x if "p8.probe" not in (x.get("types") or []) and "test:p8nav" not in
+                       (x.get("failed") or {}) else None)(status().get("actions") or {}), 6, 0.5)
+    check("plugin unloaded when its file goes", bool(a), (status().get("actions") or {}).get("types"))
+
+
+def _selftest_dm5(check, args):
+    """A SteamVR page script: injected only into its page, listed, removed when
+    its file goes; with --stop also removed on daemon stop (then restarted)."""
+    os.makedirs(os.path.dirname(TEST_SCRIPT), exist_ok=True)
+    try:
+        with open(TEST_SCRIPT, "w", encoding="utf-8") as f:
+            f.write(TEST_SCRIPT_JS)
+        ver = hashlib.sha1(TEST_SCRIPT_JS.encode()).hexdigest()[:10]
+        probe = ("JSON.stringify({vrx: !!(window.__LGS_VRX && window.__LGS_VRX.p8echo), "
+                 "attr: document.documentElement.dataset.lgsEcho || null})")
+        got = _wait(lambda: (lambda d: d if d["vrx"] else None)(json.loads(_vr_js("systemui", probe))), 8)
+        check("injected into vr:systemui", got and got.get("attr") == ver, str(got))
+        st = _wait(lambda: (lambda s: s if s.get("p8echo") in ("installed", "ok") else None)(
+            (status().get("vrScripts") or {}).get("systemui") or {}), 5) or {}
+        check("status lists it", st.get("p8echo") in ("installed", "ok"), str(st))
+        others = [t.get("title") for t in lgs_vr.targets() if t.get("title") != "systemui"]
+        leak = [p for p in others if _vr_js(p, "!!(window.__LGS_VRX && window.__LGS_VRX.p8echo)")]
+        check("only in matching pages", not leak, str(leak))
+        os.remove(TEST_SCRIPT)
+        gone = _wait(lambda: (lambda d: d if not d["vrx"] and not d["attr"] else None)(
+            json.loads(_vr_js("systemui", probe))), 8)
+        check("removed when its file goes", bool(gone), str(gone))
+        if "--stop" in args:
+            with open(TEST_SCRIPT, "w", encoding="utf-8") as f:
+                f.write(TEST_SCRIPT_JS)
+            got = _wait(lambda: (lambda d: d if d["vrx"] else None)(json.loads(_vr_js("systemui", probe))), 8)
+            check("re-injected", bool(got), str(got))
+            print("stop:", stop(), flush=True)
+            after = json.loads(_vr_js("systemui", probe))
+            check("removed on daemon stop", not after["vrx"] and not after["attr"], str(after))
+            gl = _bindings()
+            check("after stop: no lgsLayers / lgsAction global in Steam (G-REMOVE)",
+                  gl == {BINDING: "undefined", ACTION_BINDING: "undefined"}, gl)
+            os.remove(TEST_SCRIPT)
+            print("start:", start(native="auto"), flush=True)
+    finally:
+        try:
+            os.remove(TEST_SCRIPT)
+        except OSError:
+            pass
+
+
+def _selftest_grace(check, args, nat):
+    """Theme off without lgs off: dormant (status mode 'dormant'), same pid;
+    native (nat): glassd stopped while dormant and its files gone, not counted
+    as a crash; theme back: resumed in the same process (native: glassd again,
+    lgs-native back)."""
+    if nat:
+        W, H = _main_size()
+        write_json_atomic(TEST_REPORT, _report_window(W, H))
+        print("start native (no --stay):", start(glassd=FAKEGLASSD, stay=False, glassd_args=[], native="on",
+                                                 test_report=TEST_REPORT), flush=True)
+        st = _wait(lambda: (lambda s: s if s.get("mode") == "native" else None)(status()), 45, 0.5) or status()
+        check("native with fakeglassd before", st.get("mode") == "native", st.get("mode"))
+        check("native unit: lgsLayers binding present", _bindings().get(BINDING) == "function", _bindings())
+    st0 = status()
+    pid0 = st0.get("pid")
+    g0 = st0.get("glassd") or {}
+    check("unit active before", st0.get("unit") == "active" and not st0.get("dormant"), st0.get("mode"))
+    was_on = lgs.is_on()
+    try:
+        if was_on:
+            lgs.op("off", quiet=True)
+        d = _wait(lambda: (lambda s: s if s.get("dormant") else None)(status()), 12, 0.5) or {}
+        check("theme off: dormant, same pid, status mode 'dormant'", d.get("pid") == pid0
+              and (d.get("dormant") or {}).get("graceS") and d.get("mode") == "dormant",
+              f"{d.get('pid')} vs {pid0} {d.get('dormant')} {d.get('mode')}")
+        if nat:
+            gone = _wait(lambda: not _alive(g0.get("pid")), 4, 0.25)
+            check("dormant: glassd process stopped within 4 s (review R1 M2)", bool(gone) and g0.get("pid"),
+                  f"pid {g0.get('pid')} alive {_alive(g0.get('pid'))}")
+            check("dormant: no glassd.json / glassd-out.json", not os.path.exists(GLASSD_JSON)
+                  and not os.path.exists(GLASSD_OUT), (os.path.exists(GLASSD_JSON), os.path.exists(GLASSD_OUT)))
+            check("dormant: lgs-native off on main", _wait(lambda: _main_native() is False, 4, 0.5), _main_native())
+        time.sleep(3)
+        s2 = status()
+        check("still running 8 s after the theme went off", s2.get("unit") == "active" and s2.get("pid") == pid0,
+              f"{s2.get('unit')} {s2.get('pid')}")
+        check("dormant: no scene graph in systemui", not (_sg_items() or {}).get("items"), _sg_items())
+        if nat:
+            check("dormant: glassd still stopped 3 s later",
+                  not (s2.get("glassd") or {}).get("running") and not _alive(g0.get("pid")),
+                  (s2.get("glassd") or {}).get("pid"))
+    finally:
+        if was_on:
+            lgs.op("on", quiet=True)
+    r = _wait(lambda: (lambda s: s if s.get("unit") == "active" and not s.get("dormant") else None)(status()),
+              10, 0.5) or {}
+    check("theme back: resumed (not dormant, same pid)", r.get("pid") == pid0, f"{r.get('pid')} {r.get('dormant')}")
+    if nat:
+        n = _wait(lambda: (lambda s: s if s.get("mode") == "native" else None)(status()), 30, 0.5) or status()
+        g1 = n.get("glassd") or {}
+        check("theme back: native again with a new glassd", n.get("mode") == "native" and g1.get("pid")
+              and g1.get("pid") != g0.get("pid"), (n.get("mode"), g0.get("pid"), g1.get("pid")))
+        check("the dormancy stop was not counted as a crash (restarts unchanged)",
+              g1.get("restarts") == g0.get("restarts") and not g1.get("givenUp"), (g0.get("restarts"), g1.get("restarts")))
+        check("lgs-native back on main", _wait(lambda: _main_native() is True, 20, 0.5), _main_native())
+    back = _wait(lambda: _steam_js("typeof window.lgsAction") == "function", 5)
+    check("action binding present after resume", bool(back))
+    rt = _wait(lambda: _steam_js("(() => { const R = window.__LGS_RT, b = R && R.bridge; const d = b && b.get && "
+                                 "b.get('daemon'); return d ? Date.now() - d.at < d.ttlMs : null; })()") is True, 8)
+    if _steam_js("!!(window.__LGS_RT && window.__LGS_RT.bridge)"):
+        check("bridge daemon heartbeat fresh after resume", bool(rt))
+    pages = (status().get("steamvrPages") or {}).get("pages") or {}
+    check("SteamVR pages themed", pages and all(v in ("ok", "applied") for v in pages.values()), pages)
+
+
 def selftest(args):
     """Lab checks against the running unit. Prints PASS/FAIL lines and a JSON
     summary; exit 0 when every check passed."""
@@ -3659,126 +4003,52 @@ def selftest(args):
         with FileLock("/tmp/lgs/lab-vr.lock", 240):     # it reads systemui and runs DumpLaserOverlays there
             _selftest_dm3(check, args)
     elif name == "dm4":
-        if _steam_js("typeof window.lgsAction") != "function":
-            check("lgsAction binding present", False, "typeof window.lgsAction != function")
-        else:
-            n = os.urandom(3).hex()
-
-            def call(cid, obj):
-                return _steam_js(f"(window.lgsAction(JSON.stringify({json.dumps(dict(obj, id=cid))})), 0)")
-            call(f"t-echo-{n}", {"type": "echo", "args": {"text": "hi"}, "src": "main"})
-            time.sleep(0.3)
-            call(f"t-unknown-{n}", {"type": "nope.nope", "args": {}, "src": "main"})
-            call(f"t-src-{n}", {"type": "echo.main", "args": {}, "src": "bar"})
-            call(f"t-args-{n}", {"type": "echo", "args": {"text": "x" * 300}, "src": "main"})
-            time.sleep(0.3)
-            _steam_js(f"(window.lgsAction(JSON.stringify({json.dumps({'id': 't-rate1-' + n, 'type': 'echo', 'args': {}, 'src': 'main'})})),"
-                      f" window.lgsAction(JSON.stringify({json.dumps({'id': 't-rate2-' + n, 'type': 'echo', 'args': {}, 'src': 'main'})})), 0)")
-            time.sleep(2.6)
-            st = status()
-            reps = {r.get("id"): r for r in (st.get("actions") or {}).get("replies") or []}
-            rej = {r.get("id"): r for r in (st.get("actions") or {}).get("rejected") or []}
-            exp = {f"t-echo-{n}": None, f"t-unknown-{n}": "unknown-type", f"t-src-{n}": "bad-source",
-                   f"t-args-{n}": "bad-args", f"t-rate1-{n}": None, f"t-rate2-{n}": "rate"}
-            for cid, err in exp.items():
-                r = reps.get(cid) or {}
-                if err is None:
-                    check(f"{cid.rsplit('-', 1)[0]} answered ok", r.get("ok") is True, str(r))
-                else:
-                    check(f"{cid.rsplit('-', 1)[0]} rejected {err} and logged",
-                          r.get("ok") is False and r.get("error") == err and (rej.get(cid) or {}).get("error") == err,
-                          f"{r} / {rej.get(cid)}")
-            last = _steam_js("(() => { const R = window.__LGS_RT, b = R && R.bridge; return b && b.get ?"
-                             " JSON.stringify(b.get('reply')) : null; })()")
-            if last is None:
-                print("NOTE bridge: no __LGS_RT.bridge in Steam (runtime off); replies checked in shell.json only",
-                      flush=True)
-            else:
-                lr = json.loads(last) or {}
-                check("bridge carries the last reply", lr.get("id") == f"t-rate2-{n}" and lr.get("error") == "rate",
-                      str(lr)[:160])
-            lines = [x for x in _journal("-2min") if n in x]
-            check("every call logged in the journal", len(lines) >= 6, f"{len(lines)} lines")
+        with FileLock("/tmp/lgs/lab.lock", 600):       # it calls lgsAction in Steam's SharedJSContext
+            _selftest_dm4(check, args)
     elif name == "dm5":
-        with FileLock("/tmp/lgs/lab-vr.lock", 240):
-            os.makedirs(os.path.dirname(TEST_SCRIPT), exist_ok=True)
-            try:
-                with open(TEST_SCRIPT, "w", encoding="utf-8") as f:
-                    f.write(TEST_SCRIPT_JS)
-                ver = hashlib.sha1(TEST_SCRIPT_JS.encode()).hexdigest()[:10]
-                probe = ("JSON.stringify({vrx: !!(window.__LGS_VRX && window.__LGS_VRX.p8echo), "
-                         "attr: document.documentElement.dataset.lgsEcho || null})")
-                got = _wait(lambda: (lambda d: d if d["vrx"] else None)(json.loads(_vr_js("systemui", probe))), 8)
-                check("injected into vr:systemui", got and got.get("attr") == ver, str(got))
-                st = _wait(lambda: (lambda s: s if s.get("p8echo") in ("installed", "ok") else None)(
-                    (status().get("vrScripts") or {}).get("systemui") or {}), 5) or {}
-                check("status lists it", st.get("p8echo") in ("installed", "ok"), str(st))
-                others = [t.get("title") for t in lgs_vr.targets() if t.get("title") != "systemui"]
-                leak = [p for p in others if _vr_js(p, "!!(window.__LGS_VRX && window.__LGS_VRX.p8echo)")]
-                check("only in matching pages", not leak, str(leak))
-                os.remove(TEST_SCRIPT)
-                gone = _wait(lambda: (lambda d: d if not d["vrx"] and not d["attr"] else None)(
-                    json.loads(_vr_js("systemui", probe))), 8)
-                check("removed when its file goes", bool(gone), str(gone))
-                if "--stop" in args:
-                    with FileLock("/tmp/lgs/native.lock", 1800):
-                        with open(TEST_SCRIPT, "w", encoding="utf-8") as f:
-                            f.write(TEST_SCRIPT_JS)
-                        got = _wait(lambda: (lambda d: d if d["vrx"] else None)(json.loads(_vr_js("systemui", probe))), 8)
-                        check("re-injected", bool(got), str(got))
-                        print("stop:", stop(), flush=True)
-                        after = json.loads(_vr_js("systemui", probe))
-                        check("removed on daemon stop", not after["vrx"] and not after["attr"], str(after))
-                        os.remove(TEST_SCRIPT)
-                        print("start:", start(native="auto"), flush=True)
-            finally:
-                try:
-                    os.remove(TEST_SCRIPT)
-                except OSError:
-                    pass
+        # --stop restarts the daemon: native.lock and lab.lock as well (order native -> lab -> lab-vr)
+        import contextlib
+        stopping = "--stop" in args
+        with (FileLock("/tmp/lgs/native.lock", 1800) if stopping else contextlib.nullcontext()), \
+                (FileLock("/tmp/lgs/lab.lock", 600) if stopping else contextlib.nullcontext()), \
+                FileLock("/tmp/lgs/lab-vr.lock", 240):
+            _selftest_dm5(check, args)
     elif name == "grace":
-        # theme off without `lgs off` (lab --stock, P1's selftests): dormant, not gone
-        with FileLock("/tmp/lgs/lab.lock", 600), FileLock("/tmp/lgs/lab-vr.lock", 240):
-            st0 = status()
-            pid0 = st0.get("pid")
-            check("unit active before", st0.get("unit") == "active" and not st0.get("dormant"), st0.get("mode"))
-            was_on = lgs.is_on()
-            try:
-                if was_on:
-                    lgs.op("off", quiet=True)
-                d = _wait(lambda: (lambda s: s if s.get("dormant") else None)(status()), 12, 0.5) or {}
-                check("theme off: dormant, same pid", d.get("pid") == pid0 and (d.get("dormant") or {}).get("graceS"),
-                      f"{d.get('pid')} vs {pid0} {d.get('dormant')}")
-                time.sleep(3)
-                s2 = status()
-                check("still running 8 s after the theme went off", s2.get("unit") == "active" and s2.get("pid") == pid0,
-                      f"{s2.get('unit')} {s2.get('pid')}")
-                check("dormant: no scene graph in systemui", not (_sg_items() or {}).get("items"), _sg_items())
-            finally:
-                if was_on:
-                    lgs.op("on", quiet=True)
-            r = _wait(lambda: (lambda s: s if s.get("unit") == "active" and not s.get("dormant") else None)(status()),
-                      10, 0.5) or {}
-            check("theme back: resumed (not dormant, same pid)", r.get("pid") == pid0, f"{r.get('pid')} {r.get('dormant')}")
-            back = _wait(lambda: _steam_js("typeof window.lgsAction") == "function", 5)
-            check("action binding present after resume", bool(back))
-            rt = _wait(lambda: _steam_js("(() => { const R = window.__LGS_RT, b = R && R.bridge; const d = b && b.get && "
-                                         "b.get('daemon'); return d ? Date.now() - d.at < d.ttlMs : null; })()") is True, 8)
-            if _steam_js("!!(window.__LGS_RT && window.__LGS_RT.bridge)"):
-                check("bridge daemon heartbeat fresh after resume", bool(rt))
-            pages = (status().get("steamvrPages") or {}).get("pages") or {}
-            check("SteamVR pages themed", pages and all(v in ("ok", "applied") for v in pages.values()), pages)
-    elif name in ("dm1", "dm2", "plates"):
-        if not os.access(FAKEGLASSD, os.X_OK):
+        # theme off without `lgs off` (lab --stock, P1's selftests): dormant, not gone.
+        # --native: the same with a native unit (fakeglassd, test report): glassd stopped while dormant
+        import contextlib
+        nat = "--native" in args
+        if nat and not os.access(FAKEGLASSD, os.X_OK):
             print(f"BLOCKED: no fakeglassd at {FAKEGLASSD} (python glass.py native-build fake)")
+            return 3
+        with (FileLock("/tmp/lgs/native.lock", 1800) if nat else contextlib.nullcontext()), \
+                FileLock("/tmp/lgs/lab.lock", 600), FileLock("/tmp/lgs/lab-vr.lock", 240):
+            try:
+                _selftest_grace(check, args, nat)
+            finally:
+                if nat:
+                    print("back to css:", start(native="off"), flush=True)
+                    back = _wait(lambda: (status().get("mode") or "").startswith("css-only"), 30)
+                    check("back to CSS only", back, status().get("mode"))
+                    try:
+                        os.remove(TEST_REPORT)
+                    except OSError:
+                        pass
+    elif name in ("dm1", "dm2", "plates", "freeze"):
+        need = GLASSD_BIN if name == "freeze" else FAKEGLASSD
+        if not os.access(need, os.X_OK):
+            print(f"BLOCKED: no {os.path.basename(need)} at {need} (python glass.py native-build)")
             return 3
         # native.lock for the native session; lab-vr.lock too, since systemui's
         # scene graph changes (and is frozen) under other agents' vr: steps
         import contextlib
         # plates edits the Steam main window (a fixture): lab.lock as well
-        with FileLock("/tmp/lgs/native.lock", 1800),                 (FileLock("/tmp/lgs/lab.lock", 600) if name == "plates" else contextlib.nullcontext()),                 FileLock("/tmp/lgs/lab-vr.lock", 240):
+        with FileLock("/tmp/lgs/native.lock", 1800), \
+                (FileLock("/tmp/lgs/lab.lock", 600) if name == "plates" else contextlib.nullcontext()), \
+                FileLock("/tmp/lgs/lab-vr.lock", 240):
             try:
-                {"dm1": _selftest_dm1, "dm2": _selftest_dm2, "plates": _selftest_plates}[name](check, args)
+                {"dm1": _selftest_dm1, "dm2": _selftest_dm2, "plates": _selftest_plates,
+                 "freeze": _selftest_freeze}[name](check, args)
             finally:
                 # always back to CSS only (lgs on --css), then wait for it
                 print("back to css:", start(native="off"), flush=True)
@@ -3803,7 +4073,8 @@ def selftest(args):
                     import shutil
                     shutil.rmtree(TEST_DUMP, ignore_errors=True)
     else:
-        print("selftest NAME: actions | dm1 | dm2 [--keep-dump] | dm3 | dm4 | dm5 [--stop] | dm6 [--live] | grace | plates")
+        print("selftest NAME: actions | dm1 | dm2 [--keep-dump] | dm3 | dm4 | dm5 [--stop] | dm6 [--live] | "
+              "grace [--native] | plates | freeze")
         return 2
     ok = all(r["pass"] for r in results)
     print(json.dumps({"selftest": name, "passed": sum(r["pass"] for r in results), "failed":

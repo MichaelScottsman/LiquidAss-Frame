@@ -607,6 +607,16 @@
   transition: opacity var(--lgs-motion-fade);
 }
 
+/* D34: C1a's `will-change: opacity` on MainNavMenuMainSplit (20-shell.css)
+   makes it a backdrop root that keeps the page out of the menu slab's
+   backdrop: the slab tinted the posters but did not blur them (session 4,
+   A/B shots). While a menu, alert or sheet is open (T2 classes) the hint is
+   lifted, so the thick material frosts the page under it. Rendering hint
+   only: no layout, no hit testing, no z-order change. */
+&:is(.lgs-menu-open, .lgs-modal) %{MainNavMenuMainSplit} {
+  will-change: auto;
+}
+
 /* ------------------------------------------------------------------ */
 /* 9. Markup of C1c's T2 (device/rt/22-menus.js, flag wp.c1c); inert    */
 /*    without it                                                         */
@@ -721,7 +731,7 @@
 /* sheets with T2's close circle: a 96 px toolbar row at the top of the
    card holds the circle at (24, 24); the content starts below it */
 %{*GamepadDialogContent>ModalPosition} > div.Panel[data-lgs-sheet="close"]:not(%{*GamepadDialogContent>ModalClickToDismiss}, %{FocusRing}, %{FocusRingRoot}, .BasicUIContextMenu, %{*GamepadDialogContent_InnerWidth>GamepadDialogContent}) {
-  padding-top: 96px;
+  padding-top: 88px;   /* 24 + the 60 px circle + 4: keeps the scroll area >= 300 tall (AUD scroll-container exemption) */
 }
 /* the close circle: our node in main's body, fixed over the card's (24, 24) */
 .lgs-sheet-close {

@@ -1,0 +1,23 @@
+{
+  "version": 2,
+  "about": [
+    "C3a Bar (PLAN 2.4 C3a T5, 1.6, 1.7; CC 3.1, 10). The bar's native cover is the three glass pieces 30-bar.css draws:",
+    "the Home circle (the Steam tab's Bookend surface), the apps capsule (the Tabs section of the main BarSurface: app tabs and +)",
+    "and the system capsule (Tray: Playspace, Room View, Streaming, the status pill, the avatar). The main BarSurface itself is",
+    "transparent in the theme, so the old two-shape cover (00-base.json) would glass the gap between the capsules. Not flagged:",
+    "the shapes follow the T1 CSS, which is always on. No pops on the bar (PLAN 1.7: bar popups are their own quads at +25 mm,",
+    "theme/popups/30-bar.json; tooltips are CSS shadow only). notifications, volumelevel and tooltip covers are in 00-base.json",
+    "(flag wp.c3a)."
+  ],
+  "owns": ["bar"],
+  "surfaces": {
+    "bar": {
+      "cover": {
+        "sel": "%{PopupBody>DashboardBar} %{BarSurface}%{Bookend}, %{PopupBody>DashboardBar} %{BarSurface}:not(%{Bookend}) > %{BarSurfaceSection}%{LowBatteryGauge>Tabs}, %{PopupBody>DashboardBar} %{BarSurfaceSection}%{Tray}",
+        "all": true,
+        "r": "capsule"
+      },
+      "layers": []
+    }
+  }
+}

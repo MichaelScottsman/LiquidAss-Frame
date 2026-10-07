@@ -11,23 +11,30 @@
 .VRKBContainer {
   /* this page is 1920 px wide for a keyboard Steam draws 854 CSS px wide */
   --lgs-vr-kb-scale: 2.25;
-  --lgs-vr-kb-r: calc(var(--lgs-r-panel) * var(--lgs-vr-kb-scale));
-  /* laser-only: the strong SteamVR hover (10-systemui.css section 0), rim
-     at this page's scale */
-  --lgs-vr-hover-rim: inset 0 0 0 calc(1.5px * var(--lgs-vr-kb-scale)) var(--lgs-control-outline);
+  --lgs-vr-kb-r: calc(var(--lgs-r-platter) * var(--lgs-vr-kb-scale));
+  /* C4b (CTL §12.7): the same key tokens as Steam's keyboard
+     (36-keyboard.css), at this page's scale. The hover rim is P4's
+     ring-free lit top arc (REQ P4->C4b), restated at this scale */
+  --lgs-vr-hover-rim: inset 0 calc(1.5px * var(--lgs-vr-kb-scale)) calc(1.5px * var(--lgs-vr-kb-scale)) calc(-1px * var(--lgs-vr-kb-scale)) rgb(255 255 255 / .45);
+  --c4b-key: rgb(255 255 255 / .15);
+  --c4b-mod: rgb(255 255 255 / .075);
+  --c4b-lit: rgb(255 255 255 / .32);
+  --c4b-lip: inset 0 calc(1.5px * var(--lgs-vr-kb-scale)) calc(1.5px * var(--lgs-vr-kb-scale)) calc(-1px * var(--lgs-vr-kb-scale)) rgb(255 255 255 / .24);
+  --c4b-contact: 0 calc(2px * var(--lgs-vr-kb-scale)) calc(3px * var(--lgs-vr-kb-scale)) rgb(0 0 0 / .22);
+  --c4b-sheen: linear-gradient(180deg, rgb(255 255 255 / .07), rgb(255 255 255 / 0) 60%);
   color: var(--lgs-text-1);
 }
 
 /* the slab: panel glass over the room (the page outside it stays clear),
-   at Steam's keyboard radius (--lgs-r-panel, 35-hud.css) at this scale:
+   at the keyboard platter radius (--lgs-r-platter, 36-keyboard.css) at this scale:
    54px. What sits in its top corners follows the curve (concentric:
    slab radius - inset): the preview well (5px in) and, in minimal mode
    without a preview, the first row's corner keys (7px in). The bottom
    keys sit 33px above the slab edge, where the slab curve already clears
    their normal corners. */
 .VRKBBackground {
-  background: var(--lgs-panel-sheen), var(--lgs-panel-bg);
-  box-shadow: var(--lgs-panel-rim);
+  background: linear-gradient(180deg, rgb(255 255 255 / .08), rgb(255 255 255 / 0) 34%), rgb(28 30 38 / calc(.70 + var(--lgs-dial, .5) * .28));
+  box-shadow: var(--lgs-mat-thick-shade);
   border-radius: var(--lgs-vr-kb-r);
 }
 .VRKBRow {
@@ -36,8 +43,8 @@
 
 /* text preview: a sunken well with a white caret */
 .VRKBPreviewWrapper {
-  background-color: var(--lgs-well-bg);
-  box-shadow: var(--lgs-well-shadow);
+  background-color: rgb(0 0 0 / .30);
+  box-shadow: var(--lgs-recessed-shadow);
   border-radius: calc(var(--lgs-r-small) * var(--lgs-vr-kb-scale));
   border-top-left-radius: calc(var(--lgs-vr-kb-r) - 5px);
   border-top-right-radius: calc(var(--lgs-vr-kb-r) - 5px);
@@ -46,25 +53,26 @@
   color: var(--lgs-text-1);
 }
 .VRKBPreviewTextCursor {
-  color: var(--lgs-caret);
+  color: var(--lgs-blue);
 }
 .VRKBSuggestion {
-  background-color: var(--lgs-fill-2);
+  background-color: var(--c4b-key);
   border-radius: var(--lgs-r-capsule);
   color: var(--lgs-text-1);
 }
 
 /* keys */
 .VRKBKey {
-  background-color: var(--lgs-fill-2);
-  box-shadow: var(--lgs-control-rim);
-  border-radius: calc(var(--lgs-r-small) * var(--lgs-vr-kb-scale));
+  background-color: var(--c4b-key);
+  background-image: var(--c4b-sheen);
+  box-shadow: var(--c4b-lip), var(--c4b-contact);
+  border-radius: calc(11px * var(--lgs-vr-kb-scale));
   color: var(--lgs-text-1);
   transition: background-color var(--lgs-t-fast) var(--lgs-ease), color var(--lgs-t-fast) var(--lgs-ease);
 }
 /* special keys (icon faces: backspace, enter, shift, symbols) */
 .VRKBKey:has(> .VRKBKeyFace > img) {
-  background-color: var(--lgs-fill-3);
+  background-color: var(--c4b-mod);
 }
 .VRKBKey .VRKBKeyFace > img {
   filter: brightness(0) invert(0.96);
@@ -80,13 +88,11 @@
    further (the pressed fill; pressing a key paints it white, below), both
    with the inner rim. The special-key rule carries the :has() so it
    outranks the special-key rest fill. */
-.VRKBKey:hover {
-  background-color: var(--lgs-vr-hover-fill);
-  box-shadow: var(--lgs-control-rim), var(--lgs-vr-hover-rim);
-  color: var(--lgs-text-1);
-}
+.VRKBKey:hover,
 .VRKBKey:has(> .VRKBKeyFace > img):hover {
-  background-color: var(--lgs-pressed-fill);
+  background-color: var(--c4b-lit);
+  box-shadow: var(--lgs-vr-hover-rim), var(--c4b-contact);
+  color: var(--lgs-text-1);
 }
 /* touched / pressed key and the latched shift: the white key */
 .VRKBKey[style*="background"] {

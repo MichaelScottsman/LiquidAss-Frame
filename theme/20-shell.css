@@ -658,6 +658,25 @@
   top: 0;
   bottom: 8px;
 }
+/* Native glass (T2 node .lgs-orn-plate, device/rt/20-shell.js): the
+   capsule's rect for P6's reporter, the liquid plate shell-ornament and
+   the data-lgs-nopop box (PLAN §1.7 rule 1). It paints nothing. */
+%{BasicUiRoot} #Footer%{BasicFooter} > .lgs-orn-plate {
+  position: absolute;
+  top: anchor(--lgs-orn-first top, 0px);
+  bottom: anchor(--lgs-orn-first bottom, 8px);
+  left: calc(anchor(--lgs-orn-first left, 100%) - 12px);
+  right: calc(anchor(--lgs-orn-last right, 0px) - 12px);
+  border-radius: var(--lgs-r-capsule);
+  pointer-events: none;
+}
+%{BasicUiRoot} #Footer%{BasicFooter}:is([data-lgs-orn-fixed], [data-lgs-orn-measured]) > .lgs-orn-plate {
+  left: var(--lgs-orn-x);
+  right: auto;
+  width: var(--lgs-orn-w);
+  top: 0;
+  bottom: 8px;
+}
 
 /* Quiet legend (only A and B, T2's data-lgs-orn="quiet"): no capsule
    material, the members keep 60 px and their place */
@@ -761,6 +780,26 @@
 /* 10 popup px between the two capsules */
 %{DashboardMenu}%{Variant_FrameMenu} %{DashboardMenu>ItemOuter}:nth-child(7 of %{DashboardMenu>ItemOuter}) {
   margin-top: 10px;
+}
+/* Native glass (T2 nodes .lgs-tabcap, device/rt/20-shell.js): the two
+   capsules' rects, the frame.menu cover elements of
+   theme/layers/20-shell.json (liquid, PLAN §1.6). They paint nothing.
+   Rows: the first and last of a group are p + 6, the others p; 10 px
+   between the groups; the band under the bar is the root's padding. */
+%{DashboardMenu}%{Variant_FrameMenu} > .lgs-tabcap {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-radius: calc(var(--lgs-c1a-tab-d) / 2 + 12px);
+  pointer-events: none;
+}
+%{DashboardMenu}%{Variant_FrameMenu} > .lgs-tabcap[data-lgs-tabcap="1"] {
+  top: 0;
+  height: calc(6 * var(--lgs-c1a-tab-p) + 12px);
+}
+%{DashboardMenu}%{Variant_FrameMenu} > .lgs-tabcap[data-lgs-tabcap="2"] {
+  top: calc(6 * var(--lgs-c1a-tab-p) + 22px);
+  bottom: var(--lgs-tab-place, 0px);
 }
 
 /* rows: the item never paints a fill of its own (Steam: hover 20 %
@@ -941,6 +980,39 @@
 }
 .lgs-pointer.lgs-pointer-on {
   opacity: 1;
+}
+
+/* ------------------------------------------------------------------ */
+/* 4c. Native mode (html.lgs-native; P6's acks, PLAN §1.6): where      */
+/*     glassd draws the shell's glass, the CSS stops painting it.      */
+/*     Anything not acknowledged keeps its CSS glass.                  */
+/* ------------------------------------------------------------------ */
+
+/* the ornament: glassd's liquid plate is the capsule (tint, frost and
+   crescent), so the CSS capsule and its E3 hook go; labels, badges and
+   the members' hover and focus light stay */
+&.lgs-native %{BasicUiRoot} #Footer%{BasicFooter}:has(> .lgs-orn-plate[data-lgs-plate-ack]) {
+  --lgs-edge: none;
+}
+&.lgs-native %{BasicUiRoot} #Footer%{BasicFooter}:has(> .lgs-orn-plate[data-lgs-plate-ack])::after {
+  background: none;
+  backdrop-filter: none;
+  box-shadow: none;
+}
+/* toolbar plates on windowless routes: the plate is the control's
+   glass; the hover and focus light stay */
+&.lgs-native #header %{BackContainer}[data-lgs-plate-ack]:not(:hover, .gpfocus)::before {
+  background: none;
+  box-shadow: none;
+}
+/* the tab bar: glassd's liquid cover is the two capsules; the rows'
+   slices stop painting, the selection circle, focus pill and labels stay */
+&.lgs-native %{DashboardMenu}%{Variant_FrameMenu}:has(> .lgs-tabcap[data-lgs-cover]) {
+  --lgs-c1a-tab-fill: transparent;
+}
+&.lgs-native %{DashboardMenu}%{Variant_FrameMenu}:has(> .lgs-tabcap[data-lgs-cover]) :is(%{DashboardMenu>ItemOuter}, %{SectionGap}) {
+  background: none;
+  box-shadow: none;
 }
 
 /* 5. (the app-details overlay scrim moved to C1c's 22-presentations.css

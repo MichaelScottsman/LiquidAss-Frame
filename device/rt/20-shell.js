@@ -15,6 +15,11 @@
 //   #Footer[data-lgs-orn-compact]    members would pass 960 px
 //   #Footer[data-lgs-orn-fixed] + --lgs-orn-x / --lgs-orn-w   an area's fixed slots
 //   #Footer[data-lgs-band="off"]     flag quietBacking = "off"
+//   Native glass (PLAN §1.6, contracts/reporter.md §2.2-§2.4; read by theme/layers/20-shell.json):
+//   #Footer > div.lgs-orn-plate      the ornament's rect: [data-lgs-nopop] always, [data-lgs-plate="liquid"]
+//                                    only as a capsule (the quiet legend has no material); id shell-ornament
+//   Back / search [data-lgs-plate]   liquid plates shell-back / shell-search on windowless routes only
+//   frame menu > div.lgs-tabcap x2   the tab bar's two capsules: the frame.menu cover elements (paint nothing)
 // API (rt.use('shell'), __LGS_RT.shell):
 //   glassMode(routeKey | '*', fn) -> {remove()}; refreshGlass(); ornamentSlots(routeKey, {widths, gap, padding})
 //   -> {remove()}; route() -> {path, key, mode, search}; target(); onTarget(fn) -> {remove()}; status()
@@ -153,6 +158,7 @@
     }
     applyTitle();
     applyOrnament();
+    applyToolbarPlates();
     holdHeader();
     const back = q(m.doc, S.backSel);
     if (back && back.hasAttribute('data-lgs-reveal')) reveal(back, false);
@@ -402,6 +408,7 @@
     const legends = Array.from(footer.querySelectorAll(S.legendSel));
     const quiet = legends.length > 0 && legends.every((el) => !el.hasAttribute('data-lgs-t2') && QUIET.has(el.getAttribute('data-lgs-btn')));
     setAttr(footer, 'data-lgs-orn', legends.length ? (quiet ? 'quiet' : 'capsule') : null);
+    applyOrnPlate(footer, legends.length ? (quiet ? 'quiet' : 'capsule') : null);
     // flag quietBacking: "off" shows PLAN §1.10's bare quiet labels in the margin
     const qb = S.rt.flags.get('quietBacking');
     setAttr(footer, 'data-lgs-band', (qb === 'off' || qb === false) ? 'off' : null);
@@ -434,8 +441,64 @@
     H.requestAnimationFrame(() => {
       if (!S) return;
       S.pending = false;
-      try { applyBack(); applyTitle(); applyOrnament(); } catch (e) { log('warn', 'update failed', String(e && e.message || e)); }
+      try { applyBack(); applyTitle(); applyOrnament(); applyToolbarPlates(); } catch (e) { log('warn', 'update failed', String(e && e.message || e)); }
     });
+  }
+
+  // ------------------------------------------------------------------ native glass (PLAN §1.6, §1.7)
+  // The bottom ornament is a liquid plate, never a pop (reporter §2.1, §3.5): a T2 node at the capsule's
+  // rect (20-shell.css §3b, the same anchors as #Footer::after) carries data-lgs-nopop in both looks (admission
+  // rule 1: no pop over the ornament) and data-lgs-plate only as a capsule (the quiet legend has no material).
+  function applyOrnPlate(footer, look) {
+    let p = footer.querySelector(':scope > .lgs-orn-plate');
+    if (!look) { if (p) p.remove(); return; }
+    if (!p) {
+      p = footer.ownerDocument.createElement('div');
+      p.className = 'lgs-orn-plate';
+      p.setAttribute('aria-hidden', 'true');
+      p.setAttribute('data-lgs-nopop', '');
+      p.setAttribute('data-lgs-plate-id', 'shell-ornament');
+      p.setAttribute('data-lgs-plate-r', 'capsule');
+      footer.appendChild(p);
+    }
+    setAttr(p, 'data-lgs-plate', look === 'capsule' ? 'liquid' : null);
+  }
+  // windowless routes have no window cover, so the toolbar row's glass is two liquid plates (REQ C2a->C1a #2,
+  // reporter §2.2): Back (80 box, 60 circle: inset 10) and the search field (536 x 80 box, 520 x 64 capsule:
+  // inset 8; the circle variant: inset 10). Off every other route.
+  const PLATE_ATTRS = ['data-lgs-plate', 'data-lgs-plate-id', 'data-lgs-plate-inset', 'data-lgs-plate-r'];
+  function clearPlate(el) { for (const a of PLATE_ATTRS) if (el.hasAttribute(a)) el.removeAttribute(a); }
+  function applyToolbarPlates() {
+    const m = S.main;
+    if (!m) return;
+    const on = !!(S.route && S.route.mode === 'windowless');
+    const want = [
+      ['shell-back', q(m.doc, S.backSel), 10],
+      ['shell-search', q(m.doc, S.searchSel), S.route && S.route.search === 'circle' ? 10 : 8],
+    ];
+    for (const [id, el, inset] of want) {
+      for (const o of m.doc.querySelectorAll('[data-lgs-plate-id="' + id + '"]')) if (!on || o !== el) clearPlate(o);
+      if (!on || !el) continue;
+      setAttr(el, 'data-lgs-plate', 'liquid');
+      setAttr(el, 'data-lgs-plate-id', id);
+      setAttr(el, 'data-lgs-plate-inset', String(inset));
+      setAttr(el, 'data-lgs-plate-r', 'capsule');
+    }
+  }
+  // the frame menu's cover is its two capsules, not its box (the box also holds the gap between them and
+  // the band under the bar): two T2 nodes at the capsules' rects (20-shell.css §4) are the cover elements of
+  // theme/layers/20-shell.json. They paint nothing and take no input.
+  function ensureTabCaps(doc) {
+    const menu = q(doc, S.tabMenuSel);
+    if (!menu) return;
+    for (const g of ['1', '2']) {
+      if (menu.querySelector(':scope > .lgs-tabcap[data-lgs-tabcap="' + g + '"]')) continue;
+      const n = doc.createElement('div');
+      n.className = 'lgs-tabcap';
+      n.setAttribute('data-lgs-tabcap', g);
+      n.setAttribute('aria-hidden', 'true');
+      menu.appendChild(n);
+    }
   }
 
   // ------------------------------------------------------------------ CQ1 header (WN §3.2)
@@ -515,6 +578,7 @@
     if (!S) return;
     const geom = S.rt.bridge && S.rt.bridge.get('geom');
     for (const e of S.menus) {
+      try { ensureTabCaps(e.doc); } catch (_) { /* closed */ }
       const n = e.doc.querySelectorAll(S.tabItemSel).length;
       const t = tabRule(geom, n);
       const st = e.html.style;
@@ -549,6 +613,7 @@
         e.html.style.removeProperty('--lgs-tab-pitch');
         e.html.style.removeProperty('--lgs-tab-place');
         e.html.classList.remove('lgs-modal');
+        for (const n of e.doc.querySelectorAll('.lgs-tabcap')) n.remove();
       } catch (_) { /* closed */ }
     }
   }
@@ -616,7 +681,8 @@
       } catch (_) { /* gone */ }
     }
     S.backAria.clear();
-    for (const n of doc.querySelectorAll('#Footer .lgs-opt, #header .lgs-back-reveal')) n.remove();
+    for (const n of doc.querySelectorAll('#Footer .lgs-opt, #header .lgs-back-reveal, #Footer > .lgs-orn-plate')) n.remove();
+    for (const n of doc.querySelectorAll('[data-lgs-plate-id="shell-back"], [data-lgs-plate-id="shell-search"]')) clearPlate(n);
     for (const n of doc.querySelectorAll('#header [data-lgs-reveal]')) n.removeAttribute('data-lgs-reveal');
     if (S.revealReg) { try { S.revealReg.off(); } catch (_) { /* gone */ } S.revealReg = null; }
     for (const f of doc.querySelectorAll('#Footer')) {
@@ -639,6 +705,7 @@
         footerSel: '#Footer' + sel(rt, '%{BasicFooter}') + ':not(' + sel(rt, '%{FloatingVRFooter}') + ')',
         legendSel: sel(rt, '%{ActionButtonLegend}'),
         backSel: '#header ' + sel(rt, '%{BackContainer}'),
+        searchSel: '#header ' + sel(rt, '%{SearchAndTitleContainer}%{ShowingSearch}'),
         backLabelSel: sel(rt, '%{BackContainer>BackButton}'),
         labelSel: sel(rt, '%{ActionButtonLabel}'),
         tabMenuSel: sel(rt, '%{DashboardMenu}%{Variant_FrameMenu}'),

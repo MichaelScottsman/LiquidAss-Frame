@@ -209,6 +209,408 @@ def parity(as_json=False):
     return 0 if not diff else 1
 
 
+# ---------------------------------------------------------------- hook hosts (G-PERF, review R1 M1)
+#   python docs/phase2/fontkit.py --hooks           rewrite the generated host lists in 03-material / 04-states
+#   python docs/phase2/fontkit.py --hooks-check     exit 1 when a list is stale (an area added or moved a hook)
+# The hooks (--lgs-ill, --lgs-edge, --lgs-scroll-band) are style queries on a pseudo-element. Their subject must
+# not be universal: a universal *::after inside @container makes Blink resolve ::before/::after for every element on
+# every style recalc, which cost the library grid ~20 % of its scroll frame rate (review R1 M1; P4 microbenchmark:
+# a full recalc of the 800-element poster grid 122-158 ms with universal subjects, 73-77 ms without). So each hook
+# rule's subject is a generated flat list of the elements the theme opts in, one `:where(host)::pseudo` entry per
+# host (bucketed by Blink; a nested `&` or one big :where() list is matched against every element): for each theme
+# rule that sets the property to a kind, the rightmost compound of its selector without pseudo-classes (a superset
+# of the hosts; the style query still decides), or the whole selector when that compound has no class, id,
+# attribute or token, with per-kind lists for the per-kind rules. Scroll A/B on the grid: listed -1.5 %, universal
+# -27 % against no hooks. Files are read the way P1's bundler reads them (theme/*.css, "_"/"." names skipped).
+HOOK_FAMILIES = (("ill", "--lgs-ill", "04-states.css"), ("edge", "--lgs-edge", "03-material.css"),
+                 ("band", "--lgs-scroll-band", "03-material.css"))
+HOOK_SKIP_AT = ("@keyframes", "@-webkit-keyframes", "@font-face", "@property", "@counter-style", "@page",
+                "@font-feature-values", "@import", "@charset", "@namespace")
+HOOK_OFF = {"", "none", "initial", "unset", "revert", "revert-layer"}
+HOOK_WEAK = {".Panel", ".Focusable"}
+HOOK_KINDS = {"ill": ("raised", "recessed", "row", "nav", "white", "card"),
+              "edge": ("window", "panel", "liquid", "thick", "clear", "control"), "band": ("top", "bottom")}
+
+
+def _hk_protect(text):
+    """Comments out; strings and %{Token}s replaced by n so braces inside them are inert."""
+    out, keep, i, n = [], [], 0, len(text)
+    while i < n:
+        if text.startswith("/*", i):
+            j = text.find("*/", i + 2)
+            i = n if j < 0 else j + 2
+            out.append(" ")
+            continue
+        c = text[i]
+        if c in "\"'":
+            j = i + 1
+            while j < n and text[j] != c:
+                j += 2 if text[j] == "\\" else 1
+            keep.append(text[i:j + 1])
+            out.append("%d" % (len(keep) - 1))
+            i = j + 1
+            continue
+        if text.startswith("%{", i):
+            j = text.find("}", i)
+            if j > 0:
+                keep.append(text[i:j + 1])
+                out.append("%d" % (len(keep) - 1))
+                i = j + 1
+                continue
+        out.append(c)
+        i += 1
+    return "".join(out), keep
+
+
+def _hk_restore(s, keep):
+    import re
+    return re.sub("(\\d+)", lambda m: keep[int(m.group(1))], s)
+
+
+def _hk_tree(text):
+    """[(prelude, decls, children)] of a protected stylesheet; at-rule preludes start with '@'."""
+    root = {"prelude": None, "decls": [], "kids": []}
+    stack, buf, depth = [root], [], 0
+    for c in text:
+        if c in "([":
+            depth += 1
+        elif c in ")]":
+            depth = max(0, depth - 1)
+        if depth == 0 and c == "{":
+            node = {"prelude": "".join(buf).strip(), "decls": [], "kids": []}
+            stack[-1]["kids"].append(node)
+            stack.append(node)
+            buf = []
+        elif depth == 0 and c == ";":
+            stack[-1]["decls"].append("".join(buf).strip())
+            buf = []
+        elif depth == 0 and c == "}":
+            if "".join(buf).strip():
+                stack[-1]["decls"].append("".join(buf).strip())
+            buf = []
+            if len(stack) > 1:
+                stack.pop()
+        else:
+            buf.append(c)
+    return root
+
+
+def _hk_split(s, seps=","):
+    """Split at top level (outside (), [])."""
+    out, cur, depth = [], [], 0
+    for c in s:
+        if c in "([":
+            depth += 1
+        elif c in ")]":
+            depth -= 1
+        if depth == 0 and c in seps:
+            out.append("".join(cur))
+            cur = []
+        else:
+            cur.append(c)
+    out.append("".join(cur))
+    return [x.strip() for x in out if x.strip()]
+
+
+def _hk_compounds(sel):
+    """Compounds of a complex selector (combinators dropped)."""
+    import re
+    s = re.sub(r"\s*([>+~])\s*", r" \1 ", sel.strip())
+    return [c for c in _hk_split(s, " \t\n") if c not in (">", "+", "~")]
+
+
+def _hk_simple(compound):
+    """Simple selectors of a compound: '&', '*', tags, .class, #id, [attr], tokens, :pseudo(...)."""
+    import re
+    parts, i, n = [], 0, len(compound)
+    while i < n:
+        c = compound[i]
+        if c == "":
+            j = compound.index("", i)
+            parts.append(compound[i:j + 1])
+            i = j + 1
+        elif c == "[":
+            depth, j = 0, i
+            while j < n:
+                depth += {"[": 1, "]": -1}.get(compound[j], 0)
+                j += 1
+                if depth == 0:
+                    break
+            parts.append(compound[i:j])
+            i = j
+        elif c == ":":
+            j = i + 2 if compound.startswith("::", i) else i + 1
+            m = re.match(r"[\w-]*", compound[j:])
+            j += m.end()
+            if j < n and compound[j] == "(":
+                depth = 0
+                while j < n:
+                    depth += {"(": 1, ")": -1}.get(compound[j], 0)
+                    j += 1
+                    if depth == 0:
+                        break
+            parts.append(compound[i:j])
+            i = j
+        elif c in ".#":
+            m = re.match(r"[.#](?:\\.|[\w-])+", compound[i:])
+            parts.append(m.group(0) if m else c)
+            i += len(m.group(0)) if m else 1
+        elif c in "&*":
+            parts.append(c)
+            i += 1
+        else:
+            m = re.match(r"(?:\\.|[\w-])+", compound[i:])
+            if not m:
+                i += 1
+                continue
+            parts.append(m.group(0))
+            i += m.end()
+    return parts
+
+
+def _hk_resolve(sel, parent):
+    """The selector with '&' made explicit against its parent (None: top level of a wrapped file, '&' stays)."""
+    if parent is None:
+        return sel
+    if "&" in sel:
+        return sel.replace("&", ":is(%s)" % parent)
+    return ("%s %s" % (":is(%s)" % parent, sel)).strip()
+
+
+def _hk_anchors(sel, parent_anchors):
+    """Anchor compounds (a superset of what `sel` matches), or None when only the whole selector will do."""
+    comps = _hk_compounds(sel)
+    if not comps:
+        return None
+    parts = _hk_simple(comps[-1])
+    keep = [p for p in parts if p[0] in ".#[" or (p[0].isalpha() and p not in ("&", "*"))]
+    own = "".join(keep)
+    if "&" in parts and parent_anchors:
+        # "&.x" / "&[a]": the parent's anchors narrowed by this compound's own parts
+        return [(pa if " " not in pa and ">" not in pa else ":is(%s)" % pa) + own for pa in parent_anchors]
+    # Steam's literal .Panel / .Focusable sit on most nodes of a page: never an anchor on their own;
+    # an attribute alone anchors only a one-compound selector (else the whole selector, which is exact)
+    if any(p[0] in ".#" and p not in HOOK_WEAK for p in keep) or (keep and len(comps) == 1):
+        return [own]
+    out = []
+    for p in parts:
+        if p.startswith((":is(", ":where(", ":matches(")):
+            inner = p[p.index("(") + 1:-1]
+            for arg in _hk_split(inner):
+                a = _hk_anchors(arg, parent_anchors)
+                if a is None:
+                    return None
+                out += a
+    return out or None
+
+
+def hook_hosts(root=ROOT):
+    """{list name: sorted host selectors}, %{tokens} as written. Names: "ill", "edge", "band" (every host of the
+    family), "ill:<kind>", "edge:<kind>", "band:<kind>" (the hosts that set that kind; a value that is not a plain
+    kind, e.g. a var(), counts for every kind), and "ring" (the --lgs-ill hosts' whole selectors, exact, for the
+    FocusRing plate's "the focused control lights itself" test)."""
+    import re
+    theme = os.path.join(root, "theme")
+    names = sorted(n for n in os.listdir(theme) if n.endswith(".css") and not n.startswith(("_", ".", "#"))
+                   and not n.endswith("~"))
+    found = {"ring": {}}
+    for fam, _, _ in HOOK_FAMILIES:
+        found[fam] = {}
+        for k in HOOK_KINDS[fam]:
+            found[fam + ":" + k] = {}
+    keeps = {}
+    for name in names:
+        with open(os.path.join(theme, name), encoding="utf-8") as fh:
+            text, keep = _hk_protect(fh.read())
+        wrapped = not name.endswith(".nowrap.css")
+
+        def add(key, sels):
+            for s in sels:
+                if "::" in s:          # a pseudo-element cannot host one
+                    continue
+                found[key].setdefault(s, set()).add(name)
+
+        def walk(node, fulls, rule_anchors, skip):
+            for d in node["decls"]:
+                m = re.match(r"(--[\w-]+)\s*:\s*(.*)$", d, re.S)
+                if not m or skip or fulls is None:
+                    continue
+                for fam, prop, _ in HOOK_FAMILIES:
+                    v = m.group(2).replace("!important", "").strip().lower()
+                    if m.group(1) != prop or v in HOOK_OFF:
+                        continue
+                    add(fam, rule_anchors)
+                    for k in (HOOK_KINDS[fam] if v not in HOOK_KINDS[fam] else (v,)):
+                        add(fam + ":" + k, rule_anchors)
+                    if fam == "ill":
+                        add("ring", fulls)
+            for kid in node["kids"]:
+                pre = kid["prelude"]
+                if pre.startswith("@"):
+                    walk(kid, fulls, rule_anchors, skip or pre.lower().startswith(HOOK_SKIP_AT))
+                    continue
+                rule_sel = ", ".join(fulls) if fulls is not None else None
+                sels, anchors = [], []
+                for part in _hk_split(pre):
+                    if rule_sel is None and wrapped:
+                        part = re.sub(r"^&\s+(?=[^\s>+~])", "", part)   # "& X" at the top = X under html.lgs-on
+                    full = _hk_resolve(part, rule_sel)
+                    if rule_sel is None and not wrapped:
+                        full = ":is(%s)" % full                         # absolute (nowrap file)
+                    sels.append(full)
+                    a = _hk_anchors(part, rule_anchors)
+                    anchors += [full] if a is None else a               # None: only the whole selector will do
+                walk(kid, sels, anchors, skip)
+
+        walk(_hk_tree(text), None, [], False)
+        keeps[name] = keep
+    out = {}
+    for key in found:
+        # %{tokens} back as written (placeholders are per file)
+        sels = set()
+        for s, files in found[key].items():
+            for fname in files:
+                sels.add(_hk_restore(s, keeps[fname]))
+        # drop a compound whose simple selectors include all of a shorter entry's (a superset is already listed)
+        def skey(s):
+            t, k = _hk_protect(s)
+            return frozenset(_hk_restore(p, k) for p in _hk_simple(t)) if len(_hk_compounds(t)) == 1 else None
+        keyed = {s: skey(s) for s in sels}
+        final = [s for s in sels if not (keyed[s] and any(o != s and keyed[o] and keyed[o] < keyed[s]
+                                                          for o in sels))]
+        out[key] = sorted(final)
+    return out
+
+
+HOOK_FILES = ("03-material.css", "04-states.css")
+# /* lgs-hosts <list> <::pseudo> begin */ ... /* lgs-hosts <list> <::pseudo> end */   (a flat selector list)
+# /* lgs-hosts ring begin */ ... /* lgs-hosts ring end */                             (the FocusRing test)
+HOOK_MARK = r"(/\* lgs-hosts (%s) begin \*/\n)(.*?)(\n/\* lgs-hosts \2 end \*/)"
+
+
+def _hook_block(name, hosts):
+    """The generated selector text of one marked block. Each host is its own entry, `:where(host)::pseudo`, in a
+    flat list: Blink files each entry under its rightmost class (a nested `&` or one big :where() list sits in the
+    universal bucket and was matched against every element: +29 % style recalc on the poster grid against +8 % flat,
+    R1 microbenchmark), and :where() keeps the specificity the universal subject had (0,1,2), so area rules on a
+    host's pseudo-element still win. The placeholder class keeps a list non-empty."""
+    if name == "ring":
+        return "&.lgs-on:has(.gpfocus:where(\n    %s))" % ",\n    ".join([".lgs-hosts-ill"] + hosts)
+    lst, pseudo = name.split(" ")
+    ph = ".lgs-hosts-" + lst.replace(":", "-")
+    if pseudo.startswith("where"):
+        # one :where() list, for a rule that needs a prefix (a few hosts only: it is matched everywhere)
+        return ":where(%s)%s" % (", ".join([ph] + hosts), pseudo[len("where"):])
+    return ",\n".join("  :where(%s)%s" % (h, pseudo) for h in [ph] + hosts)
+
+
+def hooks(check_only=False, as_json=False, root=ROOT):
+    import re
+    hosts = hook_hosts(root)
+    stale, written, blocks = [], [], 0
+    pat = re.compile(HOOK_MARK % r"ring|[\w:-]+ (?:where)?::[\w-]+", re.S)
+    for fname in HOOK_FILES:
+        path = os.path.join(root, "theme", fname)
+        with open(path, encoding="utf-8") as fh:
+            text = fh.read()
+        out, pos, changed = [], 0, False
+        for m in pat.finditer(text):
+            name = m.group(2)
+            lst = "ring" if name == "ring" else name.split(" ")[0]
+            if lst not in hosts:
+                print(f"hooks: unknown list '{lst}' in theme/{fname}", file=sys.stderr)
+                return 2
+            blocks += 1
+            new = _hook_block(name, hosts[lst])
+            out.append(text[pos:m.start(3)])
+            out.append(new)
+            pos = m.end(3)
+            if m.group(3) != new:
+                changed = True
+                if name not in stale:
+                    stale.append(name)
+        out.append(text[pos:])
+        if changed and not check_only:
+            with open(path, "w", encoding="utf-8", newline="\n") as fh:
+                fh.write("".join(out))
+            written.append(fname)
+    if not blocks:
+        print("hooks: no 'lgs-hosts' blocks found", file=sys.stderr)
+        return 2
+    res = {"blocks": blocks, "hosts": {k: len(v) for k, v in hosts.items()}, "stale": stale,
+           "written": written, "pass": not (check_only and stale)}
+    if as_json:
+        res["list"] = hosts
+        print(json.dumps(res, indent=1))
+    else:
+        fams = ", ".join(f"{k} {len(hosts[k])}" for k in ("ill", "edge", "band", "ring"))
+        print(f"hook hosts: {fams}; {blocks} blocks"
+              + ("; stale: " + ", ".join(stale) if stale else "; up to date")
+              + ("; rewrote " + ", ".join(written) if written else ""))
+        if check_only and stale:
+            print("FAIL: run `python docs/phase2/fontkit.py --hooks` (any package may; contracts/tokens.md §2)")
+    return 1 if (check_only and stale) else 0
+
+
+# The G-PERF gate for the hooks (review R1 M1): a scroll A/B on the library grid with P4's hook rules as shipped
+# ("cur"), removed ("none") and with the old universal subject ("univ"), by CSSOM delete/insert (the sheet digest is
+# checked equal afterwards). Run (lab lock, ~35 s; keep rounds * variants * ms under the lab's 60 s):
+#   python glass.py js "(window.__P4AB = {route: '/library/tab/AllGames', mode: 'scroll', ms: 2500, rounds: 2}, $(python docs/phase2/fontkit.py --perf-js))"
+# mode 'recalc' times a forced style recalc of the grid's subtree instead. Pass: cur within 5 % of none.
+PERF_JS = r'''(async () => {
+  // P4 G-PERF A/B (R1): P4's hook rules as shipped ("cur"), removed ("none"), or with the old universal
+  // subject ("univ": every generated host list replaced by *). CSSOM delete/insert; sheet digest checked after.
+  const L = window.__LGS_LAB;
+  const CFG = window.__P4AB || {};
+  const ms = CFG.ms || 3000, rounds = CFG.rounds || 3, variants = CFG.variants || ['cur', 'none', 'univ'], mode = CFG.mode || 'recalc', reps = CFG.reps || 10;
+  if (CFG.route) { await L.nav(CFG.route); await L.sleep(1500); }
+  const w = L.surface('main'), doc = w.document;
+  const sheet = doc.getElementById('lgs-theme').sheet;
+  const digest = () => { let h = 0; const t = [...sheet.cssRules].map((r) => r.cssText).join('\n'); for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) | 0; return h + ':' + t.length; };
+  const d0 = digest();
+  // P4's hook rules: container rules (or media rules holding them) whose style rules list lgs-hosts
+  const hooks = [];
+  const has = (r) => /lgs-hosts-(ill|edge|band)/.test(r.cssText) && !/:has\(\.gpfocus/.test(r.cssText);
+  const walk = (list) => { for (const r of list) { if ((r instanceof w.CSSContainerRule || r instanceof w.CSSMediaRule) && has(r)) hooks.push({ parent: r.parentRule || sheet, rule: r, text: r.cssText, cur: r }); else if (r.cssRules && !(r instanceof w.CSSContainerRule)) walk(r.cssRules); } };
+  walk(sheet.cssRules);
+  const univText = (t) => t.replace(/((?:^|[{};]\s*))((?:(?:&\s*)?:where\([^{}]*?\)::(?:before|after),?\s*)+)\{/g, (m, a, list) => a + '& *::' + (/::before/.test(list) ? 'before' : 'after') + ' {');
+  const removeAll = () => { for (const h of hooks.slice().reverse()) { const i = [...h.parent.cssRules].indexOf(h.cur); if (i >= 0) { h.idx = i; h.parent.deleteRule(i); } h.cur = null; } };
+  const insertAll = (fn) => { for (const h of hooks) { h.parent.insertRule(fn ? fn(h.text) : h.text, h.idx); h.cur = h.parent.cssRules[h.idx]; } };
+  let best = null, area = 0;
+  for (const el of doc.querySelectorAll('div')) { if (el.scrollHeight - el.clientHeight < 200) continue; const r = el.getBoundingClientRect(); if (r.width * r.height <= area) continue; const cs = w.getComputedStyle(el); if (!/(auto|scroll)/.test(cs.overflowY)) continue; area = r.width * r.height; best = el; }
+  const runScroll = () => new Promise((done) => {
+    const times = []; let dir = 1; const t0 = w.performance.now(); const start = best.scrollTop;
+    const step = (t) => { times.push(t); const max = best.scrollHeight - best.clientHeight; const cur = best.scrollTop; if (cur >= max - 8) dir = -1; else if (cur <= 8) dir = 1; best.scrollTop = cur + dir * 14; if (t - t0 < ms) w.requestAnimationFrame(step); else { best.scrollTop = start; const d = []; for (let i = 1; i < times.length; i++) d.push(times[i] - times[i - 1]); d.sort((a, b) => a - b); done([Math.round((times.length - 1) / ((times[times.length - 1] - times[0]) / 1000) * 10) / 10, Math.round(d[Math.floor(.95 * d.length)] * 10) / 10, d.filter((x) => x > 34).length]); } };
+    w.requestAnimationFrame(step);
+  });
+  const runRecalc = async () => {
+    const t = []; const probe = best.lastElementChild || best;
+    for (let i = 0; i < reps; i++) { best.style.setProperty('--p4-bench', String(i % 2 ? 1 : 2)); const t0 = w.performance.now(); w.getComputedStyle(probe).color; void best.offsetTop; t.push(w.performance.now() - t0); await new Promise((r) => setTimeout(r, 20)); }
+    best.style.removeProperty('--p4-bench'); t.sort((x, y) => x - y); return [Math.round(t[Math.floor(t.length / 2)] * 100) / 100];
+  };
+  const res = {}; const T0 = Date.now();
+  let univOk = null;
+  try {
+    for (let k = 0; k < rounds; k++) {
+      for (const v of (k % 2 ? variants.slice().reverse() : variants)) {
+        if (v !== 'cur') { removeAll(); if (v === 'univ') { insertAll(univText); if (univOk == null) univOk = hooks.map((h) => h.cur.cssText).join('').split('& ::').length - 1; } }
+        await L.sleep(300);
+        (res[v] = res[v] || []).push(mode === 'scroll' ? await runScroll() : await runRecalc());
+        if (v !== 'cur') { removeAll(); insertAll(null); }
+      }
+    }
+  } finally {
+    if (hooks.some((h) => !h.cur)) { removeAll(); insertAll(null); }
+    res.digest = d0 === digest() ? 'equal' : 'DIFF';
+  }
+  for (const v of variants) { const a = res[v]; res[v + '_mean'] = Math.round(a.reduce((s, x) => s + x[0], 0) / a.length * 10) / 10; }
+  res.ms = Date.now() - T0; res.hookRules = hooks.length; res.univSubjects = univOk; res.bytes = hooks.reduce((s, h) => s + h.text.length, 0);
+  res.route = L.route();
+  return JSON.stringify(res);
+})()
+'''
+
+
 def main(argv):
     try:
         sys.stdout.reconfigure(encoding="utf-8")
@@ -218,10 +620,18 @@ def main(argv):
     ap.add_argument("--css", help="write the @font-face nowrap stylesheet here")
     ap.add_argument("--check", action="store_true")
     ap.add_argument("--parity", action="store_true", help="kit tokens against theme tokens (FD-3)")
+    ap.add_argument("--hooks", action="store_true", help="rewrite the generated hook host lists (G-PERF)")
+    ap.add_argument("--hooks-check", action="store_true", help="exit 1 when a hook host list is stale")
+    ap.add_argument("--perf-js", action="store_true", help="print the hooks' G-PERF A/B probe for glass.py js")
     ap.add_argument("--json", action="store_true")
     a = ap.parse_args(argv)
     if a.parity:
         return parity(a.json)
+    if a.perf_js:
+        print(PERF_JS.strip())
+        return 0
+    if a.hooks or a.hooks_check:
+        return hooks(check_only=a.hooks_check, as_json=a.json)
     if a.check:
         return 0 if check(OUT) else 1
     data = subset()

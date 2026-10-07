@@ -22,8 +22,9 @@ does.
   python glass.py shot SURF NAME [--route R] [--pre JS] [--theme on|off|keep]
                                  [--settle S] [--back]
                                             capture SURF to shots/NAME.png
-  python glass.py perf SURF [--route R] [--pre JS] [--seconds S]
-                                            theme off vs on frame pacing while scrolling
+  python glass.py perf SURF [--route R] [--pre JS] [--seconds S] [--ab stock|theme [--rounds N]]
+                                            theme off vs on frame pacing while scrolling;
+                                            --ab: PLAN R2-13's ABBA verdict (contracts/lab.md)
   python glass.py audit SURF [--route R] [--pre JS] [--json]
                                             stock-vs-themed regression diff
   python glass.py outline SURF [--route R] [--sel S] [--depth N] [--max N]
@@ -51,7 +52,8 @@ Live (each step locked; step options --flags a,b=v --mode laser|pad --media redu
   python glass.py focus SURF [--route R] [--pre JS] --pairs FILE|JSON [--keep [NAME]]
   python glass.py motion SURF --pre JS [--route R] [--name ID] [--at 0,.15,...] | --selftest MS
   python glass.py sgcheck [--route R] [--pre JS]   (as a native-session step)
-  python glass.py hv NAME [--offaxis DEG] [--rect x0,y0,x1,y1] [--full] [--look] | --clean
+  python glass.py hv NAME [--offaxis DEG] [--rect x0,y0,x1,y1] [--full] [--look] [--route R] [--pre JS]
+                          [--settle S] [--grabs N] [--gap S] | --clean
   python glass.py conformance [--route R]... [--only P-..] [--pad] [--out FILE]
   python glass.py native-session [--pre JS] --step "CMD ARGS"...   native mode on, the steps, back to CSS
 
@@ -75,7 +77,10 @@ HELPER = Path.home() / ".claude" / "skills" / "steam-frame-ssh" / "scripts" / "f
 REMOTE = "/home/steamos/.local/share/glass-shell"
 DESKTOP = "/home/steamos/.local/share/applications/glass-shell.desktop"
 SHOTS = ROOT / "shots"
-PY = "env -u LD_LIBRARY_PATH -u LD_PRELOAD /usr/bin/python3"
+# -B and PYTHONDONTWRITEBYTECODE (REQ P8->P10): lab and lgs commands import lgs, lgs_shell, lab_p2cmd; without them
+# Python writes device/__pycache__ and lab/__pycache__ on the Frame, which would outlive `lgs off` and a reboot
+# (PLAN 7, hard rule: nothing persists). The variable also reaches every Python the command starts.
+PY = "env -u LD_LIBRARY_PATH -u LD_PRELOAD PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -B"
 
 
 def connect():
@@ -356,6 +361,10 @@ def hv_measure(c, remote, name, opts):
     try:
         res = p2_tool("hv_metrics").measure(str(local), rect=opts.get("rect"))
         res["name"] = name
+        # the measured frame is the last of N grabs (REQ P7->P10: the first after a pause can be stale)
+        res["grabs"] = opts.get("grabs", 1)
+        if opts.get("layer"):
+            res["layer"] = True          # a --route/--pre layer was held open for the capture (REQ C1c->P10)
         print(json.dumps(res, indent=1), flush=True)
         if opts.get("look"):
             look = TMP / f"{HV_LOOK_PREFIX}{os.getpid()}-{int(time.time() * 1000) % 10000000}"
@@ -463,12 +472,18 @@ def edge_probe(ep, L, pr, dpr):
     else:
         x, a0, a1 = int(round(pr["x"] * dpr)), int(pr["y0"] * dpr), int(pr["y1"] * dpr)
         P, yy = (L.T[::-1, :], L.shape[1] - x) if side == "right" else (L.T, x)
+    # A side on the capture edge (REQ C3b->P10 (2)): Steam's popup textures draw their outermost row uniformly
+    # brighter on the stock UI too (every stock barpopup capture: last row 31 L over 19-26), so that texel is not
+    # the slab's edge. The band starts one texel inside; the rim rows above it are still measured.
+    capture_edge = yy <= 0
+    if capture_edge:
+        yy = 1
     if a1 - a0 < 16 or yy < 0 or yy + 12 >= P.shape[0]:
         return None
     r = ep.edge(P, yy, a0, a1)
     return {"el": pr["el"], "side": side, "at": int(round((pr["y"] if side in ("top", "bottom") else pr["x"]) * dpr)),
             "from": a0, "to": a1, "ratio": r["ratio"], "brightest": r["brightest"], "edge": r["edge"],
-            "segments": r["segments"], "pass": r["pass"]}
+            "segments": r["segments"], "pass": r["pass"], **({"captureEdge": True} if capture_edge else {})}
 
 
 def gates_finish(res, keep_name=None):
@@ -523,6 +538,8 @@ def gates_summary(res):
             for x in v.get("skipped", []):
                 sk[x["why"]] = sk.get(x["why"], 0) + 1
             out[-1] += (f", skipped {', '.join(f'{n} {w}' for w, n in sk.items())}" if sk else "") +                 (f", {v['exemptFail']} exemption(s) failing their own criterion" if v.get("exemptFail") else "")
+        if k == "SIZE" and v.get("inPlace"):     # obscured, but no scroll room to bring them clear: judged (passed)
+            out[-1] += f", {len(v['inPlace'])} obscured judged in place (cannot scroll clear)"
         if k in ("SIZE", "TYPE", "OUTLINE"):
             items = [f"{f.get('rule', '')} {f['el']} {f.get('rect', '')}: {f['why']}" for f in v.get("fails", [])[:12]]
             if k == "SIZE":
@@ -566,6 +583,13 @@ def bfs_summary(r):
                     if isinstance(v, str) and v.split(":")[0] in ("exit", "route")})
     if exits:
         out.append("  leaves the window or route: " + ", ".join(exits))
+    if r.get("exits"):     # REQ C1b->P10 #10, C2a->P10 #14: how focus came back into main after each exit
+        how = {}
+        for x in r["exits"]:
+            how[x.get("back") or "LOST"] = how.get(x.get("back") or "LOST", 0) + 1
+        out.append(f"  exits from main: {len(r['exits'])}, focus back by " + ", ".join(f"{k} {n}" for k, n in how.items())
+                   + "  (opposite = the reverse press returned)")
+        out += [f"      {name(x['from'])} -{x['dir']}-> {x['to']}, back: {x.get('back') or 'LOST'}" for x in r["exits"][:8]]
     out.append(f"  routes visited: {', '.join(r.get('routes', []))}")
     out.append(f"  unreached visible focusables: {len(r['unreached'])} of {r.get('universe', '?')}")
     out += [f"      {u['el']} \"{u.get('text', '')[:30]}\" {u['rect']}" for u in r["unreached"][:12]]

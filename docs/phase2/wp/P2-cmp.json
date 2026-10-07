@@ -1,0 +1,1368 @@
+{
+ "package": "P2",
+ "what": "Lab results of P2's runners (react-lab), one locked step each: python glass.py js --flags reactLab[,wp.p3] [--mode laser|pad] \"__LGS_RT.react.lab.run('<id>', L)\". Key = test id[.mode][.p3 when P3's input module was on].",
+ "round": "review R1 fixes (session 3)",
+ "steamBuild": "11094443",
+ "code": {
+  "device/rt/02-react.js": "5ae52635d0cfb74c961636e45fb6bd99",
+  "device/rt/03-react-lab.js": "02eba94465db91e8254492e6cff7fd70"
+ },
+ "summary": {
+  "RX-1": {
+   "ok": true,
+   "date": "2026-10-07T13:37:40.978Z",
+   "ms": 16612,
+   "pass": null,
+   "runs": [
+    "19/19",
+    "19/19"
+   ],
+   "blocked": null
+  },
+  "RX-1.laser.p3": {
+   "ok": true,
+   "date": "2026-10-07T13:53:18.966Z",
+   "ms": 17772,
+   "pass": null,
+   "runs": [
+    "19/19",
+    "19/19"
+   ],
+   "blocked": null
+  },
+  "RX-1.pad.p3": {
+   "ok": true,
+   "date": "2026-10-07T13:56:22.502Z",
+   "ms": 17792,
+   "pass": null,
+   "runs": [
+    "19/19",
+    "19/19"
+   ],
+   "blocked": null
+  },
+  "RX-2": {
+   "ok": true,
+   "date": "2026-10-07T13:39:36.858Z",
+   "ms": 4799,
+   "pass": 6,
+   "runs": null,
+   "blocked": null
+  },
+  "RX-3": {
+   "ok": true,
+   "date": "2026-10-07T13:39:59.297Z",
+   "ms": 5490,
+   "pass": 9,
+   "runs": null,
+   "blocked": null
+  },
+  "RX-3.laser.p3": {
+   "ok": true,
+   "date": "2026-10-07T13:53:49.623Z",
+   "ms": 6406,
+   "pass": 9,
+   "runs": null,
+   "blocked": null
+  },
+  "RX-3.pad.p3": {
+   "ok": true,
+   "date": "2026-10-07T13:56:36.452Z",
+   "ms": 4269,
+   "pass": 9,
+   "runs": null,
+   "blocked": null
+  },
+  "RX-4": {
+   "ok": true,
+   "date": "2026-10-07T13:41:13.281Z",
+   "ms": 1709,
+   "pass": 3,
+   "runs": null,
+   "blocked": null
+  },
+  "RX-5": {
+   "ok": true,
+   "date": "2026-10-07T13:41:32.161Z",
+   "ms": 299,
+   "pass": 4,
+   "runs": null,
+   "blocked": null
+  },
+  "RX-6": {
+   "ok": true,
+   "date": "2026-10-07T13:42:26.775Z",
+   "ms": 451,
+   "pass": 2,
+   "runs": null,
+   "blocked": null
+  },
+  "RX-7": {
+   "ok": true,
+   "date": "2026-10-07T13:42:47.838Z",
+   "ms": 6030,
+   "pass": 22,
+   "runs": null,
+   "blocked": null
+  },
+  "RX-7.laser.p3": {
+   "ok": true,
+   "date": "2026-10-07T13:55:27.644Z",
+   "ms": 5803,
+   "pass": 22,
+   "runs": null,
+   "blocked": null
+  },
+  "RX-7.pad.p3": {
+   "ok": true,
+   "date": "2026-10-07T13:56:48.501Z",
+   "ms": 5535,
+   "pass": 22,
+   "runs": null,
+   "blocked": null
+  },
+  "RX-FAIL": {
+   "ok": true,
+   "date": "2026-10-07T13:52:35.331Z",
+   "ms": 4957,
+   "pass": 8,
+   "runs": null,
+   "blocked": null
+  },
+  "RX-FN": {
+   "ok": true,
+   "date": "2026-10-07T13:44:41.702Z",
+   "ms": 14241,
+   "pass": 5,
+   "runs": null,
+   "blocked": null
+  },
+  "RX-HEAL": {
+   "ok": true,
+   "date": "2026-10-07T13:44:23.895Z",
+   "ms": 2422,
+   "pass": 3,
+   "runs": null,
+   "blocked": null
+  },
+  "RX-OPEN": {
+   "ok": true,
+   "date": "2026-10-07T13:52:42.817Z",
+   "ms": 2417,
+   "pass": 3,
+   "runs": null,
+   "blocked": null
+  },
+  "RX-OPT": {
+   "ok": true,
+   "date": "2026-10-07T14:00:34.121Z",
+   "ms": 16159,
+   "pass": 11,
+   "runs": null,
+   "blocked": null
+  },
+  "RX-OV": {
+   "ok": true,
+   "date": "2026-10-07T13:43:45.005Z",
+   "ms": 13989,
+   "pass": 8,
+   "runs": null,
+   "blocked": null
+  },
+  "RX-REMOVE": {
+   "ok": true,
+   "date": "2026-10-07T13:59:28.918Z",
+   "ms": 7385,
+   "pass": 6,
+   "runs": null,
+   "blocked": null
+  },
+  "RX-RETRY": {
+   "ok": true,
+   "date": "2026-10-07T13:52:12.104Z",
+   "ms": 3473,
+   "pass": 5,
+   "runs": null,
+   "blocked": null
+  },
+  "RX-TARGETS": {
+   "ok": true,
+   "date": "2026-10-07T13:59:45.204Z",
+   "ms": 9792,
+   "pass": 6,
+   "runs": null,
+   "blocked": null
+  }
+ },
+ "results": {
+  "RX-1": {
+   "routeBefore": "/library/tab/AllGames",
+   "runs": [
+    {
+     "ok": true,
+     "pass": 19,
+     "fail": 0,
+     "steps": [
+      "PASS route: /library/lgs/lab/selftest",
+      "PASS tiles: 6",
+      "PASS start: game:2379780",
+      "PASS pad right: game:413150",
+      "PASS pad right: game:200940",
+      "PASS pad right: game:200940",
+      "PASS pad down: program:/usr/bin/firewall-config",
+      "PASS pad left: program:/usr/bin/flatpak \"run\" \"--branch=stable\" \"--arch=aarch64\" \"--command=qbittorrent\" \"--file-forwarding\" \"org.qbittorrent.qBittorrent\" \"@@u\" \"@@\"",
+      "PASS pad left: program:/usr/bin/flatpak \"run\" \"--branch=stable\" \"--arch=aarch64\" \"--command=code\" \"--file-forwarding\" \"com.visualstudio.code\" \"@@\" \"@@\"",
+      "PASS pad up: game:2379780",
+      "PASS pad down: program:/usr/bin/flatpak \"run\" \"--branch=stable\" \"--arch=aarch64\" \"--command=code\" \"--file-forwarding\" \"com.visualstudio.code\" \"@@\" \"@@\"",
+      "PASS pad down: back-button",
+      "PASS pad right: toggle",
+      "PASS pad up: program:/usr/bin/flatpak \"run\" \"--branch=stable\" \"--arch=aarch64\" \"--command=code\" \"--file-forwarding\" \"com.visualstudio.code\" \"@@\" \"@@\"",
+      "PASS laser click: activate 413150",
+      "PASS A on tile: activate /usr/bin/flatpak \"run\" \"--branch=stable\" \"--arch=aarch64\" \"--command=code\" \"--file-forwarding\" \"com.visualstudio.code\" \"@@\" \"@@\"",
+      "PASS MENU opens Steam context menu: menu:Open (logged only)",
+      "PASS B closes the menu: 0",
+      "PASS B leaves the page: true"
+     ]
+    },
+    {
+     "ok": true,
+     "pass": 19,
+     "fail": 0,
+     "steps": [
+      "PASS route: /library/lgs/lab/selftest",
+      "PASS tiles: 6",
+      "PASS start: game:2379780",
+      "PASS pad right: game:413150",
+      "PASS pad right: game:200940",
+      "PASS pad right: game:200940",
+      "PASS pad down: program:/usr/bin/firewall-config",
+      "PASS pad left: program:/usr/bin/flatpak \"run\" \"--branch=stable\" \"--arch=aarch64\" \"--command=qbittorrent\" \"--file-forwarding\" \"org.qbittorrent.qBittorrent\" \"@@u\" \"@@\"",
+      "PASS pad left: program:/usr/bin/flatpak \"run\" \"--branch=stable\" \"--arch=aarch64\" \"--command=code\" \"--file-forwarding\" \"com.visualstudio.code\" \"@@\" \"@@\"",
+      "PASS pad up: game:2379780",
+      "PASS pad down: program:/usr/bin/flatpak \"run\" \"--branch=stable\" \"--arch=aarch64\" \"--command=code\" \"--file-forwarding\" \"com.visualstudio.code\" \"@@\" \"@@\"",
+      "PASS pad down: back-button",
+      "PASS pad right: toggle",
+      "PASS pad up: program:/usr/bin/flatpak \"run\" \"--branch=stable\" \"--arch=aarch64\" \"--command=code\" \"--file-forwarding\" \"com.visualstudio.code\" \"@@\" \"@@\"",
+      "PASS laser click: activate 413150",
+      "PASS A on tile: activate /usr/bin/flatpak \"run\" \"--branch=stable\" \"--arch=aarch64\" \"--command=code\" \"--file-forwarding\" \"com.visualstudio.code\" \"@@\" \"@@\"",
+      "PASS MENU opens Steam context menu: menu:Open (logged only)",
+      "PASS B closes the menu: 0",
+      "PASS B leaves the page: true"
+     ]
+    }
+   ],
+   "ok": true,
+   "routeAfter": "/library/tab/AllGames",
+   "pageLeft": 0,
+   "routes": {
+    "added": [],
+    "overridden": []
+   },
+   "patchedLeft": 0,
+   "summary": "19/19, 19/19",
+   "test": "RX-1",
+   "ms": 16612,
+   "date": "2026-10-07T13:37:40.978Z"
+  },
+  "RX-1.laser.p3": {
+   "routeBefore": "/library/tab/Collections",
+   "runs": [
+    {
+     "ok": true,
+     "pass": 19,
+     "fail": 0,
+     "steps": [
+      "PASS route: /library/lgs/lab/selftest",
+      "PASS tiles: 6",
+      "PASS start: game:2379780",
+      "PASS pad right: game:413150",
+      "PASS pad right: game:200940",
+      "PASS pad right: game:200940",
+      "PASS pad down: program:/usr/bin/firewall-config",
+      "PASS pad left: program:/usr/bin/flatpak \"run\" \"--branch=stable\" \"--arch=aarch64\" \"--command=qbittorrent\" \"--file-forwarding\" \"org.qbittorrent.qBittorrent\" \"@@u\" \"@@\"",
+      "PASS pad left: program:/usr/bin/flatpak \"run\" \"--branch=stable\" \"--arch=aarch64\" \"--command=code\" \"--file-forwarding\" \"com.visualstudio.code\" \"@@\" \"@@\"",
+      "PASS pad up: game:2379780",
+      "PASS pad down: program:/usr/bin/flatpak \"run\" \"--branch=stable\" \"--arch=aarch64\" \"--command=code\" \"--file-forwarding\" \"com.visualstudio.code\" \"@@\" \"@@\"",
+      "PASS pad down: back-button",
+      "PASS pad right: toggle",
+      "PASS pad up: program:/usr/bin/flatpak \"run\" \"--branch=stable\" \"--arch=aarch64\" \"--command=code\" \"--file-forwarding\" \"com.visualstudio.code\" \"@@\" \"@@\"",
+      "PASS laser click: activate 413150",
+      "PASS A on tile: activate /usr/bin/flatpak \"run\" \"--branch=stable\" \"--arch=aarch64\" \"--command=code\" \"--file-forwarding\" \"com.visualstudio.code\" \"@@\" \"@@\"",
+      "PASS MENU opens Steam context menu: menu:Open (logged only)",
+      "PASS B closes the menu: 0",
+      "PASS B leaves the page: true"
+     ]
+    },
+    {
+     "ok": true,
+     "pass": 19,
+     "fail": 0,
+     "steps": [
+      "PASS route: /library/lgs/lab/selftest",
+      "PASS tiles: 6",
+      "PASS start: game:2379780",
+      "PASS pad right: game:413150",
+      "PASS pad right: game:200940",
+      "PASS pad right: game:200940",
+      "PASS pad down: program:/usr/bin/firewall-config",
+      "PASS pad left: program:/usr/bin/flatpak \"run\" \"--branch=stable\" \"--arch=aarch64\" \"--command=qbittorrent\" \"--file-forwarding\" \"org.qbittorrent.qBittorrent\" \"@@u\" \"@@\"",
+      "PASS pad left: program:/usr/bin/flatpak \"run\" \"--branch=stable\" \"--arch=aarch64\" \"--command=code\" \"--file-forwarding\" \"com.visualstudio.code\" \"@@\" \"@@\"",
+      "PASS pad up: game:2379780",
+      "PASS pad down: program:/usr/bin/flatpak \"run\" \"--branch=stable\" \"--arch=aarch64\" \"--command=code\" \"--file-forwarding\" \"com.visualstudio.code\" \"@@\" \"@@\"",
+      "PASS pad down: back-button",
+      "PASS pad right: toggle",
+      "PASS pad up: program:/usr/bin/flatpak \"run\" \"--branch=stable\" \"--arch=aarch64\" \"--command=code\" \"--file-forwarding\" \"com.visualstudio.code\" \"@@\" \"@@\"",
+      "PASS laser click: activate 413150",
+      "PASS A on tile: activate /usr/bin/flatpak \"run\" \"--branch=stable\" \"--arch=aarch64\" \"--command=code\" \"--file-forwarding\" \"com.visualstudio.code\" \"@@\" \"@@\"",
+      "PASS MENU opens Steam context menu: menu:Open (logged only)",
+      "PASS B closes the menu: 0",
+      "PASS B leaves the page: true"
+     ]
+    }
+   ],
+   "ok": true,
+   "routeAfter": "/library/tab/Collections",
+   "pageLeft": 0,
+   "routes": {
+    "added": [],
+    "overridden": []
+   },
+   "patchedLeft": 0,
+   "summary": "19/19, 19/19",
+   "test": "RX-1",
+   "ms": 17772,
+   "date": "2026-10-07T13:53:18.966Z"
+  },
+  "RX-1.pad.p3": {
+   "routeBefore": "/library/tab/AllGames",
+   "runs": [
+    {
+     "ok": true,
+     "pass": 19,
+     "fail": 0,
+     "steps": [
+      "PASS route: /library/lgs/lab/selftest",
+      "PASS tiles: 6",
+      "PASS start: game:2379780",
+      "PASS pad right: game:413150",
+      "PASS pad right: game:200940",
+      "PASS pad right: game:200940",
+      "PASS pad down: program:/usr/bin/firewall-config",
+      "PASS pad left: program:/usr/bin/flatpak \"run\" \"--branch=stable\" \"--arch=aarch64\" \"--command=qbittorrent\" \"--file-forwarding\" \"org.qbittorrent.qBittorrent\" \"@@u\" \"@@\"",
+      "PASS pad left: program:/usr/bin/flatpak \"run\" \"--branch=stable\" \"--arch=aarch64\" \"--command=code\" \"--file-forwarding\" \"com.visualstudio.code\" \"@@\" \"@@\"",
+      "PASS pad up: game:2379780",
+      "PASS pad down: program:/usr/bin/flatpak \"run\" \"--branch=stable\" \"--arch=aarch64\" \"--command=code\" \"--file-forwarding\" \"com.visualstudio.code\" \"@@\" \"@@\"",
+      "PASS pad down: back-button",
+      "PASS pad right: toggle",
+      "PASS pad up: program:/usr/bin/flatpak \"run\" \"--branch=stable\" \"--arch=aarch64\" \"--command=code\" \"--file-forwarding\" \"com.visualstudio.code\" \"@@\" \"@@\"",
+      "PASS laser click: activate 413150",
+      "PASS A on tile: activate /usr/bin/flatpak \"run\" \"--branch=stable\" \"--arch=aarch64\" \"--command=code\" \"--file-forwarding\" \"com.visualstudio.code\" \"@@\" \"@@\"",
+      "PASS MENU opens Steam context menu: menu:Open (logged only)",
+      "PASS B closes the menu: 0",
+      "PASS B leaves the page: true"
+     ]
+    },
+    {
+     "ok": true,
+     "pass": 19,
+     "fail": 0,
+     "steps": [
+      "PASS route: /library/lgs/lab/selftest",
+      "PASS tiles: 6",
+      "PASS start: game:2379780",
+      "PASS pad right: game:413150",
+      "PASS pad right: game:200940",
+      "PASS pad right: game:200940",
+      "PASS pad down: program:/usr/bin/firewall-config",
+      "PASS pad left: program:/usr/bin/flatpak \"run\" \"--branch=stable\" \"--arch=aarch64\" \"--command=qbittorrent\" \"--file-forwarding\" \"org.qbittorrent.qBittorrent\" \"@@u\" \"@@\"",
+      "PASS pad left: program:/usr/bin/flatpak \"run\" \"--branch=stable\" \"--arch=aarch64\" \"--command=code\" \"--file-forwarding\" \"com.visualstudio.code\" \"@@\" \"@@\"",
+      "PASS pad up: game:2379780",
+      "PASS pad down: program:/usr/bin/flatpak \"run\" \"--branch=stable\" \"--arch=aarch64\" \"--command=code\" \"--file-forwarding\" \"com.visualstudio.code\" \"@@\" \"@@\"",
+      "PASS pad down: back-button",
+      "PASS pad right: toggle",
+      "PASS pad up: program:/usr/bin/flatpak \"run\" \"--branch=stable\" \"--arch=aarch64\" \"--command=code\" \"--file-forwarding\" \"com.visualstudio.code\" \"@@\" \"@@\"",
+      "PASS laser click: activate 413150",
+      "PASS A on tile: activate /usr/bin/flatpak \"run\" \"--branch=stable\" \"--arch=aarch64\" \"--command=code\" \"--file-forwarding\" \"com.visualstudio.code\" \"@@\" \"@@\"",
+      "PASS MENU opens Steam context menu: menu:Open (logged only)",
+      "PASS B closes the menu: 0",
+      "PASS B leaves the page: true"
+     ]
+    }
+   ],
+   "ok": true,
+   "routeAfter": "/library/tab/AllGames",
+   "pageLeft": 0,
+   "routes": {
+    "added": [],
+    "overridden": []
+   },
+   "patchedLeft": 0,
+   "summary": "19/19, 19/19",
+   "test": "RX-1",
+   "ms": 17792,
+   "date": "2026-10-07T13:56:22.502Z"
+  },
+  "RX-2": {
+   "ok": true,
+   "steps": [
+    "PASS one component matched: 1 simplememo (live fibers 1)",
+    "PASS rerender() shows the patch at once: {\"forced\":1,\"skipped\":0,\"how\":{\"observer\":1}}, 1 wrapper calls",
+    "PASS patched render ran: 3 calls",
+    "PASS barpopup (OPEN) unchanged against unpatched: 0 issues, 0 moved, 49/49 nodes",
+    "PASS bar unchanged against unpatched: 0 issues, 0 moved, 8/8 nodes",
+    "PASS patchedLeft after removal: 0"
+   ],
+   "patch": {
+    "count": 1,
+    "kinds": [
+     "simplememo"
+    ],
+    "live": 1
+   },
+   "rerender": {
+    "forced": 1,
+    "skipped": 0,
+    "how": {
+     "observer": 1
+    }
+   },
+   "wrapperCallsAfterRerender": 1,
+   "diff": {
+    "controls": 24,
+    "texts": 25,
+    "issues": [],
+    "movedCount": 0,
+    "keysA": 49,
+    "keysB": 49
+   },
+   "diffBar": {
+    "controls": 7,
+    "texts": 1,
+    "issues": [],
+    "movedCount": 0,
+    "keysA": 8,
+    "keysB": 8
+   },
+   "wrapperCalls": 3,
+   "patchedLeft": 0,
+   "test": "RX-2",
+   "ms": 4799,
+   "date": "2026-10-07T13:39:36.858Z"
+  },
+  "RX-3": {
+   "ok": true,
+   "steps": [
+    "PASS modal rendered in main",
+    "PASS route unchanged: /library/tab/AllGames",
+    "PASS the route stays mounted under the modal (same root node)",
+    "PASS route DOM node count unchanged: 852 -> 850 (the difference is only Steam's focus-dependent nodes: true)",
+    "PASS .gpfocus inside the modal after FocusApplicationRoot(): One [ModalDialogOverlay_Modal_219 source 1]",
+    "PASS B closes it (onCancel 1, modal gone)",
+    "PASS focus back on the same poster: \"app 15560\" -> \"app 15560\"",
+    "PASS focus came back by itself within 800 ms (ui.modal gives it back, D-P2-7), no FocusApplicationRoot() needed",
+    "PASS route DOM node count after close: 852"
+   ],
+   "focusBefore": "app 15560",
+   "nodesBefore": 852,
+   "nodesDuring": 850,
+   "changedDuring": {
+    "gone": [
+     "div._1gRvMhACGZzSj_qxHzdgX4.Panel.Focusable",
+     "div"
+    ],
+    "added": []
+   },
+   "restoredByItself": true,
+   "focusAfter": "app 15560",
+   "routeBefore": "/library/tab/AllGames",
+   "routeAfter": "/library/tab/AllGames",
+   "test": "RX-3",
+   "ms": 5490,
+   "date": "2026-10-07T13:39:59.297Z"
+  },
+  "RX-3.laser.p3": {
+   "ok": true,
+   "steps": [
+    "PASS modal rendered in main",
+    "PASS route unchanged: /library/tab/AllGames",
+    "PASS the route stays mounted under the modal (same root node)",
+    "PASS route DOM node count unchanged: 852 -> 850 (the difference is only Steam's focus-dependent nodes: true)",
+    "PASS .gpfocus inside the modal after FocusApplicationRoot(): One [ModalDialogOverlay_Modal_230 source 1]",
+    "PASS B closes it (onCancel 1, modal gone)",
+    "PASS focus back on the same poster: \"app 15560\" -> \"app 15560\"",
+    "PASS focus came back by itself within 800 ms (ui.modal gives it back, D-P2-7), no FocusApplicationRoot() needed",
+    "PASS route DOM node count after close: 852"
+   ],
+   "focusBefore": "app 15560",
+   "nodesBefore": 852,
+   "nodesDuring": 850,
+   "changedDuring": {
+    "gone": [
+     "div._1gRvMhACGZzSj_qxHzdgX4.Panel.Focusable",
+     "div"
+    ],
+    "added": []
+   },
+   "restoredByItself": true,
+   "focusAfter": "app 15560",
+   "routeBefore": "/library/tab/Collections",
+   "routeAfter": "/library/tab/Collections",
+   "test": "RX-3",
+   "ms": 6406,
+   "date": "2026-10-07T13:53:49.623Z"
+  },
+  "RX-3.pad.p3": {
+   "ok": true,
+   "steps": [
+    "PASS modal rendered in main",
+    "PASS route unchanged: /library/tab/AllGames",
+    "PASS the route stays mounted under the modal (same root node)",
+    "PASS route DOM node count unchanged: 852 -> 850 (the difference is only Steam's focus-dependent nodes: true)",
+    "PASS .gpfocus inside the modal after FocusApplicationRoot(): One [ModalDialogOverlay_Modal_235 source 1]",
+    "PASS B closes it (onCancel 1, modal gone)",
+    "PASS focus back on the same poster: \"app 1147940\" -> \"app 1147940\"",
+    "PASS focus came back by itself within 800 ms (ui.modal gives it back, D-P2-7), no FocusApplicationRoot() needed",
+    "PASS route DOM node count after close: 852"
+   ],
+   "focusBefore": "app 1147940",
+   "nodesBefore": 852,
+   "nodesDuring": 850,
+   "changedDuring": {
+    "gone": [
+     "div._1gRvMhACGZzSj_qxHzdgX4.Panel.Focusable",
+     "div"
+    ],
+    "added": []
+   },
+   "restoredByItself": true,
+   "focusAfter": "app 1147940",
+   "routeBefore": "/library/tab/AllGames",
+   "routeAfter": "/library/tab/AllGames",
+   "test": "RX-3",
+   "ms": 4269,
+   "date": "2026-10-07T13:56:36.452Z"
+  },
+  "RX-4": {
+   "ok": true,
+   "steps": [
+    "PASS ConfirmModal rendered on /library/lgs/lab (15 nodes)",
+    "PASS unmounted: route /library/tab/AllGames, lab nodes 0",
+    "PASS no route left behind: {\"added\":[],\"overridden\":[]}"
+   ],
+   "test": "RX-4",
+   "ms": 1709,
+   "date": "2026-10-07T13:41:13.281Z"
+  },
+  "RX-5": {
+   "ok": true,
+   "steps": [
+    "PASS install throws: lgs-react: cannot find Focusable (fail closed; T3 off)",
+    "PASS ready() stays failed (sticky): lgs-react: cannot find Focusable (fail closed; T3 off)",
+    "PASS nothing patched: ready false, routes 0, patchedLeft 0",
+    "PASS after reset the module is ready again (147 ms)"
+   ],
+   "test": "RX-5",
+   "ms": 299,
+   "date": "2026-10-07T13:41:32.161Z"
+  },
+  "RX-6": {
+   "ok": true,
+   "steps": [
+    "PASS ready() (the one scan) 158, 147, 146 ms, max 158 <= 250",
+    "PASS a second ready() is cached: 0 ms",
+    "NOTE runtime installMs for react (install only, no scan): 0.3"
+   ],
+   "times": [
+    158,
+    147,
+    146
+   ],
+   "max": 158,
+   "cached": 0,
+   "test": "RX-6",
+   "ms": 451,
+   "date": "2026-10-07T13:42:26.775Z"
+  },
+  "RX-7": {
+   "ok": true,
+   "steps": [
+    "PASS test mode on: runtime action logger on; actions.test(true); flag actionsLive is not true",
+    "PASS launchNonSteam handler is SteamClient.Apps.LaunchNonSteamApp",
+    "PASS Steam's \"+\" program row calls SteamClient.Apps.LaunchNonSteamApp(strCmdline) (module 34493)",
+    "PASS Steam's \"+\" window row calls module 92102's p.SteamVR.DashboardDesktopWindowClicked; ours is module 92102",
+    "PASS primary uses the tile menu's own functions: export AH=xe (primary action), jy=ut (run), called by GetPrimaryActionMenuItem",
+    "PASS desktopWindow handler is the popup row's p.SteamVR.DashboardDesktopWindowClicked (module 92102)",
+    "PASS navigate handler is the main window instance's Navigate",
+    "PASS launchNonSteam logged, not run: logged (Visual Studio Code)",
+    "PASS primary logged, not run: logged, Steam's action Play (Balatro)",
+    "PASS desktopWindow logged, not run: logged",
+    "PASS navigate logged, not run: logged",
+    "PASS an untrusted click is test mode by itself: runtime action logger on; actions.test(true); flag actionsLive is not true; synthetic pointer event",
+    "PASS no handler -> refused, nothing guessed: no such app",
+    "PASS no Steam launch call reached a spy: []",
+    "PASS route unchanged: /library/home",
+    "PASS runtime action log has every call: launchNonSteam, primary, desktopWindow, navigate, navigate, primary",
+    "PASS gamepad focus on the lab DialogButton (page)",
+    "PASS A on a DialogButton reaches the action as the gamepad path, not a lab click: {\"type\":\"click\",\"ctor\":\"PointerEvent\",\"trusted\":false,\"pointerType\":\"\",\"pointerId\":-1}, reasons [runtime action logger on; actions.test(true); flag actionsLive is not true], logged",
+    "PASS gamepad focus in the ui.menu sheet: menu:Menu action (logged only)",
+    "PASS A on a ui.menu item reaches the action as the gamepad path: {\"type\":\"click\",\"ctor\":\"PointerEvent\",\"trusted\":false,\"pointerType\":\"\",\"pointerId\":-1}, reasons [runtime action logger on; actions.test(true); flag actionsLive is not true], logged",
+    "PASS a lab MouseEvent click is still a synthetic pointer event: {\"type\":\"click\",\"ctor\":\"MouseEvent\",\"trusted\":false}, reasons [runtime action logger on; actions.test(true); flag actionsLive is not true; synthetic pointer event]",
+    "PASS gamepad phase: no Steam launch or navigation call reached a spy: []"
+   ],
+   "results": {
+    "launchNonSteam": {
+     "fn": "launchNonSteam",
+     "arg": "/usr/bin/flatpak \"run\" \"--branch=stable\" \"--arch=aarch64\" \"--command=code\" \"--file-forwarding\" \"com.visualstudio.code\" \"@@\" \"@@\"",
+     "mode": "logged",
+     "reason": "runtime action logger on; actions.test(true); flag actionsLive is not true",
+     "detail": null
+    },
+    "primary": {
+     "fn": "primary",
+     "arg": 2379780,
+     "mode": "logged",
+     "reason": "runtime action logger on; actions.test(true); flag actionsLive is not true",
+     "detail": {
+      "action": "Play",
+      "label": "Play",
+      "name": "Balatro"
+     }
+    },
+    "desktopWindow": {
+     "fn": "desktopWindow",
+     "arg": 424242,
+     "mode": "logged",
+     "reason": "runtime action logger on; actions.test(true); flag actionsLive is not true",
+     "detail": null
+    },
+    "navigate": {
+     "fn": "navigate",
+     "arg": "/library/app/2379780",
+     "mode": "logged",
+     "reason": "runtime action logger on; actions.test(true); flag actionsLive is not true",
+     "detail": {
+      "replace": false
+     }
+    },
+    "untrusted": {
+     "fn": "navigate",
+     "arg": "/library/home",
+     "mode": "logged",
+     "reason": "runtime action logger on; actions.test(true); flag actionsLive is not true; synthetic pointer event",
+     "detail": {
+      "replace": false
+     }
+    },
+    "refused": {
+     "fn": "primary",
+     "arg": 999999999,
+     "mode": "refused",
+     "reason": "no such app",
+     "detail": {
+      "action": null
+     }
+    },
+    "program": "Visual Studio Code",
+    "game": "Balatro"
+   },
+   "plusModule": "34493",
+   "spies": [
+    true,
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "reactLog": [
+    "launchNonSteam logged",
+    "primary logged",
+    "desktopWindow logged",
+    "navigate logged",
+    "navigate logged",
+    "primary refused"
+   ],
+   "gamepad": {
+    "buttonA": {
+     "ev": {
+      "type": "click",
+      "ctor": "PointerEvent",
+      "trusted": false,
+      "pointerType": "",
+      "pointerId": -1
+     },
+     "reasons": [
+      "runtime action logger on",
+      "actions.test(true)",
+      "flag actionsLive is not true"
+     ],
+     "res": {
+      "fn": "launchNonSteam",
+      "arg": "/usr/bin/true",
+      "mode": "logged",
+      "reason": "runtime action logger on; actions.test(true); flag actionsLive is not true",
+      "detail": null
+     }
+    },
+    "menuA": {
+     "ev": {
+      "type": "click",
+      "ctor": "PointerEvent",
+      "trusted": false,
+      "pointerType": "",
+      "pointerId": -1
+     },
+     "reasons": [
+      "runtime action logger on",
+      "actions.test(true)",
+      "flag actionsLive is not true"
+     ],
+     "res": {
+      "fn": "launchNonSteam",
+      "arg": "/usr/bin/true",
+      "mode": "logged",
+      "reason": "runtime action logger on; actions.test(true); flag actionsLive is not true",
+      "detail": null
+     }
+    },
+    "labClick": {
+     "ev": {
+      "type": "click",
+      "ctor": "MouseEvent",
+      "trusted": false
+     },
+     "reasons": [
+      "runtime action logger on",
+      "actions.test(true)",
+      "flag actionsLive is not true",
+      "synthetic pointer event"
+     ],
+     "res": {
+      "fn": "launchNonSteam",
+      "arg": "/usr/bin/true",
+      "mode": "logged",
+      "reason": "runtime action logger on; actions.test(true); flag actionsLive is not true; synthetic pointer event",
+      "detail": null
+     }
+    }
+   },
+   "test": "RX-7",
+   "ms": 6030,
+   "date": "2026-10-07T13:42:47.838Z"
+  },
+  "RX-7.laser.p3": {
+   "ok": true,
+   "steps": [
+    "PASS test mode on: runtime action logger on; actions.test(true); flag actionsLive is not true",
+    "PASS launchNonSteam handler is SteamClient.Apps.LaunchNonSteamApp",
+    "PASS Steam's \"+\" program row calls SteamClient.Apps.LaunchNonSteamApp(strCmdline) (module 34493)",
+    "PASS Steam's \"+\" window row calls module 92102's p.SteamVR.DashboardDesktopWindowClicked; ours is module 92102",
+    "PASS primary uses the tile menu's own functions: export AH=xe (primary action), jy=ut (run), called by GetPrimaryActionMenuItem",
+    "PASS desktopWindow handler is the popup row's p.SteamVR.DashboardDesktopWindowClicked (module 92102)",
+    "PASS navigate handler is the main window instance's Navigate",
+    "PASS launchNonSteam logged, not run: logged (Visual Studio Code)",
+    "PASS primary logged, not run: logged, Steam's action Play (Balatro)",
+    "PASS desktopWindow logged, not run: logged",
+    "PASS navigate logged, not run: logged",
+    "PASS an untrusted click is test mode by itself: runtime action logger on; actions.test(true); flag actionsLive is not true; synthetic pointer event",
+    "PASS no handler -> refused, nothing guessed: no such app",
+    "PASS no Steam launch call reached a spy: []",
+    "PASS route unchanged: /settings/notifications",
+    "PASS runtime action log has every call: launchNonSteam, primary, desktopWindow, navigate, navigate, primary",
+    "PASS gamepad focus on the lab DialogButton (page)",
+    "PASS A on a DialogButton reaches the action as the gamepad path, not a lab click: {\"type\":\"click\",\"ctor\":\"PointerEvent\",\"trusted\":false,\"pointerType\":\"\",\"pointerId\":-1}, reasons [runtime action logger on; actions.test(true); flag actionsLive is not true], logged",
+    "PASS gamepad focus in the ui.menu sheet: menu:Menu action (logged only)",
+    "PASS A on a ui.menu item reaches the action as the gamepad path: {\"type\":\"click\",\"ctor\":\"PointerEvent\",\"trusted\":false,\"pointerType\":\"\",\"pointerId\":-1}, reasons [runtime action logger on; actions.test(true); flag actionsLive is not true], logged",
+    "PASS a lab MouseEvent click is still a synthetic pointer event: {\"type\":\"click\",\"ctor\":\"MouseEvent\",\"trusted\":false}, reasons [runtime action logger on; actions.test(true); flag actionsLive is not true; synthetic pointer event]",
+    "PASS gamepad phase: no Steam launch or navigation call reached a spy: []"
+   ],
+   "results": {
+    "launchNonSteam": {
+     "fn": "launchNonSteam",
+     "arg": "/usr/bin/flatpak \"run\" \"--branch=stable\" \"--arch=aarch64\" \"--command=code\" \"--file-forwarding\" \"com.visualstudio.code\" \"@@\" \"@@\"",
+     "mode": "logged",
+     "reason": "runtime action logger on; actions.test(true); flag actionsLive is not true",
+     "detail": null
+    },
+    "primary": {
+     "fn": "primary",
+     "arg": 2379780,
+     "mode": "logged",
+     "reason": "runtime action logger on; actions.test(true); flag actionsLive is not true",
+     "detail": {
+      "action": "Play",
+      "label": "Play",
+      "name": "Balatro"
+     }
+    },
+    "desktopWindow": {
+     "fn": "desktopWindow",
+     "arg": 424242,
+     "mode": "logged",
+     "reason": "runtime action logger on; actions.test(true); flag actionsLive is not true",
+     "detail": null
+    },
+    "navigate": {
+     "fn": "navigate",
+     "arg": "/library/app/2379780",
+     "mode": "logged",
+     "reason": "runtime action logger on; actions.test(true); flag actionsLive is not true",
+     "detail": {
+      "replace": false
+     }
+    },
+    "untrusted": {
+     "fn": "navigate",
+     "arg": "/library/home",
+     "mode": "logged",
+     "reason": "runtime action logger on; actions.test(true); flag actionsLive is not true; synthetic pointer event",
+     "detail": {
+      "replace": false
+     }
+    },
+    "refused": {
+     "fn": "primary",
+     "arg": 999999999,
+     "mode": "refused",
+     "reason": "no such app",
+     "detail": {
+      "action": null
+     }
+    },
+    "program": "Visual Studio Code",
+    "game": "Balatro"
+   },
+   "plusModule": "34493",
+   "spies": [
+    true,
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "reactLog": [
+    "launchNonSteam logged",
+    "primary logged",
+    "desktopWindow logged",
+    "navigate logged",
+    "navigate logged",
+    "primary refused"
+   ],
+   "gamepad": {
+    "buttonA": {
+     "ev": {
+      "type": "click",
+      "ctor": "PointerEvent",
+      "trusted": false,
+      "pointerType": "",
+      "pointerId": -1
+     },
+     "reasons": [
+      "runtime action logger on",
+      "actions.test(true)",
+      "flag actionsLive is not true"
+     ],
+     "res": {
+      "fn": "launchNonSteam",
+      "arg": "/usr/bin/true",
+      "mode": "logged",
+      "reason": "runtime action logger on; actions.test(true); flag actionsLive is not true",
+      "detail": null
+     }
+    },
+    "menuA": {
+     "ev": {
+      "type": "click",
+      "ctor": "PointerEvent",
+      "trusted": false,
+      "pointerType": "",
+      "pointerId": -1
+     },
+     "reasons": [
+      "runtime action logger on",
+      "actions.test(true)",
+      "flag actionsLive is not true"
+     ],
+     "res": {
+      "fn": "launchNonSteam",
+      "arg": "/usr/bin/true",
+      "mode": "logged",
+      "reason": "runtime action logger on; actions.test(true); flag actionsLive is not true",
+      "detail": null
+     }
+    },
+    "labClick": {
+     "ev": {
+      "type": "click",
+      "ctor": "MouseEvent",
+      "trusted": false
+     },
+     "reasons": [
+      "runtime action logger on",
+      "actions.test(true)",
+      "flag actionsLive is not true",
+      "synthetic pointer event"
+     ],
+     "res": {
+      "fn": "launchNonSteam",
+      "arg": "/usr/bin/true",
+      "mode": "logged",
+      "reason": "runtime action logger on; actions.test(true); flag actionsLive is not true; synthetic pointer event",
+      "detail": null
+     }
+    }
+   },
+   "test": "RX-7",
+   "ms": 5803,
+   "date": "2026-10-07T13:55:27.644Z"
+  },
+  "RX-7.pad.p3": {
+   "ok": true,
+   "steps": [
+    "PASS test mode on: runtime action logger on; actions.test(true); flag actionsLive is not true",
+    "PASS launchNonSteam handler is SteamClient.Apps.LaunchNonSteamApp",
+    "PASS Steam's \"+\" program row calls SteamClient.Apps.LaunchNonSteamApp(strCmdline) (module 34493)",
+    "PASS Steam's \"+\" window row calls module 92102's p.SteamVR.DashboardDesktopWindowClicked; ours is module 92102",
+    "PASS primary uses the tile menu's own functions: export AH=xe (primary action), jy=ut (run), called by GetPrimaryActionMenuItem",
+    "PASS desktopWindow handler is the popup row's p.SteamVR.DashboardDesktopWindowClicked (module 92102)",
+    "PASS navigate handler is the main window instance's Navigate",
+    "PASS launchNonSteam logged, not run: logged (Visual Studio Code)",
+    "PASS primary logged, not run: logged, Steam's action Play (Balatro)",
+    "PASS desktopWindow logged, not run: logged",
+    "PASS navigate logged, not run: logged",
+    "PASS an untrusted click is test mode by itself: runtime action logger on; actions.test(true); flag actionsLive is not true; synthetic pointer event",
+    "PASS no handler -> refused, nothing guessed: no such app",
+    "PASS no Steam launch call reached a spy: []",
+    "PASS route unchanged: /library/tab/AllGames",
+    "PASS runtime action log has every call: launchNonSteam, primary, desktopWindow, navigate, navigate, primary",
+    "PASS gamepad focus on the lab DialogButton (page)",
+    "PASS A on a DialogButton reaches the action as the gamepad path, not a lab click: {\"type\":\"click\",\"ctor\":\"PointerEvent\",\"trusted\":false,\"pointerType\":\"\",\"pointerId\":-1}, reasons [runtime action logger on; actions.test(true); flag actionsLive is not true], logged",
+    "PASS gamepad focus in the ui.menu sheet: menu:Menu action (logged only)",
+    "PASS A on a ui.menu item reaches the action as the gamepad path: {\"type\":\"click\",\"ctor\":\"PointerEvent\",\"trusted\":false,\"pointerType\":\"\",\"pointerId\":-1}, reasons [runtime action logger on; actions.test(true); flag actionsLive is not true], logged",
+    "PASS a lab MouseEvent click is still a synthetic pointer event: {\"type\":\"click\",\"ctor\":\"MouseEvent\",\"trusted\":false}, reasons [runtime action logger on; actions.test(true); flag actionsLive is not true; synthetic pointer event]",
+    "PASS gamepad phase: no Steam launch or navigation call reached a spy: []"
+   ],
+   "results": {
+    "launchNonSteam": {
+     "fn": "launchNonSteam",
+     "arg": "/usr/bin/flatpak \"run\" \"--branch=stable\" \"--arch=aarch64\" \"--command=code\" \"--file-forwarding\" \"com.visualstudio.code\" \"@@\" \"@@\"",
+     "mode": "logged",
+     "reason": "runtime action logger on; actions.test(true); flag actionsLive is not true",
+     "detail": null
+    },
+    "primary": {
+     "fn": "primary",
+     "arg": 2379780,
+     "mode": "logged",
+     "reason": "runtime action logger on; actions.test(true); flag actionsLive is not true",
+     "detail": {
+      "action": "Play",
+      "label": "Play",
+      "name": "Balatro"
+     }
+    },
+    "desktopWindow": {
+     "fn": "desktopWindow",
+     "arg": 424242,
+     "mode": "logged",
+     "reason": "runtime action logger on; actions.test(true); flag actionsLive is not true",
+     "detail": null
+    },
+    "navigate": {
+     "fn": "navigate",
+     "arg": "/library/app/2379780",
+     "mode": "logged",
+     "reason": "runtime action logger on; actions.test(true); flag actionsLive is not true",
+     "detail": {
+      "replace": false
+     }
+    },
+    "untrusted": {
+     "fn": "navigate",
+     "arg": "/library/home",
+     "mode": "logged",
+     "reason": "runtime action logger on; actions.test(true); flag actionsLive is not true; synthetic pointer event",
+     "detail": {
+      "replace": false
+     }
+    },
+    "refused": {
+     "fn": "primary",
+     "arg": 999999999,
+     "mode": "refused",
+     "reason": "no such app",
+     "detail": {
+      "action": null
+     }
+    },
+    "program": "Visual Studio Code",
+    "game": "Balatro"
+   },
+   "plusModule": "34493",
+   "spies": [
+    true,
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "reactLog": [
+    "launchNonSteam logged",
+    "primary logged",
+    "desktopWindow logged",
+    "navigate logged",
+    "navigate logged",
+    "primary refused"
+   ],
+   "gamepad": {
+    "buttonA": {
+     "ev": {
+      "type": "click",
+      "ctor": "PointerEvent",
+      "trusted": false,
+      "pointerType": "",
+      "pointerId": -1
+     },
+     "reasons": [
+      "runtime action logger on",
+      "actions.test(true)",
+      "flag actionsLive is not true"
+     ],
+     "res": {
+      "fn": "launchNonSteam",
+      "arg": "/usr/bin/true",
+      "mode": "logged",
+      "reason": "runtime action logger on; actions.test(true); flag actionsLive is not true",
+      "detail": null
+     }
+    },
+    "menuA": {
+     "ev": {
+      "type": "click",
+      "ctor": "PointerEvent",
+      "trusted": false,
+      "pointerType": "",
+      "pointerId": -1
+     },
+     "reasons": [
+      "runtime action logger on",
+      "actions.test(true)",
+      "flag actionsLive is not true"
+     ],
+     "res": {
+      "fn": "launchNonSteam",
+      "arg": "/usr/bin/true",
+      "mode": "logged",
+      "reason": "runtime action logger on; actions.test(true); flag actionsLive is not true",
+      "detail": null
+     }
+    },
+    "labClick": {
+     "ev": {
+      "type": "click",
+      "ctor": "MouseEvent",
+      "trusted": false
+     },
+     "reasons": [
+      "runtime action logger on",
+      "actions.test(true)",
+      "flag actionsLive is not true",
+      "synthetic pointer event"
+     ],
+     "res": {
+      "fn": "launchNonSteam",
+      "arg": "/usr/bin/true",
+      "mode": "logged",
+      "reason": "runtime action logger on; actions.test(true); flag actionsLive is not true; synthetic pointer event",
+      "detail": null
+     }
+    }
+   },
+   "test": "RX-7",
+   "ms": 5535,
+   "date": "2026-10-07T13:56:48.501Z"
+  },
+  "RX-FAIL": {
+   "ok": true,
+   "steps": [
+    "PASS error page shown on the real added route /library/lgs/lab/raw",
+    "PASS the page root spans its parent: {\"x\":0,\"y\":40,\"w\":1280,\"h\":640} in {\"x\":0,\"y\":0,\"w\":1280,\"h\":720}",
+    "PASS title and Back on the centre line: title 640, Back 640, centre 640 (window 1280)",
+    "PASS the title keeps the 48 px inset: x 439",
+    "PASS title is Title 2: 30px / 700",
+    "PASS Back is a capsule with no outline or border: 240 x 60, radius 30px, 24px/600, outline none 0px, border 0px",
+    "PASS Back has gamepad focus: fail-page (DOM focus on Back at entry: true)",
+    "PASS B leaves the error page: /zoo/modals"
+   ],
+   "domFocusOnEntry": true,
+   "rects": {
+    "parent": {
+     "x": 0,
+     "y": 0,
+     "w": 1280,
+     "h": 720
+    },
+    "root": {
+     "x": 0,
+     "y": 40,
+     "w": 1280,
+     "h": 640
+    },
+    "title": {
+     "x": 439,
+     "y": 295,
+     "w": 401,
+     "h": 38
+    },
+    "back": {
+     "x": 520,
+     "y": 365,
+     "w": 240,
+     "h": 60
+    },
+    "window": 1280
+   },
+   "back": {
+    "radius": "30px",
+    "font": "24px/600",
+    "outline": "none 0px",
+    "border": "0px"
+   },
+   "routeAfter": "/zoo/modals",
+   "routes": {
+    "added": [],
+    "overridden": []
+   },
+   "test": "RX-FAIL",
+   "ms": 4957,
+   "date": "2026-10-07T13:52:35.331Z"
+  },
+  "RX-FN": {
+   "ok": true,
+   "steps": [
+    "PASS one bare function component matched: 1 fn",
+    "PASS patched render runs after the page was unmounted and mounted again: 2 calls",
+    "PASS /settings/system unchanged against unpatched: 0 issues, 0 moved, 183/183 nodes",
+    "PASS removed while mounted: patchedLeft 0",
+    "PASS after removal the wrap never runs again (0 calls) and Settings renders"
+   ],
+   "patch": {
+    "count": 1,
+    "kinds": [
+     "fn"
+    ],
+    "live": 1
+   },
+   "diff": {
+    "issues": [],
+    "movedCount": 0,
+    "keysA": 183,
+    "keysB": 183,
+    "sameFocus": true,
+    "focusA": {},
+    "focusB": {}
+   },
+   "patchedLeft": 0,
+   "routeAfter": "/search/tab/All",
+   "test": "RX-FN",
+   "ms": 14241,
+   "date": "2026-10-07T13:44:41.702Z"
+  },
+  "RX-HEAL": {
+   "ok": true,
+   "steps": [
+    "PASS switch patch dropped (as on a remount): 2 fiber types restored, patchedLive 0",
+    "PASS navigation re-patched it and our page rendered (patchedLive 1)",
+    "PASS patchedLeft after removal: 0"
+   ],
+   "patchedLeft": 0,
+   "routeAfter": "/search/tab/All",
+   "test": "RX-HEAL",
+   "ms": 2422,
+   "date": "2026-10-07T13:44:23.895Z"
+  },
+  "RX-OPEN": {
+   "ok": true,
+   "steps": [
+    "PASS throwing fixture: {\"mounted\":false,\"error\":\"react-lab: forced render error (fixture boom)\",\"route\":\"/library/lgs/lab\",\"nodes\":5}",
+    "PASS the next fixture on the same route mounts cleanly: {\"mounted\":true,\"error\":null,\"route\":\"/library/lgs/lab\",\"nodes\":4}",
+    "PASS closed: {\"route\":\"/library/tab/Collections\",\"routes\":{\"added\":[],\"overridden\":[]}}"
+   ],
+   "test": "RX-OPEN",
+   "ms": 2417,
+   "date": "2026-10-07T13:52:42.817Z"
+  },
+  "RX-OPT": {
+   "ok": true,
+   "steps": [
+    "PASS optional appButtons registered on /library/home as the only registration: count 0, pending true, watching true, late timers 4",
+    "PASS nothing to attach on Home: still pending and watching after the registration series (late timers 0)",
+    "PASS attached after navigating to /library/app/2379780: count 1 fwd, attached by \"navigation\"",
+    "PASS patched render ran: 7 calls",
+    "PASS a second layer on appButtons matches the patched component: 1 fwd",
+    "PASS both layers run after a remount: layer 1 +4, layer 2 4",
+    "PASS removed: patchedLeft 0, watching false, late timers 0",
+    "PASS optional pagedSettings registered on Home (only registration): count 0, watching true",
+    "PASS attached after entering /settings/system: count 1 fn, attached by \"navigation\"",
+    "PASS patched PagedSettings render ran: 1 calls",
+    "PASS removed: patchedLeft 0, watching false, element factories hooked false"
+   ],
+   "runtimeAtStart": {
+    "since": "2026-10-07T14:00:15.897Z",
+    "runtime": "running",
+    "react": "installed",
+    "warn": []
+   },
+   "runtimeAtEnd": {
+    "since": "2026-10-07T14:00:15.897Z",
+    "runtime": "running",
+    "react": "installed",
+    "warn": []
+   },
+   "patchedLeft": 0,
+   "routeAfter": "/library/tab/Collections",
+   "test": "RX-OPT",
+   "ms": 16159,
+   "date": "2026-10-07T14:00:34.121Z"
+  },
+  "RX-OV": {
+   "ok": true,
+   "steps": [
+    "PASS override renders at /library/home (3 calls, match /library/home)",
+    "PASS Steam Home is kept inside it: 761 nodes",
+    "PASS removed: Steam Home back, 802 -> 802 nodes",
+    "PASS a throwing override shows Steam Home instead: 802 nodes",
+    "PASS function-children route: our wrapper with the real match (appid 2379780), Steam content 9 nodes",
+    "PASS achievements override removed",
+    "PASS override of a path Steam does not declare throws: lgs-react: routes.override: Steam has no top-level route /library/no-such-route",
+    "PASS patchedLeft 0, overrides left 0"
+   ],
+   "routeBefore": "/library/tab/AllGames",
+   "routeAfter": "/library/tab/AllGames",
+   "status": {
+    "added": [],
+    "overridden": []
+   },
+   "patchedLeft": 0,
+   "test": "RX-OV",
+   "ms": 13989,
+   "date": "2026-10-07T13:43:45.005Z"
+  },
+  "RX-REMOVE": {
+   "ok": true,
+   "steps": [
+    "PASS all live: route rendered, 2 patches, 1 override, element factories hooked",
+    "PASS removal report: patchedLeft 0, restored 4, route /library/lgs/lab/remove -> /library/home",
+    "PASS Steam jsx and createElement are the originals again",
+    "PASS our route was left: /library/home",
+    "PASS a stale /library/lgs/lab/remove entry falls back to Steam library (no page of ours)",
+    "PASS fresh state after removal: not scanned"
+   ],
+   "report": {
+    "restored": 4,
+    "routeBefore": "/library/lgs/lab/remove",
+    "routeAfter": "/library/home",
+    "patchedLeft": 0
+   },
+   "routeAfter": "/library/tab/AllGames",
+   "test": "RX-REMOVE",
+   "ms": 7385,
+   "date": "2026-10-07T13:59:28.918Z"
+  },
+  "RX-RETRY": {
+   "ok": true,
+   "steps": [
+    "PASS no route switch: ready() throws a transient error: lgs-react: main route switch not found (fail closed; T3 off until a retry finds it) (retry after 1000 ms)",
+    "PASS within the backoff the same error is thrown again, nothing rescanned",
+    "PASS a caller still fails closed meanwhile: lgs-react: main route switch not found (fail closed; T3 off until a retry finds it)",
+    "PASS still missing after the backoff: retried, next backoff 2000 ms (attempt 2)",
+    "PASS once the switch is there, ready() succeeds by itself without reset() in 2 ms (finders reused from the first scan)"
+   ],
+   "ready": true,
+   "test": "RX-RETRY",
+   "ms": 3473,
+   "date": "2026-10-07T13:52:12.104Z"
+  },
+  "RX-TARGETS": {
+   "ok": true,
+   "steps": [
+    "PASS statusPill matches one component: 1 fn (live 1, rerender {\"forced\":1,\"skipped\":0,\"how\":{\"observer\":1}}, 1 wrapper calls)",
+    "PASS bar unchanged with the no-op wrap: 0 issues, 0 moved, 14/14 nodes",
+    "PASS statusPill removed: patchedLeft 0",
+    "PASS appButtons matches one component: 1 fwd, patched render ran 4 times after a remount",
+    "PASS /library/app/2379780 unchanged with the no-op wrap: 0 issues, 0 moved, 115/115 nodes (focus differed: footer legend left out)",
+    "PASS appButtons removed: patchedLeft 0"
+   ],
+   "pill": {
+    "count": 1,
+    "kinds": [
+     "fn"
+    ],
+    "live": 1,
+    "rerender": {
+     "forced": 1,
+     "skipped": 0,
+     "how": {
+      "observer": 1
+     }
+    }
+   },
+   "app": {
+    "count": 1,
+    "kinds": [
+     "fwd"
+    ]
+   },
+   "routeAfter": "/zoo/buttons",
+   "test": "RX-TARGETS",
+   "ms": 9792,
+   "date": "2026-10-07T13:59:45.204Z"
+  }
+ },
+ "codeNote": "02-react.js was unchanged through the whole pass (md5 above). 03-react-lab.js changed once during it, only in the RX-REMOVE runner (wait for Steam's exiting page) and RX-OPT (runtime diagnostics); RX-REMOVE, RX-TARGETS and RX-OPT were re-run on the final lab file (14:00), the other results ran on the lab file before that change.",
+ "failedRuns": {
+  "RX-OPT.1346": {
+   "ok": false,
+   "steps": [
+    "PASS optional appButtons registered on /library/home as the only registration: count 0, pending true, watching true, late timers 4",
+    "FAIL nothing to attach on Home: still pending and watching after the registration series (late timers 4)",
+    "FAIL attached after navigating to /library/app/2379780: count 0 , attached by \"null\"",
+    "FAIL patched render ran: 0 calls",
+    "FAIL a second layer on appButtons matches the patched component: lgs-react: patch.byProps p2.opt.app2: nothing matches (fail closed)",
+    "PASS removed: patchedLeft 0, watching false, late timers 0",
+    "PASS optional pagedSettings registered on Home (only registration): count 0, watching true",
+    "PASS attached after entering /settings/system: count 1 fn, attached by \"navigation\"",
+    "PASS patched PagedSettings render ran: 1 calls",
+    "PASS removed: patchedLeft 0, watching false, element factories hooked false"
+   ],
+   "patchedLeft": 0,
+   "routeAfter": "/library/home",
+   "test": "RX-OPT",
+   "ms": 14697,
+   "date": "2026-10-07T13:46:40.863Z"
+  },
+  "RX-REMOVE.1344": {
+   "ok": false,
+   "steps": [
+    "PASS all live: route rendered, 2 patches, 1 override, element factories hooked",
+    "PASS removal report: patchedLeft 0, restored 4, route /library/lgs/lab/remove -> /library/home",
+    "PASS Steam jsx and createElement are the originals again",
+    "FAIL our route was left: /library/home",
+    "PASS a stale /library/lgs/lab/remove entry falls back to Steam library (no page of ours)",
+    "PASS fresh state after removal: not scanned"
+   ],
+   "report": {
+    "restored": 4,
+    "routeBefore": "/library/lgs/lab/remove",
+    "routeAfter": "/library/home",
+    "patchedLeft": 0
+   },
+   "routeAfter": "/search/tab/All",
+   "test": "RX-REMOVE",
+   "ms": 6836,
+   "date": "2026-10-07T13:44:54.541Z"
+  }
+ }
+}

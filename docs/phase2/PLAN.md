@@ -11,6 +11,7 @@ This is the build plan for Phase 2: the radical visionOS redesign of the Steam F
 - Where two concepts disagree, §1 decides.
 - Where a concept disagrees with §1, §1 wins. The package that owns the concept updates the concept text and its mockups first (milestone M0, §2.1).
 - `DESIGN2.md` is amended to match §1 by package P4 (the list is in §1.18).
+- §1.19 records the amendments the coordinator decided during the build (round R2). They are applied in place and marked `[R2-n]`. Where an unmarked line still disagrees with §1.19, §1.19 wins.
 
 **Sources, by short name**
 
@@ -82,7 +83,7 @@ Evidence tags as in D2: **[PROVEN]**, **[PROVEN-P1]**, **[PLAUSIBLE]**, **[UNPRO
 | 4 | Gamepad focus add **white .28** (tuning range .28 to .32), checked by VP P-14 and P-15. Navigation selection is a .18 pill with a top arc and a Semibold label; hover on navigation rows is the light spot only |
 | 5 | Steam's legend nodes are never hidden. The ornament is a capsule when it holds actions and a quiet legend when it holds only A and B. WN's laser-mode hiding (Q13) and SET's E-ORN exception are withdrawn |
 | 6 | window-nav owns search, as a sheet over a snapshot of the page. home-apps adds programs, the Apps cell and X = Play through a provider API |
-| 7 | Dimming for alerts and sheets is Steam's overlay restyled to black .35. The `t1` tint is not used for in-window modals: it cannot reach the cover and mosaic in native mode [inferred, SP §5] |
+| 7 | Dimming for alerts and sheets is Steam's overlay restyled to black .35. The `t1` tint is not used for in-window modals: in native mode it dims everything reparented to Steam's panel, the modal's own crop included (SG-5, measured) [R2-4] |
 | 8 | One More circle helper for every area: 60 px with an 80 px hit, inside its host, calling the host's own menu handler |
 | 9 | Menus: WN's layout-by-count rule for actions, SET's list page for long value lists on settings routes, a red rule based on the number of destructive rows, Steam's order and default focus untouched |
 | 10 | Control Center is drawn in the main window (CC-M). The popup variant (CC-A) ships only if its gamepad spike passes |
@@ -95,7 +96,7 @@ Evidence tags as in D2: **[PROVEN]**, **[PROVEN-P1]**, **[PLAUSIBLE]**, **[UNPRO
 
 | Element | Owner (concept → package) | Contributions from others |
 |---|---|---|
-| Window glass, route glass modes (§1.2), toolbar row (Back, Large Title, search field), tab-bar ornament, bottom ornament contract, window-bar row, More circle, frozen target, pointer proxy | WN → C1a | HA (windowless routes, the library's five slots), SM (quiet legend, header positions on `/chat` and `/invites`), SET (ornament on settings routes) |
+| Window glass, route glass modes (§1.2), toolbar row (Back, Large Title, search field), tab-bar ornament, bottom ornament contract, window-bar row, More circle, frozen target, pointer proxy | WN → C1a | HA (windowless routes, the library's ornament members and its toolbar trailing group [R2-2]), SM (quiet legend, header positions on `/chat` and `/invites`), SET (ornament on settings routes) |
 | Search route and sheet | WN → C1b | HA through the provider API (§1.9) |
 | Context menus, popovers, dropdown slabs, alerts, sheets, Power menu layout, route transitions | WN → C1c | CC (Power glyphs, group labels, red confirm), CTL (value menus), SET (list page), GP (placement rule for sources in a row) |
 | Toasts, bar tooltips, volume HUD, floating footer | CC → C3a | WN §5.5 card size (320 × 76) |
@@ -116,7 +117,7 @@ The route decides the mode, never focus, so the glass never changes size under t
 | `windowless` | `/library/home`, `/library/lgs/folder/*`, `/invites`, Control Center (CC-M) while it is open | None. Every glass element is a **plate** | Plates (§1.6) | CSS plates: black .58 with a white .16 → .04 gradient + edge cues; CC-M tiles at .94 (CC §4.2) |
 | `hero` | `/library/app/:appid` title view | The art fills the window | `window` cover, hidden under the opaque art | The same |
 
-SM's quiet-legend routes are `window-full`. Settings routes are `window` (656) on every page, so the ornament can come and go inside the margin (SET §3.2).
+SM's quiet-legend route `/account` is `window-full`. Achievements stay `window`, as the table says; their quiet legend sits in the margin on the dim band of §1.10 [R2-10]. Settings routes are `window` (656) on every page, so the ornament can come and go inside the margin (SET §3.2).
 
 ### 1.3 One control vocabulary
 
@@ -176,9 +177,9 @@ It drives Home's card ramp and name plates (HA §3.4: its documented fallback be
 | Rest, recessed | Black .30 + `inset 0 2px 5px` black .30 |
 | Hover (laser) | + white .08, and a light spot of .12 at the pointer, drawn under the label (VP P-10) |
 | Hover on navigation rows (sidebar, list, tab bar) | The light spot only, no fill added (SM-D13, SET T-SEL) |
-| **Gamepad focus** | **+ white .28** uniform, a spot of .16 in the upper third, the control's own specular arc ×1.5. The first frame shows 60 % (CTL P-C11). P4 sets the final value once, between .28 and .32, from the G-FOCUS measurement |
+| **Gamepad focus** | **+ white .28** uniform, a spot of .16 in the upper third, the control's own specular arc ×1.5. The first frame shows 60 % (CTL P-C11). P4 sets the final value once, between .28 and .32, from the G-FOCUS measurement. **Final: `--lgs-focus-add` = .32** (P4-D8: .28 and .30 failed P-14/P-15 on the tab bar over glass at L ~95) [R2-7] |
 | Focus inside rows | CTL C-D14: a single-control row carries the focus and its control is lifted; a multi-control row warms (.06) and its control carries the focus |
-| Focus on a white or coloured fill | An outer glow `0 0 18px 2px` white .30 (VP P-16). It is blurred, not a ring |
+| Focus on a white or coloured fill | An outer glow, P4's token **`--lgs-white-glow`** (`0 0 22px 8px` white .55 on build 11094443, `contracts/tokens.md` §1.6; scaled by m on other surfaces) (VP P-16). It is blurred, not a ring. The earlier `0 0 18px 2px` white .30 measured only +4 to +12 L in the P-16 band [R2-7] |
 | Navigation selected | White .18 pill + specular top arc + Semibold label |
 | Selected, on, or the source of an open menu | White .94, label `#0d0e12` |
 | Disabled | Content at 40 %, fill at 40 % of its rest alpha, no hover |
@@ -212,7 +213,7 @@ It drives Home's card ramp and name plates (HA §3.4: its documented fallback be
 |---|---|---|
 | Hover, focus, press | CSS (`04-states.css`) + T2 classes (light spot, pressed) | P4, P3 |
 | Materialize and dematerialize (toasts, tooltips, More circle, ornaments, bar popups) | CSS keyframes `lgs-mat-*` | P5 (keyframes), each user |
-| Menu morph | CSS `clip-path` from `--sx --sy --sw --sh` (slab ≤ 600 × 600); glassd plays `morph-close` | C1c, P9 |
+| Menu morph | CSS `clip-path` from `--sx --sy --sw --sh` (slab ≤ 600 × 600). In native mode glassd has no morph: the slab materializes in place on its `phase` while the CSS clip-path draws the open morph, and glassd dematerializes it on close (C1c D15, `contracts/glassd.md` §6) [R2-12] | C1c, P9 |
 | Sheets and alerts | `sheet-in` / `sheet-out`, materialize + swell; scrim on `fade` | C1c |
 | Route and tab transitions | `theme/23-transitions.css` (±16 px + fade on `page`) | C1c |
 | Depth changes | The scene-graph depth channel: the `depth` spring, ≤ 60 pushes/s only while a value moves, then one final push (SP §4.2) | P7 |
@@ -286,7 +287,7 @@ It drives Home's card ramp and name plates (HA §3.4: its documented fallback be
 | Menus, popovers, dropdown slabs | +10, appearing with the materialize (0 → +10 on `depth`) | +30, growing from the source's depth | Crop + `thick` slab |
 | Alerts | +10; **0** if it contains a destructive button | +30 (still 0 if destructive) | Crop + `thick` slab, or a flat `thick` plate |
 | Sheets, the search sheet | +10 | +30 → +50 | Crop + `thick` slab |
-| Source card while its menu is open | It keeps +15 if it was the focused card; otherwise 0 with a CSS glow | +15 | WN's +5 mm is withdrawn (it would be a fifth depth) |
+| Source card while its menu is open | 0 with a CSS glow, in both input modes (rule 6: only the modal pops) [R2-3] | 0 with a CSS glow (rule 6 holds in both profiles) | WN's +5 mm is withdrawn (it would be a fifth depth). The control that opened the menu (More circle, Manage) is white .94 (§1.4) |
 | Settings hero icon, account avatar | +10 | +10 | Decorative crop |
 | Control Center tiles (CC-M) | 0 | 0 | Plates |
 | CC-A tiles (gated) | +25 in front of the bar | +25 | Its own popup request |
@@ -299,10 +300,11 @@ It drives Home's card ramp and name plates (HA §3.4: its documented fallback be
 
 - **Menus:** no scrim (WN §5.1.3).
 - **Alerts and sheets:** Steam's `.ModalOverlayBackground` restyled to black .35 in CSS, in both modes. Under a pop, the hole treatment's `fill` follows the scrim, so no bright sliver shows.
-- **The `t1` tint is not used for in-window modals.**
-  - In native mode the visible window is the cover plus the base mosaic. Both are reparented outside `t1` (SP §5), so a `t1` tint would dim only the hidden real panel [inferred]. Package P7's test SG-5 confirms this. Until then, nothing relies on `t1` in native mode.
+- **The `t1` tint is not used for in-window modals** [R2-4].
+  - **Measured (SG-5, `contracts/sg.md` §5):** in native mode a `t1` tint (the report's `window.dim`) dims **everything reparented to Steam's panel**: glassd's cover, the base mosaic, pops and slabs. The frame menu, the bar and other popups keep their brightness. The earlier inference ("it would dim only the hidden real panel") was wrong. So in native mode a `t1` tint would dim the modal's own crop as well.
   - In CSS-only mode a `t1` tint would also dim the modal (SET §14 #5).
-- **`t1` is used only** for CC-A (the window dims to 0.6 while the popup shows) and for the sheet-recede variant (sign-off S7, off).
+  - A **surface `dim`** (P7's cover and base wrappers) dims the cover and the base only; popped crops keep their brightness. Use it where a window must dim behind a bright popped element.
+- **`t1` is used only** for CC-A (the window dims to 0.6 while the popup shows: `window.dim 0.6` **alone**, never together with a surface `dim`, which would compound to 0.36) and for the sheet-recede variant (sign-off S7, off).
 - **Control Center (CC-M)** hides the window's content with CSS opacity on Steam's page layers (CC §4.2). The window cover's phase goes to 0 while the tile plates materialize.
 
 ### 1.9 Toolbar, search field and search
@@ -314,7 +316,7 @@ It drives Home's card ramp and name plates (HA §3.4: its documented fallback be
 |---|---|
 | 520 × 64 capsule | Section roots (Library, Photos, Downloads) |
 | 640 × 64 capsule | Nested routes and the search route |
-| 60 px circle in an 80 × 80 box | Home, folders, hero routes, Steam Settings, the `/chat` sidebar row (box at 362, 14), the photo viewer and clip player, `/account`, the `/invites` card corner, achievements |
+| 60 px circle in an 80 × 80 box | Home, folders, hero routes, Steam Settings, the `/chat` sidebar row (box at the sidebar's trailing end: x = sidebar width − 94, y 14; (418, 14) with SM-D14's 512 px sidebar [R2-14]), the photo viewer and clip player, `/account`, the `/invites` card corner, achievements |
 
   The circle is gated by WN AT-4 (no SHRUNK); its fallback is the capsule. There is no microphone anywhere (WN D-8, CTL C-D7, XC §4).
 - **Search is WN §4**: a sheet over a snapshot of the page you were on, with Steam's routes underneath. HA's split view is withdrawn (XC §4).
@@ -332,9 +334,10 @@ This resolves WN Q13, XC §3, SET's E-ORN exception and SM's quiet legend.
 - **Glass height is set by the route** (§1.2). **The ornament's material is set by its content:**
   - When the legend holds any action other than A and B, it is a **capsule**: 84 px, y 628–712, ≤ 960 wide, members 60 px.
   - When it holds only A and B, it is a **quiet legend**: no capsule material, items 60 px tall, labels Medium white .70. On `window-full` routes it sits inside the glass; on `window` routes it sits in the margin.
+  - **On `window` routes the quiet members sit on one dim band** [R2-1]: black .62, 60 px tall, radius 30, edges blurred 7 px, spanning the quiet members plus 10 px on each side; no rim, sheen or `backdrop-filter`, and no plate or slab in native mode (it is a shadow on the room, not glass). Labels there are 22 px Medium white .82 with the on-room shadow (P-41). Flag `quietBacking` (S27).
 - **A and B** are always present as quiet trailing members, in both input modes, because Steam renders them in laser mode too (HA §7.1, `shots/p2_lib_collections_on.png`).
-- **Laser mode:** Steam's `%{SortAndFilterContainer}` moves into slot 1 (WN §3.4.2), keyed on `data-lgs-vr-mode`.
-- **Library routes** use HA's five fixed slots, 300 · 130 · 156 · 134 · 120 = 880 px, in both modes (HA §7.1).
+- **Laser mode:** Steam's `%{SortAndFilterContainer}` (rendered only on library routes) is the **toolbar row's trailing group**, not an ornament member [R2-2]. It is a page node, and C1a's window clip at the glass edge (y 656) cuts every page node in the ornament margin, so in slot 1 it was half hidden and took no clicks. In gamepad mode the same functions are Steam's X and Y legends in the ornament.
+- **Library routes:** the ornament **hugs its members**, as on every other route (WN §3.4.1) [R2-2]. HA's five fixed slots (300 · 130 · 156 · 134 · 120 = 840 px of slots; with four 4 px gaps and 12 + 12 px padding an **880 px** capsule at x 200–1080) stay built behind C2c's flag `libFixedSlots` (off, S28): Steam drops X, Y and ≡ whenever focus is on the header rows, and a fixed capsule then shows up to 434 px of empty slots.
 - **Depth 0**, with an inset slab behind (WN D-7).
 - **Too many members:** members switch to a compact style (20 px labels, 16 px padding) rather than exceed 960 px. They are never dropped. SM's ≤ 1232 px limit is withdrawn.
 
@@ -354,15 +357,16 @@ This resolves WN Q13, XC §3, SET's E-ORN exception and SM's quiet legend.
 
 ### 1.12 Menus, alerts and sheets
 
-- **Context menus (actions):** WN §5.1.1's layout by item count. Steam's Cancel stays, as a 56 px quiet capsule (HA-11).
+- **Context menus (actions):** WN §5.1.1's layout by item count. The slab stays inside the menu box, y 108–616 (12 px clear of the ornament's top). Steam's Cancel stays, as a **60 px** quiet capsule (HA-11; 56 → 60 for VP P-80) [R2-5]: 60 visible on its 60 px element (no clear border), ≥ 192 wide (G-AUD keeps ≥ 85 % of Steam's 280 × 48), white .08 fill, 22 px Medium white .70, centred under the rows (across both columns in the grid), last in Steam's order, ≥ 4 px clear of the last row's visible fill.
 
-| Actionable items | Layout |
+| Actionable items | Layout [R2-5] |
 |---|---|
 | ≤ 5 | One column of 72 px rows, 6 px apart, 40 px header row |
-| 6–7 | Compact: 60 px visible on a contiguous 64 px pitch, inline label |
-| ≥ 8 (single level) | Two columns, ≤ 592 px wide |
+| 6 | Compact: 60 px visible on a contiguous 64 px pitch, inline label |
+| 7–10 | Two columns of 72 px rows, ≤ 592 px wide (columns ≥ 280). Seven compact rows with a title and Cancel need 564 px, more than the 508 px box (C1c D28) |
+| 11–14 | Two columns, ≤ 592 px wide; the rows exceed the box, so the slab's row area scrolls inside it: scroll-edge fade, no scrollbar at rest (P-72), the focused row kept fully inside the slab |
 
-- **Value menus (dropdowns):**
+- **Value menus (dropdowns):** layout follows the same count table; the "up to 8" rule below is **placement** (C1c D11) [R2-5].
   - up to 8 options: a slab anchored to its capsule, right-aligned, below, above or over it (SET §4.5);
   - more than 8 on settings routes: a **list page** over the detail pane (SET §4.5);
   - elsewhere, 9–14 options: the two-column grid;
@@ -376,13 +380,15 @@ This resolves WN Q13, XC §3, SET's E-ORN exception and SM's quiet legend.
   - never reordered (SM-D8); Steam's default focus untouched (S6).
 - **Power menu:** WN §5.2's layout (592 × 464, "This Device" and "Steam" side by side), CC §5's glyphs and group labels, and CC's second entry point (the Power circle in Control Center). Its confirmation is a visionOS alert with a red confirm capsule; text on coloured fills is dark (CC §7).
 - **Alerts:** 640 px wide, buttons in Steam's order (`DialogTwoColLayout` is a nav row). **Sheets:** ≤ 960 px wide, with a close circle. Scrim .35 for both.
+- **Placement on the glass** (VP P-35, ± 24 px) [R2-6]: alerts are centred on the route's glass: centre (640, 328) on `window` routes, (640, 360) on `window-full` and `windowless`. Sheets are centred at x 640, top at y 108 (under the toolbar row), at most 488 tall on `window` routes and 552 on `window-full`, so their centre stays within 24 px of the glass centre; content scrolls inside. Not the 108–628 modal box (centre 368, 40 px off).
+- **Dismissal and default focus** keep Steam's behaviour [R2-6]: an outside click cancels alerts and sheets exactly as stock (Steam's `ModalClickToDismiss`; it only ever cancels, never confirms), and Steam's default focus is untouched (S6). Both are recorded deviations (§4.4: P-65, P-67).
 - **Depth:** §1.7.
 
 ### 1.13 Tooltips, sounds and haptics
 
 - **Tooltips** (P3, `device/rt/07-tooltip.js`):
   - a thick-glass capsule 48 px tall, 20 px Semibold, below its owner by default; `data-lgs-tip="above"` for GP's action cluster;
-  - 0.8 s in and 0.2 s out for both laser and gamepad (VP P-12);
+  - 0.8 s in and 0.2 s out for both laser and gamepad (VP P-12). Both are **delays**: the 250 ms materialize starts after 0.8 s of attention, and the 350 ms dematerialize starts 0.2 s after attention ends; attention that returns within the 0.2 s keeps the tooltip (D2 §11, MO §4.17, Apple's sample). IN-7 tests exactly this [R2-8];
   - the one exception: GP's icon-only cluster controls show at once under gamepad focus (`data-lgs-tip-pad="now"`);
   - bar tooltips get the 0.8 s delay through a `ShowTooltip` wrapper (CTL P-C5).
 - **Sounds:** our controls call Steam's sound bus with the same `ENavSound` Steam uses for the same event (IM §6.4). No sound on hover. Steam's UI-sounds setting is honoured.
@@ -416,7 +422,8 @@ Adopted without change, with D2 §3.5 amended by P4:
 | Id | Element | Its own criterion | Source |
 |---|---|---|---|
 | E-BACK | Steam's "Back" text, shown as a chevron circle | `aria-label` equals the stock text; `elementFromPoint` at the centre hits it; it grows into a titled capsule after 0.6 s | WN Q8, CTL C3a, GP Q-B |
-| E-MENU | Menu rows | ≥ 60 visible on a contiguous pitch of ≥ 64 (compact) or 78 (regular); rows ≥ 320 wide. Resolves GP GQ20 | WN §5.1 |
+| E-MENU | Menu rows | ≥ 60 visible on a contiguous pitch of ≥ 64 (compact) or 78 (regular); rows ≥ 320 wide in one-column layouts, **≥ 280 wide in the two-column grid** (slab ≤ 592) [R2-5]. Resolves GP GQ20 | WN §5.1 |
+| E-MENU (Cancel) | Steam's appended Cancel item in a menu | Its own line [R2-5]: visible 60 tall (= its element), ≥ 192 wide, ≥ 4 px clear of the last row's visible fill, inside the slab, last in DOM order, `elementFromPoint` at its centre hits it; judged by this line instead of P-08 and E-MENU's row clauses | §1.12 |
 | E-SWITCH | Switch | Hit ≥ 86 × 80 around its centre | CTL §18.1 |
 | E-CHECK | Check circle | Hit ≥ 80 × 80, column pitch 80 | CTL §18.1 |
 | E-MINI | Mini circle (clear, disclosure) | Hit ≥ 80 × 80 and no other target within 80 px of its centre (the field it clears excepted) | CTL §18.1 |
@@ -459,8 +466,13 @@ The user cannot be asked. Each item below has a safe default and, where useful, 
 | S23 | Settings drill-down | SET §4.3 | On after P-S4 and T-CNT pass | On (gated) | `settingsDrill` |
 | S24 | Power menu as a two-column grid | WN §5.2 | Adopted | On | — |
 | S25 | Laser dwell before lift (80 ms) | IM §4, VP P-06 | Adopted | On | — |
+| S26 | T3 actions run (Home and "+" launches, the game page's Play, Search's Open, launcher rows) [R2-9] | D-P2-1, `contracts/react.md` §8 | Built dry-run for the build: every `rt.react.actions` call is logged, never run. V1 turns it on at release, after RX-7 (with its gamepad phase), HA AT-4 and AT-13 pass on the release build | Off during the build, **On at release** | `actionsLive` |
+| S27 | Quiet legend on `window` routes on a dim band [R2-1] | WN §3.4.1, O3; VP P-39 | Adopted: P-39 is a must and the bare look measures 1.1–1.5 : 1 over a bright room | `"window"` | `quietBacking` (`"window"` \| `"off"`) |
+| S28 | Library ornament in five fixed slots (880 px) [R2-2] | HA §7.1, C2c D-C2c-12 | Built, kept off: the ornament hugs Steam's legends; the laser Sort & Filter pill is the toolbar's trailing group | Off | `libFixedSlots` |
+| S29 | Tooltips fully in at 0.8 s, gone ≤ 0.25 s after leaving [R2-8] | P3-D4 | Built, kept off: PLAN §1.13's 0.8 s and 0.2 s are delays before the materialize and dematerialize (Apple's sample, MO §4.17) | Off | `tipQuick` |
+| S30 | An outside click does not close alerts and sheets (VP P-65) [R2-6] | C1c D9 | Not built: Steam's outside-click cancel stays (a laser path to cancel in every tier, also where a sheet has no close circle). Reserved | Off | `modalOutsideGuard` (reserved) |
 
-"On (gated)" means V1 enables the flag in `defaults.json` only after the named test passes.
+"On (gated)" means V1 enables the flag in `defaults.json` only after the named test passes. "On at release" means V1 sets it when the release checklist (§4.6) runs, never earlier.
 
 ### 1.18 Amendments to DESIGN2 (applied by P4)
 
@@ -479,6 +491,262 @@ The user cannot be asked. Each item below has a safe default and, where useful, 
 | A11 | §17 | The verification checklist points to PLAN §4 | — |
 | A12 | §5.2 | `theme/01-font.nowrap.css` now exists (generated) | — |
 | A13 | §14 | Tier status updated from the capability studies (T3 proven; T4 click unproven; plates and holes planned) | SR, SP, E2E |
+| A14 | §3.2, §3.7, §3.8 | Round R2 (§1.19): the quiet legend's dim band on `window` routes (R2-1); the library ornament hugs its members (R2-2); menu layout by count with 7–14 in the grid, E-MENU widths and Cancel at 60 (R2-5); alerts and sheets placed on the glass (R2-6); the source card at 0 with a glow (R2-3); the measured `t1` dimming (R2-4) | §1.19 |
+
+### 1.19 Amendments from the build (R2)
+
+The coordinator decided these on 2026-10-07 (Steam build 11094443). They come from the requests packages filed while building (`grep -n "REQ [A-Za-z0-9-]*->[Cc]oordinator" docs/phase2/wp/*.md`) and from open review notes. Each one is applied in place in §0 to §5 and marked `[R2-n]` there. The decision log, with the evidence read for each, is `docs/phase2/wp/coordinator.md`. The requests to the owners of files that must change are filed there too.
+
+**How they were decided.**
+
+- §1 decides conflicts.
+- A Steam function, with its laser path and its gamepad path, is never traded for a look.
+- Between two looks, the one closer to visionOS (VP) wins when it can be measured.
+- Every "must" item of VP §6 passes, or it is a recorded deviation in §4.4.
+- Every rule below has a check that an agent can run.
+
+| Id | Topic | Asked by | Changed |
+|---|---|---|---|
+| R2-1 | Quiet legend on `window` routes: the dim band | C1a (WN O3) | §1.10, §1.17 S27 |
+| R2-2 | The library ornament hugs its members; Steam's laser Sort & Filter goes in the toolbar | C2c REQ-8, C1a | §1.1, §1.10, §1.17 S28, §2.4 C2c |
+| R2-3 | Source card while its menu is open: 0 mm with a glow | C2c REQ-7, C1a (WN O4) | §1.7 |
+| R2-4 | The `t1` tint, measured (SG-5) | P7 | §0, §1.8, §2.3 SG-5, §5.1 R9 |
+| R2-5 | Menus: layout by count, E-MENU widths, Cancel at 60 | C1c (REQ 6a, gates run 3, D28) | §1.12, §1.16 |
+| R2-6 | Alerts and sheets on the glass; P-65 and P-67 deviations | C1c (REQ 6b, 6c) | §1.12, §1.17 S30, §4.4 |
+| R2-7 | Focus tokens named: `--lgs-white-glow`, focus add .32 | C4a (and C1a's REQ to P4) | §1.4 |
+| R2-8 | Tooltip timing test (IN-7, CTL C9) | P3 | §1.13, §2.3 P3, §1.17 S29 |
+| R2-9 | Release switch for T3 actions (`actionsLive`) | P2 | §1.17 S26, §4.5, §4.6 |
+| R2-10 | Achievements are `window` | C1a (WN O1) | §1.2 |
+| R2-11 | VP P-23 scored at 612 | C1a (WN O2) | §4.4 |
+| R2-12 | Menu morph without a glassd morph | P9 review R1 m2 | §1.5 |
+| R2-13 | Performance verdicts on a shared device | P1 (RT-7, review R1 m1) | §2.3 P1, §4.1 G-PERF |
+| R2-14 | The `/chat` search circle follows the sidebar | C7 (SM-D2 rev. 3) | §1.9 |
+
+#### R2-1 Quiet legend on `window` routes: the dim band
+
+- **Was:** §1.10 gave every quiet legend "no capsule material, labels Medium white .70".
+- **Evidence:**
+  - On `window` routes the labels sit in the ornament margin, over the room.
+  - Over a bright room they measure 1.1–1.5 : 1 (C1b #3, C1c REQ 4, C1a: background L 209–236 behind "Open" and "Select"). VP P-39 is a must, at 4.5 : 1.
+  - With C1a's band they measure 4.9–6.7 : 1 over the sill and 5.1–6.0 : 1 over the curtain (WN §13.1).
+- **Now:**
+  - §1.10's band: black .62, 60 px, radius 30, 7 px blurred edges, the members + 10 px; no rim, sheen, `backdrop-filter`, plate or slab.
+  - Labels 22 px Medium white .82 with the on-room shadow.
+  - `window-full` routes keep the bare look inside the glass.
+  - Flag `quietBacking`, default `"window"` (S27).
+- **Why:**
+  - A legend that cannot be read is a lost path.
+  - The band is a shadow on the room, with no edge and no frost. §1.10's "no capsule material" and the no-outline rule both still hold, and nothing reads as an extra slab.
+- **Check:**
+  - WN AT-29 (C1a): `glass.py audit main --route /settings/system` in both modes gives CONTRAST = 0, and the band's computed style matches the values above.
+  - The mockup measurement of WN §13.1: quiet labels ≥ 4.5 : 1 over the curtain (L ≥ 230).
+  - G-OUTLINE: the band's edge probe reads `edge: "none"`.
+  - Native: `sgcheck` reports no plate and no slab for `#Footer` while `data-lgs-orn="quiet"`.
+
+#### R2-2 Library ornament and Steam's laser Sort & Filter
+
+- **Was:**
+  - §1.10: in laser mode, `%{SortAndFilterContainer}` moves into ornament slot 1.
+  - Library routes use five fixed slots, "= 880 px". The slots sum to 840; 880 is the capsule.
+  - PLAN-2c-1: ornament width 880 ± 1 in both modes.
+- **Evidence (C2c REQ-8, session 2):**
+  - C1a's window clip at y 656 cuts every page node in the margin. Steam's pill is a page node, so in slot 1 it was half hidden, and `elementFromPoint` at it returned `#MainNavMenu-Rest`.
+  - Steam drops X, Y and ≡ whenever focus is on the header rows, and in laser mode. The fixed capsule then showed up to 434 px of empty slots.
+  - D-C2c-12 ships the pill as the toolbar's trailing group. Gates PASS on AllGames and on a collection page, in both modes (C2c S2-G1, S2-G2, S2-G6).
+- **Now:**
+  - The ornament on library routes hugs its members, as on every other route (WN §3.4.1): centred, ≤ 960, and compact members before anything is dropped. The fixed slots stay built behind `libFixedSlots` (off, S28).
+  - In laser mode, Steam's Sort & Filter pill is the **toolbar row's trailing group**. This is where visionOS puts a window's sort and filter (DESIGN2 §3.2, "Trailing actions"). It is one 60 px capsule holding Steam's two buttons, with 80 px hits:
+    - visible y 24–84;
+    - its right edge at x 1256 (24 px inside the glass);
+    - at least **20 px clear** of the search field's visible capsule (DESIGN2 §3.2's spacing for trailing actions);
+    - when Steam's account-alert circle (`#header_profile`) shows, the circle stays outermost at the 24 px inset, and the group sits 20 px to its left;
+    - when Steam's labels do not fit, the sort name ellipsizes inside the group (Steam's text stays in the DOM); the gap and the inset never shrink.
+  - The pill's node, its handlers and its laser-only rendering are untouched.
+  - In gamepad mode the same functions stay Steam's X and Y legends in the ornament. The Y legend carries the current sort ("Sort By · Alphabetical").
+- **Why:**
+  - Both paths keep every function: the laser has the toolbar group, the gamepad has X and Y.
+  - A capsule that shows empty slots, or a control that the window clips, is worse than a capsule whose width follows Steam's legends. Every other route already behaves that way.
+- **Check (replaces PLAN-2c-1).** Run on `/library/tab/AllGames` and `/library/collection/<id>` with `--flags wp.p3,wp.c1a,wp.c2c`, in `--mode laser` and `--mode pad`, with focus in the grid and on the tab row (`glass.py js` reading rects):
+  1. The capsule spans its members: left = the first member's left − 12, right = the last member's right + 12 (± 1). It is centred at x 640 ± 1 and ≤ 960 wide. No gap between adjacent members is wider than 14 px.
+  2. Laser mode: the pill's visible capsule is at y 24–84 (± 1), with its right edge at 1256 ± 1 and its left edge ≥ the search capsule's right edge + 20. `elementFromPoint` at the centre of Sort and of Filter returns that button.
+  3. No legend node and no pill node has `display: none` or `visibility: hidden`. G-AUD has no GONE, HIDDEN or UNCLICKABLE.
+
+  With `libFixedSlots` on, the old check (880 ± 1 at x 200–1080, in both modes) still applies.
+
+#### R2-3 Source card while its menu is open
+
+- **Was:** §1.7's table said "It keeps +15 if it was the focused card; otherwise 0 with a CSS glow" (wearer +15). Admission rule 6 says "while a modal is open, only the modal itself pops".
+- **Evidence:**
+  - P6's reporter applies rule 6 in both profiles (`contracts/reporter.md` admission step 6, `modal: true`).
+  - A +15 source beside its +10 menu would stand in front of its own menu.
+  - C2c (D-C2c-1), C1c (D6b) and C2a (D-C2a-3) already build rule 6. C2c's native session S2-N2 had the sheet open and the poster not popped.
+- **Now:** the source card drops to 0 with a CSS glow, in both input modes and both profiles. The control that opened the menu (More circle, Manage) is white .94 (§1.4).
+- **Why:**
+  - The menu must be in front of its source. In visionOS a presented menu is the frontmost layer.
+  - One rule, enforced in one place.
+- **Check:**
+  - In a native session, run `sgcheck` with the tile menu open, twice: once from a gamepad-focused poster (`--mode pad`, ≡) and once from the More circle (`--mode laser --hover`). Pass: exactly one pop on `main` (the menu, 10.0 mm), the source at 0, and ≤ 4 distinct dz (P-46).
+  - In CSS-only mode, the source's computed `box-shadow` carries the glow.
+
+#### R2-4 Dimming: the `t1` tint, measured
+
+- **Was:** §1.8 said "a `t1` tint would dim only the hidden real panel [inferred]. SG-5 confirms this."
+- **Evidence:** SG-5 (P7, `native/spike/sg_native.py sg5`, `contracts/sg.md` §5, `p7_results/sg5n.jsonl`, 2026-10-07 08:38):
+  - With `window.dim` 0.35, the window glass went from L 73.8 to 45.7, a text row from 108.6 to 65.7, and the popped posters from 95.0 to 57.4. The frame menu, the bar and the room were unchanged.
+  - A surface `dim` of 0.35 dimmed the cover and the base only: a popped card stayed at 38.8 → 38.8.
+- **Now:**
+  - §1.8 as amended: `t1` dims the whole visible window, pops included.
+  - In-window modals use the CSS scrim only, in both modes.
+  - CC-A uses `window.dim 0.6` alone.
+  - A window that must dim behind a bright popped element uses the surface `dim`.
+  - SG-5's expectation (§2.3) and R9 (§5.1) follow.
+- **Why:**
+  - Nothing that ships relies on either path (CC-A is gated, S7 is off).
+  - But the stated reason was wrong, and CC-A would have compounded two dims (0.36).
+- **Check:**
+  - SG-5, as recorded.
+  - For CC-A (C3b, once CS10 passes): the report carries `window.dim 0.6` and no surface `dim` on `main` (`__LGS_SG.dump()`).
+
+#### R2-5 Menus: layout by count, E-MENU widths, Cancel
+
+- **Was:**
+  - §1.12: "6–7: compact"; "≥ 8: two columns, ≤ 592 wide"; Cancel "a 56 px quiet capsule".
+  - §1.16 E-MENU: "rows ≥ 320 wide".
+- **Evidence (C1c gates run 3, 07:04–07:11, and D28):**
+  - Two columns of ≥ 320 cannot fit a ≤ 592 slab (2 × 320 + 8 + 16 = 664). Steam's own row min-width is 280.
+  - Measured live, 7 compact rows with a title and Cancel are 564 px tall. That is beyond the 508 px menu box (y 108–616, C2c REQ-6).
+  - Cancel at 56 fails VP P-80, a must (≥ 60 visible). It also has no line of its own in E-MENU.
+- **Now:**
+  - §1.12's count table: ≤ 5 one column; 6 compact; 7–10 the grid; 11–14 the grid, with the row area scrolling inside the slab. Value menus follow the same table.
+  - E-MENU widths: ≥ 280 in the grid, ≥ 320 elsewhere.
+  - Cancel: 60 visible on its 60 px element, ≥ 192 wide, ≥ 4 px clear of the last row, with its own E-MENU line.
+- **Why:** each change keeps the function and moves closer to VP.
+  - The grid gives 7-action menus 72 px rows (P-64) instead of compact ones.
+  - Cancel at 60 meets P-80 at no cost in height, because its element is already 60.
+- **Check:**
+  - `glass.py gates main --pre <menu recipe>` in both modes, for MENU with 5, 6, 7, 8, 10 and 14 items, the tile menu, POWER and the Sort menu. Pass: G-SIZE has no P-08 or P-80 failure on menu items, and every E-MENU line passes (P10's criterion per row, and the Cancel line).
+  - WN AT-11b: the class matches the count table; `scrollHeight == clientHeight` up to 10 items; the slab is inside y 108–616 and ≤ 600 wide.
+
+#### R2-6 Alerts and sheets: placement, outside click, default focus
+
+- **Was:**
+  - WN placed alerts and sheets "centred in the modal box": centre 368, 40 px off the glass centre. VP P-35 asks for ± 24.
+  - §4.4 listed only P-11 and P-37 as deviations.
+- **Evidence:**
+  - C1c D7: alerts centred on the glass; sheets from y 108, ≤ 488 / 552 tall. Live on ZOO('Scroll Panel Test'): 958 × 487 at (161, 109).
+  - C1c D9 (outside click) and D10 (default focus).
+- **Now:**
+  - §1.12's placement rule.
+  - Outside click: Steam's `ModalClickToDismiss` keeps cancelling alerts and sheets. With the runtime off (and so without C1c's close circle), it is the only laser dismiss on a sheet that has no button of its own, and it can only cancel.
+  - Default focus: Steam's (S6).
+  - Both are recorded deviations in §4.4. The guard flag `modalOutsideGuard` is reserved, not built (S30).
+- **Why:**
+  - P-65's goal is no accidental loss. Steam's design already meets it: an outside click never confirms. Removing a laser path would break "every function keeps a laser path" in the CSS-only tier.
+  - P-67 would change what A does on Steam's own confirmations. S6 already decided against that without a wearer.
+- **Check:**
+  - DOM after open (`glass.py js` with the CONFIRM and ZOO('Scroll Panel Test') recipes, both modes): the alert's centre is within 24 px of (640, 328) on `window` routes; the sheet's top is 108 ± 1, its height ≤ 488 (552 on `window-full`), and its centre x 640 ± 1.
+  - C1c-3: an outside click cancels exactly as stock and never confirms (a spy on the dialog's `onOK` records 0 calls).
+  - WN AT-12: the item focused on open is the same with `wp.c1c` on and off.
+
+#### R2-7 Focus tokens named
+
+- **Was:** §1.4 gave the white-fill glow as `0 0 18px 2px` white .30, and left the focus add between .28 and .32.
+- **Evidence:**
+  - C1c E8, C3a and C4a's `controls-measure.py`: the old glow gave +4 to +12 L in the P-16 band, which needs ≥ +20.
+  - P4's `--lgs-white-glow` (`0 0 22px 8px` white .55) gives +23 L in the bright room and +27 L in the dim one.
+  - P4-D8 set `--lgs-focus-add` to .32 after C1a's G-FOCUS on the tab bar: .28 gave +35.2 / +7.6 (FAIL), .32 gave +42.5 / +15.1 (PASS).
+- **Now:**
+  - §1.4 names both tokens. Their values live in `theme/00-tokens.nowrap.css` (P4).
+  - PLAN carries the names, so a later tuning by P4 does not reopen PLAN.
+  - DESIGN2 A5 already names the glow token.
+- **Check:**
+  - G-FOCUS as before: the P-16 band ≥ +20 L on white and coloured fills; focus ≥ +40 L over rest; focus ≥ selected + 15 L.
+  - `python glass.py status`: 0 unresolved tokens.
+
+#### R2-8 Tooltip timing test (IN-7 and CTL C9)
+
+- **Was:** P3's IN-7 and C4a's C9 said "none at 500 ms; the label at 900 ms; gone ≤ 250 ms after leaving". But §1.13, DESIGN2 §11 and MO §4.17 (Apple's sample) make 0.8 s and 0.2 s **delays**, before a 250 ms materialize and a 350 ms dematerialize.
+- **Evidence (P3, measured on computed opacity, `wp/P3.md` IN-7):**
+  - The glass shows from about 820 ms, and the label reaches 0.9 by about 1050 ms.
+  - The leave starts about 210–230 ms after attention ends. The label is gone by about 400–420 ms, and the node is hidden by about 560–610 ms.
+  - `tipQuick` meets the card's literal numbers. But when the laser leaves and comes back within about 180 ms, the capsule dips to about 0.6.
+- **Now:**
+  - §1.13's timing stands: the numbers are delays.
+  - IN-7's pass criterion is amended (§2.3 P3), and C9 follows it.
+  - `tipQuick` stays off (S29).
+- **Why:**
+  - §1 decides, and it matches Apple's sample.
+  - The 0.2 s grace absorbs laser jitter, which a laser (unlike eyes) produces all the time.
+- **Check:** IN-7 as amended, in both input modes, with P3's runner (opacity sampled on the tooltip node's capsule and label).
+
+#### R2-9 Release switch for T3 actions
+
+- **Was:** nothing in PLAN named P2's `actionsLive`. HA AT-4 and AT-13 and the §4.5 ledger's static check all pass while every T3 launch is a logged dry run.
+- **Now:** S26 (§1.17), a rule in §4.5 and an item in §4.6.
+- **Why:** a release that forgets the switch silently loses Play, launches and Open from every T3 view. No gate would catch that lost function.
+- **Check:** V2's shipped-state check, with the shipped `defaults.json` and no `--flags`:
+  - `python glass.py js "__LGS_RT.react.actions.mode()"` returns `reasons` exactly `['runtime action logger on']` (the lab step's own logger).
+  - `mode(ev)` for Steam's programmatic click (`new PointerEvent('click')`, `pointerType ''`) adds no other reason.
+
+#### R2-10 Achievements are `window`
+
+- **Was:** §1.2's table put achievements in `window`. Its note called "SM's quiet-legend routes" `window-full`, and SM listed achievements among them.
+- **Now:**
+  - The table holds.
+  - SM revision 3, WN §3.1.1 and C5a already build `window` (656).
+  - The quiet legend sits in the margin, on the dim band (R2-1).
+- **Check:** on `/library/app/<appid>/achievements/my/individual`, with `wp.c1a,wp.c5a`: `%{BasicUiRoot}[data-lgs-glass="window"]`.
+
+#### R2-11 VP P-23 after A1
+
+- **Was:** VP P-23's bottom bound is 620 (the ornament's top at 636 − 16). A1 moved the ornament to 628.
+- **Now:**
+  - P-23 is scored at top ≥ 124 and bottom ≤ **612** on routes with a bottom ornament (C1a's `--lgs-guard-bottom`).
+  - Without an ornament: bottom ≤ the glass bottom − 16 (704 on `window-full`).
+  - VP stays frozen; §4.4 carries the bound.
+- **Check:**
+  - `glass.py conformance --pad --only P-23` with the 612 bound. P10's `tools/p2/conformance.py` still says 620: the REQ is in the coordinator's log.
+  - WN AT-2's guard.
+
+#### R2-12 Menu morph without a glassd morph
+
+- **Was:** §1.5 said "glassd plays `morph-close`".
+- **Evidence:**
+  - glassd v3 has no morph (`contracts/glassd.md` §6; C1c D15).
+  - P9's review R1 (m2) asked for a sign-off.
+  - P4 amended DESIGN2 §11 (REQ P9->P4).
+- **Now:** in T5 the slab materializes in place on its `phase` while the CSS clip-path draws the open morph, and glassd dematerializes it on close.
+- **Why:**
+  - The visible open morph is the CSS clip-path in both tiers, so nothing the eye sees is lost.
+  - A glassd rect morph would add a second animation path that must be kept in step with the CSS one.
+- **Check:** PLAN-1c-2's filmstrips (G-MOTION) of the menu opening and closing; GL-4 and MO-5 for the phase ramps.
+
+#### R2-13 Performance verdicts on a shared device
+
+- **Was:** RT-7 and G-PERF said "no new frames over 34 ms".
+- **Evidence (P1: runtime.md §9, review R1 m1):**
+  - On the shared device, theme-only runs alone differ by up to 7 long frames per 3 s.
+  - Of six RT-7 runs, four met the strict reading. The other two were inside their A/A spread.
+- **Now:** RT-7 and G-PERF use one statistic:
+  - ABBA × 2, with a second round pooled if the first fails;
+  - median fps ratio ≥ 0.95 against the reference (theme only for RT-7, stock for G-PERF);
+  - median extra long frames (> 34 ms) ≤ the reference's A/A spread (minimum 1).
+
+  A CSS-only verdict pools only runs whose step line reports `native=off`.
+- **Why:**
+  - The strict reading fails on other agents' noise, not on our cost.
+  - The A/A spread is that noise, measured in the same session.
+- **Check:**
+  - The numbers above, from the run's JSON.
+  - P10 is asked for an ABBA mode of `perf`, so that every owner computes the statistic the same way (the REQ is in the coordinator's log).
+
+#### R2-14 The `/chat` search circle
+
+- **Was:** §1.9 put the `/chat` circle's box at (362, 14), the trailing end of SM revision 2's 456 px sidebar.
+- **Now:**
+  - The box follows the sidebar's trailing end: x = sidebar width − 94, y 14. With SM-D14's 512 px sidebar that is x 418.
+  - This applies only while the circle variant is on (`searchCircle`, off today because of WN AT-4's SHRUNK).
+- **Check:** SM's People test with `searchCircle` on: the search element's rect is the 80 × 80 box at (sidebar width − 94, 14).
 
 ---
 
@@ -591,7 +859,7 @@ Sizes: S ≈ 1 agent-session, M ≈ 2–3, L ≈ 4 or more.
 | RT-4 | `lgs off`, then a sweep of every popup | No `__LGS_RT`, no `lgs-*` classes and no `data-lgs-*` attributes on any window; no patched fibers (`patchedLeft: 0`) |
 | RT-5 | Lab `--theme off` step | Runtime modules removed within 2.5 s |
 | RT-6 | Persistence scan after on/off | Writes only under `/tmp/lgs` and `/dev/shm/lgs`; nothing new under `~/.local/share/glass-shell` except synced sources |
-| RT-7 | `python glass.py perf main --route /library/tab/AllGames` with the runtime idle | Within 5 % of the theme-only baseline; no new frames over 34 ms |
+| RT-7 | `python glass.py perf main --route /library/tab/AllGames` with the runtime idle | Within 5 % of the theme-only baseline; no new frames over 34 ms, read as R2-13's statistic: ABBA × 2, median extra long frames ≤ the theme-only A/A spread (min 1) [R2-13] |
 
 - **Fallback:** if the loader fails, `lgs on` still injects the CSS theme (Phase 1 behaviour) and reports the runtime as off.
 
@@ -651,7 +919,7 @@ Sizes: S ≈ 1 agent-session, M ≈ 2–3, L ≈ 4 or more.
 | IN-4 | Gamepad press (CTL C7) | `lgs-pressed` set on button 1, cleared ≤ 100 ms after the up event; other buttons ignored; never `preventDefault` |
 | IN-5 | Light spot (CTL C8) | Writes follow within one frame; 0 writes while idle |
 | IN-6 | First focus frame (CTL C6, opacity half) | 0.60 ± 0.02 at t0, 1.0 at 700 ms |
-| IN-7 | Tooltips (CTL C9) | None at 500 ms; the label at 900 ms; gone ≤ 250 ms after leaving; `m_mapTooltips` empty after cleanup |
+| IN-7 | Tooltips (CTL C9), measured on computed opacity [R2-8] | Nothing visible before 760 ms; the materialize starts 800 ± 40 ms after attention begins; label opacity ≥ 0.9 by 1100 ms; the leave starts 200 ± 40 ms after attention ends; label opacity 0 by 460 ms and the node `hidden` by 640 ms after attention ends; attention back within 200 ms keeps the label ≥ 0.9 (no dip); `data-lgs-tip-pad="now"`: label ≥ 0.9 within 300 ms of gamepad focus; `m_mapTooltips` empty after cleanup |
 | IN-8 | Sounds | `rt.sound('activate')` requests `DefaultOk` on Steam's bus; nothing on hover (`PlayAudioURL` intercepted) |
 | IN-9 | Removal | IM §8 removal row: subscriber counts back to baseline |
 
@@ -772,7 +1040,7 @@ Sizes: S ≈ 1 agent-session, M ≈ 2–3, L ≈ 4 or more.
 | SG-2 | 300 add/remove cycles | Rendering continues (E9–E14 regression); no leaked sgids (`dump()` against DOM) |
 | SG-3 | Transform override round trip on the frame-control node | `DumpLaserOverlays` shows the target moved and the same size; restored after `clear()`; restored by the TTL when the daemon is killed |
 | SG-4 | `dim` on a surface | Only cover and base pieces wrapped (`dump()`) |
-| SG-5 | **The `t1` tint in native mode** (native session; `hvgrab` look, then delete) | Records whether a `t1` tint is visible over the cover. Expected: not visible (§1.8). The result is written to `contracts/sg.md` |
+| SG-5 | **The `t1` tint in native mode** (native session; `hvgrab` look, then delete) | Records whether a `t1` tint is visible over the cover. The result is written to `contracts/sg.md`. **Recorded 2026-10-07: visible**: it dims everything reparented to Steam's panel, pops included (§1.8) [R2-4] |
 | SG-6 | Watchdog and freeze regression (NAT: SIGSTOP 15 s) | Nodes off at 12 s, back 1 s after SIGCONT |
 
 #### P8 Daemon
@@ -963,10 +1231,10 @@ Each card lists its routes, its sources in the concepts, what it builds, and its
 - **Inputs:** HA §7, §8, §9, §12.2–§12.6; WN §3.4.6; §1.10, §1.12 here.
 - **Builds:**
   - **T1:** tabs as a segmented control, the VR sub-filter in place, posters (Steam's geometry), focus lift, the "N apps hidden" notice, section headers.
-  - **T2:** the five ornament slots with state labels (current sort, filter count); More hosts registered with C1a's helper.
+  - **T2:** state labels on Steam's legends (current sort, filter count); the five fixed ornament slots only behind `libFixedSlots` (S28) [R2-2]; More hosts registered with C1a's helper.
   - **T3:** the letter scrubber; larger posters only if LQ2 passes; the filter sheet content (chips, segments, collapsed sections) with the T1 fallback.
   - **T4:** posters at +15 mm (`layers/40-library.json`, superseding the legacy `card`, `tabs` and `tab-arrow` rules for library routes).
-- **Acceptance tests:** HA AT-6, AT-7, AT-14 (a–d), AT-15; **PLAN-2c-1:** ornament width 880 ± 1 in both modes; **PLAN-2c-2:** `cmp` against `home-apps-library.html`, `-library-pad.html` and `-filter.html`; G-PAD on AllGames, including Up to the tabs and back.
+- **Acceptance tests:** HA AT-6, AT-7, AT-14 (a–d), AT-15; **PLAN-2c-1** [R2-2]: the ornament hugs its members and Steam's laser Sort & Filter pill is the toolbar row's trailing group (the three checks of §1.19 R2-2); with `libFixedSlots` on, the ornament is 880 ± 1 in both modes; **PLAN-2c-2:** `cmp` against `home-apps-library.html`, `-library-pad.html` and `-filter.html`; G-PAD on AllGames, including Up to the tabs and back.
 
 #### C3a Bar, HUD, toasts, tooltips look
 
@@ -1239,6 +1507,7 @@ A package creates new files only inside its listed patterns.
 | `docs/coverage/**` | V1 |
 | `docs/inventory/**` | V1 (errata only) |
 | `docs/phase2/PLAN.md` | Coordinator |
+| `docs/phase2/wp/coordinator.md` (decision log and the coordinator's requests) | Coordinator |
 | `docs/phase2/DESIGN2.md` | P4 |
 | `docs/phase2/fontkit.py` | P4 |
 | `docs/phase2/glassd-material.md` | P9 |
@@ -1350,7 +1619,7 @@ Every context package runs these gates on its routes (§4.2). V2 reruns them for
 | G-OUTLINE | No outlines | `gates` + `edge_profile.py` | P-42, P-43; edge ratio ≤ 0.35 on glass top edges |
 | G-FOCUS | Focus and selection | `glass.py focus` | §1.4 criteria (P-14 to P-16, P-18, T-SEL) |
 | G-MOTION | Motion | `glass.py motion` | Every duration and easing a token (P-58); nothing at rest (§1.5); filmstrips for the package's listed interactions show glass before content on entry, content before glass on exit, no text scaling, no closed outline in any frame; Reduce Motion fades only (P-56) |
-| G-PERF | Performance | `glass.py perf SURF --route R` | Themed fps within 5 % of stock; no new frames over 34 ms. Native: glassd median ≤ 2.5 ms (`glassd-out.json`) |
+| G-PERF | Performance | `glass.py perf SURF --route R` | Themed fps within 5 % of stock; no new frames over 34 ms, both read as R2-13's statistic (ABBA × 2: median fps ratio ≥ 0.95; median extra long frames ≤ stock's A/A spread, min 1; CSS-only verdicts pool only `native=off` runs) [R2-13]. Native: glassd median ≤ 2.5 ms (`glassd-out.json`) |
 | G-DEPTH | Depth (native) | `glass.py sgcheck` | §1.7 admission rules; ≤ 4 distinct dz at rest; every crop `interactive: false` in the default profile; every lift has its shadow (P-48) |
 | G-HV | Headset view (native) | `glass.py hv NAME` and `--offaxis` (look, then delete) | No doubled element; glass L 55–110; no closed outline; labels legible |
 | G-MOCK | Looks like the design | `glass.py cmp` against the package's mockups | Named rects within ±8 px, or the difference explained in the evidence log; the agent views both images and records a verdict |
@@ -1408,13 +1677,17 @@ The brief asks for full glass, which only glassd can draw over the room. NATIVE.
 - V2 runs `glass.py conformance` for every automatable P-item and records manual verdicts for the REV and MOCK items in `docs/phase2/verify/conformance.md`.
 - Every "must" item passes, or carries a recorded deviation from §1. The known deviations:
   - P-11, the pointer proxy (S16);
-  - P-37, a second capsule on the tab bar's edge (WN's two groups are one Steam popup; moving Settings or Power out would hide Steam's nodes).
+  - P-37, a second capsule on the tab bar's edge (WN's two groups are one Steam popup; moving Settings or Power out would hide Steam's nodes);
+  - **P-65**, an outside click still cancels alerts and sheets: Steam's `ModalClickToDismiss`, kept as stock. It only ever cancels, and it is the only laser dismiss of a sheet without its own button when the runtime is off (S30) [R2-6];
+  - **P-67**, alerts and Power keep Steam's default focus (S6) [R2-6].
+- **Scoring rule for P-23** [R2-11]: after A1 moved the ornament to 628, the bottom bound is **612** (628 − 16) on routes with a bottom ornament, and the glass bottom − 16 without one; the top bound stays 124. VP's "620" is read as 612.
 
 ### 4.5 Function ledger
 
 1. `glass.py ledger` merges every concept's retention table into `docs/phase2/verify/functions.csv`, with the columns: audit id, function, concept, owner package, laser path, gamepad path, test id, status.
 2. Pass: every function in the audits' §A lists (SN, LA, GP, SY, SM) appears at least once, with both paths, and either a passing test or, for actions tests never perform, a static check that the handler is Steam's own (the P2 action logger or a spy).
 3. The concepts map 59 (HA), 83 (CC) and 93 (SM) functions, plus the WN, CTL, GP and SET tables. Duplicates across concepts are merged by audit id.
+4. **T3 actions** [R2-9]: a function whose path runs through `rt.react.actions` (Home and "+" launches, the game page's Play, Search's Open, launcher rows) counts as kept only when V2's shipped-state check reads `live` (§4.6 item 9). Until then its row is `partial`, whatever its test says.
 
 ### 4.6 Release checklist (V1 with V2)
 
@@ -1426,6 +1699,7 @@ The brief asks for full glass, which only glassd can draw over the room. NATIVE.
 6. The `README.md`, `LAB.md` and `NATIVE.md` updates (§6) done.
 7. Phase 1 aliases and `99-legacy.json` removed (§6).
 8. The wearer-only list (§5.3) included in `REPORT.md` for the user.
+9. **T3 actions live** [R2-9]: `defaults.json` has `"actionsLive": true` (S26), set only after RX-7 (with its gamepad phase), HA AT-4 and AT-13 pass on the release build. V2's shipped-state run (shipped `defaults.json`, no `--flags`) shows `rt.react.actions.mode()` with `reasons` exactly `['runtime action logger on']` (the lab step's own logger), and `mode(ev)` for Steam's programmatic click (`PointerEvent('click')`, `pointerType ''`) adds no other reason. Any other reason fails the release.
 
 ---
 
@@ -1443,7 +1717,7 @@ The brief asks for full glass, which only glassd can draw over the room. NATIVE.
 | R6 | SteamVR's laser dot hidden behind covers | Needs a wearer | The pointer proxy in native mode | C1a |
 | R7 | The native gate fails | AT-0a–f | CSS-only with the degraded spec, stated in the report | V1 |
 | R8 | glassd cost with plates exceeds 2.5 ms | GL-3, G-PERF | Plates drawn in the quarter-resolution interior pass; drop slabs on the main window while the keyboard is open; CSS plates on Home | P9 |
-| R9 | `t1` tint behaves differently from §1.8's inference | SG-5 | §1.8 does not depend on it; CC-A dims through cover tint wrappers instead | P7 |
+| R9 | `t1` tint behaves differently from §1.8's inference | SG-5 | **Happened** (SG-5, 2026-10-07: `t1` dims pops too). §1.8 never relied on it and is amended [R2-4]: in-window modals use the CSS scrim; CC-A uses `window.dim 0.6` alone; a dim behind a bright pop uses the surface `dim` (cover and base wrappers) | P7 |
 | R10 | Shared device: other agents change routes, theme or native mode between steps | Status checks in every step | Atomic locked steps; `native.lock`; flags only inside a step | All |
 | R11 | `data:` font blocked by CSP somewhere, or bundle memory too high | FD-2 | Steam's font stack on that surface; drop `opsz` (−42 KB) | P4 |
 | R12 | Honeycomb neighbours misbehave | HA AT-3 | 5 × 3 square lattice with `flow-children: grid` | C2a |

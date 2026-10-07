@@ -14,9 +14,11 @@
 //             ornament's Y member for Sort. data-lgs-menu-source="white" (controls) or "glow" (content)
 //   anchor    translate on Steam's menu container and title row so the slab sits beside its source (kill
 //             switch: flag menuAnchor=false), and the morph start --sx --sy --sw --sh --sr (D15)
-//   modal     html.lgs-modal on every Steam popup while main shows an alert or a sheet (D16)
+//   modal     html.lgs-modal on every Steam popup while main shows an alert or a sheet (D16);
+//             html.lgs-menu-open on main while a context menu is open (D34: the page backdrop root)
 //   close     a 60 px close circle on sheets (data-lgs-sheet="close" on the card), which dispatches
-//             Steam's own click-away cancel (ModalClickToDismiss); B and outside clicks stay Steam's
+//             Steam's own click-away cancel (ModalClickToDismiss), then B's cancel if the sheet ignored it
+//             and Steam's focus is inside it; B and outside clicks stay Steam's
 //   tag       data-lgs-destructive on a destructive confirm (Steam's .Destructive, or the confirm of a
 //             dialog opened from the Power menu) and data-lgs-plate="thick" on its card (flat, PLAN-1c-1);
 //             data-lgs-plate="thick" on menu slabs and modal cards on windowless routes (C2a REQ #3)
@@ -383,7 +385,15 @@
       b.setAttribute('role', 'button');
       b.setAttribute('aria-label', loc('#Generic_Close', 'Close') || 'Close');
       const win = doc.defaultView;
-      const stop = (e) => { e.stopPropagation(); };
+      // keep Steam's focus inside the sheet (a press on a non-focusable node would move it to <body>),
+      // and note where it was for the B fallback below
+      let focusIn = false;
+      const stop = (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        const ov0 = pos.closest('.ModalOverlayContent');
+        focusIn = !!(ov0 && doc.activeElement && ov0.contains(doc.activeElement));
+      };
       b.addEventListener('pointerdown', stop);
       b.addEventListener('mousedown', stop);
       b.addEventListener('click', (e) => {
@@ -396,6 +406,17 @@
         d.dispatchEvent(new win.MouseEvent('mouseup', o));
         d.dispatchEvent(new win.MouseEvent('click', o));
         try { RT.sound && RT.sound('cancel'); } catch (_) { /* no sound bus */ }
+        // Some sheets ignore Steam's click-away (stock too: the zoo Scroll Panel). Then cancel the way
+        // B does, but only while Steam's focus is inside this sheet's overlay (B never reaches the page).
+        const ov = pos.closest('.ModalOverlayContent');
+        R.W.setTimeout(() => {
+          try {
+            if (!ov || !ov.isConnected || !pos.isConnected || !ov.classList.contains('active')) return;
+            const ae = doc.activeElement;
+            const FN = R.W.FocusNavController;
+            if (((ae && ov.contains(ae)) || focusIn) && FN && FN.DispatchVirtualButtonClick) FN.DispatchVirtualButtonClick(2);
+          } catch (_) { /* gone */ }
+        }, 260);
       });
       (doc.body || doc.documentElement).appendChild(b);
       S.close = { node: b, sheet };
@@ -443,6 +464,9 @@
     const wl = windowless(doc);
     const ov = S.overlay;
     const bcms = ov && ov.style.display !== 'none' ? Array.from(ov.querySelectorAll(S.sel.bcm)) : [];
+    // While a menu is open, 22-presentations.css lifts the page's backdrop root (C1a's will-change on
+    // MainNavMenuMainSplit), so the slab's blur reaches the page under it (session 4 finding)
+    try { doc.documentElement.classList.toggle('lgs-menu-open', bcms.length > 0); } catch (_) { /* closed */ }
     for (const bcm of bcms) {
       const list = Array.from(bcm.querySelectorAll(S.sel.contents));
       let st = S.menus.get(bcm);
@@ -525,7 +549,7 @@
           schedule();
         }
         return () => {
-          try { w.html.classList.remove('lgs-modal'); } catch (_) { /* closed */ }
+          try { w.html.classList.remove('lgs-modal', 'lgs-menu-open'); } catch (_) { /* closed */ }
           if (w.kind === 'main' && S && S.obs) { S.obs.disconnect(); S.obs = null; S.overlay = null; }
         };
       });
@@ -563,7 +587,7 @@
       if (S.obs) { S.obs.disconnect(); S.obs = null; }
       if (S.close) { try { S.close.node.remove(); } catch (_) { /* gone */ } S.close = null; }
       undoAll();
-      R.windows.each((w) => { try { w.html.classList.remove('lgs-modal'); } catch (_) { /* closed */ } });
+      R.windows.each((w) => { try { w.html.classList.remove('lgs-modal', 'lgs-menu-open'); } catch (_) { /* closed */ } });
       S = null;
       return { left: 0 };
     },

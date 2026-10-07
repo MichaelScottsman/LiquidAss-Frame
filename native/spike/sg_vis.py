@@ -18,6 +18,7 @@ import sys
 import time
 
 GS = os.path.expanduser("~/.local/share/glass-shell")
+sys.dont_write_bytecode = True   # no __pycache__ left in the install (REQ P10->P7; like lab/lab.py)
 sys.path.insert(0, os.path.join(GS, "device"))
 import lgs  # noqa: E402
 import lgs_vr  # noqa: E402
@@ -30,6 +31,9 @@ MAIN = "valve.steam.gamepadui.main"
 def grab(out, tag):
     path = os.path.join(out, f"p7v_{tag}.png")
     try:
+        # twice: the first frame after a pause can be an old one
+        subprocess.run([HV, path, "3"], capture_output=True, timeout=4)
+        time.sleep(0.3)
         subprocess.run([HV, path, "3"], capture_output=True, timeout=4)
     except subprocess.TimeoutExpired:
         pass

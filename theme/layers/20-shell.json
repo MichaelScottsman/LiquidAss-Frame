@@ -1,0 +1,24 @@
+{
+  "version": 2,
+  "about": [
+    "C1a Shell chrome (WN §3.1, §3.3.6, §3.4, §3.7; PLAN §1.2, §1.6, §1.7). Contract: docs/phase2/contracts/reporter.md.",
+    "Window cover: 00-base.json's main.modes, keyed on the data-lgs-glass value C1a's runtime sets on %{BasicUiRoot} (window 656, window-full and hero 720, radius 54; windowless: plates only). Nothing to change here.",
+    "Nothing in the toolbar row or the bottom ornament pops: the legacy hdr-back, hdr-search, footer and sort-filter pops are superseded while wp.c1a is on (they come back with the flag off).",
+    "The ornament is a liquid plate (shell-ornament, the T2 node #Footer > .lgs-orn-plate, also the data-lgs-nopop box); on windowless routes Back and the search field are liquid plates (shell-back, shell-search). These are DOM attributes from device/rt/20-shell.js, not rules.",
+    "frame.menu: liquid (PLAN §1.6), and its cover is the tab bar's two capsules (the T2 nodes .lgs-tabcap), not the menu's box (which also holds the gap and the band under the bar). Without the runtime the cover falls back to the box, as before.",
+    "The tab bar's +25 mm is P7's tabBarDepth rule (theme/sg/00-base.json) and the always-visible flag is theme/popups/20-shell.json (tabBarAlways): never a crop."
+  ],
+  "flag": "wp.c1a",
+  "owns": ["frame.menu"],
+  "supersedes": ["hdr-back", "hdr-search", "footer", "sort-filter"],
+  "surfaces": {
+    "frame.menu": {
+      "material": "liquid",
+      "cover": {
+        "sel": "%{DashboardMenu}%{Variant_FrameMenu} > .lgs-tabcap, %{DashboardMenu}%{Variant_FrameMenu}:not(:has(> .lgs-tabcap))",
+        "all": true
+      },
+      "layers": []
+    }
+  }
+}

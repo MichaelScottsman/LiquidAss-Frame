@@ -1,0 +1,47 @@
+{
+ "unitsPerMm": 0.00271,
+ "profile": "default",
+ "surfaces": [
+  {
+   "key": "main",
+   "scale": 1.5,
+   "covers": [],
+   "plates": [
+    {
+     "x": 480,
+     "y": 240,
+     "w": 480,
+     "h": 360,
+     "r": 54
+    }
+   ],
+   "pops": [
+    {
+     "id": "card-open",
+     "x": 480,
+     "y": 240,
+     "w": 480,
+     "h": 360,
+     "r": 54,
+     "dz": 0.04065,
+     "interactive": false,
+     "shadow": true,
+     "media": false,
+     "destructive": false,
+     "modal": false
+    }
+   ],
+   "focusables": [
+    {
+     "x": 480,
+     "y": 240,
+     "w": 480,
+     "h": 360
+    }
+   ],
+   "forbidden": []
+  }
+ ],
+ "_about": "REQ C2a->P10 #16: a rounded pop (r 54) over a plate of its own rect and radius is covered: its corners are not drawn",
+ "_expect": []
+}

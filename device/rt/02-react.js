@@ -19,7 +19,7 @@
   const RT = window.__LGS_RT || window.__LGS_RT_TEST;
   if (!RT || typeof RT.define !== 'function') return;
 
-  const VERSION = 1;
+  const VERSION = 3;   // contract react.md v3 (§11)
   const PREFIX = '/library/lgs/';
   const REQUIRED = ['React', 'jsx', 'RoutePaths', 'Focusable', 'DialogButton', 'GamepadPage'];
   const MARK = '__lgsP2';                // set on every function this module installs
@@ -36,13 +36,20 @@
   let jsxMod = null, reactMod = null;  // Steam's jsx runtime and React exports (patchedLeft checks)
 
   // ------------------------------------------------------------ small utilities
+  // Our trampolines (patch.byProps, the route switch) keep the function they replace as __lgsOrig: source
+  // checks read through them, so a predicate that reads the source still matches a patched component
+  // (a second layer, review R1 m5).
+  function unwrapFn(f) {
+    for (let i = 0; i < 8 && typeof f === 'function' && typeof f.__lgsOrig === 'function'; i++) f = f.__lgsOrig;
+    return f;
+  }
   function fnSrc(v) {
     try {
       if (v == null) return '';
-      const f = typeof v === 'function' ? v : (v.render || (v.type && (v.type.render || v.type)));
+      const f = unwrapFn(typeof v === 'function' ? v : (v.render || (v.type && (v.type.render || v.type))));
       if (typeof f !== 'function') return '';
       let s = Function.prototype.toString.call(f);
-      if (f.prototype && typeof f.prototype.render === 'function') s += '\n' + Function.prototype.toString.call(f.prototype.render);
+      if (f.prototype && typeof f.prototype.render === 'function') s += '\n' + Function.prototype.toString.call(unwrapFn(f.prototype.render));
       return s;
     } catch (_) { return ''; }
   }
@@ -122,8 +129,9 @@
   function newState() {
     return {
       req: null, src: null, srcTimer: null, factories: 0, M: null, where: {}, counts: {}, ready: false, error: null, scanMs: null,
+      scan: null, attempts: 0, retryAt: 0, noSwitch: false,
       broken: new Set(), RouteType: null, ui: null,
-      switchPatches: [], routes: new Map(), overrides: new Map(), unlisten: null, winOff: null,
+      switchPatches: [], routes: new Map(), overrides: new Map(), unlisten: null, winOff: null, lateOffs: [],
       targets: new Map(), handles: new Map(), touched: new Set(), typeMap: new Map(), jsxHook: null,
       menus: new Set(), modals: new Set(),
       actionLog: [], actionSubs: new Set(), forceTest: false,
@@ -134,13 +142,13 @@
   function getReq() {
     if (S.req) return S.req;
     const chunk = window.webpackChunksteamui;
-    if (!chunk || typeof chunk.push !== 'function') throw new Error('lgs-react: webpackChunksteamui not found');
+    if (!chunk || typeof chunk.push !== 'function') throw transientError('lgs-react: webpackChunksteamui not found (Steam UI not loaded yet?)');
     const sym = Symbol('lgs-react');
     let req = null;
     chunk.push([[sym], {}, (r) => { req = r; }]);
     // webpack also stores the pushed entry in the array; take ours out again.
     for (let i = chunk.length - 1; i >= 0; i--) { const c = chunk[i]; if (c && c[0] && c[0][0] === sym) { chunk.splice(i, 1); break; } }
-    if (!req || !req.m) throw new Error('lgs-react: webpack require not available');
+    if (!req || !req.m) throw transientError('lgs-react: webpack require not available');
     S.req = req;
     return req;
   }
@@ -297,19 +305,28 @@
       return v !== undefined && !rt.flags.enabled('react');
     } catch (_) { return false; }
   }
+  // A failure that can clear by itself (Steam's UI still mounting, as on the re-injection after a
+  // SharedJSContext restart): the route switch or the main window's fiber is not there yet, or webpack is
+  // not loaded. ready() retries those after a backoff (1, 2, 4, 8, 16, then every 30 s) instead of keeping
+  // T3 off until the next lgs on. A missing required finder stays sticky (review R1 m7).
+  function transientError(msg) { const e = new Error(msg); e.transient = true; return e; }
+  const RETRY_BASE_MS = 1000, RETRY_MAX_MS = 30000;
   function ready() {
     if (!S) throw new Error('lgs-react: module not installed');
     if (killed()) throw new Error('lgs-react: flag react is off (T3 off)');
     if (S.ready) return true;
-    if (S.error) throw S.error;
+    if (S.error && (!S.error.transient || Date.now() < S.retryAt)) throw S.error;
     const t0 = performance.now();
     try {
-      const r = findIn(FINDERS);
+      // The finders' result is kept across transient retries (no second scan).
+      const r = S.scan || findIn(FINDERS);
       for (const k of S.broken) { delete r.mods[k]; delete r.where[k]; }
       const missing = REQUIRED.filter((k) => !r.mods[k]);
       if (missing.length) throw new Error('lgs-react: cannot find ' + missing.join(', ') + ' (fail closed; T3 off)');
-      const fibers = routeSwitchFibers(r.mods.RoutePaths);
-      if (!fibers.length) throw new Error('lgs-react: main route switch not found (fail closed; T3 off)');
+      S.scan = r;
+      let fibers;
+      try { fibers = S.noSwitch ? [] : routeSwitchFibers(r.mods.RoutePaths); } catch (e) { throw transientError(errMsg(e) + ' (fail closed; T3 off until a retry finds it)'); }
+      if (!fibers.length) throw transientError('lgs-react: main route switch not found (fail closed; T3 off until a retry finds it)');
       const zoo = r.mods.RoutePaths.GamepadUI.Zoo.Root();
       const sib = fibers[0].memoizedProps.children.find((c) => c && c.props && c.props.path === zoo);
       S.RouteType = sib ? sib.type : (r.mods.Router && r.mods.Router.Route);
@@ -318,16 +335,27 @@
       jsxMod = r.mods.jsx; reactMod = r.mods.React;
       S.ui = makeUI(r.mods);
       S.ready = true;
+      S.error = null; S.attempts = 0; S.retryAt = 0; S.scan = null;
       S.scanMs = Math.round(performance.now() - t0);
       logI(`ready in ${S.scanMs} ms (${S.factories} factories)`);
       dropSourcesLater();
       return true;
     } catch (e) {
-      S.error = e instanceof Error ? e : new Error(String(e));
+      const err = e instanceof Error ? e : new Error(String(e));
       S.scanMs = Math.round(performance.now() - t0);
       S.src = null;
-      logE('ready() failed', S.error.message);
-      throw S.error;
+      if (err.transient) {
+        S.attempts++;
+        err.retryAfterMs = Math.min(RETRY_MAX_MS, RETRY_BASE_MS * Math.pow(2, S.attempts - 1));
+        err.attempt = S.attempts;
+        S.retryAt = Date.now() + err.retryAfterMs;
+        logE(`ready() failed (transient, attempt ${S.attempts}; retried by the next ready() after ${err.retryAfterMs} ms)`, err.message);
+      } else {
+        S.scan = null;
+        logE('ready() failed', err.message);
+      }
+      S.error = err;
+      throw err;
     }
   }
   const need = () => { ready(); return S.M; };
@@ -364,9 +392,9 @@
   // ------------------------------------------------------------ the route switch patch (SR §3.4, §3.5)
   function switchRender(orig, self, props, second) {
     const st = S;
-    if (!st || !st.ready || (!st.routes.size && !st.overrides.size)) return orig.call(self, props, second);
+    if (!st || !st.ready || (!st.routes.size && !st.overrides.size) || !props || typeof props !== 'object') return orig.call(self, props, second);
     let children;
-    try { children = buildChildren(st, props.children); } catch (e) { logE('route switch: our children failed, rendering Steam\'s', errMsg(e)); return orig.call(self, props, second); }
+    try { children = buildChildren(st, props.children); } catch (e) { logE('route switch: our children failed, rendering Steam\'s', String((e && e.stack) || e).slice(0, 700)); return orig.call(self, props, second); }
     return orig.call(self, Object.assign({}, props, { children }), second);
   }
   function buildChildren(st, ch) {
@@ -443,27 +471,68 @@
   }
 
   // One history listener and one window listener while anything is registered: re-patch the switch
-  // before the router renders into our paths (SR §3.4 self-healing), and re-apply byProps patches on
-  // bare function components that remounted.
+  // before the router renders into our paths (SR §3.4 self-healing), re-apply byProps patches on
+  // bare function components that remounted, and attach optional patches still waiting for their target
+  // (a pending handle counts as a registration by itself: review R1 M2).
+  const pendingAny = () => { for (const h of S.handles.values()) if (h._pending) return true; return false; };
   function syncWatchers() {
-    const any = S.routes.size || S.overrides.size || [...S.targets.values()].some((T) => T.needsRefresh);
+    const any = S.routes.size || S.overrides.size || [...S.targets.values()].some((T) => T.needsRefresh) || pendingAny();
     if (any && !S.unlisten) {
       S.unlisten = inst().m_history.listen((loc) => {
         try { if ((S.routes.size || S.overrides.size) && onOurPath(loc.pathname)) patchSwitch(); } catch (e) { logE('re-patch failed', errMsg(e)); }
         refreshTargets('navigation');
+        scheduleLateAttach('navigation');
       });
       // New popup windows, and pooled popups shown again (P1: "+" list, bar menus), may mount patched
       // components afresh.
       const offs = [];
-      try { if (rt.windows && typeof rt.windows.onAdd === 'function') offs.push(rt.windows.onAdd(() => refreshTargets('window'))); } catch (_) { /* older runtime */ }
-      try { if (rt.windows && typeof rt.windows.onShow === 'function') offs.push(rt.windows.onShow(() => refreshTargets('window shown'))); } catch (_) { /* older runtime */ }
+      const onWin = (why) => () => { refreshTargets(why); scheduleLateAttach(why); };
+      try { if (rt.windows && typeof rt.windows.onAdd === 'function') offs.push(rt.windows.onAdd(onWin('window'))); } catch (_) { /* older runtime */ }
+      try { if (rt.windows && typeof rt.windows.onShow === 'function') offs.push(rt.windows.onShow(onWin('window shown'))); } catch (_) { /* older runtime */ }
       S.winOff = offs.length ? () => { for (const off of offs) { try { off(); } catch (_) { /* gone */ } } } : null;
     } else if (!any && S.unlisten) {
       try { S.unlisten(); } catch (_) { /* gone */ }
       S.unlisten = null;
       if (S.winOff) { try { S.winOff(); } catch (_) { /* gone */ } S.winOff = null; }
     }
+    if (!pendingAny()) cancelLateAttach();
     if (!S.routes.size && !S.overrides.size && S.switchPatches.length) unpatchSwitch();
+  }
+  // The history event comes before React commits the new route, so a target that mounts with that route is
+  // not there yet when the listener runs. While an optional patch is pending, it is looked for again a few
+  // times after each navigation (or window shown, or its registration): a bounded series of scoped timers
+  // (P1's rt.setTimeout, cleared on removal), restarted by the next event and stopped once nothing is pending.
+  const LATE_ATTACH_MS = [120, 400, 1000, 2500];
+  function cancelLateAttach() {
+    if (!S || !S.lateOffs.length) return;
+    for (const off of S.lateOffs) { try { off(); } catch (_) { /* fired */ } }
+    S.lateOffs = [];
+  }
+  function scheduleLateAttach(why) {
+    if (!S || !S.ready || !pendingAny()) return;
+    cancelLateAttach();
+    const st = S;
+    for (const ms of LATE_ATTACH_MS) {
+      let off = null;
+      const fire = () => {
+        const i = st.lateOffs.indexOf(off);
+        if (i >= 0) st.lateOffs.splice(i, 1);   // a fired timer is no longer scheduled (status().lateTimers)
+        if (S !== st) return;
+        attachPending(why + ' +' + ms + ' ms');
+        if (!pendingAny()) cancelLateAttach();
+      };
+      try { off = rt && typeof rt.setTimeout === 'function' ? rt.setTimeout(fire, ms) : null; } catch (_) { off = null; }
+      if (typeof off === 'function') st.lateOffs.push(off);
+    }
+  }
+  function attachPending(why) {
+    if (!S || !S.ready) return 0;
+    let n = 0;
+    for (const h of [...S.handles.values()]) {
+      if (!h._pending) continue;
+      try { if (h._attach(why)) n++; } catch (e) { logE(`patch ${h.id}: late attach failed (${why})`, errMsg(e)); }
+    }
+    return n;
   }
   function rerenderIfOn(test) {
     let cur; try { cur = route(); } catch (_) { return; }
@@ -645,9 +714,7 @@
     for (const T of S.targets.values()) {
       if (T.needsRefresh && T.layers.length) { try { swapLiveFibers(T); } catch (e) { logE('patch refresh failed (' + why + ')', errMsg(e)); } }
     }
-    for (const h of S.handles.values()) {
-      if (h._pending) { try { h._attach(true); } catch (e) { logE(`patch ${h.id}: late attach failed`, errMsg(e)); } }
-    }
+    attachPending(why);
   }
 
   const patch = {
@@ -666,7 +733,13 @@
           const found = matchTargets(predicate, tags);
           if (found.length > opts.max) throw new Error(`lgs-react: patch.byProps ${id}: ${found.length} components match (max ${opts.max}); tighten the predicate`);
           if (!found.length) {
-            if (opts.optional) { h._pending = true; syncWatchers(); return 0; }
+            if (opts.optional) {
+              h._pending = true;
+              syncWatchers();
+              // The target may be mounting right now (registered during a navigation): look again shortly.
+              if (!late) scheduleLateAttach('registration');
+              return 0;
+            }
             throw new Error(`lgs-react: patch.byProps ${id}: nothing matches (fail closed)`);
           }
           // Validate every wrap before touching anything.
@@ -682,7 +755,7 @@
           h.count = h._targets.length;
           h.kinds = h._targets.map((T) => T.kind);
           h.live = h._targets.reduce((a, T) => a + (T.live || 0), 0);
-          if (late) logI(`patch ${id}: attached late`, { count: h.count });
+          if (late) { h.attachedLate = String(late); logI(`patch ${id}: attached late (${late})`, { count: h.count }); }
           syncWatchers();
           return h.count;
         },
@@ -731,7 +804,7 @@
       appButtons: (p, f) => !!f && f.tag === 11 && 'overview' in p && 'details' in p && 'onGameInfoToggle' in p
         && 'bShowingLaunchDetails' in p && !('onNav' in p) && fnSrc(f.type).includes('.ActionRow'),
     },
-    list() { return S ? [...S.handles.values()].map((h) => ({ id: h.id, count: h.count, live: h.live, kinds: h.kinds, pending: h._pending })) : []; },
+    list() { return S ? [...S.handles.values()].map((h) => ({ id: h.id, count: h.count, live: h.live, kinds: h.kinds, pending: h._pending, late: h.attachedLate || null })) : []; },
     // Force one render of every live instance a handle patched, so the patch shows at once.
     // class: forceUpdate(); mobx observer: the observer's own path (new stateVersion + onStoreChange,
     // what mobx does when an observable it reads changes). A plain function component cannot be forced
@@ -773,12 +846,17 @@
   }
 
   // ------------------------------------------------------------ localization (PLAN §1.15)
+  // Steam's LocalizeString returns the raw string ("%1$s mins played all time") and ignores extra
+  // arguments; loc() fills %1$s … %9$s from args itself (REQ C2a->P2 #11). A placeholder without an
+  // argument is left as it is.
   function loc(token, ...args) {
     try {
       const LM = window.LocalizationManager;
       if (!LM || typeof token !== 'string') return null;
-      const s = LM.LocalizeString(token, ...args);
-      return typeof s === 'string' && s && s !== token ? s : null;
+      let s = LM.LocalizeString(token);
+      if (typeof s !== 'string' || !s || s === token) return null;
+      if (args.length) s = s.replace(/%(\d)\$s/g, (m, n) => (args[n - 1] != null ? String(args[n - 1]) : m));
+      return s;
     } catch (_) { return null; }
   }
   function lang() {
@@ -799,24 +877,40 @@
     class ErrorBoundary extends React.Component {
       constructor(p) { super(p); this.state = { err: null }; }
       static getDerivedStateFromError(err) { return { err }; }
-      componentDidCatch(err) { logE('render error in ' + (this.props.name || 'view'), String((err && err.stack) || err).slice(0, 600)); }
+      componentDidCatch(err) {
+        logE('render error in ' + (this.props.name || 'view'), String((err && err.stack) || err).slice(0, 600));
+        if (typeof this.props.onError === 'function') { try { this.props.onError(err); } catch (_) { /* caller's handler */ } }
+      }
       render() {
         if (!this.state.err) return this.props.children === undefined ? null : this.props.children;
         if (this.props.fallback !== undefined) return this.props.fallback;
         return jsx(FailPage, { name: this.props.name, err: this.state.err });
       }
     }
-    // Our error page: Steam's header and footer stay; Back is focused (SR §7).
+    // Our error page: Steam's header and footer stay; Back is focused (SR §7). The root spans the page
+    // (width 100%, 48 px side insets) so the title and the capsule sit on the window's centre line on any
+    // route (VP P-30, P-36; review R1 M3). Type, colour and sizes come from P4's tokens, with the token
+    // values as fallbacks for the theme-off state: title = Title 2, Back = a 60 px capsule in Headline.
+    const FAIL_ROOT = {
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '32px',
+      width: '100%', height: '100%', boxSizing: 'border-box', padding: '0 48px', textAlign: 'center',
+      color: 'var(--lgs-text-1, rgb(255 255 255 / .96))',
+    };
+    const FAIL_TITLE = { font: 'var(--lgs-type-title2, 700 30px/1.25 "Motiva Sans", sans-serif)', letterSpacing: 'var(--lgs-track-title, -.01em)', maxWidth: '100%' };
+    const FAIL_BACK = {
+      width: 'auto', minWidth: '240px', minHeight: 'var(--lgs-btn, 60px)', padding: '0 48px',
+      borderRadius: 'calc(var(--lgs-btn, 60px) / 2)', font: 'var(--lgs-type-headline, 600 24px/1.30 "Motiva Sans", sans-serif)',
+    };
     function FailPage() {
       const back = () => nav.back();
       const title = text(null, 'This view could not be shown');
       return jsx(M.GamepadPage, { scrollable: false, children: jsxs(M.Focusable, {
         className: 'lgs-react-fail', onCancel: back, onCancelActionDescription: text('#Button_Back', 'Back'),
-        style: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '32px', height: '100%', color: '#fff' },
+        style: FAIL_ROOT,
         children: [
-          title ? jsx('div', { style: { fontSize: '32px', fontWeight: 600 }, children: title }, 't') : null,
+          title ? jsx('div', { className: 'lgs-react-fail-title', style: FAIL_TITLE, children: title }, 't') : null,
           // A visionOS capsule sized to its label (60 tall, at least 240 wide), not a full-width bar.
-          jsx(M.DialogButton, { autoFocus: true, onClick: back, style: { width: 'auto', minWidth: '240px', minHeight: '60px', padding: '0 48px', borderRadius: '30px', fontSize: '24px', fontWeight: 600 }, children: text('#Button_Back', 'Back') }, 'b'),
+          jsx(M.DialogButton, { className: 'lgs-react-fail-back', autoFocus: true, onClick: back, style: FAIL_BACK, children: text('#Button_Back', 'Back') }, 'b'),
         ] }) });
     }
     function Page(props) {
@@ -830,6 +924,83 @@
     }
     function Style(props) { return jsx('style', { children: props.css }); }
     return { ErrorBoundary, FailPage, Page, Style };
+  }
+  // ------------------------------------------------------------ focus back after a modal (D-P2-7, RX-3)
+  const NULL_TREE = /null-tree/i;
+  const RESTORE_MS = [50, 200, 500, 1000];
+  function React_isElement(M, x) { try { return !!M.React.isValidElement(x); } catch (_) { return false; } }
+  function activeNavTree() {
+    try {
+      const F = window.FocusNavController;
+      if (typeof F.GetActiveNavTree === 'function') return F.GetActiveNavTree() || null;
+      const c = F.GetActiveContext();
+      return (c && c.m_LastActiveNavTree) || null;
+    } catch (_) { return null; }
+  }
+  const treeLive = (t) => { try { const el = t && t.m_Root && t.m_Root.m_element; return !!(el && el.isConnected); } catch (_) { return false; } };
+  const treeHasNode = (t) => { try { return !!(typeof t.GetLastFocusedNode === 'function' ? t.GetLastFocusedNode() : t.m_lastFocusNode); } catch (_) { return true; } };
+  // The nav tree that has focus when a modal opens, and how to give focus back to it when the modal is gone.
+  function rememberFocus() {
+    const tree = activeNavTree();
+    if (!tree || NULL_TREE.test(String(tree.id || '')) || typeof tree.TakeFocus !== 'function') return null;
+    let r0 = null; try { r0 = route(); } catch (_) { return null; }
+    const st = S;
+    let started = false;
+    return {
+      restore() {
+        if (started) return;     // once per modal
+        started = true;
+        // The modal's own tree, still active (and its DOM still connected) while Steam closes it.
+        const closing = activeNavTree();
+        let i = 0, acted = 0;
+        const attempt = () => {
+          if (S !== st || !st) return;
+          try {
+            if (route() !== r0 || !treeLive(tree)) return;          // the modal navigated away, or the page is gone
+            const cur = activeNavTree();
+            const lost = !cur || NULL_TREE.test(String(cur.id || '')) || (cur === tree && !treeHasNode(tree));
+            if (lost) {
+              // TakeFocus() alone does nothing while the context's active tree is vr-null-tree: activate the
+              // page's tree first (Steam's own Activate: OnGamepadNavigationTreeActivated), then focus its last
+              // node. Checked again at the next attempt; at most two tries.
+              if (acted < 2) {
+                acted++;
+                if (typeof tree.Activate === 'function') tree.Activate();
+                tree.TakeFocus();
+                logI('modal closed: focus given back to ' + String(tree.id || 'the page') + ' (try ' + acted + ')');
+              }
+            } else if (cur === tree) {
+              return;                                                // focus is back (Steam's or ours)
+            } else if (cur !== closing && treeLive(cur)) {
+              return;                                                // focus is somewhere else that is live (another modal)
+            }
+          } catch (e) { logE('modal focus restore failed', errMsg(e)); return; }
+          if (i < RESTORE_MS.length) schedule();
+        };
+        const schedule = () => {
+          const ms = RESTORE_MS[i++] - (i > 1 ? RESTORE_MS[i - 2] : 0);
+          try { if (rt && typeof rt.setTimeout === 'function') rt.setTimeout(attempt, ms); } catch (_) { /* removed */ }
+        };
+        schedule();
+      },
+    };
+  }
+  // Wraps the modal's content: forwards every prop Steam passes to the caller's element, with Steam's
+  // closeModal wrapped so the focus series starts when the modal closes (Steam keeps a closed modal mounted
+  // for a while, so its unmount is too late: seen 25 s at 13:20). Steam's own modals (ConfirmModal's OK and
+  // Cancel, B through onCancel) close through this prop.
+  function ModalFocusHost(props) {
+    const { inner, back, ...rest } = props;
+    const R = S && S.M ? S.M.React : null;
+    if (!R) return inner;
+    if (typeof rest.closeModal === 'function') {
+      const close = rest.closeModal;
+      rest.closeModal = function lgsCloseModal() {
+        try { back.restore(); } catch (_) { /* module gone */ }
+        return close.apply(this, arguments);
+      };
+    }
+    return R.cloneElement(inner, rest);
   }
   function trackMenu(m) {
     if (!m) return m;
@@ -867,7 +1038,18 @@
       opts = opts || {};
       if (!M.showModal) throw new Error('lgs-react: Steam showModal not found');
       const st = S;
-      return Promise.resolve(M.showModal(element, opts.window || mainWin(), opts.options)).then((m) => { if (m && st.modals) st.modals.add(m); return m; });
+      const win = opts.window || mainWin();
+      let el = element;
+      // Focus goes back to the control that had it (D-P2-7): Steam clears the page tree's last focus node
+      // when the modal opens and, in VR, parks focus in `vr-null-tree` when it closes, where
+      // FocusApplicationRoot() reactivates the page tree with no node. When our modal's content unmounts and
+      // focus is still lost on the same route, the page tree's own TakeFocus() restores it (live: the same
+      // poster; RX-3). opts.restoreFocus: false opts out.
+      if (opts.restoreFocus !== false && React_isElement(M, element)) {
+        const back = rememberFocus();
+        if (back) el = M.jsx.jsx(ModalFocusHost, { inner: element, back });
+      }
+      return Promise.resolve(M.showModal(el, win, opts.options)).then((m) => { if (m && st.modals) st.modals.add(m); return m; });
     },
     confirm(o) {
       const M = need();
@@ -967,10 +1149,20 @@
       return (t && t.ownerDocument && t.ownerDocument.defaultView) || null;
     } catch (_) { return null; }
   }
+  // A synthetic (lab) mouse or pointer event puts the action in test mode by itself. One untrusted click is
+  // NOT a lab click: Steam's own controls turn the gamepad's A into HTMLElement.click(), so a DialogButton's
+  // onClick and a MenuItem's onSelected get an untrusted PointerEvent 'click' with pointerType '' (pointerId
+  // -1). That is the user's A press, the gamepad path, and must reach the action (review R1 M1). Lab clicks
+  // are MouseEvents (P10's L.click, the selftest) or pointer events with a pointerType; a locked lab step
+  // stays in test mode anyway through P10's action logger (reason 1), whatever its clicks look like.
+  function steamProgrammaticClick(ne) {
+    return ne.type === 'click' && ne.pointerType === '' && (ne.pointerId === undefined || ne.pointerId === -1 || ne.pointerId === 0);
+  }
   function untrustedPointer(ev) {
     const ne = ev && (ev.nativeEvent || ev);
-    if (!ne || typeof ne !== 'object' || typeof ne.isTrusted !== 'boolean') return false;
-    return /^(click|dblclick|auxclick|contextmenu|mouse|pointer)/.test(String(ne.type || '')) && !ne.isTrusted;
+    if (!ne || typeof ne !== 'object' || typeof ne.isTrusted !== 'boolean' || ne.isTrusted) return false;
+    if (!/^(click|dblclick|auxclick|contextmenu|mouse|pointer)/.test(String(ne.type || ''))) return false;
+    return !steamProgrammaticClick(ne);
   }
   function testReasons(ev) {
     const r = [];
@@ -1107,6 +1299,11 @@
     // Our functions live anywhere (fibers, holders, Steam's element factories); 0 when nothing is registered.
     out.patchedLeft = st.ready ? countPatchedLeft([...st.touched]) : 0;
     out.jsxHooked = !!st.jsxHook;
+    // The history and window listeners (installed while anything is registered, pending patches included)
+    // and the late-attach timers still scheduled.
+    out.watching = !!st.unlisten;
+    out.lateTimers = st.lateOffs.length;
+    if (st.error) { out.errorTransient = !!st.error.transient; out.retryInMs = st.error.transient ? Math.max(0, st.retryAt - Date.now()) : null; out.attempts = st.attempts; }
     try { out.actions = Object.assign(actions.mode(), { logged: st.actionLog.length }); } catch (_) { /* no runtime */ }
     return out;
   }
@@ -1132,6 +1329,7 @@
     rep.restored += unpatchSwitch();
     if (st.unlisten) { try { st.unlisten(); } catch (_) { /* gone */ } st.unlisten = null; }
     if (st.winOff) { try { st.winOff(); } catch (_) { /* gone */ } st.winOff = null; }
+    cancelLateAttach();
     if (onOurs) { try { inst().Navigate('/library/home', true); } catch (_) { /* gone */ } }
     else if (onOverride) { try { inst().Navigate(cur, true); } catch (_) { /* gone */ } }
     rep.patchedLeft = st.ready ? countPatchedLeft(touched) : 0;
@@ -1185,6 +1383,9 @@
       // Test hooks (RX-5): the next ready() treats these finders as missing.
       test: {
         breakFinder(name) { if (!S) return false; if (name) S.broken.add(name); else S.broken.clear(); return [...S.broken]; },
+        // RX-RETRY: while on, ready() sees no route switch, as while Steam's UI is still mounting (a
+        // transient failure, retried after the backoff).
+        noSwitch(on) { if (!S) return false; S.noSwitch = !!on; return S.noSwitch; },
         countPatchedLeft: () => countPatchedLeft(S ? [...S.touched] : []),
         // The module's own removal (what lgs off runs), then a fresh, unscanned state as after lgs on.
         // Every handle anyone holds is dead afterwards: tests only, with no other T3 module enabled.

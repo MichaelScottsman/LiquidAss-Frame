@@ -5,7 +5,8 @@
     "Contract: docs/phase2/contracts/reporter.md. Fragments merge in name order; a later fragment changes a surface's",
     "cover, material, modes or modal only when it lists the surface in \"owns\".",
     "main.modes: the glass mode C1a sets as data-lgs-glass on %{BasicUiRoot} (PLAN 1.2) -> main's cover shape in CSS px.",
-    "main.modal / bar...: Steam's open modals (admission rule 6: while one is open only modal rules pop).",
+    "main.modal / bar...: Steam's open modals (admission rule 6: while one is open only modal rules pop). main also counts",
+    "C3b's CC-M root (.lgs-cc): Steam's showModal renders it without ModalPosition, so nothing else pops under it (REQ C3b->P6).",
     "notifications, volumelevel, tooltip (C3a's quads, REQ C3a->P6): reported only while the flag wp.c3a is on (surface \"flag\"),",
     "so Phase 1's report (RP-1) and native sessions without C3a stay as they were. The keyboard surface comes from C4b's fragment."
   ],
@@ -40,7 +41,7 @@
           "cover": false
         }
       },
-      "modal": "%{*BasicContextMenuModal>contextMenuContents}, %{*GamepadDialogContent>ModalPosition} > :not(%{*GamepadDialogContent>ModalClickToDismiss})",
+      "modal": "%{*BasicContextMenuModal>contextMenuContents}, %{*GamepadDialogContent>ModalPosition} > :not(%{*GamepadDialogContent>ModalClickToDismiss}), .lgs-cc",
       "layers": []
     },
     "bar": {

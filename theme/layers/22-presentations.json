@@ -1,0 +1,55 @@
+{
+  "version": 2,
+  "about": [
+    "C1c System presentations (PLAN §1.6, §1.7 rows 'Menus, popovers, dropdown slabs', 'Alerts', 'Sheets'; §1.8; WN §5.1-§5.4). Default profile: every menu slab, alert card and sheet is one +10 mm non-interactive crop over a thick slab, rising 0 -> +10 with the materialize (P7's default 'from'); modal: true, so while one is open only these pop (admission rule 6) and every other in-page pop drops (the source card included, D6b).",
+    "Click-safe: menu rows are 64 px elements (60 visible), Cancel 60, alert buttons 60, the sheet close circle 60: s >= 52 admits +10. A sheet holding smaller focusables is capped below 10 by the reporter and stays flat (safe).",
+    "Destructive confirmations never pop (rule 4): C1c's runtime tags the red button data-lgs-destructive and the card data-lgs-plate=\"thick\", so native mode draws that alert as one flat thick plate (PLAN-1c-1). 'exclude' also keeps Steam's own .DialogButton.Destructive cards down if the tag is late.",
+    "Windowless routes (no cover): the runtime also makes the menu slab / alert / sheet card a thick plate (C2a REQ #3), so the crop is covered (rule 1) and its plate becomes the occluder under it.",
+    "hole fill 'auto': off axis, the sliver under the crop takes the tones around it (posters beside the tile menu, the .35 scrim around alerts and sheets, PLAN §1.8).",
+    "Behind wp.c1c (the tags come from the runtime); the legacy 'menu', 'sheet', 'sheet-panel', 'filters' and 'button' rules are retired only while it is on ('button' lifted a focused DialogButton 1.84 mm, a depth outside PLAN §1.7's set, and popped the red button of a destructive confirmation: sgcheck R2/R4 at 09:57; in-window controls stay at 0). Wearer profile (interactivePops): +30, interactive."
+  ],
+  "flag": "wp.c1c",
+  "supersedes": [
+    { "id": "main.menu", "flag": "wp.c1c" },
+    { "id": "main.sheet", "flag": "wp.c1c" },
+    { "id": "main.sheet-panel", "flag": "wp.c1c" },
+    { "id": "main.filters", "flag": "wp.c1c" },
+    { "id": "main.button", "flag": "wp.c1c" }
+  ],
+  "surfaces": {
+    "main": {
+      "layers": [
+        {
+          "id": "c1c-menu",
+          "sel": "%{*BasicContextMenuModal>contextMenuContents}",
+          "mm": 10,
+          "slab": "thick",
+          "modal": true,
+          "max": 3,
+          "hole": { "fill": "auto" },
+          "wearer": { "mm": 30, "interactive": true }
+        },
+        {
+          "id": "c1c-alert",
+          "sel": "%{*GamepadDialogContent>ModalPosition} > %{*GamepadDialogContent_InnerWidth>GamepadDialogContent}",
+          "mm": 10,
+          "slab": "thick",
+          "modal": true,
+          "exclude": ".DialogButton.Destructive, [data-lgs-destructive]",
+          "hole": { "fill": "auto" },
+          "wearer": { "mm": 30, "interactive": true }
+        },
+        {
+          "id": "c1c-sheet",
+          "sel": "%{*GamepadDialogContent>ModalPosition} > :not(%{*GamepadDialogContent>ModalClickToDismiss}):not(%{*GamepadDialogContent_InnerWidth>GamepadDialogContent}):not(%{FocusRingRoot})",
+          "mm": 10,
+          "slab": "thick",
+          "modal": true,
+          "exclude": ".DialogButton.Destructive, [data-lgs-destructive]",
+          "hole": { "fill": "auto" },
+          "wearer": { "mm": 30, "interactive": true }
+        }
+      ]
+    }
+  }
+}

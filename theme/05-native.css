@@ -122,6 +122,11 @@
   &.lgs-native %{BasicUiRoot} #Footer%{BasicFooter}[data-lgs-pop~="after"]:not([data-lgs-noslab~="after"])::after {
     background: linear-gradient(var(--lgs-scrim), var(--lgs-scrim));
   }
+  /* ... and its E3 arc: C1a sets --lgs-edge: liquid on #Footer with an id
+     selector, which outweighs section 4's generic host rule */
+  &.lgs-native %{BasicUiRoot} #Footer%{BasicFooter}[data-lgs-pop~="after"]:not([data-lgs-noslab~="after"]) {
+    --lgs-edge: none;
+  }
 
   /* ------------------------------------------------------------------ */
   /* 3. Popped elements that paint their own glass                        */
@@ -131,6 +136,10 @@
      (40-library.css): light glass face over the scrim */
   &.lgs-native %{TabHeaderRowWrapper} %{Arrows}[data-lgs-pop~="self"],
   &.lgs-native %{SortAndFilterContainer}[data-lgs-pop~="self"] {
+    /* Phase 2 (C2c, C2a): the arrows are raised controls (P4's raised fill
+       with its .06 sheen and inset highlight): popped, the scrim stays */
+    --lgs-raised-bg: linear-gradient(var(--lgs-scrim), var(--lgs-scrim));
+    --lgs-raised-shadow: 0 0 0 0 transparent;
     --lgs-panel-sheen: linear-gradient(transparent, transparent);
     --lgs-glass-rim: 0 0 0 0 transparent;
     --lgs-lib-glass-face: linear-gradient(var(--lgs-scrim), var(--lgs-scrim));
@@ -138,6 +147,24 @@
         linear-gradient(var(--lgs-scrim), var(--lgs-scrim));
     --lgs-lib-glass-focus: linear-gradient(var(--lgs-focus-fill), var(--lgs-focus-fill)),
         linear-gradient(var(--lgs-scrim), var(--lgs-scrim));
+  }
+
+  /* Home's arrows (C2a, 41-home.css) draw their top highlight with a literal
+     inset shadow, also !important under hover and focus: popped, it would
+     be a second edge inside the slab's crescent (one more attribute keeps
+     this rule above C2a's state rules) */
+  &.lgs-native %{RecentSection} ~ %{TabbedContent} %{TabHeaderRowWrapper} %{Arrows}[data-lgs-pop~="self"]:not([data-lgs-noslab~="self"]) {
+    box-shadow: none !important;
+  }
+
+  /* game page Play capsule and its menu button (50-appdetails.css): the
+     tint is content and stays; the control rim (a white .18 inset line at
+     the top) and the segments' sheen would draw a second edge and light
+     inside the slab's own crescent, so they go */
+  &.lgs-native %{PlayButtonContainer}[data-lgs-pop~="self"],
+  &.lgs-native %{PartnerEventOverlayContainer>AppDetailsMain} %{Container>MenuButton}[data-lgs-pop~="self"] {
+    --lgs-control-rim: 0 0 0 0 transparent;
+    --lgs-panel-sheen: linear-gradient(transparent, transparent);
   }
 
   /* menus and sheets: thick glass (10-primitives.css, 40-library.css).

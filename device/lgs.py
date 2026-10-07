@@ -82,6 +82,7 @@ BUILTIN_FLAGS = {
     "rt.stubs": False,          # P1 test stubs (RT-1, RT-3, RT-4)
     "rt.stubThrow": False,      # P1 failing stub (RT-2)
     "rt.stubSlow": False,       # P1 stub whose install() outlives its timeout (RT-2, review R1 M2)
+    "rt.stubTransient": False,  # P1 stub failing twice with a transient error, then installed (RT-2, REQ P2->P1)
     # Other packages' flags with a contracted default (shown by `lgs flags`, read by rt.flags)
     "react": True,              # P2 kill switch for every T3 feature (contracts/react.md §1)
     "reactLab": False,          # P2 lab route, tests only (react.md §9)
@@ -1128,13 +1129,35 @@ def _foreign_globals(left):
             if not EXPECTED_GLOBALS.match(k) and not RUNTIME_GLOBALS.match(k)]
 
 
-def _leftover_problems(left, base=None):
-    """Runtime/core problems in an "off" sweep: __LGS_RT or __LGS left, or any
-    element still carrying an lgs-* class, data-lgs-* attribute or lgs- id.
-    With base (the sweep of an "off" taken before the test's own on/off), marked
-    elements already there before are not counted: another agent's probe
-    element, not this cycle's (they are reported by _foreign_elements).
-    Other packages' globals are reported apart (_foreign_globals)."""
+ITEM_RX = re.compile(r"^([a-z0-9-]+)(#[\w-]+)?((?:\.[\w-]+)*)((?:\[[\w-]+\])*)$")
+# Marks the lgs-shell daemon (P8, P6's reporter) sets on Steam's windows from its own process: a native
+# session of another agent turns them on or off while a lab-locked step runs, and the lab's "off" path
+# (no vr) never touches the daemon. Reported apart, never P1's leftovers (re-run of review R1).
+DAEMON_MARKS = re.compile(r"\.lgs-native$|\[data-lgs-(cover|pop)\]$")
+
+
+def _item_marks(item):
+    """'html.lgs-a.lgs-b[data-lgs-c]' -> ['html.lgs-a', 'html.lgs-b', 'html[data-lgs-c]']; an lgs id is its own mark."""
+    m = ITEM_RX.match(item or "")
+    if not m:
+        return [item]
+    tag = m.group(1)
+    out = [tag + m.group(2)] if m.group(2) else []
+    out += [tag + "." + c for c in m.group(3).split(".") if c]
+    out += [tag + x for x in re.findall(r"\[[\w-]+\]", m.group(4))]
+    return out or [item]
+
+
+def _leftover_problems(left, base=None, daemon=None):
+    """Runtime/core problems in an "off" sweep: __LGS_RT or __LGS left, or a mark (an
+    lgs-* class, a data-lgs-* attribute or an lgs- id) still on an element.
+    With base (the sweep of an "off" taken before the test's own on/off), marks are
+    diffed one by one (a multiset per window): only marks that are new since the base
+    count, so another package's mark that was already there, or one of its classes
+    toggling on the same element, is not ours. P1's own marks (OWN_MARKS) always count.
+    The daemon's marks (DAEMON_MARKS) never count; they go to `daemon` when a list is
+    given. Other packages' globals are reported apart (_foreign_globals)."""
+    from collections import Counter
     probs = []
     if not isinstance(left, dict):
         return ["no sweep"]
@@ -1144,14 +1167,20 @@ def _leftover_problems(left, base=None):
     bw = (base or {}).get("windows") or {}
     for name, w in (left.get("windows") or {}).items():
         g = [k for k in w.get("globals") or [] if not EXPECTED_GLOBALS.match(k)]
-        items = list(w.get("items") or [])
         if base is not None and w.get("elements", 0) <= 40:
-            before = list((bw.get(name) or {}).get("items") or [])
-            for it in before:
-                if it in items and not OWN_MARKS.search(it):   # our own marks never count as foreign
-                    items.remove(it)
-            if items or g:
-                probs.append(f"{name}: new since baseline {items} {g}")
+            now = Counter(mk for it in (w.get("items") or []) for mk in _item_marks(it))
+            before = Counter(mk for it in ((bw.get(name) or {}).get("items") or []) for mk in _item_marks(it))
+            new = []
+            for mk, n in now.items():
+                if OWN_MARKS.search(mk):
+                    new += [mk] * n                    # ours, baseline or not
+                elif DAEMON_MARKS.search(mk):
+                    if daemon is not None and n > before.get(mk, 0):
+                        daemon.append(f"{name}: {mk}")
+                elif n > before.get(mk, 0):
+                    new += [mk] * (n - before.get(mk, 0))
+            if new or g:
+                probs.append(f"{name}: new since baseline {sorted(new)} {g}")
         elif w.get("elements") or g:
             probs.append(f"{name}: {w.get('elements')} elements {w.get('classes')} {w.get('attrs')} {w.get('ids')} {g}")
     return probs
@@ -1169,13 +1198,23 @@ def _foreign_elements(base):
 
 def _st_dom_counters():
     """Memory.getDOMCounters of Steam's UI renderer after a forced GC (documents,
-    nodes, JS event listeners; SharedJSContext and its popups share the renderer)."""
+    nodes, JS event listeners; SharedJSContext and its popups share the renderer),
+    plus SharedJSContext's JS heap after that GC (Runtime.getHeapUsage, MB): the
+    context crashed twice on 2026-10-07 with V8 OOM near a 200 MB heap, so RT-1
+    also checks that an on/off cycle retains no JS heap."""
     async def go(s):
         try:
             await s.send("HeapProfiler.collectGarbage", {}, 30)
         except Exception:  # noqa: BLE001 - counts without the GC are still useful
             pass
-        return await s.send("Memory.getDOMCounters", {}, 15)
+        out = await s.send("Memory.getDOMCounters", {}, 15)
+        try:
+            h = await s.send("Runtime.getHeapUsage", {}, 15)
+            out["jsHeapUsedMB"] = round(h.get("usedSize", 0) / 1048576, 2)
+            out["jsHeapTotalMB"] = round(h.get("totalSize", 0) / 1048576, 2)
+        except Exception:  # noqa: BLE001 - recorded only
+            pass
+        return out
     try:
         return asyncio.run(_session(go))
     except Exception as e:  # noqa: BLE001
@@ -1184,51 +1223,156 @@ def _st_dom_counters():
 
 MEM_NODES_PER_CYCLE = 500       # RT-1: growth per on/off cycle above this fails
 MEM_LISTENERS_PER_CYCLE = 10
+MEM_HEAP_MB_PER_CYCLE = 1.5     # JS heap retained per on/off cycle (after a forced GC) above this fails
+RT1_NATIVE_WAIT_S = 900
+RT1_OWN_LISTENER_TYPES = {"document:visibilitychange", "document:pointerdown"}   # P1 core + stubs
+
+
+def _st_hold_native(wait_s=RT1_NATIVE_WAIT_S):
+    """RT-1 compares DOM listener counts across on/off phases. Another agent's native
+    session adds and removes listeners of its own meanwhile (P6's reporter, injected by
+    the daemon, which also goes dormant and resumes with our off/on phases): seen
+    2026-10-07 11:17, a native session started 4 s before RT-1 and its reporter's
+    animation/transition/scroll/focus listeners came and went between phases. So RT-1
+    holds native.lock (lock order native -> lab, contracts/lab.md §2), waiting for a
+    running session to end. Returns (file or None, seconds waited)."""
+    import fcntl
+    try:
+        f = open("/tmp/lgs/native.lock", "a")
+    except OSError:
+        return None, 0.0
+    t0 = time.time()
+    while True:
+        try:
+            fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return f, round(time.time() - t0, 1)
+        except BlockingIOError:
+            if time.time() - t0 >= wait_s:
+                f.close()
+                return None, round(time.time() - t0, 1)
+            time.sleep(1.0)
+
+
+def _st_release(f):
+    if f is None:
+        return
+    try:
+        import fcntl
+        fcntl.flock(f, fcntl.LOCK_UN)
+    finally:
+        f.close()
 
 
 def st_rt1(lab, ctx):
     """lgs on / off three times with the three stub modules; DOM counters (forced
-    GC) before and after the cycles (review R1 M1 item 5)."""
+    GC) before and after the cycles (review R1 M1 item 5). Holds native.lock so no
+    native session changes listener counts mid-test (_st_hold_native)."""
     ons, offs, reports = [], [], []
-    with lab.Lock():
-        ctx["route"] = lab.lab_js("L.route()")
-        op("on", quiet=True)     # warm-up: the current core and runtime replaced by this build
-        base = op("off", quiet=True).get("leftovers")   # marked elements not ours (another agent's probe)
-        mem0 = _st_dom_counters()
-        offs.append({"counts": _st_js(COUNTS_JS), "listeners": _st_eval_cli(LISTENERS_JS)})
-        for _ in range(3):
-            r = op("on", quiet=True, flags={"rt.stubs": True})
-            st = _st_status(counts=True)
-            ons.append({"sig": _st_sig(st), "counts": _st_js(COUNTS_JS), "listeners": _st_eval_cli(LISTENERS_JS),
-                        "installed": (r.get("runtime") or {}).get("installed")})
-            off = op("off", quiet=True)
-            reports.append(off)
+    nlock, nwait = _st_hold_native()
+    try:
+        with lab.Lock():
+            ctx["route"] = lab.lab_js("L.route()")
+            op("on", quiet=True)     # warm-up: the current core and runtime replaced by this build
+            base = op("off", quiet=True).get("leftovers")   # marked elements not ours (another agent's probe)
+            mem0 = _st_dom_counters()
             offs.append({"counts": _st_js(COUNTS_JS), "listeners": _st_eval_cli(LISTENERS_JS)})
-        mem1 = _st_dom_counters()
-        restore = _st_restore(lab)
-    same_on = all(o["sig"] == ons[0]["sig"] and o["counts"] == ons[0]["counts"]
-                  and o["listeners"] == ons[0]["listeners"] for o in ons)
-    same_off = all(o["counts"] == offs[0]["counts"] and o["listeners"] == offs[0]["listeners"] for o in offs)
+            for _ in range(3):
+                r = op("on", quiet=True, flags={"rt.stubs": True})
+                st = _st_status(counts=True)
+                ons.append({"sig": _st_sig(st), "counts": _st_js(COUNTS_JS), "listeners": _st_eval_cli(LISTENERS_JS),
+                            "installed": (r.get("runtime") or {}).get("installed")})
+                off = op("off", quiet=True)
+                reports.append(off)
+                offs.append({"counts": _st_js(COUNTS_JS), "listeners": _st_eval_cli(LISTENERS_JS)})
+            mem1 = _st_dom_counters()
+            restore = _st_restore(lab)
+    finally:
+        _st_release(nlock)
+    native_lock = {"held": nlock is not None, "waitedS": nwait}
+    # "Identical status() each time; 0 duplicate listeners": module states identical in every on, and what
+    # each on adds over the off before it (Steam subscriber counts, DOM listeners) the same in every cycle.
+    # Deltas, not absolute counts: another agent's native session (its own process, no lab lock for its
+    # ongoing work) may subscribe meanwhile (seen in the R1 re-run: NavigationSource 12-13 instead of 2-3).
+    def delta(a, b):
+        if isinstance(a, dict) and isinstance(b, dict):
+            return {k: delta(a.get(k), b.get(k)) for k in sorted(set(a) | set(b))}
+        if isinstance(a, (int, float)) and isinstance(b, (int, float)):
+            return a - b
+        return 0 if a == b else f"{a} vs {b}"
+    # DOM listeners: judged on the event types P1's code registers in a window (the core's
+    # `visibilitychange`, the stubs' `pointerdown`, both on the document); RT-1 runs with every other
+    # module off. Other types belong to Steam (a popup's own focus/mouse handlers come and go as Steam
+    # shows windows) or to another process (the daemon's reporter): listed in `foreignListenerChanges`,
+    # not failed. A listener leak of any type is still caught by the DOM counters below.
+    def own(L):
+        if not isinstance(L, dict):
+            return L
+        return {s: ({k: v for k, v in m.items() if k in RT1_OWN_LISTENER_TYPES} if isinstance(m, dict) else m)
+                for s, m in L.items()}
+    foreign = sorted({f"{s}:{k}" for ph in ons + offs for s, m in (ph.get("listeners") or {}).items()
+                      if isinstance(m, dict) for k in m if k not in RT1_OWN_LISTENER_TYPES
+                      and any(isinstance((q.get("listeners") or {}).get(s), dict)
+                              and (q["listeners"][s].get(k) != m.get(k)) for q in ons + offs)})
+    cycle_deltas = [{"counts": delta(ons[i]["counts"], offs[i]["counts"]),
+                     "listeners": delta(own(ons[i]["listeners"]), own(offs[i]["listeners"]))} for i in range(len(ons))]
+    same_sig = all(o["sig"] == ons[0]["sig"] for o in ons)
+    same_on = same_sig and all(d == cycle_deltas[0] for d in cycle_deltas)
+    same_on_abs = same_sig and all(o["counts"] == ons[0]["counts"] and o["listeners"] == ons[0]["listeners"] for o in ons)
+    same_off = all(o["counts"] == offs[0]["counts"] and own(o["listeners"]) == own(offs[0]["listeners"]) for o in offs)
+
+    def diffs(seq):
+        """What differs from the first phase, per later phase (diagnosis when a phase differs)."""
+        out = []
+        for i, o in enumerate(seq[1:], 1):
+            d = {}
+            for part in ("sig", "counts", "listeners"):
+                a, b = seq[0].get(part), o.get(part)
+                if a == b:
+                    continue
+                if isinstance(a, dict) and isinstance(b, dict):
+                    sub = {}
+                    for k in sorted(set(a) | set(b)):
+                        if a.get(k) != b.get(k):
+                            if isinstance(a.get(k), dict) and isinstance(b.get(k), dict):
+                                sub[k] = {kk: [a[k].get(kk), b[k].get(kk)] for kk in sorted(set(a[k]) | set(b[k]))
+                                          if a[k].get(kk) != b[k].get(kk)}
+                            else:
+                                sub[k] = [a.get(k), b.get(k)]
+                    d[part] = sub
+                else:
+                    d[part] = "differs"
+            if d:
+                out.append({"phase": i, "diff": d})
+        return out
+    daemon_marks = []      # another process's native-session marks that changed meanwhile (not P1's)
     stubs = dict(ons[0]["sig"])
     stubs_ok = all(stubs.get(n) == "installed" for n in ("rt.stub.a", "rt.stub.b", "rt.stub.c"))
     rep_ok = all((r.get("runtime") or {}).get("patchedLeft") == 0 and not (r.get("runtime") or {}).get("errors")
-                 and not _leftover_problems(r.get("leftovers"), base) for r in reports)
+                 and not _leftover_problems(r.get("leftovers"), base, daemon_marks) for r in reports)
     delta = {k: (ons[0]["counts"].get(k) or 0) - (offs[0]["counts"].get(k) or 0) for k in ons[0]["counts"]}
     mem = {"before": mem0, "after": mem1}
     if "error" not in mem0 and "error" not in mem1:
         mem["perCycle"] = {k: round((mem1.get(k, 0) - mem0.get(k, 0)) / 3, 1) for k in ("documents", "nodes", "jsEventListeners")}
         mem_ok = mem["perCycle"]["nodes"] <= MEM_NODES_PER_CYCLE and mem["perCycle"]["jsEventListeners"] <= MEM_LISTENERS_PER_CYCLE
+        if "jsHeapUsedMB" in mem0 and "jsHeapUsedMB" in mem1:
+            mem["perCycle"]["jsHeapMB"] = round((mem1["jsHeapUsedMB"] - mem0["jsHeapUsedMB"]) / 3, 2)
+            mem_ok = mem_ok and mem["perCycle"]["jsHeapMB"] <= MEM_HEAP_MB_PER_CYCLE
     else:
         mem_ok = True        # counters unavailable: recorded, not a failure
     mem["ok"] = mem_ok
     ok = same_on and same_off and stubs_ok and rep_ok and mem_ok
     return ok, {"onStatusIdentical": same_on, "offCountsBackToBaseline": same_off, "stubsInstalled": stubs_ok,
-                "reportsClean": rep_ok, "domCounters": mem, "countsOff": offs[0]["counts"], "countsOn": ons[0]["counts"],
+                "reportsClean": rep_ok, "onAbsoluteIdentical": same_on_abs, "cycleDeltas": cycle_deltas[0],
+                "cycleDeltasIdentical": all(d == cycle_deltas[0] for d in cycle_deltas),
+                "onDiffs": diffs(ons), "offDiffs": diffs(offs),
+                "domCounters": mem, "countsOff": offs[0]["counts"], "countsOn": ons[0]["counts"],
                 "deltaOnOff": delta, "listenersOn": ons[0]["listeners"], "listenersOff": offs[0]["listeners"],
                 "modules": ons[0]["sig"], "offReport": reports[-1].get("runtime"),
                 "leftovers": [_leftover_problems(r.get("leftovers"), base) for r in reports],
+                "daemonMarksChanged": sorted(set(daemon_marks)),
                 "foreignElementsBefore": _foreign_elements(base),
-                "foreignGlobals": _foreign_globals(reports[-1].get("leftovers")), "restore": restore}
+                "foreignGlobals": _foreign_globals(reports[-1].get("leftovers")), "restore": restore,
+                "nativeLock": native_lock, "foreignListenerChanges": foreign}
 
 
 def st_rt2(lab, ctx):
@@ -1240,8 +1384,10 @@ def st_rt2(lab, ctx):
         with lab.Lock():
             op("on", quiet=True)
             base_sig = dict(_st_sig(_st_status()))
-            r = op("on", quiet=True, flags={"rt.stubs": True, "rt.stubThrow": True, "rt.stubSlow": True})
-            time.sleep(1.5)        # rt.stub.slow's install resumes 0.6 s after its 5 s timeout
+            r = op("on", quiet=True, flags={"rt.stubs": True, "rt.stubThrow": True, "rt.stubSlow": True,
+                                            "rt.stubTransient": True})
+            # rt.stub.slow's install resumes 0.6 s after its 5 s timeout; rt.stub.transient retries twice (1 s each)
+            time.sleep(3.0)
             st = _st_status(log=120)
             sweep = _st_js(CLASS_SWEEP_JS)
             main = sweep.get("VR") or sweep.get("main") or {}
@@ -1252,6 +1398,8 @@ def st_rt2(lab, ctx):
     thr = mods.get("rt.stub.throw", {})
     slow = mods.get("rt.stub.slow", {})
     slow_log = [e.get("msg") for e in st.get("log") or [] if e.get("mod") == "rt.stub.slow"]
+    tr = mods.get("rt.stub.transient", {})
+    tr_log = [e.get("msg") for e in st.get("log") or [] if e.get("mod") == "rt.stub.transient"]
     loads = {f["file"]: f["error"] for f in st.get("failedLoads", [])}
     others_same = all(mods.get(n, {}).get("state") == state for n, state in base_sig.items()
                       if not n.startswith("rt.stub"))
@@ -1272,10 +1420,14 @@ def st_rt2(lab, ctx):
                                    for w in sweep.values()),
         "slowNotExposed": "rtStubSlow" not in (st.get("exposed") or {}),
         "slowRemoveCalledAgain": any("remove() called again" in (m or "") for m in slow_log),
+        # REQ P2->P1: a transient failure is retried (twice here), then the module installs
+        "transientRetried": tr.get("state") == "installed" and tr.get("retries") == 2
+        and sum(1 for m in tr_log if "transient failure; retry" in (m or "")) == 2,
     }
     return all(checks.values()), {"checks": checks, "stubThrow": {k: thr.get(k) for k in ("state", "error")},
                                   "stubSlow": {"state": slow.get("state"), "error": (slow.get("error") or "")[:120],
                                                "log": slow_log[-10:]},
+                                  "stubTransient": {"state": tr.get("state"), "retries": tr.get("retries"), "log": tr_log[-8:]},
                                   "failedLoads": loads, "loadResult": r.get("runtime"), "restore": restore}
 
 
@@ -1337,13 +1489,14 @@ def st_rt4(lab, ctx):
             r_on = op("on", quiet=True, flags=flags)
             r = op("off", quiet=True)
             rt_rep = r.get("runtime") or {}
-            probs = _leftover_problems(r.get("leftovers"), base)
+            dm = []
+            probs = _leftover_problems(r.get("leftovers"), base, dm)
             this_ok = rt_rep.get("patchedLeft") == 0 and not rt_rep.get("errors") and not probs \
                 and not rt_rep.get("globalsLeft")
             out[name] = {"pass": this_ok, "flags": sorted(flags), "installed": (r_on.get("runtime") or {}).get("modules"),
                          "patchedLeft": rt_rep.get("patchedLeft"), "removed": rt_rep.get("removed"),
                          "errors": rt_rep.get("errors"), "globalsLeft": rt_rep.get("globalsLeft"),
-                         "problems": probs, "foreignGlobals": _foreign_globals(r.get("leftovers")),
+                         "problems": probs, "daemonMarksChanged": dm, "foreignGlobals": _foreign_globals(r.get("leftovers")),
                          "globals": (r.get("leftovers") or {}).get("globals")}
             if name == "a":
                 ok = ok and this_ok
@@ -1406,6 +1559,13 @@ PERSIST_KNOWN = [  # not written by Glass Shell: classified, listed, not failure
     (re.compile(r"^/tmp/lgs-fx/"), "P9's glassd tool fixtures (native/glassd/tools/test_*.py; REQ P1->P9: under /tmp/lgs)"),
     (re.compile(r"^~/\.local/share/glass-shell/.*/__pycache__/[\w.-]+\.pyc$"),
      "bytecode cache of a synced .py, written by another process's import (our process writes none: audit)"),
+    (SYNCED_SOURCE := re.compile(
+        r"^~/\.local/share/glass-shell/(device|theme|lab|native|tools)/(.+/)?"
+        r"([^/]+\.(py|js|css|json|md|sh|html|svg|cpp|cc|c|h|hpp|txt|cmake|glsl|frag|vert|comp|ttf|otf|woff2?)|Makefile|lgs)$"),
+     "synced source: `glass.py sync` or another agent's upload (the card allows synced sources; this process's "
+     "write audit shows no write there; seen in the R1 re-run: native/spike/sg_test.py)"),
+    (re.compile(r"^~/\.config/openvr/config/cv/xrservice/serializedmap/"),
+     "SteamVR xrservice's tracking map, saved by SteamVR itself (seen in the R1 re-run)"),
     (re.compile(r"^~/\.config/openvr/config/chaperone_info\.vrchap$"),
      "SteamVR's vrserver rewrites it every 60 s (hh:mm:58, vrserver.txt 'Read chaperone JSON'); no Glass Shell code "
      "mentions it (review R1 m8)"),
@@ -1588,6 +1748,18 @@ def st_rt6(lab, ctx):
             known.append(f"{p}  [{why}]")
         else:
             unexplained.append(p)
+    # Attribution by writer (review R1 m8): the Glass Shell writers that ran in the test window are this
+    # process (every write audited above), Steam's SharedJSContext (no file access; its web storage is
+    # read above and content-checked) and, only when the full CLI cycle ran, the lgs-shell daemon. Without
+    # the daemon, a file outside the install tree and outside Steam's storage cannot be ours: it is listed
+    # as "notOurs" (SteamVR, Steam or another agent), never silently dropped.
+    daemon_ran = bool(have_native and full)
+    not_ours = []
+    if not daemon_ran:
+        for p in list(unexplained):
+            if not p.startswith("~/.local/share/glass-shell") and "Glass Shell marker" not in p:
+                not_ours.append(p)
+                unexplained.remove(p)
     ours = [p for p in new if p.startswith("~/.local/share/glass-shell")]
     units = subprocess.run(["systemctl", "--user", "list-unit-files", "lgs*", "--no-legend"],
                            capture_output=True, text=True).stdout.strip()
@@ -1597,10 +1769,11 @@ def st_rt6(lab, ctx):
     stor_bad = {k: v for k, v in (storage or {}).items() if v and v != "n/a" and v != ["storage n/a"]}
     # A unit file (not the transient runtime unit) or an autostart entry would survive a reboot.
     persistent_units = [ln for ln in units.splitlines() if ln.strip() and " transient" not in ln]
-    ours_bad = [p for p in ours if not re.search(r"/__pycache__/[\w.-]+\.pyc$", p)]
+    ours_bad = [p for p in ours if not re.search(r"/__pycache__/[\w.-]+\.pyc$", p) and not SYNCED_SOURCE.match(p)]
     ok = not unexplained and not ours_bad and not persistent_units and not autostart and not stor_bad and not audit_bad
     return ok, {"newInTestWindow": len(new), "background": len(background), "allowed": allowed[:40],
                 "known": known[:40], "unexplained": unexplained, "underGlassShell": ours,
+                "notOurs": not_ours, "daemonRanInWindow": daemon_ran,
                 "steamStorageContentChecked": checked[:40],
                 "windowsS": {"before": 8, "after": PERSIST_AFTER_S},
                 "auditOurProcess": {"written": ours_written[:60], "outsideAllowed": audit_bad},
@@ -1984,6 +2157,53 @@ def is_on():
     return bool(st and st.get("enabled"))
 
 
+LAB_LOCK = "/tmp/lgs/lab.lock"
+CLI_LOCK_WAIT_S = 90
+
+
+def _cli_lab_lock():
+    """CLI on/off/toggle/reload/dial on a device where the lab runs (/tmp/lgs/lab.lock
+    exists): wait, bounded, for a locked lab step to end, so a reload never replaces
+    the runtime in the middle of another agent's step (PLAN §7.1; seen in review R1's
+    re-run: an unlocked `lgs on --css` removed __LGS_RT inside RT-3). After
+    CLI_LOCK_WAIT_S it goes on without the lock (a user's toggle must not hang).
+    LGS_NO_LAB_LOCK=1 skips it. Callers that already hold lab.lock use op(), not the CLI."""
+    if os.environ.get("LGS_NO_LAB_LOCK") or not os.path.exists(LAB_LOCK):
+        return None
+    import fcntl
+    try:
+        f = open(LAB_LOCK, "a")
+    except OSError:
+        return None
+    t0, told = time.time(), False
+    while True:
+        try:
+            fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            break
+        except BlockingIOError:
+            if time.time() - t0 >= CLI_LOCK_WAIT_S:
+                log(f"cli: lab.lock busy for {CLI_LOCK_WAIT_S} s; going on without it")
+                f.close()
+                return None
+            if not told and time.time() - t0 > 1:
+                print("lgs: waiting for a locked lab step to end (lab.lock)", file=sys.stderr, flush=True)
+                told = True
+            time.sleep(0.25)
+    if time.time() - t0 > 1:
+        log(f"cli: waited {time.time() - t0:.1f} s for lab.lock")
+    return f
+
+
+def _cli_lab_unlock(f):
+    if f is None:
+        return
+    try:
+        import fcntl
+        fcntl.flock(f, fcntl.LOCK_UN)
+    finally:
+        f.close()
+
+
 def parse_args(argv):
     """Positional args and options; --flags takes a value."""
     args, opts = [], {}
@@ -2025,6 +2245,7 @@ def main(argv):
         return 0 if res["ok"] else 1
     if cmd == "selftest":
         return selftest_main(args[1:], opts)
+    held = _cli_lab_lock() if cmd in ("toggle", "on", "off", "reload", "dial") else None
     try:
         if cmd == "toggle":
             cmd = "off" if is_on() else "on"
@@ -2057,6 +2278,8 @@ def main(argv):
         log(f"{cmd} failed: {e!r}")
         print(f"lgs: {cmd} failed: {e}", file=sys.stderr)
         return 1
+    finally:
+        _cli_lab_unlock(held)
     log(f"{cmd}: {json.dumps(res)[:300]}")
     print(json.dumps(res, indent=1) if isinstance(res, (dict, list)) else res)
     if isinstance(res, dict) and (res.get("unresolved") or res.get("ambiguous")):

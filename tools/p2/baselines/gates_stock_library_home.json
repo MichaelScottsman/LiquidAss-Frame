@@ -4,6 +4,7 @@
  "pre": false,
  "theme": "keep",
  "keep": null,
+ "stockRoute": null,
  "step": {
   "flags": {},
   "mode": null,
@@ -11,48 +12,26 @@
   "stock": true
  },
  "build": "11094443",
- "date": "2026-10-07T05:57:21",
+ "date": "2026-10-07T08:26:55",
+ "native": "off",
  "gates": {
   "MOTION": {
-   "pass": false,
+   "pass": true,
    "nonToken": [],
    "atRest": {
-    "count": 1,
-    "running": [
-     "_2tSbN-Ik0JtgSVuvWRLekE on %{LibraryItemBox} %{Landscape} %{InRecentGames} (running)"
-    ],
+    "count": 0,
+    "running": [],
     "lgsLeft": [],
-    "infinite": []
+    "infinite": [],
+    "steamRunning": []
    },
    "cssNonToken": []
   },
   "SIZE": {
    "pass": false,
    "m": 1,
-   "checked": 14,
+   "checked": 10,
    "fails": [
-    {
-     "el": "%{SearchAndTitleContainer} %{ShowingSearch} %{ForceExpanded}",
-     "rect": [
-      108,
-      0,
-      1172,
-      40
-     ],
-     "rule": "P-80",
-     "why": "visible short side 40 < 60"
-    },
-    {
-     "el": "%{SearchAndTitleContainer} %{ShowingSearch} %{ForceExpanded}",
-     "rect": [
-      108,
-      0,
-      1172,
-      40
-     ],
-     "rule": "P-08",
-     "why": "hit 67% own, 0% other over 1172x80"
-    },
     {
      "el": "%{SearchBox} %{SearchAndTitleContainer>Visible} Focusable",
      "rect": [
@@ -74,28 +53,6 @@
      ],
      "rule": "P-08",
      "why": "hit 67% own, 0% other over 1128x80"
-    },
-    {
-     "el": "%{Arrows} Panel Focusable",
-     "rect": [
-      36,
-      447,
-      32,
-      32
-     ],
-     "rule": "P-80",
-     "why": "visible short side 32 < 60"
-    },
-    {
-     "el": "%{Arrows} Panel Focusable",
-     "rect": [
-      36,
-      447,
-      32,
-      32
-     ],
-     "rule": "P-08",
-     "why": "hit 49% own, 4% other (%{SeasonalSale} %{SeasonalSale>Loaded} Panel) over 80x80"
     },
     {
      "el": "%{GamepadTabbedPage>Tab} %{GamepadTabbedPage>Selected} %{HasAddon} \"WHAT'S NEW\"",
@@ -162,32 +119,13 @@
      ],
      "rule": "P-08",
      "why": "hit 70% own, 5% other (%{SeasonalSale} %{SeasonalSale>Loaded} Panel) over 132x80"
-    },
-    {
-     "el": "%{Arrows} Panel Focusable",
-     "rect": [
-      1212,
-      447,
-      32,
-      32
-     ],
-     "rule": "P-80",
-     "why": "visible short side 32 < 60"
-    },
-    {
-     "el": "%{Arrows} Panel Focusable",
-     "rect": [
-      1212,
-      447,
-      32,
-      32
-     ],
-     "rule": "P-08",
-     "why": "hit 49% own, 4% other (%{SeasonalSale} %{SeasonalSale>Loaded} Panel) over 80x80"
     }
    ],
-   "failCount": 14,
-   "exempt": []
+   "failCount": 8,
+   "exempt": [],
+   "exemptFail": 0,
+   "skipped": [],
+   "modal": false
   },
   "TYPE": {
    "pass": false,
@@ -246,17 +184,34 @@
     }
    ],
    "failCount": 5,
-   "exempt": []
+   "exempt": [],
+   "skippedClipped": 0
   },
   "OUTLINE": {
-   "pass": true,
+   "pass": false,
    "highContrast": false,
    "glass": 0,
-   "fails": [],
-   "failCount": 0,
+   "pseudoGlass": 0,
+   "pseudoChecked": 7,
+   "fails": [
+    {
+     "el": "%{OverridesInteractionSuppression} %{BackContainer} \"Back\"::after",
+     "rect": [
+      107,
+      4,
+      1,
+      32
+     ],
+     "rule": "P-43",
+     "why": "1x32 filled line"
+    }
+   ],
+   "failCount": 1,
    "probes": [],
+   "probeCount": 0,
    "exempt": [],
    "dpr": 1.5,
+   "shotLocal": "shots/_gates_tmp_185493_31167.png",
    "shot": null,
    "edges": []
   }

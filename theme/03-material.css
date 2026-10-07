@@ -17,8 +17,63 @@
 /* 1. The edge hook                                                     */
 /* ------------------------------------------------------------------ */
 
+/* The subjects are generated host lists, never "*" (G-PERF, review R1 M1:
+   a universal *::before inside @container makes Blink resolve ::before for
+   every element on every style recalc). Each "lgs-hosts" block is written by
+   `python docs/phase2/fontkit.py --hooks` from every theme rule that sets
+   --lgs-edge (to that material): the rightmost compound of its selector (a
+   superset; the style query still decides), one flat :where() entry per
+   host, so the hook keeps the specificity the universal subject had. Never
+   edit the blocks by hand. */
 @container style(--lgs-edge: window) or style(--lgs-edge: panel) or style(--lgs-edge: liquid) or style(--lgs-edge: thick) or style(--lgs-edge: clear) or style(--lgs-edge: control) {
-  *::before {
+/* lgs-hosts edge ::before begin */
+  :where(.lgs-hosts-edge)::before,
+  :where(#Footer%{BasicFooter})::before,
+  :where(%{*BasicContextMenuModal>contextMenuContents})::before,
+  :where(%{*GamepadDialogContent>ModalPosition} > div.Panel:not(%{*GamepadDialogContent>ModalClickToDismiss}, %{FocusRing}, %{FocusRingRoot}, .BasicUIContextMenu, %{*GamepadDialogContent_InnerWidth>GamepadDialogContent}))::before,
+  :where(%{*GamepadDialogContent_InnerWidth>GamepadDialogContent})::before,
+  :where(%{BarSurfaceSection}%{LowBatteryGauge>Tabs})::before,
+  :where(%{BarSurfaceSection}%{Tray})::before,
+  :where(%{BarSurface}%{Bookend})::before,
+  :where(%{BasicHome})::before,
+  :where(%{BasicUiRoot})::before,
+  :where(%{Container>MenuButton})::before,
+  :where(%{DashboardBarPopupContents})::before,
+  :where(%{DashboardBarPopupList})::before,
+  :where(%{DashboardMenu}%{Variant_TabMenu})::before,
+  :where(%{DialogWrapper})::before,
+  :where(%{GamepadTabbedPage})::before,
+  :where(%{HiddenFrame>InvitesList})::before,
+  :where(%{PlayButtonContainer>PlayButton})::before,
+  :where(%{PopupBody>Tooltip})::before,
+  :where(%{QuickAccessMenu})::before,
+  :where(%{RecentlyCompletedItem})::before,
+  :where(%{ShortTemplate})::before,
+  :where(%{TabRowTabs})::before,
+  :where(%{TextBoxCarouselContents})::before,
+  :where(%{VRVirtualKeyboardContents})::before,
+  :where(%{VirtualKeyboardStandaloneContainer>VirtualKeyboardContainer})::before,
+  :where(%{VolumeSliderLabel>VolumePopin}%{VolumeSliderLabel>VR})::before,
+  :where(.lgs-btn)::before,
+  :where(.lgs-cc-circle-face)::before,
+  :where(.lgs-cc-tile)::before,
+  :where(.lgs-edge)::before,
+  :where(.lgs-glass[data-lgs-mat="plate"])::before,
+  :where(.lgs-home-card)::before,
+  :where(.lgs-home-disc)::before,
+  :where(.lgs-home-plate)::before,
+  :where(.lgs-home-seg)::before,
+  :where(.lgs-home-wn-glass)::before,
+  :where(.lgs-search-glass)::before,
+  :where([data-lgs-mat="clear"])::before,
+  :where([data-lgs-mat="liquid"])::before,
+  :where([data-lgs-mat="panel"])::before,
+  :where([data-lgs-mat="thick"])::before,
+  :where([data-lgs-mat="window"])::before,
+  :where(button.DialogButton%{*GamepadDialogContent>Button})::before,
+  :where(div.lgs-c2b-panel[data-lgs-c2b])::before
+/* lgs-hosts edge ::before end */
+  {
     content: "";
     position: absolute;
     inset: 0;
@@ -32,7 +87,9 @@
     z-index: var(--lgs-edge-z, auto);
     --lgs-focus: inherit;
     --_lgs-rim: var(--lgs-rim-control);
-    --_lgs-k: calc(var(--_lgs-rim) * (1 + .5 * var(--lgs-focus)));
+    /* --lgs-edge-dim (inherited, 0..1): how much a scrim over the slab dims
+       its rim */
+    --_lgs-k: calc(var(--_lgs-rim) * (1 + .5 * var(--lgs-focus)) * (1 - var(--lgs-edge-dim, 0)));
     padding: var(--_lgs-rim-w, var(--lgs-rim-w));
     background:
       conic-gradient(from var(--lgs-light),
@@ -56,19 +113,145 @@
 @container style(--lgs-edge: window) {
   /* the window's content (header, full-bleed art, modals) reaches its edge:
      the rim sits above it like a real rim, as Phase 1's did (z 20000) */
-  *::before { --_lgs-rim: var(--lgs-rim-window); --_lgs-rim-w: var(--lgs-rim-w-window); z-index: var(--lgs-edge-z, 20000); }
+/* lgs-hosts edge:window ::before begin */
+  :where(.lgs-hosts-edge-window)::before,
+  :where(%{BasicHome})::before,
+  :where(%{BasicUiRoot})::before,
+  :where([data-lgs-mat="window"])::before
+/* lgs-hosts edge:window ::before end */
+  { --_lgs-rim: var(--lgs-rim-window); --_lgs-rim-w: var(--lgs-rim-w-window); z-index: var(--lgs-edge-z, 20000); }
+  /* ...so under an alert or sheet scrim (Steam's modal overlay, z 1500) it
+     dims with the window instead of glowing above it (review R1 m8); the
+     scrim is black .35 (--lgs-scrim). Steam keeps an empty, invisible
+     .ModalOverlayBackground in the page at all times: the scrim shows while
+     a .ModalOverlayContent is .active, except for a context menu alone (C1c:
+     menus have no scrim unless a dialog is .inactive below) */
+  &:is(:has(.ModalOverlayContent.inactive), :has(.ModalOverlayContent.active):not(:has(.ModalOverlayContent.active .BasicUIContextMenu)))
+/* lgs-hosts edge:window where::before begin */
+:where(.lgs-hosts-edge-window, %{BasicHome}, %{BasicUiRoot}, [data-lgs-mat="window"])::before
+/* lgs-hosts edge:window where::before end */
+  { --lgs-edge-dim: .35; }
 }
 @container style(--lgs-edge: panel) {
-  *::before { --_lgs-rim: var(--lgs-rim-panel); }
+/* lgs-hosts edge:panel ::before begin */
+  :where(.lgs-hosts-edge-panel)::before,
+  :where(#Footer%{BasicFooter}%{FloatingVRFooter})::before,
+  :where(%{DashboardBarPopupContents})::before,
+  :where(%{DashboardBarPopupList})::before,
+  :where(%{DashboardMenu}%{Variant_TabMenu})::before,
+  :where(%{HiddenFrame>InvitesList})::before,
+  :where(%{QuickAccessMenu})::before,
+  :where(%{ShortTemplate})::before,
+  :where(%{VolumeSliderLabel>VolumePopin}%{VolumeSliderLabel>VR})::before,
+  :where(.lgs-cc-tile)::before,
+  :where(.lgs-glass[data-lgs-mat="plate"])::before,
+  :where([data-lgs-mat="panel"])::before,
+  :where(div.lgs-c2b-panel[data-lgs-c2b])::before
+/* lgs-hosts edge:panel ::before end */
+  { --_lgs-rim: var(--lgs-rim-panel); }
 }
 @container style(--lgs-edge: liquid) {
-  *::before { --_lgs-rim: var(--lgs-rim-liquid); }
+/* lgs-hosts edge:liquid ::before begin */
+  :where(.lgs-hosts-edge-liquid)::before,
+  :where(#Footer%{BasicFooter})::before,
+  :where(%{BarSurfaceSection}%{LowBatteryGauge>Tabs})::before,
+  :where(%{BarSurfaceSection}%{Tray})::before,
+  :where(%{BarSurface}%{Bookend})::before,
+  :where(%{PlayButtonContainer>PlayButton})::before,
+  :where(%{RecentlyCompletedItem})::before,
+  :where(%{TabRowTabs})::before,
+  :where(%{TextBoxCarouselContents})::before,
+  :where(.lgs-cc-circle-face)::before,
+  :where(.lgs-home-card)::before,
+  :where(.lgs-home-disc)::before,
+  :where(.lgs-home-plate)::before,
+  :where(.lgs-home-seg)::before,
+  :where(.lgs-home-wn-glass)::before,
+  :where([data-lgs-mat="liquid"])::before
+/* lgs-hosts edge:liquid ::before end */
+  { --_lgs-rim: var(--lgs-rim-liquid); }
 }
 @container style(--lgs-edge: thick) {
-  *::before { --_lgs-rim: var(--lgs-rim-thick); }
+/* lgs-hosts edge:thick ::before begin */
+  :where(.lgs-hosts-edge-thick)::before,
+  :where(%{*BasicContextMenuModal>contextMenuContents})::before,
+  :where(%{*GamepadDialogContent>ModalPosition} > div.Panel:not(%{*GamepadDialogContent>ModalClickToDismiss}, %{FocusRing}, %{FocusRingRoot}, .BasicUIContextMenu, %{*GamepadDialogContent_InnerWidth>GamepadDialogContent}))::before,
+  :where(%{*GamepadDialogContent_InnerWidth>GamepadDialogContent})::before,
+  :where(%{DialogWrapper})::before,
+  :where(%{GamepadTabbedPage})::before,
+  :where(%{PopupBody>Tooltip})::before,
+  :where(%{VRVirtualKeyboardContents})::before,
+  :where(%{VirtualKeyboardStandaloneContainer>VirtualKeyboardContainer})::before,
+  :where(.lgs-search-glass)::before,
+  :where([data-lgs-mat="thick"])::before
+/* lgs-hosts edge:thick ::before end */
+  { --_lgs-rim: var(--lgs-rim-thick); }
 }
 @container style(--lgs-edge: clear) {
-  *::before { --_lgs-rim: var(--lgs-rim-clear); }
+/* lgs-hosts edge:clear ::before begin */
+  :where(.lgs-hosts-edge-clear)::before,
+  :where(%{Container>MenuButton})::before,
+  :where(%{TabRowTabs})::before,
+  :where([data-lgs-mat="clear"])::before
+/* lgs-hosts edge:clear ::before end */
+  { --_lgs-rim: var(--lgs-rim-clear); }
+}
+
+/* High Contrast: the one allowed stroke, 2 px solid white .70 (§4) */
+@media (prefers-contrast: more) {
+  @container style(--lgs-edge: window) or style(--lgs-edge: panel) or style(--lgs-edge: liquid) or style(--lgs-edge: thick) or style(--lgs-edge: clear) or style(--lgs-edge: control) {
+/* lgs-hosts edge ::before begin */
+  :where(.lgs-hosts-edge)::before,
+  :where(#Footer%{BasicFooter})::before,
+  :where(%{*BasicContextMenuModal>contextMenuContents})::before,
+  :where(%{*GamepadDialogContent>ModalPosition} > div.Panel:not(%{*GamepadDialogContent>ModalClickToDismiss}, %{FocusRing}, %{FocusRingRoot}, .BasicUIContextMenu, %{*GamepadDialogContent_InnerWidth>GamepadDialogContent}))::before,
+  :where(%{*GamepadDialogContent_InnerWidth>GamepadDialogContent})::before,
+  :where(%{BarSurfaceSection}%{LowBatteryGauge>Tabs})::before,
+  :where(%{BarSurfaceSection}%{Tray})::before,
+  :where(%{BarSurface}%{Bookend})::before,
+  :where(%{BasicHome})::before,
+  :where(%{BasicUiRoot})::before,
+  :where(%{Container>MenuButton})::before,
+  :where(%{DashboardBarPopupContents})::before,
+  :where(%{DashboardBarPopupList})::before,
+  :where(%{DashboardMenu}%{Variant_TabMenu})::before,
+  :where(%{DialogWrapper})::before,
+  :where(%{GamepadTabbedPage})::before,
+  :where(%{HiddenFrame>InvitesList})::before,
+  :where(%{PlayButtonContainer>PlayButton})::before,
+  :where(%{PopupBody>Tooltip})::before,
+  :where(%{QuickAccessMenu})::before,
+  :where(%{RecentlyCompletedItem})::before,
+  :where(%{ShortTemplate})::before,
+  :where(%{TabRowTabs})::before,
+  :where(%{TextBoxCarouselContents})::before,
+  :where(%{VRVirtualKeyboardContents})::before,
+  :where(%{VirtualKeyboardStandaloneContainer>VirtualKeyboardContainer})::before,
+  :where(%{VolumeSliderLabel>VolumePopin}%{VolumeSliderLabel>VR})::before,
+  :where(.lgs-btn)::before,
+  :where(.lgs-cc-circle-face)::before,
+  :where(.lgs-cc-tile)::before,
+  :where(.lgs-edge)::before,
+  :where(.lgs-glass[data-lgs-mat="plate"])::before,
+  :where(.lgs-home-card)::before,
+  :where(.lgs-home-disc)::before,
+  :where(.lgs-home-plate)::before,
+  :where(.lgs-home-seg)::before,
+  :where(.lgs-home-wn-glass)::before,
+  :where(.lgs-search-glass)::before,
+  :where([data-lgs-mat="clear"])::before,
+  :where([data-lgs-mat="liquid"])::before,
+  :where([data-lgs-mat="panel"])::before,
+  :where([data-lgs-mat="thick"])::before,
+  :where([data-lgs-mat="window"])::before,
+  :where(button.DialogButton%{*GamepadDialogContent>Button})::before,
+  :where(div.lgs-c2b-panel[data-lgs-c2b])::before
+/* lgs-hosts edge ::before end */
+    {
+      padding: 2px;
+      background: rgb(255 255 255 / .70);
+    }
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -155,9 +338,15 @@
 & [data-lgs-scroll-band="top"] { --lgs-scroll-band: top; }
 & [data-lgs-scroll-band="bottom"] { --lgs-scroll-band: bottom; }
 
-/* the scroll-edge dimming band, on the scroller's non-scrolling container */
+/* the scroll-edge dimming band, on the scroller's non-scrolling container
+   (hosts generated like the edge's) */
 @container style(--lgs-scroll-band: top) or style(--lgs-scroll-band: bottom) {
-  *::after {
+/* lgs-hosts band ::after begin */
+  :where(.lgs-hosts-band)::after,
+  :where([data-lgs-scroll-band="bottom"])::after,
+  :where([data-lgs-scroll-band="top"])::after
+/* lgs-hosts band ::after end */
+  {
     content: "";
     position: absolute;
     left: 0;
@@ -168,22 +357,25 @@
   }
 }
 @container style(--lgs-scroll-band: top) {
-  *::after { top: 0; background: var(--lgs-scroll-band-top); border-radius: inherit; }
+/* lgs-hosts band:top ::after begin */
+  :where(.lgs-hosts-band-top)::after,
+  :where([data-lgs-scroll-band="top"])::after
+/* lgs-hosts band:top ::after end */
+  { top: 0; background: var(--lgs-scroll-band-top); border-radius: inherit; }
 }
 @container style(--lgs-scroll-band: bottom) {
-  *::after { bottom: 0; background: var(--lgs-scroll-band-bottom); border-radius: inherit; }
+/* lgs-hosts band:bottom ::after begin */
+  :where(.lgs-hosts-band-bottom)::after,
+  :where([data-lgs-scroll-band="bottom"])::after
+/* lgs-hosts band:bottom ::after end */
+  { bottom: 0; background: var(--lgs-scroll-band-bottom); border-radius: inherit; }
 }
 
 /* ------------------------------------------------------------------ */
 /* 4. High Contrast: the one allowed stroke, 2 px solid white .70        */
 /* ------------------------------------------------------------------ */
 
+/* (the edge's stroke is in §1, inside the host rule) */
 @media (prefers-contrast: more) {
-  @container style(--lgs-edge: window) or style(--lgs-edge: panel) or style(--lgs-edge: liquid) or style(--lgs-edge: thick) or style(--lgs-edge: clear) or style(--lgs-edge: control) {
-    *::before {
-      padding: 2px;
-      background: rgb(255 255 255 / .70);
-    }
-  }
   & .lgs-glass { backdrop-filter: none; }
 }

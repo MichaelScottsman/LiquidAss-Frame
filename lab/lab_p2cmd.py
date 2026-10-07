@@ -258,20 +258,55 @@ def purge_own_hv():
     return n
 
 
+HV_GAP_S = 0.5      # between the warm-up grab and the measured one (REQ P7->P10)
+
+
+def hvgrab_once(out, scale):
+    """One hvgrab run into `out`; returns its output (stdout + stderr, stripped)."""
+    return os.popen(f"env -u LD_PRELOAD {shlex.quote(HVGRAB)} {out} {scale} 2>&1").read().strip()
+
+
 def hv_grab(args):
-    """Capture system.HeadsetView once; announce it for glass.py (which measures
-    and deletes it). The frame shows the room: never kept."""
+    """Capture system.HeadsetView; announce it for glass.py (which measures and deletes it). The frame shows the
+    room: never kept.
+
+    SteamVR refreshes system.HeadsetView only while someone samples it, so the first grab after a pause can return a
+    picture minutes old (REQ P7->P10, SG-2 rerun 09:15). Every hv therefore grabs `--grabs N` times (default 2),
+    `--gap S` apart (default 0.5 s), deletes each earlier frame at once (it never leaves the Frame) and measures the
+    last one only.
+
+    `--route R`, `--pre JS|@hover SEL[,MS]` (with `--surface S` for the pre, default main) and `--settle S` open a
+    lab layer (a menu, an alert) for the capture (REQ C1c->P10): the step then holds lab.lock and lab-vr.lock (in that
+    order), runs the route and the pre, waits the settle, grabs, and only then gives the usual restore at the lock
+    exit (menus the step opened are closed, the pointer goes to (1400, 900)). Steam step options apply to it."""
     offaxis = opt(args, "--offaxis")
     rect = opt(args, "--rect")
     look = flag(args, "--look")
     scale = 1 if flag(args, "--full") else 2          # --full: full-resolution HeadsetView (REQ P9->P10)
+    route = opt(args, "--route")
+    pre = opt(args, "--pre")
+    psurf = opt(args, "--surface", "main")
+    grabs = max(1, int(opt(args, "--grabs", 2)))
+    gap = max(0.0, float(opt(args, "--gap", HV_GAP_S)))
+    layer = bool(route or pre or STEP.get("hover"))
+    settle = float(opt(args, "--settle", 0.8 if layer else 0))
     name = args[0] if args and not args[0].startswith("--") else "hv"
     err = hv_build()
     if err:
         print(f"BLOCKED: hvgrab does not build: {err}")
         return 3
     out = f"/tmp/lgs/hv-{os.getpid()}-{int(time.time() * 1000) % 100000}.png"
-    with Lock(surface="vr:systemui"):
+    info = {"grabs": grabs, "gapS": gap}
+    # A lab layer kept open for the capture is a Steam step: both lab locks (lab.lock -> lab-vr.lock), Steam's step
+    # options, and the usual restore at the exit. A plain hv only reads systemui: lab-vr.lock.
+    with (Lock(both=True) if layer else Lock(surface="vr:systemui")):
+        if route:
+            lab_js(f"L.nav({json.dumps(route)})")
+            time.sleep(1.2)
+        if pre or STEP.get("hover"):
+            info["preResult"] = run_pre(pre, psurf)
+        if settle:
+            time.sleep(settle)
         yawed = None
         if offaxis:
             # P7's lab hook (contracts/sg.md, lgs_sg.js test.yaw): turn Steam's window about its vertical axis,
@@ -285,8 +320,14 @@ def hv_grab(args):
                 print(f"BLOCKED: no off-axis hook in vr:systemui ({(yawed or {}).get('error', '__LGS_SG not installed: run hv as a native-session step')})")
                 return 3
             time.sleep(0.6)
+        r = ""
         try:
-            r = os.popen(f"env -u LD_PRELOAD {shlex.quote(HVGRAB)} {out} {scale} 2>&1").read().strip()
+            for i in range(grabs):
+                if os.path.exists(out):
+                    os.remove(out)           # an earlier (warm-up) frame: room imagery, never fetched
+                if i:
+                    time.sleep(gap)
+                r = hvgrab_once(out, scale)
         finally:
             if yawed:
                 try:
@@ -297,10 +338,12 @@ def hv_grab(args):
         print(f"BLOCKED: hvgrab produced no frame ({r[-300:]})")
         return 3
     hv_reaper(out)
-    hv_opts = {"look": look, "full": scale == 1}
+    hv_opts = {"look": look, "full": scale == 1, "grabs": grabs, "layer": layer}
     if rect:
         hv_opts["rect"] = [int(float(v)) for v in rect.split(",")]
     print(f"@@hv {out} {name} {json.dumps(hv_opts, separators=(',', ':'))}", flush=True)
+    if info.get("preResult") is not None:
+        print(f"hv: pre -> {json.dumps(info['preResult'])[:200]}", file=sys.stderr, flush=True)
     return 0
 
 
@@ -767,6 +810,21 @@ def cmp_rects(args):
 
 # ---------------------------------------------------------------- conformance (one route per step)
 
+# The route's bottom ornament and glass bottom (PLAN R2-11): an ornament is a rendered #Footer legend (C1a's bottom
+# ornament restyles Steam's #Footer); the glass bottom is C1a's --lgs-c1a-gh where it is published, else the window.
+LAYOUT_JS = r"""
+(() => {
+  const w = L.surface('main'), d = w.document, f = d.querySelector('#Footer');
+  const legends = f && L.visible(w, f) ? [...f.querySelectorAll('*')].filter((e) => !e.children.length && (e.textContent || '').trim() && L.visible(w, e)).length : 0;
+  let gh = NaN;
+  for (const el of [d.documentElement, (() => { try { return L.q('main', '%{BasicUiRoot}'); } catch (_) { return null; } })()]) {
+    if (el) { const v = parseFloat(w.getComputedStyle(el).getPropertyValue('--lgs-c1a-gh')); if (v > 0) gh = v; }
+  }
+  return { ornament: legends > 0, legends, glassBottom: gh > 0 ? gh : w.innerHeight, height: w.innerHeight };
+})()
+"""
+
+
 def conformance(args):
     route = opt(args, "--route")
     pre = opt(args, "--pre")
@@ -797,6 +855,8 @@ def conformance(args):
         g["TYPE"] = lab_js(f"L.gates.type({S})", surface=sj)
         g["OUTLINE"] = lab_js(f"L.gates.outline({S})", surface=sj)
         res["conf"] = lab_js(f"L.conf.run({S}, {json.dumps({'mode': STEP['mode']})})", surface=sj)
+        if not sj:
+            res["layout"] = lab_js(LAYOUT_JS)      # P-23's bottom bound (PLAN R2-11, REQ Coordinator->P10 (2))
         if not STEP["stock"] and not sj:
             lab.set_theme("off", surface)
             time.sleep(0.4)
@@ -818,6 +878,127 @@ def conformance(args):
                     res["sgmodel"]["sg"] = {"error": str(e)}
     print("@@conf " + json.dumps(res), flush=True)
     return 0
+
+
+# ---------------------------------------------------------------- perf --ab (PLAN R2-13, REQ Coordinator->P10 (3))
+
+def _median(xs):
+    xs = sorted(xs)
+    n = len(xs)
+    return None if not n else (xs[n // 2] if n % 2 else (xs[n // 2 - 1] + xs[n // 2]) / 2)
+
+
+def perf_ab_verdict(runs):
+    """R2-13's statistic over the pooled runs ({mode: ref|sub, fps, long, native}): only `native == "off"` runs count
+    (a CSS-only verdict). PASS: median fps ratio sub / ref >= 0.95 and median extra long frames (> 34 ms) <= the
+    reference's A/A spread (max - min of its long frames, min 1). None when either side has fewer than 2 runs."""
+    use = [r for r in runs if r.get("native") == "off"]
+    ref = [r for r in use if r["mode"] == "ref"]
+    sub = [r for r in use if r["mode"] == "sub"]
+    out = {"pooled": len(use), "excludedNative": len(runs) - len(use)}
+    if len(ref) < 2 or len(sub) < 2:
+        out.update({"pass": None, "why": f"{len(ref)} reference and {len(sub)} subject runs with native=off (need 2 each)"})
+        return out
+    rf, sf = [r["fps"] for r in ref], [r["fps"] for r in sub]
+    rl, sl = [r["long"] for r in ref], [r["long"] for r in sub]
+    ratio = _median(sf) / max(0.1, _median(rf))
+    extra = _median(sl) - _median(rl)
+    spread = max(1, max(rl) - min(rl))
+    out.update(fpsMedian={"ref": _median(rf), "sub": _median(sf)}, fpsRatio=round(ratio, 3),
+               longMedian={"ref": _median(rl), "sub": _median(sl)}, extraLong=extra, aaSpread=spread)
+    out["pass"] = ratio >= 0.95 and extra <= spread
+    return out
+
+
+def perf_ab(surface, route, pre, secs, ab, rounds):
+    """`perf SURF --ab stock|theme [--rounds N]`: ABBA x 2 per round (ref sub sub ref, twice), a further round pooled
+    while the verdict fails (at most N rounds, default 2). ref/sub: `stock` = theme off / theme on (G-PERF);
+    `theme` = theme only (runtime off) / theme + runtime (RT-7). Every run prints fps, long frames and `native`;
+    the verdict is R2-13's (perf_ab_verdict). Exit 0 PASS, 1 FAIL, 3 BLOCKED. The theme is given back as found."""
+    import lgs
+    if ab not in ("stock", "theme"):
+        print("usage: lab.py perf SURF --ab stock|theme [--rounds N] [--route R] [--pre JS] [--seconds S]")
+        return 2
+    if surface.startswith("vr:"):
+        print("BLOCKED: perf --ab compares Steam UI states; vr: pages have no stock/runtime toggle here")
+        return 3
+    sj = surf_js(surface)
+    S = json.dumps(surface)
+    ms = int(secs * 1000)
+    runs = []
+    res = {"surface": surface, "route": route, "ab": ab, **stamp(),
+           "step": {"flags": dict(STEP["flags"]), "mode": STEP["mode"], "media": list(STEP["media"])}}
+
+    def put(mode):
+        if ab == "stock":
+            lgs.op("off" if mode == "ref" else "on", quiet=True)
+        else:
+            lgs.op("on", quiet=True, rt=(mode == "sub"))
+        time.sleep(0.4)
+
+    def one(mode, rnd):
+        put(mode)
+        tmp = remote_shot_path(f"_perf_{os.getpid()}")
+        try:
+            import asyncio
+            asyncio.run(lab.capture(surface, tmp, 0.8))       # brings the surface to the front (as plain perf)
+        finally:
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
+        p = lab_js(f"L.perf({S}, {ms})", timeout=60 + secs, surface=sj)
+        r = {"round": rnd, "mode": mode, "fps": p.get("fps"), "long": p.get("long"), "p95": p.get("p95"),
+             "median": p.get("median"), "worst": p.get("worst"), "native": lab.native_on()}
+        runs.append(r)
+        print(f"run {len(runs):2d} r{rnd} {mode}: {r['fps']} fps, {r['long']} long frames, p95 {r['p95']} ms, "
+              f"native {r['native']}", flush=True)
+
+    v = None
+    with Lock(surface=surface):
+        # checked once the lock is held (the wait can be minutes): a CSS-only verdict pools only native=off runs
+        # (R2-13), and toggling the theme under another agent's native session would make its daemon dormant
+        res.update(stamp())
+        if res["native"] == "on":
+            print("BLOCKED: a native session is on (R2-13 pools only native=off runs); run perf --ab when it has ended")
+            return 3
+        was_on = lgs.is_on()
+        try:
+            if route:
+                lab_js(f"L.nav({json.dumps(route)})")
+                time.sleep(1.2)
+            if pre or STEP.get("hover"):
+                res["preResult"] = run_pre(pre, surface)
+                time.sleep(0.6)
+            stop = False
+            for rnd in range(1, max(1, rounds) + 1):
+                for mode in ("ref", "sub", "sub", "ref") * 2:
+                    one(mode, rnd)
+                    if runs[-1]["native"] == "on":       # a native session began: stop toggling the theme
+                        print("perf --ab: a native session began during the runs; stopped", flush=True)
+                        stop = True
+                        break
+                v = perf_ab_verdict(runs)
+                if stop or v.get("pass"):
+                    break
+        finally:
+            try:
+                lgs.op("on" if was_on else "off", quiet=True)     # as found (the default runtime with it)
+            except Exception as e:  # noqa: BLE001
+                print(f"perf --ab: theme not given back: {e}", file=sys.stderr)
+    res.update(runs=runs, rounds=max(r["round"] for r in runs) if runs else 0, verdict=v)
+    ok = (v or {}).get("pass")
+    ref_name = "stock" if ab == "stock" else "theme only (runtime off)"
+    if ok is None:
+        print(f"perf --ab {ab}: BLOCKED: {(v or {}).get('why')}")
+    else:
+        print(f"perf --ab {ab} {surface} {route or ''} (build {res['build']}, {res['date']}): reference = {ref_name}; "
+              f"fps median ref {v['fpsMedian']['ref']} / subject {v['fpsMedian']['sub']} = {v['fpsRatio']} (needs >= 0.95); "
+              f"long frames median ref {v['longMedian']['ref']} / subject {v['longMedian']['sub']}: extra {v['extraLong']} "
+              f"(needs <= A/A spread {v['aaSpread']}); pooled {v['pooled']} runs over {res['rounds']} round(s), "
+              f"{v['excludedNative']} excluded (native on) -> {'PASS' if ok else 'FAIL'}")
+    print("@@perfab " + json.dumps(res), flush=True)
+    return 3 if ok is None else (0 if ok else 1)
 
 
 COMMANDS = {

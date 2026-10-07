@@ -1,0 +1,10 @@
+{
+  "fragment": "20-winbar",
+  "about": "C1a: the window-bar row (WN §3.5.2), behind winbarMove (PLAN §1.17 S10, off until AT-17 passes). fc-left: SteamVR's frame controls (488 x 107 systemui px = 283 mm, centred under the window, 15 mm below it; parent frame-resize-scale-factor 0, so resize false) move left until their right edge sits 20 mm left of the 140 mm window-bar pill: -(141.5 + 70 + 20) mm. grab-up and tips-below are P7's provisional values (sg.md §4.1): AT-17 tunes them from DumpLaserOverlays and an hv look before V1 turns the flag on. The resize corner's lift (64 px on window routes) is route-dependent and stays at SteamVR's corner (WN fallback).",
+  "supersedes": [],
+  "rules": [
+    {"id": "fc-left", "flag": "winbarMove", "target": "frame-controls", "addMm": [-231.5, 0, 0], "resize": false},
+    {"id": "grab-up", "flag": "winbarMove", "target": "grab-handle", "addMm": [0, 95, 0], "resize": false},
+    {"id": "tips-below", "flag": "winbarMove", "target": "tooltips", "mul": [1, -1, 1]}
+  ]
+}

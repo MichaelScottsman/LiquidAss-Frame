@@ -1,0 +1,1 @@
+{"test": "SG-REACT", "applied": "-0.1084011 -0.04 0", "afterReactWrite": "-0.1084011 -0.05 0", "base": "0 -0.05 0", "afterRemove": "0 -0.05 0", "end": "0 -0.04 0", "expected": [-0.108401, -0.05, 0.0], "pass": true}

@@ -15,7 +15,8 @@ A check model:
 Rects are texture px (CSS px x scale); dz in scene units (units = mm / (369 x r)). Each failure names its rule:
 
   R1  covered      the pop, deflated by 2 px (the reporter's tolerance), lies inside the union of covers and plates
-                   (rounded rects, sampled on a 4 px grid)
+                   (rounded rects, sampled on a 4 px grid); only points inside the pop's own rounded rect (its `r`,
+                   or "capsule") are sampled, since a rounded crop does not draw its corners
   R1b forbidden    no pop intersects a forbidden rect (bottom ornament, store ornament, tab bar, window-bar row, ...)
   R2  click-safe   dz <= 0.000521 x s (s = shorter side, CSS px, of the smallest focusable the pop holds: one that
                    overlaps it by >= 8 x 8 px and lies >= 50 % inside it, or that contains it), and dz in
@@ -80,14 +81,21 @@ def check(model):
         for p in pops:
             dz = float(p.get("dz", 0))
             dzs.add(round(dz / upm * 2) / 2)          # mm, to 0.5
-            # R1 covered (deflated by 2 px; 4 px grid incl. the far edges)
+            # R1 covered (deflated by 2 px; 4 px grid incl. the far edges). Only points the pop draws are sampled:
+            # those inside its own rounded rect (its `r`, deflated with it), since the rounded crop never draws its
+            # corners (REQ C2a->P10 #16: a rounded pop over a plate of its own shape is covered).
             x0, y0, x1, y1 = p["x"] + 2, p["y"] + 2, p["x"] + p["w"] - 2, p["y"] + p["h"] - 2
+            pr = p.get("r") or 0
+            own = {"x": x0, "y": y0, "w": x1 - x0, "h": y1 - y0,
+                   "r": pr if pr == "capsule" else max(0.0, float(pr) - 2)}
             miss = None
             if x1 > x0 and y1 > y0:
                 xs = [x0 + i * 4 for i in range(int((x1 - x0) // 4) + 1)] + [x1]
                 ys = [y0 + i * 4 for i in range(int((y1 - y0) // 4) + 1)] + [y1]
                 for yy in ys:
                     for xx in xs:
+                        if not inside_rrect(xx, yy, own):
+                            continue
                         if not any(inside_rrect(xx, yy, c) for c in shapes):
                             miss = (round(xx), round(yy))
                             break

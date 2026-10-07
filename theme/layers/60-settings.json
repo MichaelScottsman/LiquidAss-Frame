@@ -1,0 +1,24 @@
+{
+  "version": 2,
+  "about": "C6a Steam Settings (SET §5, PLAN §1.7 row 'Settings hero icon, account avatar': +10 mm, decorative crop, both profiles). The hero's 60 px colour circle (.DialogHeader::before, drawn only while wp.c6a T2 has keyed the page and measured its title: [data-lgs-hero] on the dialog root; an absolute ::before, which P6 can crop) pops +10 mm as a non-interactive crop over a liquid slab with the hole's contact shadow. Admission: covered by the window cover (bare glass above the first platter), no focusable intersects it (decorative: rule 2 sets no cap), 60 x 60 (rule 5), never over media, not destructive, dropped while the page scrolls or a modal is open (rule 6). Menus, alerts and sheets opened from settings pages are C1c's (22-presentations.json); the list page stays at 0 (PLAN §1.12). Behind wp.c6a.",
+  "flag": "wp.c6a",
+  "surfaces": {
+    "main": {
+      "layers": [
+        {
+          "id": "settings-hero",
+          "sel": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog}[data-lgs-hero]:not(%{AppProperties}, %{NotesPagedSettings}) %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageContent} > .DialogContent_InnerWidth > .DialogHeader",
+          "pseudo": "::before",
+          "r": 30,
+          "mm": 10,
+          "slab": "liquid",
+          "hole": true,
+          "flag": "wp.c6a",
+          "wearer": {
+            "mm": 10
+          }
+        }
+      ]
+    }
+  }
+}

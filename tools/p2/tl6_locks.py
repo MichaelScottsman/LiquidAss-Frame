@@ -23,7 +23,7 @@ ROOT = Path(__file__).resolve().parents[2]
 # command -> the lock it must take (contracts/lab.md section 2)
 EXPECT = {
     "native_session": "native.lock, then lab.lock + lab-vr.lock for setup and return",
-    "hv_grab": "lab-vr.lock", "gates": "lab.lock (lab-vr.lock for vr: surfaces)", "pad_bfs": "lab.lock",
+    "hv_grab": "lab-vr.lock (lab.lock + lab-vr.lock with --route/--pre)", "gates": "lab.lock (lab-vr.lock for vr: surfaces)", "pad_bfs": "lab.lock",
     "focus_live": "lab.lock (lab-vr.lock for vr:)", "motion": "lab.lock (lab-vr.lock for vr:)",
     "sgcheck_live": "lab.lock + lab-vr.lock", "cmp_rects": "lab.lock (lab-vr.lock for vr:)",
     "conformance": "lab.lock (lab-vr.lock for vr:)",
@@ -43,7 +43,8 @@ def static_review():
         locks = []
         if "NATIVE_LOCK" in body:
             locks.append("native.lock")
-        for lk in re.findall(r"with Lock\(([^)]*)\)", body):
+        # every Lock(...) the command constructs (hv picks one of two: `with (Lock(both=True) if layer else ...)`)
+        for lk in re.findall(r"(?<![\w.])Lock\(([^)]*)\)", body):
             locks.append("lab.lock + lab-vr.lock" if "both=True" in lk else
                          ("lab-vr.lock" if 'vr:systemui' in lk else "lab.lock (by surface)"))
         good = bool(locks)
@@ -52,7 +53,9 @@ def static_review():
         if fn == "native_session":
             good = locks[:1] == ["native.lock"] and locks.count("lab.lock + lab-vr.lock") >= 2
         if fn == "hv_grab":
-            good = "lab-vr.lock" in locks
+            # lab-vr.lock for a plain grab; both lab locks (lab.lock first) when a --route/--pre layer is held open
+            # for the capture (REQ C1c->P10); never lab.lock alone (systemui is read)
+            good = "lab-vr.lock" in locks and set(locks) <= {"lab-vr.lock", "lab.lock + lab-vr.lock"}
         ok &= good
         rows.append({"command": cmd, "function": fn, "takes": locks, "expected": EXPECT.get(fn, "a lock"), "ok": good})
     lab = (ROOT / "lab" / "lab.py").read_text(encoding="utf-8")
@@ -61,6 +64,9 @@ def static_review():
         seg = re.search(r'elif cmd == "%s":(.*?)(?=\n    elif |\n    else:)' % c, lab, re.S)
         p1[c] = bool(seg and "with Lock(" in seg.group(1))
         ok &= p1[c]
+    # perf --ab (R2-13) runs from lab.py's perf command into lab_p2cmd.perf_ab, which takes the surface's lock
+    p1["perf --ab"] = "with Lock(surface=surface)" in funcs.get("perf_ab", "")
+    ok &= p1["perf --ab"]
     order_ok = "flock_wait(NATIVE_LOCK" in funcs.get("native_session", "") and \
         funcs["native_session"].index("flock_wait(NATIVE_LOCK") < funcs["native_session"].index("with Lock(both=True")
     ok &= order_ok

@@ -1,0 +1,36 @@
+{
+  "version": 2,
+  "about": "C7 People, Photos, Downloads, Store (SM §4.1, §4.2; PLAN §1.7 default profile). Every rule is behind wp.c7. Pops: the attended media tile (+15 mm, content card >= 150 px, rule 2 admits +15 for a 405 x 228 tile; the More circle riding it may lower it to +10) and the Now Downloading card's 60 px Pause / Resume circle (+10 mm: s = 60 >= 52). Nothing else in the area pops: friend rows, conversation, compose, Downloads rows, the account page and the viewer / clip player stay at 0 (crop budget 0 over media, SM-D12); menus, alerts and sheets are C1c's modal rules. The /invites card is not a rule: 70-social.js tags it as one panel plate (data-lgs-plate, id c7-invites) while the route is windowless.",
+  "flag": "wp.c7",
+  "surfaces": {
+    "main": {
+      "layers": [
+        {
+          "id": "media-tile",
+          "sel": "%{ScreenshotList} %{ListItemAndGlowContainer>ListItem}",
+          "mm": 15,
+          "when": "attended",
+          "slab": "liquid",
+          "r": 20,
+          "flag": "wp.c7",
+          "wearer": {
+            "mm": 15,
+            "interactive": true
+          }
+        },
+        {
+          "id": "downloads-pause",
+          "sel": "%{DownloadsPage} %{PauseResumeButton}",
+          "mm": 10,
+          "slab": "liquid",
+          "r": 30,
+          "flag": "wp.c7",
+          "wearer": {
+            "mm": 15,
+            "interactive": true
+          }
+        }
+      ]
+    }
+  }
+}
