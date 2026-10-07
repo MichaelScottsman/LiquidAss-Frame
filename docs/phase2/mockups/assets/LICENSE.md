@@ -1,0 +1,12 @@
+# Mockup assets: sources and licences
+
+| File | What it is | Source | Licence |
+|---|---|---|---|
+| `room-lounge.jpg` | 2400 × 1350 rectilinear view (104° wide, pitch −2°) reprojected from the equirectangular tonemapped JPG of the HDRI **Lythwood Room** by Greg Zaal | https://polyhaven.com/a/lythwood_room (file `HDRIs/extra/Tonemapped JPG/lythwood_room.jpg`, 8192 × 4096) | **CC0 1.0** (Poly Haven: "All assets on Poly Haven are CC0", https://polyhaven.com/license) |
+| `room-studio.jpg` | 2400 × 1350 crop of backplate `IMG_001` of **Photo Studio London Hall** by Sergej Majboroda | https://polyhaven.com/a/photo_studio_london_hall (file `HDRIs/extra/Backplates/photo_studio_london_hall/jpg_pretty/IMG_001.jpg`) | **CC0 1.0** (as above) |
+
+CC0 needs no attribution; the credits above are courtesy. Downloaded 2026-10-07.
+
+Everything else the kit draws (game posters, icons, avatars, the dark room variant) is procedural and made in `kit.js`; no third-party art, logos or game titles are used. The UI font comes from `theme/fonts/` (Inter 4.1, SIL OFL 1.1, licence in `theme/fonts/LICENSE.txt`).
+
+The reprojection used (equirectangular to rectilinear, bilinear) is a 30-line numpy script; parameters: centre longitude u = 0.675, horizontal FOV 104°, pitch −2°, output 2400 × 1350, JPEG quality 84.

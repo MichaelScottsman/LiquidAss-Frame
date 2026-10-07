@@ -1652,8 +1652,8 @@ class Glassd {
     std::string feedState() const {
         if (opt.noFeed) return "off";
         int st = feed.state.load();
-        if (st == -1) return "failed: " + feed.error;
-        if (feed.attached()) return (feed.isStreaming() ? "live " : "shot ") + feed.mode;
+        if (st == -1) return "failed: " + feed.error();
+        if (feed.attached()) return (feed.isStreaming() ? "live " : "shot ") + feed.mode();
         return "standby";
     }
 

@@ -4,15 +4,18 @@
     "Which parts of Steam's UI pop out of their window in stereo depth (native mode, docs/NATIVE.md).",
     "Read by device/lgs_layers.js; tokens %{Name} resolve like theme CSS.",
     "Per surface: key (exact overlay key) or keyPrefix (pooled popups; the surface is then reported as NAME.<id>),",
-    "  cover = the element whose rounded box glassd fills with this surface's glass (material), hiding Steam's panel there,",
+    "  cover = the element whose rounded box glassd fills with this surface's glass (material), hiding Steam's panel there;",
+    "  with all: true every outermost match is a shape of its own (bar segments, a popup's cards), never one box around them,",
     "  frameKey = only while the dashboard frame showing that overlay is visible, laserOnly = only in laser (not controller) mode.",
     "Per layer rule: sel, optional pseudo (::before/::after: the capsule is that pseudo-element),",
     "  dz = depth toward the viewer in metres, lift = extra dz while focused (focus selector, default .gpfocus/.gpfocuswithin;",
     "  'always' when sel already only matches focused elements), outset/inset in CSS px, r = 'capsule' | CSS px | computed radius,",
     "  max = elements per rule, material = slab material (liquid, panel, thick, window).",
+    "Layer ids are slots: a rule's first element is reported as the rule id, later ones as id.1, id.2 (the id follows the match).",
     "Rules are in priority order: a layer that overlaps one kept earlier is dropped, as are covered (under a scrim),",
-    "transparent, clipped-away and offscreen ones. Content (lists, grids, text, art) stays on the window plane;",
-    "only ornaments, floating controls, menus/sheets and the focused card pop. Keep each surface under 24 layers."
+    "transparent, clipped-away and offscreen ones, and, while their scroller scrolls, the ones that move with it.",
+    "Content (lists, grids, text, art) stays on the window plane; only ornaments, floating controls, menus/sheets",
+    "and the focused card pop. Never glass on glass: a cover shape is not also popped. Keep each surface under 24 layers."
   ],
   "defaults": { "material": "liquid", "maxLayers": 20 },
   "surfaces": {
@@ -61,18 +64,16 @@
     "bar": {
       "key": "valve.steam.gamepadui.bar",
       "material": "liquid",
-      "cover": { "sel": "%{PopupBody>DashboardBar}", "r": "capsule" },
-      "layers": [
-        { "id": "segment", "sel": "%{PopupBody>DashboardBar} > %{BarSurface}",
-          "dz": 0.006, "material": "panel", "max": 4 }
-      ]
+      "cover": { "sel": "%{PopupBody>DashboardBar} > %{BarSurface}", "all": true, "r": "capsule" },
+      "layers": []
     },
 
     "barpopup": {
       "keyPrefix": "valve.steam.gamepadui.barpopup.",
       "material": "panel",
       "cover": {
-        "sel": "%{DashboardBarPopupSectionStack}, %{DashboardBarPopupContents}, %{QuickAccessMenu}, %{DashboardMenu}%{Variant_TabMenu}"
+        "sel": "%{DashboardBarPopupContents}, %{QuickAccessMenu}, %{DashboardMenu}%{Variant_TabMenu}",
+        "all": true
       },
       "layers": []
     },

@@ -6,10 +6,13 @@ dashboard, bar, popups, keyboard, toasts) on or off. The theme is injected
 into the running Steam client over its local devtools socket and is never
 written anywhere persistent: restarting Steam or rebooting restores stock.
 
-usage: lgs [toggle|on|off|reload|status|dial 0..1|toast TEXT] [--quiet]
+usage: lgs [toggle|on|off|reload|status|dial 0..1|toast TEXT] [--quiet] [--native|--css]
 
   toggle   on if off, off if on (what the "+ > Launch Program" entry runs)
-  on       inject (or re-inject) the theme
+  on       inject (or re-inject) the theme. --native also runs the native
+           glass layer (glassd, scene-graph depth; docs/NATIVE.md) for this
+           session; --css switches a running native layer back off. Without
+           either a running layer is kept as it is, and a new one is CSS only
   off      remove every trace of it
   reload   re-read theme/*.css and swap it in without a toast
   status   print what is applied, and any theme tokens that did not resolve
@@ -30,12 +33,18 @@ ROOT = os.path.dirname(HERE) if os.path.basename(HERE) == "device" else HERE
 THEME_DIR = os.path.join(ROOT, "theme")
 CDP = "http://127.0.0.1:8080"
 LOG = "/tmp/lgs/lgs.log"
+LOG_MAX = 512 * 1024   # /tmp is RAM: keep the log and one older copy (lgs.log.1)
 DIAL = os.path.join(ROOT, "dial")
 
 
 def log(msg):
     try:
         os.makedirs(os.path.dirname(LOG), exist_ok=True)
+        try:
+            if os.path.getsize(LOG) > LOG_MAX:
+                os.replace(LOG, LOG + ".1")
+        except OSError:
+            pass
         with open(LOG, "a", encoding="utf-8") as f:
             f.write(time.strftime("%H:%M:%S ") + msg + "\n")
     except OSError:
@@ -223,10 +232,11 @@ def core_call(payload):
             f"return ({core_js})({json.dumps(payload)}, lgsBuildIndex, lgsLens);\n}})()")
 
 
-def op(name, quiet=False, text=None, vr=False):
+def op(name, quiet=False, text=None, vr=False, native=None):
     """Run one operation on the Steam UI; with vr=True also on the native glass
-    layer and SteamVR's pages: on starts the transient unit lgs-shell (native
-    glass + SteamVR page theming), off stops it and strips the pages."""
+    layer and SteamVR's pages: on starts the transient unit lgs-shell (SteamVR
+    page theming; the native glass layer only with native=True, see
+    lgs_shell.start), off stops it and strips the pages."""
     shell_off = None
     if vr and name == "off":
         # Native layer first, so Steam's own panels are back before the CSS goes.
@@ -259,7 +269,7 @@ def op(name, quiet=False, text=None, vr=False):
             import lgs_shell
             import lgs_vr
             if name == "on":
-                res["shell"] = lgs_shell.start()
+                res["shell"] = lgs_shell.start(native=native)
             elif name == "off":
                 res["shell"] = shell_off
                 lgs_vr.strip()
@@ -292,6 +302,7 @@ def is_on():
 def main(argv):
     args = [a for a in argv[1:] if not a.startswith("--")]
     quiet = "--quiet" in argv
+    native = True if "--native" in argv else (False if "--css" in argv else None)
     cmd = args[0] if args else "toggle"
     if cmd in ("-h", "help"):
         print(__doc__)
@@ -311,7 +322,7 @@ def main(argv):
         elif cmd == "toast":
             res = op("toast", text=" ".join(args[1:]) or "Liquid Glass")
         elif cmd in ("on", "off", "status"):
-            res = op(cmd, quiet=quiet, vr=True)
+            res = op(cmd, quiet=quiet, vr=True, native=native if cmd == "on" else None)
         else:
             print(__doc__)
             return 2

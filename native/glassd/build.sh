@@ -41,9 +41,17 @@ g++ -std=c++17 $OPT -Wall -Wno-missing-field-initializers -Wno-unused-function \
 install -m755 build/glassd glassd
 echo "built $(pwd)/glassd"
 
-# Verification tool (optional): reads an overlay back from SteamVR.
+# Verification tools (optional, see README "Verifying without the headset"):
+#   ovgrab     reads an overlay back from SteamVR
+#   fakeov     a Steam-like test overlay that moves and changes handle (tools/test_geometry.sh)
+#   inview     where Steam's window and bar land in the passthrough feed (numbers only)
+#   feedprobe  how the feed loopback behaves on short attaches (numbers only)
 if g++ -std=c++17 -O2 -I"$INC" -Ithird_party tools/ovgrab.cpp -o build/ovgrab -lvulkan $VRLIB 2>build/ovgrab.log; then
     echo "built $(pwd)/build/ovgrab"
 else
     echo "ovgrab not built (see build/ovgrab.log)"
 fi
+for t in fakeov inview; do
+    g++ -std=c++17 -O2 -I"$INC" tools/$t.cpp -o build/$t $VRLIB 2>build/$t.log || echo "$t not built (see build/$t.log)"
+done
+g++ -std=c++17 -O2 tools/feedprobe.cpp -o build/feedprobe 2>build/feedprobe.log || echo "feedprobe not built (see build/feedprobe.log)"

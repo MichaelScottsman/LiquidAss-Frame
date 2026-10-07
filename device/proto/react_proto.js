@@ -14,9 +14,13 @@
 //     ScanForInstalledNonSteamApps hook and filter lists).
 // Clicks are only LOGGED. Nothing is launched, nothing is changed.
 //
-// The whole file is one expression that returns the API (window.__LGS_PROTO):
-//   python glass.py js "$(cat device/proto/react_proto.js).selftest({remove:true})"
-//   python glass.py js "$(cat device/proto/react_proto.js).install()"   then __LGS_PROTO.open()
+// The whole file is one expression that returns the API (window.__LGS_PROTO).
+// It is too long for a Windows command line, so load it from the headset copy
+// (loading only defines the API; nothing is patched until install()):
+//   python glass.py sync
+//   MSYS_NO_PATHCONV=1 python glass.py eval SharedJSContext @/home/steamos/.local/share/glass-shell/device/proto/react_proto.js
+//   python glass.py js "__LGS_PROTO.selftest({remove:true})"      (locked step; prints PASS/FAIL per check)
+//   python glass.py js "__LGS_PROTO.install(), __LGS_PROTO.open()"
 //   python glass.py js "__LGS_PROTO.status()"
 //   python glass.py js "__LGS_PROTO.remove()"
 // API: install({route, flow}), open(), close(), status(), remove(), unpatch(),
@@ -115,7 +119,7 @@
   // module (the one that defines the export): require() of a module the UI has
   // already executed returns its cached exports, but require() of a module
   // nobody loaded yet would run its top-level code, so a finder with several
-  // candidates is a finder to tighten (status().counts shows them).
+  // candidates is a finder to tighten (resolve() reports the counts).
   function resolve() {
     const cand = {}, size = {};
     for (const k in FINDERS) cand[k] = [];

@@ -10,8 +10,10 @@ does.
   python glass.py native-build [fake]       build glassd on the Frame into
                                             ~/.local/share/glass-shell/native/glassd/glassd
                                             ("fake": the stand-in native/spike/fakeglassd)
-  python glass.py shell [status|start|stop|log]
-                                            the lgs-shell unit (native layer daemon)
+  python glass.py shell [status|start|stop|log] [ARGS]
+                                            the lgs-shell unit (native layer daemon);
+                                            start passes ARGS (--native, --glassd PATH,
+                                            --glassd-args "...", --feed, --stay) on
   python glass.py install                   sync + add "Liquid Glass" to + > Launch Program
   python glass.py uninstall                 theme off, remove launcher and files
   python glass.py on|off|toggle|reload|status
@@ -198,7 +200,8 @@ def main(argv):
             if sub not in ("status", "start", "stop"):
                 print(__doc__)
                 return 2
-            return sh(c, f"{PY} {REMOTE}/device/lgs_shell.py {sub}", timeout=60)[0]
+            extra = " ".join(shlex.quote(a) for a in rest[1:])   # start: --native, --glassd-args "...", --stay
+            return sh(c, f"{PY} {REMOTE}/device/lgs_shell.py {sub} {extra}".rstrip(), timeout=60)[0]
         elif cmd == "logs":
             sh(c, "tail -n 60 /tmp/lgs/lgs.log 2>/dev/null")
         elif cmd in ("outline", "styles", "classes", "click", "js", "route", "nav", "back", "surfaces", "eval", "audit", "perf"):

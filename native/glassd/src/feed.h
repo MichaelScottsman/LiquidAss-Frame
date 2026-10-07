@@ -81,9 +81,17 @@ class FeedCapture {
     std::atomic<uint64_t> minIntervalNs{27000000ull};  // while streaming: process at most ~36 Hz
     std::atomic<uint64_t> attaches{0}, attachedNs{0};  // stats: sessions, total time attached
     std::string device = "/dev/video99";
-    std::string mode = "none";
-    std::string error;
     int factor = 4;  // downsample factor (4: 1920x1080 -> 480x270)
+
+    // Thread-safe copies of the capture mode ("mmap x2", "read") and the last error.
+    std::string mode() const {
+        std::lock_guard<std::mutex> lock(smu);
+        return mode_;
+    }
+    std::string error() const {
+        std::lock_guard<std::mutex> lock(smu);
+        return error_;
+    }
 
     ~FeedCapture() { stop(); }
     void start(const std::string &dev, int downsample) {
@@ -131,6 +139,8 @@ class FeedCapture {
     std::atomic<uint64_t> shotsWanted{0};
     uint64_t shotsDone = 0;  // capture thread only
     std::mutex mu;
+    mutable std::mutex smu;  // guards mode_ and error_
+    std::string mode_ = "none", error_;
     FeedFrame front, back;
     uint64_t lastSeq = 0, nextSeq = 1;
     uint64_t lastKeptNs = 0;
@@ -144,6 +154,15 @@ class FeedCapture {
         void *p = MAP_FAILED;
         size_t len = 0;
     };
+
+    void setMode(const std::string &m) {
+        std::lock_guard<std::mutex> lock(smu);
+        mode_ = m;
+    }
+    void setError(const std::string &e) {
+        std::lock_guard<std::mutex> lock(smu);
+        error_ = e;
+    }
 
     bool shotPending() const { return shotsDone < shotsWanted.load(); }
     bool demand() const { return streaming.load() || shotPending(); }
@@ -235,7 +254,7 @@ class FeedCapture {
         rb.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         rb.memory = V4L2_MEMORY_MMAP;
         if (ioctl(fd, VIDIOC_REQBUFS, &rb) < 0 || rb.count == 0) {
-            error = std::string("REQBUFS: ") + strerror(errno);
+            setError(std::string("REQBUFS: ") + strerror(errno));
             return false;
         }
         std::vector<Buf> bufs(rb.count);
@@ -245,16 +264,16 @@ class FeedCapture {
             b.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
             b.memory = V4L2_MEMORY_MMAP;
             b.index = i;
-            if (ioctl(fd, VIDIOC_QUERYBUF, &b) < 0) { error = std::string("QUERYBUF: ") + strerror(errno); ok = false; break; }
+            if (ioctl(fd, VIDIOC_QUERYBUF, &b) < 0) { setError(std::string("QUERYBUF: ") + strerror(errno)); ok = false; break; }
             bufs[i].len = b.length;
             bufs[i].p = mmap(nullptr, b.length, PROT_READ, MAP_SHARED, fd, b.m.offset);
-            if (bufs[i].p == MAP_FAILED) { error = std::string("mmap: ") + strerror(errno); ok = false; break; }
-            if (ioctl(fd, VIDIOC_QBUF, &b) < 0) { error = std::string("QBUF: ") + strerror(errno); ok = false; break; }
+            if (bufs[i].p == MAP_FAILED) { setError(std::string("mmap: ") + strerror(errno)); ok = false; break; }
+            if (ioctl(fd, VIDIOC_QBUF, &b) < 0) { setError(std::string("QBUF: ") + strerror(errno)); ok = false; break; }
         }
         int type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-        if (ok && ioctl(fd, VIDIOC_STREAMON, &type) < 0) { error = std::string("STREAMON: ") + strerror(errno); ok = false; }
+        if (ok && ioctl(fd, VIDIOC_STREAMON, &type) < 0) { setError(std::string("STREAMON: ") + strerror(errno)); ok = false; }
         if (ok) {
-            mode = "mmap x" + std::to_string(rb.count);
+            setMode("mmap x" + std::to_string(rb.count));
             if (!announced) {
                 std::printf("feed %s %dx%d RGB24 via mmap (%u buffers), kept at 1/%d, attached on demand\n", device.c_str(), W, H,
                             rb.count, factor);
@@ -272,7 +291,7 @@ class FeedCapture {
                 b.memory = V4L2_MEMORY_MMAP;
                 if (ioctl(fd, VIDIOC_DQBUF, &b) < 0) {
                     if (errno == EAGAIN || errno == EINTR) continue;
-                    if (++failures > 50) { error = std::string("DQBUF: ") + strerror(errno); break; }
+                    if (++failures > 50) { setError(std::string("DQBUF: ") + strerror(errno)); break; }
                     usleep(5000);
                     continue;
                 }
@@ -298,7 +317,7 @@ class FeedCapture {
         // Non-blocking reads gated by poll(), so stop() never waits on a stalled feed.
         int fl = fcntl(fd, F_GETFL);
         fcntl(fd, F_SETFL, fl | O_NONBLOCK);
-        mode = "read";
+        setMode("read");
         if (!announced) {
             std::printf("feed %s %dx%d RGB24 via read(), kept at 1/%d, attached on demand\n", device.c_str(), W, H, factor);
             std::fflush(stdout);
@@ -316,7 +335,7 @@ class FeedCapture {
                 ssize_t n = ::read(fd, raw.data() + got, size - got);
                 if (n <= 0) {
                     if (n < 0 && (errno == EINTR || errno == EAGAIN)) continue;
-                    error = "feed read ended";
+                    setError("feed read ended");
                     return;
                 }
                 got += size_t(n);
@@ -332,13 +351,13 @@ class FeedCapture {
         state = 1;
         int fd = ::open(device.c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
         if (fd < 0) {
-            error = "open " + device + ": " + strerror(errno);
+            setError("open " + device + ": " + strerror(errno));
             return false;
         }
         v4l2_format fmt{};
         fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         if (ioctl(fd, VIDIOC_G_FMT, &fmt) < 0 || fmt.fmt.pix.pixelformat != V4L2_PIX_FMT_RGB24) {
-            error = "unexpected feed format";
+            setError("unexpected feed format");
             ::close(fd);
             return false;
         }
@@ -350,13 +369,14 @@ class FeedCapture {
         attachedFlag = true;
         attaches++;
         if (!runMmap(fd) && !quit) {
-            if (error != lastError) std::printf("feed mmap streaming failed (%s); using read()\n", error.c_str());
-            lastError = error;
+            const std::string e = error();
+            if (e != lastError) std::printf("feed mmap streaming failed (%s); using read()\n", e.c_str());
+            lastError = e;
             std::fflush(stdout);
             ::close(fd);
             fd = ::open(device.c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
             if (fd < 0) {
-                error = "reopen " + device + ": " + strerror(errno);
+                setError("reopen " + device + ": " + strerror(errno));
                 attachedNs += monoNowNs() - t0;
                 attachedFlag = false;
                 return false;
@@ -386,10 +406,11 @@ class FeedCapture {
                 continue;
             }
             state = -1;
-            if (error != lastError) {
-                std::printf("feed unavailable (%s); retrying every 5 s, the room map keeps its last state\n", error.c_str());
+            const std::string e = error();
+            if (e != lastError) {
+                std::printf("feed unavailable (%s); retrying every 5 s, the room map keeps its last state\n", e.c_str());
                 std::fflush(stdout);
-                lastError = error;
+                lastError = e;
             }
             shotsDone = shotsWanted.load();  // drop pending shots
             retryAt = monoNowNs() + 5000000000ull;

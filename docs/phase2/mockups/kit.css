@@ -1,0 +1,368 @@
+/* Glass Shell Phase 2 mockup kit — the design system of docs/phase2/DESIGN2.md as static CSS.
+ *
+ * A mockup is a 1920 x 1080 "headset view" (.lgk-view) with a room photo behind everything.
+ * Steam's main window is a 1280 x 720 CSS px overlay (.lgk-overlay) drawn at 1:1, so every
+ * number in DESIGN2 can be typed here unchanged. Popups (bar, frame menu, bar popups) are
+ * their own quads at their own scale (.lgk-pop, --pop-scale; DESIGN2 §3.4).
+ *
+ * Rules the kit enforces by construction:
+ *  - glass is only ever a .lgk-glass element; inside glass, everything is a fill (no glass on glass)
+ *  - glass elements are siblings in the functional layer, so each one samples the room AND the window
+ *  - no border, no outline, no 1 px ring: edges = tone step + lens band + specular arcs + dark edge + shadow
+ *  - every size is a token from DESIGN2 (pt x 4/3 = CSS px)
+ * The mockup's window glass frosts the room (a stand-in for glassd, tier T5). Add
+ * data-tier="t1" on .lgk-view to see the CSS-only fallback, which cannot blur the room.
+ */
+
+@font-face {
+  font-family: "LGS Inter";
+  src: url("../../../theme/fonts/InterVariable-lgs.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ===================================================================== tokens (DESIGN2 §16) */
+:root {
+  /* type */
+  --lg-font: "LGS Inter", "Motiva Sans", "Noto Sans", system-ui, sans-serif;
+  /* vibrancy on glass: label / secondary / tertiary / quaternary */
+  --lg-text-1: rgb(255 255 255 / .96);
+  --lg-text-2: rgb(255 255 255 / .70);
+  --lg-text-3: rgb(255 255 255 / .50);
+  --lg-text-4: rgb(255 255 255 / .32);
+  --lg-text-on-selected: #0d0e12;
+
+  /* sizes (CSS px of the main window; 1 pt = 4/3 px) */
+  --lg-hit: 80px;          /* 60 pt: minimum hit region and centre spacing */
+  --lg-btn: 60px;          /* 44 pt regular button */
+  --lg-btn-lg: 70px;       /* 52 pt primary action */
+  --lg-btn-xl: 86px;       /* 64 pt hero action */
+  --lg-btn-sm: 44px;       /* 32 pt: only alone, with an 80 px clear hit region */
+  --lg-row: 72px;          /* list / sidebar / menu row (80 px pitch with an 8 px gap) */
+  --lg-row-gap: 8px;
+  --lg-field: 64px;        /* search and text fields */
+  --lg-ornament: 84px;     /* horizontal ornament: 60 px buttons + 12 px padding */
+  --lg-inset: 24px;        /* content inset from a glass edge */
+  --lg-inset-text: 40px;   /* text columns and grids */
+  --lg-gap: 24px;          /* between groups, stacked buttons, grid items */
+
+  /* radii: concentric (child = parent - padding) */
+  --lg-r-window: 54px;     /* 60 px corner circle inset 24 px: 30 + 24 */
+  --lg-r-sheet: 44px;
+  --lg-r-menu: 32px;
+  --lg-r-platter: 30px;    /* 54 - 24 */
+  --lg-r-row: 24px;        /* 32 - 8 */
+  --lg-r-card: 20px;
+  --lg-r-small: 14px;
+  --lg-r-capsule: 999px;
+
+  /* colour: whole fills only (visionOS = dark-appearance system colours) */
+  --lg-blue: rgb(0 145 255);
+  --lg-green: rgb(48 209 88);
+  --lg-red: rgb(255 66 69);
+  --lg-orange: rgb(255 146 48);
+  --lg-yellow: rgb(255 214 0);
+  --lg-purple: rgb(219 52 242);
+  --lg-teal: rgb(0 210 224);
+  --lg-indigo: rgb(109 124 255);
+  --lg-gray: rgb(142 142 147);
+  --lg-tint-play: rgb(48 209 88 / .88);     /* Play keeps Steam green */
+  --lg-tint-primary: rgb(0 145 255 / .86);
+  --lg-tint-danger: rgb(255 66 69 / .84);
+
+  /* fills on glass (never glass on glass) */
+  --lg-fill-thin: rgb(255 255 255 / .10);      /* raised: buttons at rest */
+  --lg-fill-nav: rgb(255 255 255 / .18);       /* navigation selection: tab, sidebar row */
+  --lg-fill-hover: rgb(255 255 255 / .08);     /* added on hover */
+  --lg-fill-focus: rgb(255 255 255 / .14);     /* added on gamepad focus */
+  --lg-fill-regular: rgb(0 0 0 / .14);         /* recessed: sidebar, grouped platters */
+  --lg-fill-thick: rgb(0 0 0 / .30);           /* recessed: fields, slider tracks */
+  --lg-fill-selected: rgb(255 255 255 / .94);  /* toggled / selected button, open-menu source, segment */
+
+  /* light: one key light, above and 20 deg left of vertical (DESIGN2 §6.2) */
+  --lg-light: 340deg;
+
+  /* motion tokens (liquid-glass-motion.md §3.2-3.3; static mockups only show end states) */
+  --lg-ease-b0: linear(0, .005 1.2%, .020 2.3%, .084 5.2%, .159 7.7%, .461 16.9%, .556 20.2%, .639 23.5%, .709 26.9%, .767 30.2%, .817 33.7%, .861 37.6%, .900 42.1%, .930 46.9%, .954 52.4%, .971 58.6%, .991 73.8%, 1);
+  --lg-ease-b15: linear(0, .006 1.3%, .024 2.7%, .054 4.2%, .093 5.7%, .188 8.7%, .518 18.2%, .613 21.4%, .696 24.5%, .767 27.7%, .825 30.9%, .872 34.1%, .913 37.6%, .945 41.4%, .970 45.6%, .988 50.3%, 1.000 55.8%, 1.006 67.9%, 1);
+  --lg-d-hover-in: 294ms;
+  --lg-d-fade: 441ms;
+  --lg-d-interactive: 210ms;
+}
+
+/* ===================================================================== view and room */
+html, body { margin: 0; padding: 0; background: #000; }
+body { width: 1920px; height: 1080px; overflow: hidden; font-family: var(--lg-font);
+  -webkit-font-smoothing: antialiased; font-synthesis: none; font-optical-sizing: auto; color: var(--lg-text-1); }
+
+.lgk-view {
+  --lgk-room-url: url("assets/room-lounge.jpg");
+  position: relative; width: 1920px; height: 1080px; overflow: hidden;
+  background: #222 var(--lgk-room-url) center / cover no-repeat;
+}
+.lgk-view[data-room="studio"] { --lgk-room-url: url("assets/room-studio.jpg"); }
+/* a dim evening room: the same photo at 38 % exposure (kit.js reads --lgk-room-dim) */
+.lgk-view[data-dim] { --lgk-room-dim: .38; }
+.lgk-view[data-dim]::before { content: ""; position: absolute; inset: 0; background: rgb(0 0 0 / .62); pointer-events: none; }
+
+/* Steam's main window: a 1280 x 720 overlay quad, transparent outside the glass (DESIGN2 §3.2) */
+.lgk-overlay { position: absolute; width: 1280px; height: 720px; }
+/* any other quad (popups, SteamVR panels), authored in its own CSS px and scaled into the view */
+.lgk-pop { position: absolute; transform-origin: 0 0; transform: scale(var(--pop-scale, 1)); }
+.lgk-abs { position: absolute; }
+
+/* ===================================================================== glass (DESIGN2 §6) */
+.lgk-glass {
+  position: absolute; box-sizing: border-box; border-radius: var(--r, var(--lg-r-capsule));
+  color: var(--lg-text-1);
+  /* edge cues E4 (darkened inner edge) + E5 (thickness shading) + cast shadow sized by depth */
+  --de-w: 7px; --de-a: .14;
+  box-shadow:
+    inset 0 0 var(--de-w) calc(var(--de-w) * -.15) rgb(0 0 0 / var(--de-a)),
+    inset 0 -2px 4px -1px rgb(0 0 0 / .12),
+    0 calc(var(--dz, 0) * .4px) calc(var(--dz, 0) * 1.2px) rgb(0 0 0 / calc(var(--sh-a, .28) * min(1, var(--dz, 0))));
+}
+/* E3: specular arcs from the key light. A gradient ring cut out with mask-composite; the
+   conic has gaps on both sides, so it never closes into an outline. The linear layer keeps a
+   faint top edge on wide shapes so the arc does not collapse into the corner. */
+.lgk-glass::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 3;
+  padding: var(--rim-w, 1.5px);
+  background:
+    conic-gradient(from var(--lg-light),
+      rgb(255 255 255 / calc(.62 * var(--rim, 1))) 0deg,
+      rgb(255 255 255 / calc(.20 * var(--rim, 1))) 38deg,
+      transparent 72deg, transparent 148deg,
+      rgb(255 255 255 / calc(.20 * var(--rim, 1))) 180deg,
+      transparent 214deg, transparent 288deg,
+      rgb(255 255 255 / calc(.22 * var(--rim, 1))) 322deg,
+      rgb(255 255 255 / calc(.62 * var(--rim, 1))) 360deg),
+    linear-gradient(180deg, rgb(255 255 255 / calc(.30 * var(--rim, 1))) 0, transparent 26%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+}
+
+/* window: visionOS glass, the window itself (T5 glassd "window"; frosted room, adaptive tone) */
+.lgk-glass[data-mat="window"] {
+  --r: var(--lg-r-window); --de-w: 16px; --de-a: .20; --rim: .78; --rim-w: 2px;
+  --lgk-target-luma: .33; --lgk-contrast: .80;
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / .085) 0, rgb(255 255 255 / .025) 22%, rgb(255 255 255 / 0) 55%, rgb(0 0 0 / .05) 100%),
+    rgb(var(--lgk-tint, 38 38 42) / var(--lgk-tint-a, .12));
+  -webkit-backdrop-filter: blur(var(--frost, 26px)) saturate(1.55) contrast(var(--lgk-contrast)) brightness(var(--lgk-adapt, .8));
+  backdrop-filter: blur(var(--frost, 26px)) saturate(1.55) contrast(var(--lgk-contrast)) brightness(var(--lgk-adapt, .8));
+}
+/* panel: standalone popups over the room (bar popups, frame menu host, toasts, HUDs) */
+.lgk-glass[data-mat="panel"] {
+  --de-w: 10px; --de-a: .16; --rim: .9;
+  --lgk-target-luma: .29; --lgk-contrast: .76;
+  background: linear-gradient(180deg, rgb(255 255 255 / .08), rgb(255 255 255 / 0) 40%), rgb(52 54 62 / .20);
+  -webkit-backdrop-filter: blur(22px) saturate(1.45) contrast(var(--lgk-contrast)) brightness(var(--lgk-adapt, .85));
+  backdrop-filter: blur(22px) saturate(1.45) contrast(var(--lgk-contrast)) brightness(var(--lgk-adapt, .85));
+}
+/* liquid: ornaments, tab bars, toolbars, floating controls (thinner, more lensing) */
+.lgk-glass[data-mat="liquid"] {
+  --de-w: 6px; --de-a: .12; --rim: 1.1;
+  --lgk-target-luma: .38; --lgk-contrast: .82;
+  background: linear-gradient(180deg, rgb(255 255 255 / .12), rgb(255 255 255 / .03) 55%), rgb(80 80 86 / .12);
+  -webkit-backdrop-filter: blur(12px) saturate(1.7) contrast(var(--lgk-contrast)) brightness(var(--lgk-adapt, .9));
+  backdrop-filter: blur(12px) saturate(1.7) contrast(var(--lgk-contrast)) brightness(var(--lgk-adapt, .9));
+}
+/* thick: menus, sheets, alerts (bigger glass reads thicker: more frost, darker edge, deeper shadow) */
+.lgk-glass[data-mat="thick"] {
+  --r: var(--lg-r-menu); --de-w: 12px; --de-a: .20; --rim: .85; --sh-a: .34;
+  --lgk-target-luma: .29; --lgk-contrast: .76;
+  background: linear-gradient(180deg, rgb(255 255 255 / .08), rgb(255 255 255 / 0) 35%), rgb(36 37 42 / .30);
+  -webkit-backdrop-filter: blur(30px) saturate(1.5) contrast(var(--lgk-contrast)) brightness(var(--lgk-adapt, .78));
+  backdrop-filter: blur(30px) saturate(1.5) contrast(var(--lgk-contrast)) brightness(var(--lgk-adapt, .78));
+}
+/* clear: only over media, with the 35 % dimming layer under it (DESIGN2 §6.4) */
+.lgk-glass[data-mat="clear"] {
+  --de-w: 5px; --de-a: .10; --rim: 1.2; --lgk-target-luma: .40; --lgk-contrast: .9;
+  background: rgb(255 255 255 / .05);
+  -webkit-backdrop-filter: blur(3px) saturate(1.3) brightness(var(--lgk-adapt, 1));
+  backdrop-filter: blur(3px) saturate(1.3) brightness(var(--lgk-adapt, 1));
+}
+/* lensed variants: kit.js sets --lgk-lens = url(#svg-filter) (frost + bezel refraction + dispersion) */
+.lgk-glass.lgk-lensed {
+  -webkit-backdrop-filter: var(--lgk-lens) contrast(var(--lgk-contrast)) brightness(var(--lgk-adapt, .9));
+  backdrop-filter: var(--lgk-lens) contrast(var(--lgk-contrast)) brightness(var(--lgk-adapt, .9));
+}
+/* tinted glass: colour lives in the glass, never in the label (one primary per screen) */
+.lgk-glass[data-tint="play"] { background: linear-gradient(180deg, rgb(255 255 255 / .16), rgb(255 255 255 / 0) 60%), var(--lg-tint-play); }
+.lgk-glass[data-tint="primary"] { background: linear-gradient(180deg, rgb(255 255 255 / .16), rgb(255 255 255 / 0) 60%), var(--lg-tint-primary); }
+
+/* T1 tier: CSS only. backdrop-filter cannot see the room, so window and panel glass are tint
+   + edges; liquid glass still frosts what is inside the same page. */
+.lgk-view[data-tier="t1"] .lgk-glass:is([data-mat="window"], [data-mat="panel"]) {
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+  background: linear-gradient(180deg, rgb(255 255 255 / .08), rgb(255 255 255 / 0) 30%), rgb(20 22 30 / .74);
+}
+.lgk-view[data-tier="t1"] .lgk-pop .lgk-glass { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgb(28 30 40 / .78); }
+
+/* ===================================================================== fills (DESIGN2 §6.5) */
+.lgk-fill-thin { background: var(--lg-fill-thin); }
+.lgk-fill-regular { background: var(--lg-fill-regular); }
+.lgk-fill-thick { background: var(--lg-fill-thick); box-shadow: inset 0 2px 4px rgb(0 0 0 / .22); }
+.lgk-scrim { position: absolute; inset: 0; background: rgb(0 0 0 / .35); border-radius: inherit; }
+
+/* ===================================================================== type (DESIGN2 §5) */
+.t-xl1 { font-size: 64px; font-weight: 700; line-height: 1.10; letter-spacing: -.02em; }
+.t-xl2 { font-size: 52px; font-weight: 700; line-height: 1.10; letter-spacing: -.02em; }
+.t-large { font-size: 46px; font-weight: 700; line-height: 1.18; letter-spacing: -.015em; }
+.t-title1 { font-size: 38px; font-weight: 700; line-height: 1.20; letter-spacing: -.015em; }
+.t-title2 { font-size: 30px; font-weight: 700; line-height: 1.25; letter-spacing: -.01em; }
+.t-title3 { font-size: 28px; font-weight: 600; line-height: 1.25; letter-spacing: -.01em; }
+.t-headline { font-size: 24px; font-weight: 600; line-height: 1.30; letter-spacing: -.005em; }
+.t-body { font-size: 24px; font-weight: 500; line-height: 1.30; letter-spacing: -.005em; }
+.t-callout { font-size: 22px; font-weight: 500; line-height: 1.30; }
+.t-subhead { font-size: 20px; font-weight: 500; line-height: 1.30; }
+.t-footnote { font-size: 18px; font-weight: 500; line-height: 1.35; letter-spacing: .005em; }
+.t-caption { font-size: 18px; font-weight: 600; line-height: 1.35; letter-spacing: .01em; }
+.t-num { font-variant-numeric: tabular-nums; }
+.v1 { color: var(--lg-text-1); }
+.v2 { color: var(--lg-text-2); }
+.v3 { color: var(--lg-text-3); }
+
+/* icons: SF-Symbols-like strokes, >= 2 CSS px (DESIGN2 §8) */
+.lgk-i { width: var(--is, 26px); height: var(--is, 26px); flex: none; stroke-width: 2.1; stroke-linecap: round; stroke-linejoin: round; display: block; }
+.lgk-i.bold { stroke-width: 2.6; }
+
+/* ===================================================================== controls (DESIGN2 §9) */
+.lgk-btn {
+  position: relative; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center;
+  gap: 10px; flex: none; height: var(--s, var(--lg-btn)); min-width: var(--s, var(--lg-btn));
+  border-radius: var(--lg-r-capsule); background: var(--lg-fill-thin); color: var(--lg-text-1);
+  font: 600 24px/1 var(--lg-font); letter-spacing: -.005em; white-space: nowrap;
+}
+.lgk-btn.circle { width: var(--s, var(--lg-btn)); padding: 0; --is: calc(var(--s, 60px) * .45); }
+.lgk-btn.capsule { padding: 0 24px; }
+.lgk-btn.capsule > .lgk-i:first-child { margin-left: -4px; }
+.lgk-btn.plain { background: transparent; }                 /* borderless, inside ornaments */
+.lgk-btn.lg { --s: var(--lg-btn-lg); font-size: 26px; }
+.lgk-btn.xl { --s: var(--lg-btn-xl); font-size: 28px; }
+.lgk-btn.sm { --s: var(--lg-btn-sm); font-size: 20px; }
+.lgk-btn.primary { background: linear-gradient(180deg, rgb(255 255 255 / .18), rgb(255 255 255 / 0) 55%), var(--lg-tint-primary); }
+.lgk-btn.play { background: linear-gradient(180deg, rgb(255 255 255 / .18), rgb(255 255 255 / 0) 55%), var(--lg-tint-play); }
+.lgk-btn.danger-label { color: var(--lg-red); }
+/* states. The illumination layer (::after) carries hover light, focus glow and press glow;
+   it never draws an outline (DESIGN2 §10). */
+.lgk-btn::after, .lgk-row::after, .lgk-tab::after, .lgk-seg > *::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  mix-blend-mode: plus-lighter; opacity: 0;
+  background:
+    radial-gradient(circle at var(--hx, 50%) var(--hy, 30%), rgb(255 255 255 / var(--spot, .12)) 0, rgb(255 255 255 / 0) var(--spot-r, 75%)),
+    rgb(255 255 255 / var(--lift, 0));
+}
+.is-hover::after { opacity: 1; --lift: .08; }
+.is-focus::after { opacity: 1; --lift: .14; --spot: .16; }
+.is-pressed::after { opacity: 1; --lift: .06; --spot: .22; --spot-r: 120%; }
+.lgk-btn.is-pressed { scale: min(1.06, calc(1 + 6 / var(--maxside, 80))); }
+/* a focused control "lifts into glass": it gets its own specular arc (no ring) */
+.lgk-btn.is-focus::before, .lgk-row.is-focus::before, .lgk-tab.is-focus::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; padding: 1.5px;
+  background: conic-gradient(from var(--lg-light), rgb(255 255 255 / .75) 0deg, rgb(255 255 255 / .2) 40deg, transparent 75deg, transparent 145deg, rgb(255 255 255 / .22) 180deg, transparent 215deg, transparent 285deg, rgb(255 255 255 / .2) 320deg, rgb(255 255 255 / .75) 360deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+}
+.is-selected { background: var(--lg-fill-selected) !important; color: var(--lg-text-on-selected) !important; }
+.is-selected .v2, .is-selected .v3 { color: rgb(13 14 18 / .6); }
+.is-nav-selected { background: var(--lg-fill-nav); }
+.is-disabled { opacity: .4; }
+
+/* controller glyph badge: teaches the gamepad mapping on visible buttons (DESIGN2 §10.4) */
+.lgk-glyph { display: inline-grid; place-items: center; flex: none; width: 30px; height: 30px; border-radius: 50%;
+  background: rgb(255 255 255 / .20); color: var(--lg-text-1); font: 700 16px/1 var(--lg-font); }
+.is-selected .lgk-glyph { background: rgb(13 14 18 / .14); color: var(--lg-text-on-selected); }
+
+/* badges */
+.lgk-badge { position: absolute; display: inline-grid; place-items: center; min-width: 28px; height: 28px; padding: 0 8px; box-sizing: border-box;
+  border-radius: 14px; background: var(--lg-red); color: #fff; font: 600 18px/1 var(--lg-font); font-variant-numeric: tabular-nums; }
+.lgk-badge.inline { position: relative; }
+
+/* segmented control: recessed track, the selected segment is the white pill */
+.lgk-seg { display: inline-flex; gap: 4px; padding: 4px; height: var(--lg-field); box-sizing: border-box; border-radius: var(--lg-r-capsule);
+  background: var(--lg-fill-thick); box-shadow: inset 0 2px 4px rgb(0 0 0 / .20); }
+.lgk-seg > * { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 26px;
+  border-radius: var(--lg-r-capsule); font: 600 22px/1 var(--lg-font); color: var(--lg-text-1); white-space: nowrap; }
+.lgk-seg > .is-selected { box-shadow: 0 2px 6px rgb(0 0 0 / .22); }
+.lgk-seg.compact > * { padding: 0 20px; }
+
+/* search field: a recessed capsule (darker material for input), magnifier leading, mic trailing */
+.lgk-search { position: relative; display: flex; align-items: center; gap: 14px; height: var(--lg-field); box-sizing: border-box;
+  padding: 0 10px 0 22px; border-radius: var(--lg-r-capsule); background: var(--lg-fill-thick); box-shadow: inset 0 2px 5px rgb(0 0 0 / .26); }
+.lgk-search .ph { flex: 1; font: 500 24px/1 var(--lg-font); color: rgb(255 255 255 / .55); white-space: nowrap; overflow: hidden; }
+.lgk-search > .lgk-i { --is: 26px; color: rgb(255 255 255 / .62); }
+.lgk-search .lgk-btn { --s: var(--lg-btn-sm); background: transparent; color: rgb(255 255 255 / .62); }
+.lgk-search.is-focus { box-shadow: inset 0 2px 5px rgb(0 0 0 / .26), 0 0 0 3px rgb(255 255 255 / .55), 0 0 16px rgb(255 255 255 / .22); }
+
+/* tab bar ornament (vertical, leading edge, <= 6 tabs; DESIGN2 §7.2) */
+.lgk-tabbar { display: flex; flex-direction: column; align-items: stretch; gap: 20px; padding: 12px; width: var(--lg-ornament); }
+.lgk-tab { position: relative; display: flex; align-items: center; height: var(--lg-btn); border-radius: var(--lg-r-capsule); color: var(--lg-text-1); }
+.lgk-tab > .lgk-i { --is: 28px; margin: 0 calc((var(--lg-btn) - var(--is)) / 2); }
+.lgk-tab > span { font: 600 24px/1 var(--lg-font); opacity: 0; white-space: nowrap; }
+.lgk-tabbar.expanded { width: 280px; }
+.lgk-tabbar.expanded .lgk-tab > span { opacity: 1; }
+
+/* horizontal ornament / toolbar (overlaps the window's bottom edge by 28 px) */
+.lgk-toolbar { display: flex; align-items: center; gap: 12px; height: var(--lg-ornament); padding: 0 12px; box-sizing: border-box; }
+.lgk-toolbar .sep { width: 12px; }
+
+/* lists, sidebars, platters (DESIGN2 §9.6) */
+.lgk-sidebar { position: absolute; top: 0; bottom: 0; left: 0; background: var(--lg-fill-regular); border-radius: var(--lg-r-window) 0 0 var(--lg-r-window); }
+.lgk-row { position: relative; display: flex; align-items: center; gap: 16px; height: var(--lg-row); padding: 0 20px; box-sizing: border-box;
+  border-radius: var(--lg-r-row); font: 500 24px/1.2 var(--lg-font); color: var(--lg-text-1); }
+.lgk-row .trail { margin-left: auto; display: flex; align-items: center; gap: 10px; color: var(--lg-text-2); font-size: 22px; }
+.lgk-row .chip { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; color: #fff; --is: 22px; flex: none; }
+.lgk-platter { position: relative; border-radius: var(--lg-r-platter); background: var(--lg-fill-regular); padding: 6px; display: flex; flex-direction: column; gap: 6px; }
+
+/* toggle (visionOS switch proportions, ~66 x 40) and capsule slider (Control Center) */
+.lgk-toggle { position: relative; width: 66px; height: 40px; border-radius: 20px; background: rgb(255 255 255 / .16); flex: none; }
+.lgk-toggle::after { content: ""; position: absolute; top: 3px; left: 3px; width: 34px; height: 34px; border-radius: 50%; background: #fff; box-shadow: 0 2px 5px rgb(0 0 0 / .3); }
+.lgk-toggle.on { background: var(--lg-green); }
+.lgk-toggle.on::after { left: 29px; }
+.lgk-slider { position: relative; height: 72px; border-radius: 36px; background: var(--lg-fill-thick); box-shadow: inset 0 2px 5px rgb(0 0 0 / .25); overflow: hidden; }
+.lgk-slider > .fill { position: absolute; inset: 0 auto 0 0; width: var(--v, 50%); min-width: 72px; border-radius: 36px; background: rgb(255 255 255 / .86); display: flex; align-items: center; color: #1b1c20; }
+.lgk-slider > .fill > .lgk-i { --is: 28px; margin-left: 22px; }
+
+/* menus (thick glass; rows 72 px, radius 24 = 32 - 8; DESIGN2 §9.9) */
+.lgk-menu { padding: 8px; display: flex; flex-direction: column; gap: 6px; min-width: 320px; box-sizing: border-box; }
+.lgk-menu .hdr { display: flex; align-items: center; height: 56px; padding: 0 20px; font: 700 22px/1 var(--lg-font); color: var(--lg-text-2); }
+.lgk-menu .lgk-row { padding: 0 20px 0 16px; }
+.lgk-menu .lgk-row .lead { width: 28px; display: grid; place-items: center; --is: 24px; flex: none; }
+.lgk-menu .gap { height: 8px; }
+
+/* content: posters, art, circles (content is never glass) */
+.lgk-art { background: #333 center / cover no-repeat; }
+.lgk-poster { position: absolute; border-radius: var(--lg-r-card); box-shadow: 0 6px 18px rgb(0 0 0 / .30); overflow: hidden; }
+.lgk-poster.is-focus, .lgk-poster.is-hover {
+  scale: 1.05; z-index: 2;
+  box-shadow: 0 18px 44px rgb(0 0 0 / .48), 0 0 30px 2px rgb(255 255 255 / .22);
+}
+.lgk-poster.is-focus::after, .lgk-poster.is-hover::after {   /* tvOS-style specular sheen on the art */
+  content: ""; position: absolute; inset: 0; border-radius: inherit; mix-blend-mode: plus-lighter; pointer-events: none;
+  background: linear-gradient(155deg, rgb(255 255 255 / .22) 0, rgb(255 255 255 / .05) 30%, transparent 55%);
+}
+.lgk-home-icon { position: absolute; border-radius: 50%; overflow: hidden;
+  box-shadow: 0 6px 18px rgb(0 0 0 / .35), inset 0 2px 2px rgb(255 255 255 / .45), inset 0 -10px 18px rgb(0 0 0 / .25); }
+.lgk-label-on-room { text-shadow: 0 1px 3px rgb(0 0 0 / .55), 0 0 12px rgb(0 0 0 / .35); }
+
+/* page dots */
+.lgk-dots { display: inline-flex; gap: 12px; padding: 10px 16px; border-radius: 999px; }
+.lgk-dots > i { width: 12px; height: 12px; border-radius: 50%; background: rgb(255 255 255 / .35); }
+.lgk-dots > i.on { background: #fff; }
+
+/* SteamVR window bar (grab handle) restyled as the visionOS pill; hit area >= 80 px tall */
+.lgk-windowbar { position: absolute; width: 180px; height: 16px; border-radius: 8px; background: rgb(255 255 255 / .52);
+  box-shadow: 0 1px 4px rgb(0 0 0 / .25), inset 0 1px 1px rgb(255 255 255 / .5); }
+
+/* tooltip (materializes after 0.8 s of hover or focus; DESIGN2 §10.3) */
+.lgk-tooltip { padding: 12px 18px; font: 600 20px/1 var(--lg-font); white-space: nowrap; }
+
+/* laser pointer (SteamVR draws it; shown in mockups to place the hover light) */
+.lgk-laser-dot { position: absolute; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: #fff;
+  box-shadow: 0 0 0 3px rgb(255 255 255 / .25), 0 0 14px 4px rgb(160 200 255 / .55); z-index: 50; }
+
+/* ===================================================================== annotations (#annot) */
+.lgk-annot { position: absolute; z-index: 1000; font: 600 13px/18px ui-monospace, Consolas, monospace; color: #111;
+  background: #ffe27a; padding: 0 6px; border-radius: 4px; pointer-events: none; white-space: nowrap; }

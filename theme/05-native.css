@@ -5,17 +5,20 @@
    states, focus and colours stay exactly as the theme defines them.
 
    Scope is per element, never per window. device/lgs_layers.js marks
-     [data-lgs-cover]  the element whose rounded box glassd fills with the
-                       surface's glass (main window root, bar platter,
-                       popup card, frame menu, floating footer), and
+     [data-lgs-cover]  an element whose rounded box glassd fills with the
+                       surface's glass (main window root, each bar segment,
+                       each popup card, frame menu, floating footer), and
      [data-lgs-pop]    an element that pops out in depth over its own
                        glassd slab ("self", or "before"/"after" when the
                        capsule is that pseudo-element),
-   only while glassd really draws them. So a surface or an element glassd
-   does not cover keeps its CSS glass.
+   only while the daemon acknowledges that the compositor shows that cover
+   or slab (__LGS_LAYERS.ack), and removes the mark as soon as it does not.
+   So an element whose glass is not (or not yet) on screen keeps its CSS
+   glass: a menu that just opened is thick CSS glass until its slab shows.
 
    - Covers drop their glass background and rim. glassd draws both, from the
-     real room.
+     real room. The scroll-edge bands under tab rows were tuned to blend into
+     the CSS window tint; over glassd's glass they use a neutral scrim.
    - Popped glass drops its tint (the light glass layer and the sheen) and its
      rim; the slab supplies them. It keeps its backdrop-filter, which refracts
      the in-page content behind it, and its outer shadow, which now falls on
@@ -44,18 +47,27 @@
     box-shadow: none;
   }
 
-  /* bar popups (+ list, Playspace, Streaming), Quick Access, tab menus,
-     the frame menu and the floating footer: panel glass (30-bar.css,
-     35-hud.css) */
+  /* scroll-edge bands under the tab rows (search, library, home, game
+     page, achievements: 20-shell.css, 40-library.css, 50-appdetails.css)
+     and the sticky sort-section band: their gradient starts at the CSS
+     window tint, which over glassd's room glass reads as a second, darker
+     window. A neutral scrim keeps the fade; mask and blur are unchanged. */
+  &.lgs-native %{BasicUiRoot}[data-lgs-cover] %{TabHeaderRowWrapper}::before,
+  &.lgs-native %{BasicUiRoot}[data-lgs-cover] %{AppGridSectionHeader}::after {
+    --lgs-window-bg: var(--lgs-scrim);
+  }
+
+  /* bar segments (each is its own cover shape), bar popup cards (+ list,
+     Playspace, Streaming; two stacked cards are two shapes), Quick Access,
+     tab menus, the frame menu and the floating footer: panel glass
+     (30-bar.css, 35-hud.css) */
+  &.lgs-native %{BarSurface}[data-lgs-cover],
   &.lgs-native :is(%{DashboardBarPopupContents}, %{QuickAccessMenu}, %{DashboardMenu})[data-lgs-cover],
-  &.lgs-native %{DashboardBarPopupSectionStack}[data-lgs-cover] > %{DashboardBarPopupContents},
   &.lgs-native #Footer%{BasicFooter}%{FloatingVRFooter}[data-lgs-cover] {
     --lgs-panel-sheen: linear-gradient(transparent, transparent);
     --lgs-panel-bg: transparent;
     --lgs-panel-rim: 0 0 0 0 transparent;
   }
-
-  /* the bar platter (%{PopupBody>DashboardBar}) paints nothing in CSS */
 
   /* ------------------------------------------------------------------ */
   /* 2. Popped capsules drawn by a ::before / ::after                     */
@@ -114,13 +126,5 @@
     --lgs-panel-sheen: linear-gradient(transparent, transparent);
     --lgs-thick-bg: transparent;
     --lgs-glass-rim: 0 0 0 0 transparent;
-  }
-
-  /* bar segments: panel glass (30-bar.css); the slab under each segment
-     and the platter under the bar supply it */
-  &.lgs-native %{BarSurface}[data-lgs-pop~="self"] {
-    --lgs-panel-sheen: linear-gradient(transparent, transparent);
-    --lgs-panel-bg: transparent;
-    --lgs-panel-rim: 0 0 0 0 transparent;
   }
 }
