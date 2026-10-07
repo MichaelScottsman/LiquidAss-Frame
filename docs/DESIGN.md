@@ -139,7 +139,23 @@ Concentric: inner radius = outer radius − padding.
 
 **Every focusable control must show the focus state** in screenshots taken with that control focused (`.gpfocus`).
 
-## 9. File ownership
+## 9. SteamVR's own pages
+
+SteamVR draws a few pieces of the Frame UI itself; see LAB.md, "SteamVR's own pages". They follow the same language:
+
+| Piece | Treatment |
+|---|---|
+| **Window grab bar** under the dashboard window | A Liquid Glass pill: a translucent white fill with a rim, brighter on hover or focus |
+| **Resize corners** | Thin white strokes at `--lgs-text-2` |
+| **Frame controls** (keyboard, pop-out, recenter, more) | Panel-glass capsule segments, white icons, circular hit areas, obvious focus and hover. They sit as their own quads over the room |
+| **Controller status** | A panel-glass card. Battery levels as whole-fill colour (green, orange, red) |
+| **Now Playing** | Window glass like the dashboard. The game art is content. **Resume Game** is the one tinted primary (`--lgs-tint-play`); the other actions are fill capsules; Exit Game gets a destructive tint only on focus |
+| **Controller bindings / SteamVR settings pages** | Window glass with the same primitives look as Steam's settings: fills, capsules, white selected, focus ring |
+| **Message overlays and toasts** | Panel glass, like Steam's toasts |
+
+`systemui` is an atlas page: everything outside the panels is transparent, and each panel becomes its own quad. Don't paint the page or `vsg-app` backgrounds.
+
+## 10. File ownership
 
 | File | Owner |
 |---|---|
@@ -152,5 +168,6 @@ Concentric: inner radius = outer radius − padding.
 | `theme/50-appdetails.css` | Game pages, play bar, game menus, properties, running-app overview |
 | `theme/60-settings.css` | Settings pages (layout-level styling; controls come from primitives) |
 | `theme/70-social.css` | Friends and chat, profile, notifications, media, downloads, store chrome, power menu, other routes |
+| `theme/vr/*.css` | SteamVR's own pages: systemui (frame controls, grab bar, Now Playing, settings panels), controller bindings, overlays |
 
 Area files may refine primitives inside their own containers. Generic primitive changes belong in `10-primitives.css`.

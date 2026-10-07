@@ -95,6 +95,29 @@ The UI is live and shared with other agents and with the user, who may be wearin
 - `sync` uploads the whole `theme/` folder from this PC, so it includes other agents' in-progress files. That's expected.
 - Prefix screenshot names with your area (`bar_…`, `lib_…`, `set_…`).
 
+## SteamVR's own pages (`vr:` surfaces)
+
+Part of the Frame's interface is drawn by SteamVR, not Steam: `vrwebhelper` pages served from `127.0.0.1:27062/dashboard/`. The SteamVR developer setting `VRWebHelper/DebuggerEnabled` exposes them on devtools port **8090**; it was enabled with the user's approval.
+
+| Surface | What it is |
+|---|---|
+| `vr:systemui` | A 1860×2048 **atlas page**: SteamVR's scene graph lays out several panels (`vsg-node`) on one page, and each becomes its own VR quad. It holds the window grab bar (`%{GrabHandleButton}`/`%{GrabHandleBar}`), resize handles, the frame controls under the dashboard window (`%{FrameControlsContainer}`: keyboard, pop-out, recenter, more), controller battery status and, while a scene app runs, the **Now Playing** panel (Resume Game / VR Controller Bindings / VR Video Settings / Exit Game). Other panels appear on demand |
+| `vr:controllerbindingui` | The SteamVR controller binding editor (app list, binding pages) |
+| others | `keyboard.html`, `messageoverlay.html`, `notificationtoast.html`, `bindingcallouts.html` and others appear while they're shown. `python glass.py surfaces` lists the live ones |
+
+- Every lab command takes `vr:PAGE` as the surface: `shot`, `outline`, `styles`, `audit`, `perf`, `click`.
+- For `js` add `--in vr:PAGE`, e.g. `python glass.py js "L.classes('^Grab')" --in vr:systemui`. `L` works inside the page (outline, snap/diff, classes); Steam-only helpers (nav, pad, mark/restore) don't.
+- `%{Token}`s resolve from SteamVR's own webpack bundle (`webpackChunkvrwebui`), so the same token syntax works.
+- **Theme files for SteamVR pages live in `theme/vr/*.css`.** They're bundled after the shared `theme/*.nowrap.css` tokens. Wrapping, the `.nowrap` rule and brace checks work the same way.
+- `vr:` steps use their own device lock (`lab-vr.lock`), so they don't wait on Steam route captures.
+  - `--theme on` themes only the SteamVR pages.
+  - `--theme off` stops the `lgs-vr` watcher and strips them.
+- For users, `lgs on` starts the transient watcher unit `lgs-vr`, which keeps new SteamVR pages themed. It exits when the Steam side is turned off and never survives a reboot.
+- **Now Playing only exists while a scene app runs.** The only app you may start for this is the user's own Liquid Glass Frame showcase:
+  - start it with `python ../.claude/skills/run-liquid-glass-frame/driver.py start`, and only if `driver.py status` shows it isn't already running (another session may be using it)
+  - stop it with `driver.py stop` when done
+  - never press Resume Game / Exit Game / VR Video Settings / VR Controller Bindings on it
+
 ## Gotchas found while mapping (read before styling)
 
 - **Focus and selected fills are keyframe animations.** Steam paints `.gpfocus`, Field `HighlightOnFocus`, DashboardMenu items, QAM tabs and friend/download rows with `@keyframes … forwards` (`ItemFocusAnim-*`). Animated values beat normal declarations, so a theme `background`/`color` on those states is silently ignored. Put `!important` on the focus or selected `background`/`color`/`box-shadow` declarations (an `!important` author rule beats an animation).
