@@ -33,6 +33,7 @@ returns the stock UI.
 import importlib.util
 import io
 import os
+import re
 import shlex
 import sys
 import tarfile
@@ -111,7 +112,15 @@ def lab(client, *args, timeout=300, echo=True):
     return sh(client, f"{PY} {REMOTE}/lab/lab.py {q}", timeout=timeout, echo=echo)
 
 
+def unmangle(arg):
+    """Undo Git Bash's MSYS path conversion: '--route /library/home' reaches us
+    as 'C:/Program Files/Git/library/home'. Routes are never Windows paths."""
+    m = re.match(r"^[A-Za-z]:[/\\](?:Program Files[/\\])?Git([/\\].*)$", arg)
+    return m.group(1).replace("\\", "/") if m else arg
+
+
 def main(argv):
+    argv = [argv[0]] + [unmangle(a) for a in argv[1:]]
     if len(argv) < 2 or argv[1] in ("-h", "--help"):
         print(__doc__)
         return 0
@@ -163,4 +172,9 @@ def main(argv):
 
 
 if __name__ == "__main__":
+    for stream in (sys.stdout, sys.stderr):  # Steam UI text is full of non-cp1252 glyphs
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except AttributeError:
+            pass
     sys.exit(main(sys.argv))

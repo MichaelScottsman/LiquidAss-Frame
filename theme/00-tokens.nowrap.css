@@ -130,6 +130,19 @@ html.lgs-on {
   to { opacity: 1; scale: 1; translate: 0 0; }
 }
 
+/* Steam's High Contrast mode: glass goes fully opaque, separators and rims
+   get stronger, text loses its vibrancy dimming. */
+@media (prefers-contrast: more) {
+  html.lgs-on {
+    --lgs-dial: 1;
+    --lgs-text-2: rgba(255, 255, 255, 0.86);
+    --lgs-text-3: rgba(255, 255, 255, 0.74);
+    --lgs-separator: rgba(255, 255, 255, 0.28);
+    --lgs-glass-bg: rgba(24, 26, 34, 0.92);
+    --lgs-thick-bg: rgba(24, 26, 34, 0.96);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html.lgs-on { --lgs-t-fast: 1ms; --lgs-t: 1ms; --lgs-t-slow: 1ms; }
 }

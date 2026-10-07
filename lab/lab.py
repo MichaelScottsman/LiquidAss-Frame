@@ -64,6 +64,12 @@ def lab_js(expr, timeout=60):
 
 
 class Lock:
+    """Device-wide lock for one atomic lab step. On exit it closes every menu,
+    dialog and bar popup the step opened (unless keep=True)."""
+
+    def __init__(self, keep=False):
+        self.keep = keep
+
     def __enter__(self):
         os.makedirs(os.path.dirname(LOCK), exist_ok=True)
         self.f = open(LOCK, "w")
@@ -71,6 +77,10 @@ class Lock:
         while True:
             try:
                 fcntl.flock(self.f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                try:
+                    lab_js("L.mark()")
+                except Exception:  # noqa: BLE001 - the step must still run
+                    pass
                 return self
             except BlockingIOError:
                 if time.time() > deadline:
@@ -78,14 +88,23 @@ class Lock:
                 time.sleep(0.25)
 
     def __exit__(self, *a):
-        fcntl.flock(self.f, fcntl.LOCK_UN)
-        self.f.close()
+        try:
+            if not self.keep:
+                n = lab_js("L.restore()")
+                if n:
+                    print(f"(closed {n} menu/dialog/popup opened by this step)", file=sys.stderr)
+        except Exception:  # noqa: BLE001
+            pass
+        finally:
+            fcntl.flock(self.f, fcntl.LOCK_UN)
+            self.f.close()
 
 
 def target_for(surface):
     key = OVERLAY.get(surface) or "valve.steam.gamepadui." + surface
     for t in lgs.targets():
-        if lgs.overlay_key(t).startswith(key):
+        k = lgs.overlay_key(t)
+        if k == key or k.startswith(key + "."):  # "bar" must not match "barpopup"
             return t
     raise SystemExit(f"lab: no CEF target for surface {surface!r}")
 
@@ -146,10 +165,12 @@ def main(argv):
     elif cmd == "classes":
         print(lab_js(f"L.classes({json.dumps(args[0])}, 400)"))
     elif cmd == "click":
-        with Lock():
+        with Lock(keep=flag(args, "--keep")):
             print(lab_js(f"L.click({json.dumps(args[0])}, {json.dumps(args[1])})"))
     elif cmd == "js":
-        v = lab_js(args[0])
+        keep = flag(args, "--keep")
+        with Lock(keep=keep):
+            v = lab_js(args[0])
         print(v if isinstance(v, str) else json.dumps(v, indent=1))
     elif cmd == "eval":
         js = args[1]
@@ -164,9 +185,10 @@ def main(argv):
         settle = float(opt(args, "--settle", 1.2))
         theme = opt(args, "--theme", "keep")
         go_back = flag(args, "--back")
+        keep = flag(args, "--keep")
         surface, out = args[0], args[1]
         os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
-        with Lock():
+        with Lock(keep=keep):
             if theme == "on":
                 lgs.op("on", quiet=True)
             elif theme == "off":

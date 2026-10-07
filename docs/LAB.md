@@ -95,6 +95,22 @@ The UI is live and shared with other agents and with the user, who may be wearin
 - `sync` uploads the whole `theme/` folder from this PC, so it includes other agents' in-progress files. That's expected.
 - Prefix screenshot names with your area (`bar_…`, `lib_…`, `set_…`).
 
+## Gotchas found while mapping (read before styling)
+
+- **Focus and selected fills are keyframe animations.** Steam paints `.gpfocus`, Field `HighlightOnFocus`, DashboardMenu items, QAM tabs and friend/download rows with `@keyframes … forwards` (`ItemFocusAnim-*`). Animated values beat normal declarations, so a theme `background`/`color` on those states is silently ignored. Put `!important` on the focus or selected `background`/`color`/`box-shadow` declarations (an `!important` author rule beats an animation).
+- **Keyboard focus is `%{Modal>Focused}`** (virtual focus), not `.gpfocus`.
+- **The notifications window body has only `.LowPerfMode`.** Don't scope toast rules under `body.GamepadMode` or `.BasicUI`.
+- **Popups are clipped.**
+  - Every popup card sits in `%{PopupContent}` (overflow hidden, sized to content). SteamVR also clip-rects tooltip, volume and footer to it, and the bar is exactly its 80 px window.
+  - Outer shadows and glows get cut, so use inset rims and sheens.
+  - Opaque `#0e141b` box-shadow "fades" at list or scroll edges show as dark bars on translucent glass. Restyle them to transparent-to-glass gradients or remove the colour, without touching geometry.
+- **The window background is painted several times:** `%{BasicHome}%{OpaqueBackground}`, `%{GamepadLibrary}`, `%{GamepadSearch}`, `%{DownloadsPage}`, `%{GamepadPage}%{DialogBackground}`, `%{ContentManagement}`, and `%{TrueBlackBackground}` (/chat). Each must become transparent so the window glass shows. Shell owns the root; area owners clear their own page roots.
+- **Steam-owned pseudo-elements and transforms** are listed in each inventory. Don't add your own `::before`/`::after` where Steam already uses one, and never touch transforms or inline geometry: toggle knobs, slider positions, carousels, virtualized rows, the bar tab indicator, focus `translateZ`.
+- **Synthetic dialogs and menus** built from Steam's own components (no-op handlers) are in `docs/inventory/shell.md` §0.2 (CONFIRM, ALERT, MENU, SUBMENU, POWER, ZOO). Use them to style and verify modals and context menus without side effects.
+- **Each locked step cleans up after itself.** `shot`, `audit`, `outline`, `click` and `js` all close the menus, dialogs and bar popups the step opened, and leave anything open before the step alone. Add `--keep` to leave them open, which is rarely needed.
+- `glass.py` undoes Git Bash's `/route` mangling and prints UTF-8, so `MSYS_NO_PATHCONV`/`PYTHONIOENCODING` are no longer needed (harmless if set).
+- Steam's **High Contrast** (`prefers-contrast: more`) and **Reduce Motion** (`prefers-reduced-motion`) accessibility settings must keep working. The tokens raise the dial to fully opaque under high contrast; don't fight that.
+
 ## Hard rules (functionality must be retained)
 
 **Styling: only look-and-feel properties.** Use colour, background, border, radius, shadow, backdrop-filter, filter on decorative parts, text colour/shadow, small padding tweaks, and transitions on state changes.

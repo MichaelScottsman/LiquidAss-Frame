@@ -1,7 +1,7 @@
 // Development helpers evaluated in SharedJSContext (prepended with
 // lgs_index.js). Installs window.__LGS_LAB; lives in memory only.
 (function () {
-  if (window.__LGS_LAB && window.__LGS_LAB.v === 8) return;
+  if (window.__LGS_LAB && window.__LGS_LAB.v === 9) return;
   const index = (window.__LGS_INDEX && window.__LGS_INDEX.selector) ? window.__LGS_INDEX : (window.__LGS_INDEX = lgsBuildIndex());
 
   const ALIAS = {
@@ -22,7 +22,8 @@
     const ps = popups();
     const rx = ALIAS[alias];
     let p = rx ? ps.find((x) => rx.test(x.name)) : null;
-    if (!p) p = ps.find((x) => x.name.startsWith('valve.steam.gamepadui.' + alias));
+    const base = 'valve.steam.gamepadui.' + alias;
+    if (!p) p = ps.find((x) => x.name.startsWith(base + '.') || x.name.startsWith(base + '_'));
     if (!p) p = ps.find((x) => x.name.includes(alias));
     if (!p) throw new Error('no surface ' + alias + ' (have: ' + ps.map((x) => x.name).join(', ') + ')');
     return p.win;
@@ -105,6 +106,70 @@
       if (f) out[short] = readable(f).slice(0, 4).join(' ') + (f.innerText ? ' "' + f.innerText.trim().slice(0, 30) + '"' : '');
     }
     return out;
+  }
+
+  // ------------------------------------------------ leave the UI as we found it
+  // Every locked lab step calls mark() first and restore() last, so menus,
+  // dialogs and bar popups it opened are closed again, and nothing the wearer
+  // (or another agent) had open is touched.
+  let cmx = null;
+  function contextMenus() {
+    if (!cmx) {
+      let req;
+      window.webpackChunksteamui.push([[Symbol('lgs-cm')], {}, (r) => { req = r; }]);
+      for (const id of Object.keys(req.m)) {
+        if (!req.m[id].toString().includes('GetContextMenuManagerFromWindow')) continue;
+        const m = req(id);
+        for (const k in m) if (m[k] && typeof m[k].GetContextMenuManager === 'function') { cmx = m[k]; break; }
+        if (cmx) break;
+      }
+    }
+    const out = [];
+    const seen = new Set();
+    if (!cmx) return out;
+    for (const p of popups()) {
+      let mg = null;
+      try { mg = cmx.GetContextMenuManager(p.win); } catch (_) { /* no manager */ }
+      if (!mg || seen.has(mg)) continue;
+      seen.add(mg);
+      try { for (const m of mg.GetVisibleMenus()) out.push([mg, m]); } catch (_) { /* none */ }
+    }
+    return out;
+  }
+
+  function openThings() {
+    const inst = mainInstance();
+    let bars = [];
+    try { bars = [...(inst.m_setVRDashboardBarPopups || [])].filter((h) => { try { return h.BPopupOpen(); } catch (_) { return false; } }); } catch (_) { /* none */ }
+    return { modals: [...inst.ModalManager.m_rgModals], menus: contextMenus(), bars };
+  }
+
+  function mark() {
+    const o = openThings();
+    window.__LGS_MARK = o;
+    return { modals: o.modals.length, menus: o.menus.length, bars: o.bars.length };
+  }
+
+  async function restore() {
+    const before = window.__LGS_MARK || { modals: [], menus: [], bars: [] };
+    const now = openThings();
+    let closed = 0;
+    for (const [mg, menu] of now.menus.slice().reverse()) {
+      if (before.menus.some(([, m]) => m === menu)) continue;
+      try { if (typeof menu.Hide === 'function') menu.Hide(); else mg.HideMenu(menu); closed++; } catch (_) { /* gone */ }
+    }
+    const MM = mainInstance().ModalManager;
+    for (const md of now.modals.slice().reverse()) {
+      if (before.modals.includes(md)) continue;
+      try { MM.RemoveModal(md); closed++; } catch (_) { /* gone */ }
+    }
+    for (const h of now.bars) {
+      if (before.bars.includes(h)) continue;
+      try { h.closePopup(); closed++; } catch (_) { /* gone */ }
+    }
+    if (closed) await sleep(350);
+    window.__LGS_MARK = null;
+    return closed;
   }
 
   function mainInstance() { return SteamUIStore.WindowStore.VRGamepadUIMainWindowInstance; }
@@ -358,5 +423,5 @@
     };
   }
 
-  window.__LGS_LAB = { v: 8, perf, surface, sel, q, qa, click, clickText, sleep, pad, focused, nav, back, route, outline, styles, classes, surfaces, readable, index, snap, diff };
+  window.__LGS_LAB = { v: 9, mark, restore, openThings, perf, surface, sel, q, qa, click, clickText, sleep, pad, focused, nav, back, route, outline, styles, classes, surfaces, readable, index, snap, diff };
 })();

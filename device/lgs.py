@@ -62,9 +62,10 @@ def find_target(name):
     elif name == "main":
         name = "valve.steam.gamepadui.main"
     elif not name.startswith("valve.") and name != "SharedJSContext":
+        base = "valve.steam.gamepadui." + name
         for t in ts:
             k = overlay_key(t)
-            if k.startswith("valve.steam.gamepadui." + name):
+            if k == base or k.startswith(base + "."):  # "bar" must not match "barpopup"
                 return t
     for t in ts:
         if t["title"] == name or overlay_key(t) == name:
