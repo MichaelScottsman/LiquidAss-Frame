@@ -15,7 +15,9 @@
 //            builds Steam ships; it expands to :is(.a,.b,...)
 function lgsBuildIndex() {
   let req;
-  window.webpackChunksteamui.push([[Symbol('lgs-index')], {}, (r) => { req = r; }]);
+  // Steam's client UI bundle, or SteamVR's web UI bundle (vrwebhelper pages)
+  const chunks = window.webpackChunksteamui || window.webpackChunkvrwebui;
+  chunks.push([[Symbol('lgs-index')], {}, (r) => { req = r; }]);
   const CLASSY = /^[A-Za-z_][\w-]*( [A-Za-z_][\w-]*)*$/;
   const mods = [];
   const byKey = new Map();

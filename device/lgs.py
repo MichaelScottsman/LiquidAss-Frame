@@ -173,9 +173,21 @@ SKIPPED = []
 
 
 def _bundle():
-    parts = []
     SKIPPED.clear()
-    for path in sorted(glob.glob(os.path.join(THEME_DIR, "*.css"))):
+    css = bundle_files(sorted(glob.glob(os.path.join(THEME_DIR, "*.css"))))
+    svg = ""
+    defs = os.path.join(THEME_DIR, "defs.svg")
+    if os.path.exists(defs):
+        with open(defs, encoding="utf-8") as f:
+            svg = f.read()
+    return css, svg
+
+
+def bundle_files(paths):
+    """Concatenate stylesheets: *.nowrap.css as is, everything else nested
+    under html.lgs-on; files with unbalanced braces are skipped (SKIPPED)."""
+    parts = []
+    for path in paths:
         name = os.path.basename(path)
         with open(path, encoding="utf-8") as f:
             text = f.read()
@@ -197,13 +209,7 @@ def _bundle():
         parts.append(f"html.lgs-on {{ --lgs-dial: {dial:g}; }}")
     except (OSError, ValueError):
         pass
-    css = "\n\n".join(parts)
-    svg = ""
-    defs = os.path.join(THEME_DIR, "defs.svg")
-    if os.path.exists(defs):
-        with open(defs, encoding="utf-8") as f:
-            svg = f.read()
-    return css, svg
+    return "\n\n".join(parts)
 
 
 def core_call(payload):
@@ -217,7 +223,9 @@ def core_call(payload):
             f"return ({core_js})({json.dumps(payload)}, lgsBuildIndex, lgsLens);\n}})()")
 
 
-def op(name, quiet=False, text=None):
+def op(name, quiet=False, text=None, vr=False):
+    """Run one operation on the Steam UI; with vr=True also on SteamVR's pages
+    (on starts the transient lgs-vr watcher, off stops it and strips them)."""
     payload = {"op": name, "quiet": quiet}
     if name == "on":
         css, svg = bundle()
@@ -237,6 +245,18 @@ def op(name, quiet=False, text=None):
     res = json.loads(res) if isinstance(res, str) and res.startswith("{") else res
     if name == "on" and isinstance(res, dict) and SKIPPED:
         res["skipped"] = list(SKIPPED)
+    if vr and name in ("on", "off", "status") and isinstance(res, dict):
+        try:
+            import lgs_vr
+            if name == "on":
+                res["steamvr"] = lgs_vr.start()
+            elif name == "off":
+                lgs_vr.stop()
+                res["steamvr"] = "stopped"
+            else:
+                res["steamvr"] = lgs_vr.status()
+        except Exception as e:  # noqa: BLE001 - SteamVR side is best effort
+            res["steamvr"] = f"error: {e}"
     return res
 
 
@@ -273,13 +293,13 @@ def main(argv):
             v = min(1.0, max(0.0, float(args[1])))
             with open(DIAL, "w", encoding="utf-8") as f:
                 f.write(f"{v:g}\n")
-            res = op("on", quiet=True) if is_on() else {"dial": v, "enabled": False}
+            res = op("on", quiet=True, vr=True) if is_on() else {"dial": v, "enabled": False}
             if isinstance(res, dict) and res.get("enabled"):
                 op("toast", text=f"Glass  ·  {round((1 - v) * 100)}% clear")
         elif cmd == "toast":
             res = op("toast", text=" ".join(args[1:]) or "Liquid Glass")
         elif cmd in ("on", "off", "status"):
-            res = op(cmd, quiet=quiet)
+            res = op(cmd, quiet=quiet, vr=True)
         else:
             print(__doc__)
             return 2

@@ -1,0 +1,341 @@
+/* Glass Shell, area "shell": the dashboard window itself (surface main).
+   Window glass on the outermost container, transparent page roots so the
+   glass shows on every route, Liquid Glass header capsules (Back, search),
+   the in-window footer legend as a floating capsule, the app-details scrim,
+   and the search route's chrome and result tiles.
+   Wrapped as html.lgs-on { ... } by the injector. Look only: no geometry,
+   no transforms, no visibility changes. */
+
+/* ------------------------------------------------------------------ */
+/* 1. Window glass                                                     */
+/* ------------------------------------------------------------------ */
+
+/* The outermost window container already clips the whole UI with
+   overflow:hidden + border-radius; raise the radius to the window radius
+   and paint the visionOS window glass here, behind every route. */
+%{BasicUiRoot} {
+  background: var(--lgs-window-sheen), var(--lgs-window-bg);
+  border-radius: var(--lgs-r-window);
+}
+
+/* The lit glass edge sits above all content (full-bleed art, modals,
+   header, footer) like a real rim; click-through and decorative only. */
+%{BasicUiRoot}::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: var(--lgs-window-rim);
+  pointer-events: none;
+  z-index: 20000;
+}
+
+/* Overlay paths Steam renders on a transparent window (/apprunning,
+   /keyboard, in-game overlay, web views): keep them clear. */
+%{BasicUiRoot}:has(> %{MainNavMenuMainSplit} > %{BasicHome}%{PopupBody>TransparentBackground}) {
+  background: none;
+}
+%{BasicUiRoot}:has(> %{MainNavMenuMainSplit} > %{BasicHome}%{PopupBody>TransparentBackground})::after {
+  box-shadow: none;
+}
+
+/* Every layer that repaints Steam's opaque #060a0e -> #0e141b gradient
+   (or black) over the window goes clear, so the window glass shows on
+   every route. Page roots owned by other areas are listed in the
+   coverage doc; these are the window-level ones. */
+%{BasicHome}%{OpaqueBackground},
+%{BasicHome}%{TrueBlackBackground},
+%{BasicUiRoot}%{PopupBody>BlackBackground},
+%{GamepadLibrary},
+%{GamepadSearch},
+%{DownloadsPage},
+%{OverflowHidden>GamepadPage}%{DialogBackground},
+%{ContentManagement} {
+  background: none;
+}
+%{BasicUiRoot}%{PopupBody>BlackBackground} {
+  background: var(--lgs-window-sheen), var(--lgs-window-bg);
+}
+
+/* Route content inherits glass-friendly body text. */
+%{BasicHome} {
+  text-shadow: none;
+}
+
+/* ------------------------------------------------------------------ */
+/* 2. Header: Back + search as Liquid Glass capsules over content      */
+/* ------------------------------------------------------------------ */
+
+/* Steam's header bar is its ::before (50% black + 100px blur, opacity
+   driven by --gamepadui-header-background-opacity). The bar dissolves:
+   content scrolls under, and the controls float as their own capsules.
+   Opacity, position and size stay Steam's. */
+#header%{Profile>Header}::before {
+  background: none;
+  backdrop-filter: none;
+  box-shadow: none;
+}
+
+/* Back: a glass capsule (Back is laser-only, not gamepad focusable). */
+%{BackContainer} {
+  color: var(--lgs-text-1);
+  text-shadow: var(--lgs-text-shadow);
+}
+%{BackContainer}::before {
+  content: "";
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 8px;
+  right: 6px;
+  z-index: -1;
+  border-radius: var(--lgs-r-capsule);
+  background: var(--lgs-glass-bg);
+  backdrop-filter: var(--lgs-glass-blur);
+  box-shadow: var(--lgs-glass-rim), var(--lgs-glass-shadow);
+  pointer-events: none;
+  transition: background var(--lgs-t-fast) var(--lgs-ease);
+}
+%{BackContainer}:hover {
+  color: var(--lgs-text-1);
+}
+%{BackContainer}:hover::before {
+  background: linear-gradient(var(--lgs-hover-fill), var(--lgs-hover-fill)), var(--lgs-glass-bg);
+}
+%{BackContainer}:active::before {
+  background: linear-gradient(var(--lgs-focus-fill), var(--lgs-focus-fill)), var(--lgs-glass-bg);
+}
+%{BackContainer>BackButton} {
+  color: inherit;
+}
+/* the hairline divider between Back and search is replaced by the gap
+   between the two capsules (colour only; the pseudo-element stays) */
+%{BackContainer}:not(:last-child)::after {
+  background: transparent;
+}
+
+/* Search: one capsule in every state (idle, filled, focused). */
+%{SearchAndTitleContainer}%{ShowingSearch}::before {
+  content: "";
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 2px;
+  right: 8px;
+  z-index: -1;
+  border-radius: var(--lgs-r-capsule);
+  background: var(--lgs-glass-bg);
+  backdrop-filter: var(--lgs-glass-blur);
+  box-shadow: var(--lgs-glass-rim), var(--lgs-glass-shadow);
+  pointer-events: none;
+  transition: background var(--lgs-t-fast) var(--lgs-ease), box-shadow var(--lgs-t-fast) var(--lgs-ease);
+}
+%{SearchAndTitleContainer}%{ShowingSearch}:hover::before {
+  background: linear-gradient(var(--lgs-hover-fill), var(--lgs-hover-fill)), var(--lgs-glass-bg);
+}
+/* filled (text present, or on /search): a slightly denser capsule */
+%{SearchAndTitleContainer}%{ShowingSearch}:has(> %{SearchFieldBackground}%{WhiteBackground})::before {
+  background: linear-gradient(var(--lgs-fill-2), var(--lgs-fill-2)), var(--lgs-glass-bg);
+}
+/* focused: illuminated from within */
+%{SearchAndTitleContainer}%{ShowingSearch}.gpfocuswithin::before {
+  background: linear-gradient(var(--lgs-focus-fill), var(--lgs-focus-fill)), var(--lgs-glass-bg) !important;
+  box-shadow: var(--lgs-focus-ring) !important;
+}
+/* Steam's own field fill (grey #b8bcbf / white) is replaced by the
+   capsule above; its scaleX expand transform stays untouched. */
+%{SearchFieldBackground},
+%{SearchFieldBackground}%{WhiteBackground} {
+  background: transparent;
+}
+%{SearchIconLeft},
+%{SearchIconLeft}%{WhiteBackground},
+%{SearchIconRight},
+%{SearchIconRight}%{WhiteBackground} {
+  color: var(--lgs-text-2);
+  fill: currentColor;
+}
+%{SearchAndTitleContainer}.gpfocuswithin %{SearchIconLeft} {
+  color: var(--lgs-text-1);
+}
+%{SearchBox},
+%{SearchBox}%{WhiteBackground} {
+  color: var(--lgs-text-1);
+  caret-color: var(--lgs-text-1);
+  text-shadow: var(--lgs-text-shadow);
+}
+%{SearchBox}::placeholder {
+  color: var(--lgs-text-2);
+}
+%{SearchAndTitleContainer}%{ShowingSearch}:hover %{SearchBox}::placeholder {
+  color: var(--lgs-text-1);
+}
+%{SearchBox}::-webkit-search-cancel-button {
+  background-color: var(--lgs-fill-3);
+  border-radius: var(--lgs-r-capsule);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+%{SearchBox}::-webkit-search-cancel-button:hover {
+  background-color: var(--lgs-hover-fill);
+}
+%{SearchBox}::-webkit-search-cancel-button:active {
+  background-color: var(--lgs-focus-fill);
+}
+
+/* Title mode (calibration, device support, captive portal ...):
+   the title stands on the window glass as a primary label. */
+%{SearchAndTitleContainer}%{ShowingTitle},
+%{SearchAndTitleContainer}%{ShowingTitle} > div {
+  color: var(--lgs-text-1);
+  text-shadow: var(--lgs-text-shadow);
+}
+
+/* Account-alert / avatar item (only with active support alerts). */
+%{HeaderItem} {
+  color: var(--lgs-text-1);
+  border-radius: var(--lgs-r-capsule);
+  transition: background-color var(--lgs-t-fast) var(--lgs-ease);
+}
+%{HeaderItem}%{Profile>Clickable}:hover {
+  background-color: var(--lgs-hover-fill);
+}
+%{HeaderItem}.gpfocus,
+%{HeaderItem}.gpfocuswithin {
+  background: var(--lgs-focus-fill) !important;
+  color: var(--lgs-text-1) !important;
+  box-shadow: var(--lgs-focus-ring) !important;
+}
+
+/* High contrast: give the header a solid bar again. */
+@media (prefers-contrast: more) {
+  #header%{Profile>Header}::before {
+    background: var(--lgs-thick-bg);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* 3. Footer legend: one Liquid Glass capsule hugging the actions      */
+/* ------------------------------------------------------------------ */
+
+/* The full-width black strip dissolves; the legend items (adjacent,
+   right-aligned) get a single capsule behind them, positioned with
+   anchors on the first and last item so the footer's own box, padding
+   and --gamepadui-current-footer-height stay exactly Steam's. */
+#Footer%{BasicFooter} {
+  background: none;
+  backdrop-filter: none;
+  border-image: none;
+  border-top-color: transparent;
+}
+%{FooterLegend} > :first-child {
+  anchor-name: --lgs-legend-first;
+}
+%{FooterLegend} > :last-child {
+  anchor-name: --lgs-legend-last;
+}
+#Footer%{BasicFooter}::after {
+  content: "";
+  position: absolute;
+  top: anchor(--lgs-legend-last top, 4px);
+  bottom: anchor(--lgs-legend-last bottom, 3px);
+  left: calc(anchor(--lgs-legend-first left, 100%) - 4px);
+  right: calc(anchor(--lgs-legend-last right, 0px) - 4px);
+  z-index: -1;
+  border-radius: var(--lgs-r-capsule);
+  background: var(--lgs-glass-bg);
+  backdrop-filter: var(--lgs-glass-blur);
+  box-shadow: var(--lgs-glass-rim), var(--lgs-glass-shadow);
+  pointer-events: none;
+}
+%{ActionButtonLegend} {
+  border-radius: var(--lgs-r-capsule);
+  transition: background-color var(--lgs-t-fast) var(--lgs-ease);
+}
+%{ActionButtonLegend}:hover {
+  background-color: var(--lgs-hover-fill);
+}
+%{ActionButtonLegend}:active {
+  background-color: var(--lgs-focus-fill);
+}
+%{ActionButtonLegend} %{ActionButtonLabel} {
+  color: var(--lgs-text-1);
+  text-shadow: var(--lgs-text-shadow);
+}
+
+@media (prefers-contrast: more) {
+  #Footer%{BasicFooter}::after {
+    background: var(--lgs-thick-bg);
+    backdrop-filter: none;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* 4. Page transitions and the app-details scrim                      */
+/* ------------------------------------------------------------------ */
+
+/* Route transition wrappers paint nothing and keep Steam's opacity +
+   transform animations; only make sure nothing opaque is left there. */
+%{TopLevelTransitionSwitch},
+%{ContentWrapper}%{TopLevelTransition},
+%{AbsoluteDiv} {
+  background-color: transparent;
+}
+
+/* App-details / partner-event overlay dimming layer: Apple's scrim
+   colour; Steam's opacity and backdrop-filter transitions stay. */
+%{PartnerEventOverlayContainer} %{Container>TransitionWrapper} {
+  background-color: var(--lgs-scrim);
+}
+
+/* ------------------------------------------------------------------ */
+/* 5. Search route (/search/tab/*)                                     */
+/* ------------------------------------------------------------------ */
+
+/* Result art is content: opaque, rounded to the card radius. */
+%{GamepadSearch} %{ResultTemplateImage} {
+  border-radius: var(--lgs-r-card);
+  transition: box-shadow var(--lgs-t-fast) var(--lgs-ease);
+}
+%{GamepadSearch} %{ResultTemplateImage} %{PortraitImage>Container},
+%{GamepadSearch} %{ResultTemplateImage} %{PortraitImage>Image},
+%{GamepadSearch} %{ResultTemplateImage} %{FriendResultImage},
+%{GamepadSearch} %{ResultTemplateImage} %{ProfileBackground},
+%{GamepadSearch} %{ResultTemplateImage} %{RedirectResultBackground} {
+  border-radius: var(--lgs-r-card);
+}
+%{GamepadSearch} %{ResultTemplateImage} %{PortraitImage>Container} {
+  background-color: var(--lgs-fill-1);
+}
+/* focus: a bright ring around the art; Steam's scale-up stays */
+%{GamepadSearch} %{ResultTemplate}.gpfocuswithin %{ResultTemplateImage} {
+  box-shadow: var(--lgs-focus-ring-outer), 0 12px 24px rgba(0, 0, 0, 0.32) !important;
+}
+
+/* label row under each tile */
+%{GamepadSearch} %{GamepadSearch>Description} {
+  color: var(--lgs-text-2);
+  text-shadow: var(--lgs-text-shadow);
+}
+%{GamepadSearch} %{GamepadSearch>Icon} {
+  color: var(--lgs-text-2);
+}
+%{GamepadSearch} %{ResultTemplate}.gpfocuswithin %{GamepadSearch>Description},
+%{GamepadSearch} %{ResultTemplate}.gpfocuswithin %{GamepadSearch>Icon} {
+  color: var(--lgs-text-1) !important;
+}
+
+/* "View more in the Store": a glass fill tile instead of a grey slab */
+%{GamepadSearch} %{RedirectResultBackground} {
+  background: var(--lgs-panel-sheen), var(--lgs-fill-2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+%{GamepadSearch} %{OverlaidText} {
+  color: var(--lgs-text-1);
+  text-shadow: var(--lgs-text-shadow);
+}
+
+/* empty state */
+%{GamepadSearch} %{NoResultsFound} {
+  color: var(--lgs-text-2);
+  text-shadow: var(--lgs-text-shadow);
+}

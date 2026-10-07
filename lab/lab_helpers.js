@@ -1,7 +1,10 @@
 // Development helpers evaluated in SharedJSContext (prepended with
 // lgs_index.js). Installs window.__LGS_LAB; lives in memory only.
 (function () {
-  if (window.__LGS_LAB && window.__LGS_LAB.v === 9) return;
+  if (window.__LGS_LAB && window.__LGS_LAB.v === 11) return;
+  // SteamVR's own pages (vrwebhelper) are single documents with no popup
+  // manager; every helper then works on this page.
+  const SINGLE = typeof window.g_PopupManager === 'undefined';
   const index = (window.__LGS_INDEX && window.__LGS_INDEX.selector) ? window.__LGS_INDEX : (window.__LGS_INDEX = lgsBuildIndex());
 
   const ALIAS = {
@@ -11,6 +14,7 @@
   };
 
   function popups() {
+    if (SINGLE) return [{ name: 'vr:' + (document.title || 'page'), win: window }];
     return [...g_PopupManager.m_mapPopups.values()].map((p) => {
       let win = null;
       try { win = p.window; } catch (_) { /* closing */ }
@@ -19,6 +23,7 @@
   }
 
   function surface(alias) {
+    if (SINGLE) return window;
     const ps = popups();
     const rx = ALIAS[alias];
     let p = rx ? ps.find((x) => rx.test(x.name)) : null;
@@ -138,6 +143,7 @@
   }
 
   function openThings() {
+    if (SINGLE) return { modals: [], menus: [], bars: [] };
     const inst = mainInstance();
     let bars = [];
     try { bars = [...(inst.m_setVRDashboardBarPopups || [])].filter((h) => { try { return h.BPopupOpen(); } catch (_) { return false; } }); } catch (_) { /* none */ }
@@ -151,6 +157,7 @@
   }
 
   async function restore() {
+    if (SINGLE) return 0;
     const before = window.__LGS_MARK || { modals: [], menus: [], bars: [] };
     const now = openThings();
     let closed = 0;
@@ -255,7 +262,7 @@
   // Snapshot every interactive element and every text leaf of a surface, so
   // the stock UI (theme off) can be diffed against the themed UI (theme on).
 
-  const INTERACTIVE = '.Focusable, [role=button], button, input, textarea, select, a[href], [tabindex]';
+  const INTERACTIVE = '.Focusable, .ButtonControl, [role=button], button, input, textarea, select, a[href], [tabindex]';
   const ROOMS = { grey: [128, 128, 128], bright: [210, 210, 210], dark: [24, 24, 24] };
 
   function parseColor(c) {
@@ -423,5 +430,5 @@
     };
   }
 
-  window.__LGS_LAB = { v: 9, mark, restore, openThings, perf, surface, sel, q, qa, click, clickText, sleep, pad, focused, nav, back, route, outline, styles, classes, surfaces, readable, index, snap, diff };
+  window.__LGS_LAB = { v: 11, single: SINGLE, mark, restore, openThings, perf, surface, sel, q, qa, click, clickText, sleep, pad, focused, nav, back, route, outline, styles, classes, surfaces, readable, index, snap, diff };
 })();

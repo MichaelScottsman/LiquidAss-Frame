@@ -85,6 +85,22 @@ html.lgs-on {
   --lgs-selected-fill: rgba(255, 255, 255, 0.94);   /* white = selected only */
   --lgs-pressed-scale: 0.97;
   --lgs-disabled-opacity: 0.45;
+  /* the floating focus ring element (%{FocusRing}) and other outline rings */
+  --lgs-focus-outline: rgba(255, 255, 255, 0.92);
+  --lgs-focus-glow: 0 0 22px rgba(255, 255, 255, 0.30);
+  --lgs-pressed-fill: rgba(255, 255, 255, 0.30);
+
+  /* ---- controls (foundation primitives, theme/10-primitives.css) ---- */
+  --lgs-control-rim: inset 0 1px 0 rgba(255, 255, 255, 0.18);   /* inner top rim of filled controls */
+  /* brightens a tinted capsule from within on hover/focus: layer it over the tint */
+  --lgs-tint-lift: linear-gradient(rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.16));
+  --lgs-well-bg: var(--lgs-fill-sunken);                          /* text inputs, search, value boxes */
+  --lgs-well-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25), inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+  --lgs-caret: rgba(255, 255, 255, 0.96);
+  --lgs-knob: #fff;                                               /* toggle and slider knobs */
+  --lgs-knob-shadow: 0 1px 3px rgba(0, 0, 0, 0.30), 0 0 0 0.5px rgba(0, 0, 0, 0.12);
+  --lgs-slider-fill: rgba(255, 255, 255, 0.92);
+  --lgs-field-gap: 6px;   /* Steam's margin between consecutive field rows (grouped cards fill it) */
 
   /* ---- colour: whole fills only, never thin coloured text ---- */
   --lgs-blue: #0a84ff;

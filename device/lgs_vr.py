@@ -1,0 +1,209 @@
+#!/usr/bin/env python3
+"""Glass Shell for SteamVR's own web UI.
+
+SteamVR draws part of the Frame's interface itself (vrwebhelper pages served
+from 127.0.0.1:27062/dashboard: the window frame controls and grab bar, Now
+Playing, SteamVR settings, controller bindings, message overlays). With the
+SteamVR developer setting VRWebHelper/DebuggerEnabled (port 8090) those pages
+have a devtools socket too. Unlike Steam's popups they don't share one JS
+context, and pages come and go, so while the theme is on this small watcher
+runs as the transient user unit "lgs-vr" and keeps every page themed. A
+transient unit never survives a reboot.
+
+  lgs_vr.py daemon    run the watcher (lgs.py starts it with systemd-run)
+  lgs_vr.py strip     remove the theme from every SteamVR page
+  lgs_vr.py status    per-page status
+"""
+import asyncio
+import glob
+import hashlib
+import json
+import os
+import subprocess
+import sys
+import time
+import urllib.request
+
+HERE = os.path.dirname(os.path.realpath(__file__))
+sys.path.insert(0, HERE)
+import lgs  # noqa: E402
+
+VR_CDP = "http://127.0.0.1:8090"
+UNIT = "lgs-vr"
+VR_THEME = os.path.join(lgs.THEME_DIR, "vr")
+POLL = 1.5
+
+
+def available():
+    try:
+        with urllib.request.urlopen(VR_CDP + "/json/version", timeout=2):
+            return True
+    except OSError:
+        return False
+
+
+def targets():
+    with urllib.request.urlopen(VR_CDP + "/json/list", timeout=3) as r:
+        return [t for t in json.load(r) if t.get("type") == "page"]
+
+
+def theme_files():
+    """Shared tokens first, then the SteamVR stylesheets."""
+    return sorted(glob.glob(os.path.join(lgs.THEME_DIR, "*.nowrap.css"))) + \
+        sorted(glob.glob(os.path.join(VR_THEME, "*.css")))
+
+
+def signature():
+    parts = []
+    for p in theme_files() + [lgs.DIAL]:
+        try:
+            parts.append(f"{p}:{os.stat(p).st_mtime_ns}")
+        except OSError:
+            pass
+    return "|".join(parts)
+
+
+def payload():
+    css = lgs.bundle_files(theme_files())
+    return {"op": "on", "css": css, "version": hashlib.sha1(css.encode()).hexdigest()[:10]}
+
+
+def core_call(p):
+    with open(os.path.join(HERE, "lgs_index.js"), encoding="utf-8") as f:
+        index_js = f.read()
+    with open(os.path.join(HERE, "lgs_vr_core.js"), encoding="utf-8") as f:
+        core_js = f.read().strip().rstrip(";")
+    return f"(() => {{\n{index_js}\nreturn ({core_js})({json.dumps(p)}, lgsBuildIndex);\n}})()"
+
+
+async def eval_in(t, expr, timeout=20):
+    async with lgs.Session(t["webSocketDebuggerUrl"]) as s:
+        return await s.eval(expr, timeout)
+
+
+async def each_page(expr_for):
+    out = {}
+    for t in targets():
+        try:
+            out[t["title"] or t["url"]] = await eval_in(t, expr_for(t))
+        except Exception as e:  # noqa: BLE001 - a page closing mid-call
+            out[t["title"] or t["url"]] = f"error: {e}"
+    return out
+
+
+def apply_once():
+    """Theme every SteamVR page now (the lab uses this; users get the watcher)."""
+    if not available():
+        return {}
+    full = core_call(payload())
+    return asyncio.run(each_page(lambda t: full))
+
+
+def strip():
+    if not available():
+        return {}
+    return asyncio.run(each_page(lambda t: core_call({"op": "off"})))
+
+
+def status():
+    if not available():
+        return {"available": False}
+    pages = asyncio.run(each_page(lambda t: core_call({"op": "status"})))
+    return {"available": True, "watcher": unit_active(),
+            "pages": {k: (json.loads(v) if isinstance(v, str) and v.startswith("{") else v) for k, v in pages.items()}}
+
+
+def steam_theme_on():
+    try:
+        return bool(lgs.run_js("SharedJSContext", "!!(window.__LGS && window.__LGS.state.enabled)", 10))
+    except Exception:  # noqa: BLE001 - Steam restarting
+        return None
+
+
+async def watch():
+    sig, p, probe, full = None, None, None, None
+    steam_off = 0
+    while True:
+        s = signature()
+        if s != sig:
+            sig, p = s, payload()
+            full = core_call(p)
+            probe = (f"(window.__LGS_VR && window.__LGS_VR.version === {json.dumps(p['version'])})"
+                     " ? (window.__LGS_VR.apply() ? 'ok' : 'retry') : 'need'")
+            lgs.log(f"vr: theme {p['version']} ({len(p['css'])} bytes)")
+        # The Steam side is the switch: if it went away (Steam restarted, or
+        # "lgs off" raced us) the SteamVR side follows.
+        on = steam_theme_on()
+        steam_off = steam_off + 1 if on is False else 0
+        if steam_off >= 2:
+            lgs.log("vr: Steam theme is off; stripping SteamVR pages and exiting")
+            strip()
+            return
+        if available():
+            for t in targets():
+                try:
+                    if await eval_in(t, probe, 10) == "need":
+                        r = await eval_in(t, full, 30)
+                        lgs.log(f"vr: {t['title'] or t['url']}: {r}")
+                except Exception:  # noqa: BLE001 - page reloading or closing
+                    pass
+        await asyncio.sleep(POLL)
+
+
+def unit_active():
+    r = subprocess.run(["systemctl", "--user", "is-active", UNIT], capture_output=True, text=True,
+                       env=user_env())
+    return r.stdout.strip() == "active"
+
+
+def user_env():
+    env = dict(os.environ)
+    env.setdefault("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")
+    for k in ("LD_LIBRARY_PATH", "LD_PRELOAD", "PYTHONHOME", "PYTHONPATH"):
+        env.pop(k, None)
+    return env
+
+
+def start():
+    """Start the watcher if SteamVR's devtools are reachable. Idempotent."""
+    if not available():
+        return "steamvr devtools off"
+    if unit_active():
+        return "running"
+    subprocess.run(["systemctl", "--user", "reset-failed", UNIT], capture_output=True, env=user_env())
+    r = subprocess.run(["systemd-run", "--user", "--unit", UNIT, "--collect", "--quiet",
+                        "--description=Glass Shell: theme SteamVR pages (transient)",
+                        "/usr/bin/python3", os.path.realpath(__file__), "daemon"],
+                       capture_output=True, text=True, env=user_env())
+    return "started" if r.returncode == 0 else f"failed: {r.stderr.strip()}"
+
+
+def stop():
+    subprocess.run(["systemctl", "--user", "stop", UNIT], capture_output=True, env=user_env())
+    return strip()
+
+
+def main(argv):
+    cmd = argv[1] if len(argv) > 1 else "status"
+    if cmd == "daemon":
+        try:
+            asyncio.run(watch())
+        except KeyboardInterrupt:
+            pass
+        return 0
+    if cmd == "strip":
+        print(json.dumps(strip(), indent=1))
+    elif cmd == "status":
+        print(json.dumps(status(), indent=1))
+    elif cmd == "start":
+        print(start())
+    elif cmd == "stop":
+        print(json.dumps(stop(), indent=1))
+    else:
+        print(__doc__)
+        return 2
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))
