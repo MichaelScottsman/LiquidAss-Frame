@@ -191,3 +191,106 @@ Applies under `html.lgs-on.lgs-native`:
 | Laser and controller input still reach Steam's panel through non-interactive panels | Hover and click on library tiles with layers on | — |
 | The laser cursor dot is not hidden by the cover | Look for the cursor on the window | `no-depth-write` on cover and mosaic, or sort-order tweaks |
 | Mosaic seams | Look for hairlines between base pieces | Overlap pieces by 1 px |
+
+## Runtime
+
+### How it runs
+
+`lgs on` (the **+ › Launch Program › Liquid Glass** toggle, or `python glass.py on`) injects the CSS and then starts the transient user unit **`lgs-shell`**:
+
+```
+systemd-run --user --unit lgs-shell --collect -p KillMode=mixed -p TimeoutStopSec=15 \
+    /usr/bin/python3 -u device/lgs_shell.py daemon --glassd ~/.local/share/glass-shell/native/glassd/glassd
+```
+
+It replaces the old `lgs-vr` watcher (`lgs on` stops a leftover `lgs-vr`). Nothing is enabled or written outside `/dev/shm/lgs` and `/tmp/lgs`, so a reboot or a Steam restart leaves nothing behind.
+
+| Mode (`status.mode`) | When | What runs |
+|---|---|---|
+| `native` | glassd binary present, glassd reports `frames > 0`, Steam theme on | everything below |
+| `starting` | glassd present but no frames yet | as native, without `lgs-native` and with an empty scene-graph spec |
+| `css-only (no glassd binary; …)` | `native/glassd/glassd` not built | SteamVR page theming only. No reporter in Steam, nothing in systemui |
+| `css-only (glassd gave up)` | glassd exited 5 times within 120 s (backoff 2, 4, 8, 16 s) | same as above; the reporter is stopped and the nodes removed |
+
+In native mode the daemon:
+
+1. keeps one devtools socket to Steam's SharedJSContext (8080) and one to SteamVR's `systemui` (8090);
+2. adds the CDP binding `lgsLayers` and injects `device/lgs_layers.js` with `window.__LGS_LAYERS_OPTS = {binding, layers: theme/layers.json}`. It re-injects when the file changes or the page reloads. Without the file (or without any report within 10 s) it synthesizes a report for the main window only: the cover, no popped elements;
+3. writes `/dev/shm/lgs/glassd.json` atomically. Structural changes are written at once, position-only changes at most 4 times a second. It passes the reporter's `shapes` and each slab's `x`, `y` and `dz` through;
+4. starts glassd as a child process (stdout goes to the journal with a `glassd:` prefix), removes a stale `glassd-out.json` first, and watches the new one at 10 Hz;
+5. builds the `__LGS_SG` spec and pushes it at most 30 times a second, only when it changed. It pings `__LGS_SG` every 2 s. A popped element is used only when glassd has a slab for it whose size matches the element × `backdropScale` (±2.5 px), and an element that overlaps an already popped one is skipped;
+6. sets `html.lgs-native` (through a small `window.__LGS_NATIVE` helper, only while `__LGS` is enabled) on the Steam windows whose surface glassd covers. A heartbeat runs every second;
+7. themes every SteamVR page like `lgs-vr` did, unless `/tmp/lgs/vr-theme-paused` exists. A lab `--theme off` on a `vr:` page now writes that marker via `lgs_vr.stop()` instead of stopping a unit, and the next `lgs on` removes it.
+
+It stops on SIGTERM (`lgs off`, `lgs_shell.py stop`), when the Steam theme is seen off on 3 polls in a row (1 s apart; a lab `--theme off` step counts), or on an internal error. Teardown order:
+
+1. `__LGS_SG.destroy()`;
+2. `__LGS_NATIVE.clear()`;
+3. `__LGS_LAYERS.stop()` and `Runtime.removeBinding` (the inert `window.lgsLayers` function stays until Steam restarts);
+4. glassd SIGTERM (SIGKILL after 4 s);
+5. delete `glassd.json` and `glassd-out.json`;
+6. if the theme went off: strip the SteamVR pages.
+
+**If the daemon dies without tearing down** (crash, `kill -9`), both pages clean up after themselves: `lgs_sg.js` clears its nodes and `__LGS_NATIVE` removes `lgs-native` after 12 s without a heartbeat. systemd kills glassd with the unit. All of this was verified on the Frame.
+
+### Build glassd, or the stand-in
+
+```bash
+python glass.py sync                 # also uploads native/ (sources only; never build/ or binaries)
+python glass.py native-build         # runs native/glassd/build.sh on the Frame -> native/glassd/glassd
+python glass.py native-build fake    # native/spike/fakeglassd: a stand-in glassd (no camera)
+```
+
+The binary's presence switches `lgs on` from CSS-only to native, and glassd then reads `/dev/video99`. To go back to CSS-only, delete `~/.local/share/glass-shell/native/glassd/glassd`.
+
+`native/spike/fakeglassd` follows the same `glassd.json` / `glassd-out.json` contract. It publishes `glassd.<surface>` dmabuf overlays with a static frosted gradient and translucent slabs in an atlas, and it never touches the camera. `--dump DIR` writes its textures to PNG, so you can check them without the headset.
+
+### Run it by hand (tests)
+
+```bash
+D=~/.local/share/glass-shell/device
+python3 $D/lgs_shell.py start --glassd ~/.local/share/glass-shell/native/spike/fakeglassd --stay
+python3 $D/lgs_shell.py start --glassd ~/.local/share/glass-shell/native/glassd/glassd \
+        --glassd-args "--no-feed --key-prefix glassd-test." --stay      # real glassd, no camera
+python3 $D/lgs_shell.py start --glassd none                            # CSS only
+```
+
+- `--stay` is for tests only. Other agents' lab steps toggle the Steam theme off and on all the time; with `--stay` the daemon goes dormant (nodes and `lgs-native` cleared) while the theme is off instead of exiting.
+- `start` is idempotent: it returns `running` if the unit is up.
+
+### Inspect
+
+| What | How |
+|---|---|
+| Unit + summary | `lgs status` (key `shell`), `python glass.py shell status`, `python3 $D/lgs_shell.py status` |
+| Live daemon state | `/dev/shm/lgs/shell.json`, rewritten every 2 s: mode, glassd pid/frames/fps/restarts, reporter state, report source, `lgsNative` windows, spec summary, `__LGS_SG` counts, SteamVR pages, last errors |
+| Log | `python glass.py shell log` (`journalctl --user -u lgs-shell`), also `/tmp/lgs/lgs.log` (`shell:` lines) |
+| glassd in/out | `/dev/shm/lgs/glassd.json`, `/dev/shm/lgs/glassd-out.json` |
+| Scene graph | `python glass.py js "JSON.stringify(__LGS_SG.status())" --in vr:systemui`: scheduler, attached, per-surface `parents` (`src`, displayed `uv`, `mpp`), items by kind, nodes, pushes per second, re-attaches, re-layouts, watchdog. `__LGS_SG.dump()` lists every panel (anchor, z, key, uv, mpp, size in m, sgids) |
+| Which copy is ours | Inject `lgs_sg.js` with `{debugTint: {base: [1,.3,.3], pop: [.3,1,.3]}}`: those panels get wrapped in SteamVR `tint` nodes. `native/spike/sg_timeline.py` does this on the Frame and grabs the headset view at fixed delays (frames show the room: look, then delete) |
+
+### Stop it
+
+- `lgs off`: the theme off, `lgs-shell` stopped, SteamVR pages stripped.
+- `python glass.py shell stop` (or `lgs_shell.py stop`, `systemctl --user stop lgs-shell`): stops only the native layer and the page watcher. The CSS theme stays on.
+
+### Scene-graph facts found while building `lgs_sg.js` (these correct the spike notes above)
+
+1. **One `reparent-to-panel` per parent.**
+   - SteamVR lays out *sibling* `reparent-to-panel` nodes of one parent panel side by side. With several items, each under its own `reparent-to-panel`, the pieces landed beside the window, and the leftovers looked like ghost copies.
+   - `lgs_sg.js` therefore puts every item of a surface under a single `reparent-to-panel` (`panel-anchor > vsg-transform > panel` per item). With that, the base mosaic, popped crops, slabs and the cover all sit in place. Verified with tinted panels on the Frame.
+2. **Main's metres-per-pixel is not the popups'.**
+   - The main window is mounted from Steam's standalone graph. Its frame node says `override-pre-resize-main-panel-height: 1.5`, so M_main = 1.5 / 1080 = **0.001389** m/px.
+   - The popups' 0.00153 made main crops about 10% too big. That was measured: content was offset by (+70, +25) px at the bottom-right, against (+74, +24) predicted.
+   - `lgs_sg.js` reads M per surface: main from the frame node, popups and the bar from their own `PooledPopup-<key>` panel. A spec `M` overrides it.
+   - A user resize of the main window is not visible from systemui. Crops would then be off by the resize factor. **Unverified.**
+3. **Popups and the bar show a live sub-range of their texture.**
+   - The parent panel shows only part of the texture: the panel's `uv_min`/`uv_max`, e.g. bar 0.208–0.792, floating footer 0.32–0.68, frame menu 0.82–1 × 0.19–0.81. Steam changes that range as the content changes.
+   - Anchors are relative to the displayed range. `lgs_sg.js` clips every item to it, remaps the anchors, and re-lays out within 0.5 s when it changes.
+   - Verified: the bar and floating-footer covers line up with their capsules.
+4. **Changes reach the compositor within about 0.3 s.** That covers both adding nodes and removing them: DOM removal plus `retired_sgids` through the module's retire export (`Lx`), which is found by source text like the scheduler.
+5. **Depth units.**
+   - `vsg-transform` translations and `dz` are in the dashboard's scene metres. In those units the window is 2.67 × 1.5, at about 2.95 from its curvature origin.
+   - `GetTransformForOverlayCoordinates` reports a nominal quad of about 0.98 × 0.55 m at about 1.2 m, which has the same angular size, so rays through either quad agree.
+   - Tune the stereo `dz` values in `theme/layers.json` with that scale in mind.
+6. **The reporter's `visible` flag stays true while the frame shows Now Playing.** Nodes reparented to main are hidden then anyway.

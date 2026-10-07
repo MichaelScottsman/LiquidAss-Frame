@@ -34,11 +34,23 @@
   border-radius: var(--lgs-vr-r-card);
   box-shadow: 0 14px 48px rgba(0, 0, 0, 0.38), 0 2px 6px rgba(0, 0, 0, 0.22);
 }
-/* no art (fallback card with the title): a fill on the glass */
+/* no art (fallback card with the title): a fill on the glass, not a dark
+   slab. SteamVR paints its placeholder portrait (appimage_default_portrait,
+   opaque #282828) as an inline background-image on the child .Icon, over
+   the card; that placeholder is decoration, not app content, so it goes
+   (inline style, hence !important). Real art and app icons have another
+   URL and are never matched. */
+.DashboardMain .NowPlaying .PortraitAppImageContainer.Fallback > .Icon[style*="appimage_default_portrait"] {
+  background-image: none !important;
+}
 .DashboardMain .NowPlaying .PortraitAppImageContainer.Fallback {
-  background: var(--lgs-fill-2);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  background: var(--lgs-fill-1);
+  box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, 0.16), inset 0 0 0 1px rgba(255, 255, 255, 0.07);
   border-radius: inherit;
+}
+/* a fill on glass doesn't cast the art's content shadow */
+.DashboardMain .NowPlaying .ArtworkColumn:has(> .PortraitAppImageContainer.Fallback) {
+  box-shadow: none;
 }
 .DashboardMain .NowPlaying .PortraitAppImageContainer.Fallback .Title {
   color: var(--lgs-text-1);
@@ -67,9 +79,12 @@
 .DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}::before {
   border-radius: inherit;
 }
+/* laser hover: the strong SteamVR hover (10-systemui.css section 0). In
+   laser-mouse mode without controllers there is no gamepad focus here, so
+   pointing is the only cue; focus stays distinct (ring + glow). */
 .DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}:hover {
-  background: var(--lgs-hover-fill);
-  box-shadow: var(--lgs-control-rim);
+  background: var(--lgs-vr-hover-fill);
+  box-shadow: var(--lgs-control-rim), var(--lgs-vr-hover-rim);
   color: var(--lgs-text-1);
 }
 /* gamepad focus: illuminated from within + ring (the ::after) */
@@ -87,26 +102,34 @@
 
 /* Resume Game / Return to Home: the one tinted primary. Like Steam's Play
    capsule (50-appdetails.css) it rests under Apple's dimming layer (deep
-   green, white label >= 3:1 at this size over any room) and lights up to
-   the full play tint when pointed at, highlighted or focused. Both layers
-   are images so the capsule keeps one fill. */
-.DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}%{GamepadUIButton>Primary}:not(.Disabled) {
+   green) and lights up when pointed at or focused. The lit fill is the
+   play tint with 18% black: white 36px label >= 3.3:1 over any room (the
+   full .86 tint gives 2.4-2.6). Pointing also draws the inner rim, focus
+   the ring. %{Highlighted} (SteamVR: primary + laser-mouse mode + no
+   controllers) keeps the rest look: the deep green already marks the
+   primary, and in that mode hover is the only cue, so rest and hover must
+   differ. Both layers are images so the capsule keeps one fill. */
+.DashboardMain .NowPlaying {
+  --lgs-vr-play-lit: color-mix(in srgb, var(--lgs-tint-play), black 18%);
+}
+.DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}%{GamepadUIButton>Primary}:not(.Disabled),
+.DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}%{GamepadUIButton>Primary}:not(.Disabled)%{Highlighted} {
   background: linear-gradient(var(--lgs-scrim), var(--lgs-scrim)),
               linear-gradient(var(--lgs-tint-play), var(--lgs-tint-play));
   color: #fff;
 }
-.DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}%{GamepadUIButton>Primary}:not(.Disabled):hover,
-.DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}%{GamepadUIButton>Primary}:not(.Disabled)%{Highlighted} {
-  background: linear-gradient(var(--lgs-tint-play), var(--lgs-tint-play));
+.DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}%{GamepadUIButton>Primary}:not(.Disabled):hover {
+  background: linear-gradient(var(--lgs-vr-play-lit), var(--lgs-vr-play-lit));
+  box-shadow: var(--lgs-control-rim), var(--lgs-vr-hover-rim);
   color: #fff;
 }
 .DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}%{GamepadUIButton>Primary}:not(.Disabled).gpfocus {
-  background: linear-gradient(var(--lgs-tint-play), var(--lgs-tint-play));
+  background: linear-gradient(var(--lgs-vr-play-lit), var(--lgs-vr-play-lit));
   box-shadow: var(--lgs-vr-focus-ring);
   color: #fff;
 }
 .DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}%{GamepadUIButton>Primary}:not(.Disabled):active {
-  background: var(--lgs-tint-lift), linear-gradient(var(--lgs-tint-play), var(--lgs-tint-play));
+  background: var(--lgs-tint-lift), linear-gradient(var(--lgs-vr-play-lit), var(--lgs-vr-play-lit));
 }
 
 /* Exit Game / Exit Home: the only action whose label is plain text
@@ -129,12 +152,14 @@
   color: var(--lgs-text-disabled);
 }
 
-/* the focus ring element (Steam-owned ::after): steady white ring that
-   follows the capsule; no flash/grow/blink */
+/* the focus ring element (Steam-owned ::after): the button's own
+   --lgs-vr-focus-ring already draws the one ring (inset + glow), like
+   Steam's DialogButton and Play focus in 10-primitives.css; a second
+   outline outside it read as a bullseye. Its outline goes clear (geometry
+   untouched) and its flash / grow / 20x blinker stop. */
 .DashboardMain .NowPlaying .InfoColumn %{GamepadUIButton}%{FocusRing}.gpfocus::after {
   border-radius: inherit;
-  outline: var(--lgs-vr-ring-w) solid var(--lgs-focus-outline);
-  outline-offset: calc(3px * var(--lgs-vr-scale));
+  outline-color: transparent;
   animation: none;
   opacity: 1;
 }

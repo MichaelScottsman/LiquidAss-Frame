@@ -1,8 +1,15 @@
 // Passthrough feed for the room model. SteamVR's v4l2cam publishes the
 // compositor's right-eye view on a v4l2loopback device (/dev/video99,
-// 1920x1080 RGB24). A capture thread streams it with V4L2 mmap buffers (falls
-// back to read()), and box-downsamples the frames it is asked for to a quarter
-// resolution RGBA image. Frames stay in RAM; nothing is recorded.
+// 1920x1080 RGB24), but only while a reader is attached: every attached second
+// costs v4l2cam about 18% of a core. So the capture thread attaches only on
+// demand:
+//   - streaming: while the glass is on screen, it streams with V4L2 mmap
+//     buffers (falls back to read()) and keeps at most minIntervalNs' worth;
+//   - shots: otherwise, each requestShot() attaches just long enough for one
+//     fresh frame (about 30-60 ms) and detaches again.
+// The first buffer after STREAMON is a stale frame left over from the previous
+// session (sequence 0), so every attach skips it. Kept frames are
+// box-downsampled to RGBA and stay in RAM; nothing is recorded.
 #pragma once
 #include <fcntl.h>
 #include <linux/videodev2.h>
@@ -67,9 +74,12 @@ struct FeedFrame {
 
 class FeedCapture {
  public:
-    std::atomic<int> state{0};  // 0 idle, 1 opening, 2 streaming, -1 failed
+    // 0 detached (standby), 1 attaching / no fresh frame yet, 2 attached with
+    // fresh frames, -1 failed (retried every 5 s while there is demand)
+    std::atomic<int> state{0};
     std::atomic<uint64_t> framesSeen{0}, framesKept{0};
-    std::atomic<uint64_t> minIntervalNs{27000000ull};  // process at most ~36 Hz
+    std::atomic<uint64_t> minIntervalNs{27000000ull};  // while streaming: process at most ~36 Hz
+    std::atomic<uint64_t> attaches{0}, attachedNs{0};  // stats: sessions, total time attached
     std::string device = "/dev/video99";
     std::string mode = "none";
     std::string error;
@@ -86,6 +96,18 @@ class FeedCapture {
         quit = true;
         if (worker.joinable()) worker.join();
     }
+    // Demand. Streaming keeps the device attached; a shot attaches for one
+    // fresh frame (pending shots are merged).
+    void setStreaming(bool on) { streaming = on; }
+    void requestShot() { shotsWanted++; }
+    bool attached() const { return attachedFlag.load(); }
+    // Total time attached, including the current attach.
+    uint64_t attachedTotalNs() const {
+        const uint64_t t0 = attachStartNs.load();
+        return attachedNs.load() + (attachedFlag.load() && t0 ? monoNowNs() - t0 : 0);
+    }
+    bool isStreaming() const { return streaming.load(); }
+
     // Hands over the newest frame (buffer swap) if it is newer than `have`.
     bool latest(FeedFrame &out, uint64_t have) {
         std::lock_guard<std::mutex> lock(mu);
@@ -104,16 +126,27 @@ class FeedCapture {
  private:
     std::thread worker;
     std::atomic<bool> quit{false};
+    std::atomic<bool> streaming{false}, attachedFlag{false};
+    std::atomic<uint64_t> attachStartNs{0};
+    std::atomic<uint64_t> shotsWanted{0};
+    uint64_t shotsDone = 0;  // capture thread only
     std::mutex mu;
     FeedFrame front, back;
     uint64_t lastSeq = 0, nextSeq = 1;
     uint64_t lastKeptNs = 0;
     int W = 0, H = 0, stride = 0;
+    bool announced = false;
+    std::string lastError;
+
+    static constexpr uint64_t kShotTimeoutNs = 700000000ull;  // give up a shot without a fresh frame
 
     struct Buf {
         void *p = MAP_FAILED;
         size_t len = 0;
     };
+
+    bool shotPending() const { return shotsDone < shotsWanted.load(); }
+    bool demand() const { return streaming.load() || shotPending(); }
 
     // Returns false for frames that are all black (the loopback hands out zero
     // frames until SteamVR publishes one).
@@ -168,9 +201,37 @@ class FeedCapture {
 
     bool wanted(uint64_t now) const { return now - lastKeptNs >= minIntervalNs.load(); }
 
+    // Handles one dequeued frame. `fresh` is false for the stale buffer the
+    // loopback hands out first. Returns true when the frame was kept.
+    bool consume(const uint8_t *src, bool fresh, uint64_t t) {
+        framesSeen++;
+        if (!fresh) return false;
+        const bool shot = shotPending();
+        if (!(shot || (streaming.load() && wanted(t)))) return false;
+        if (!process(src, t)) return false;
+        lastKeptNs = t;
+        state = 2;
+        if (shot) shotsDone = shotsWanted.load();
+        return true;
+    }
+
+    // True while this attach should continue. A shot that found no fresh
+    // frame within kShotTimeoutNs is dropped.
+    bool keepAttached(uint64_t t0) {
+        if (quit) return false;
+        if (streaming.load()) return true;
+        if (!shotPending()) return false;
+        if (monoNowNs() - t0 > kShotTimeoutNs) {
+            shotsDone = shotsWanted.load();
+            return false;
+        }
+        return true;
+    }
+
+    // Returns false when mmap streaming could not be set up.
     bool runMmap(int fd) {
         v4l2_requestbuffers rb{};
-        rb.count = 4;
+        rb.count = 2;
         rb.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         rb.memory = V4L2_MEMORY_MMAP;
         if (ioctl(fd, VIDIOC_REQBUFS, &rb) < 0 || rb.count == 0) {
@@ -194,12 +255,17 @@ class FeedCapture {
         if (ok && ioctl(fd, VIDIOC_STREAMON, &type) < 0) { error = std::string("STREAMON: ") + strerror(errno); ok = false; }
         if (ok) {
             mode = "mmap x" + std::to_string(rb.count);
-            std::printf("feed %s %dx%d RGB24 via mmap (%u buffers), kept at 1/%d\n", device.c_str(), W, H, rb.count, factor);
-            std::fflush(stdout);
-            int failures = 0;
-            while (!quit) {
+            if (!announced) {
+                std::printf("feed %s %dx%d RGB24 via mmap (%u buffers), kept at 1/%d, attached on demand\n", device.c_str(), W, H,
+                            rb.count, factor);
+                std::fflush(stdout);
+                announced = true;
+            }
+            const uint64_t t0 = monoNowNs();
+            int failures = 0, dequeued = 0;
+            while (keepAttached(t0)) {
                 pollfd pfd{fd, POLLIN, 0};
-                int pr = poll(&pfd, 1, 200);
+                int pr = poll(&pfd, 1, 50);
                 if (pr <= 0) continue;
                 v4l2_buffer b{};
                 b.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -211,20 +277,20 @@ class FeedCapture {
                     continue;
                 }
                 failures = 0;
-                framesSeen++;
-                uint64_t t = monoNowNs();
-                if (b.index < bufs.size() && wanted(t) && b.bytesused >= size_t(stride) * H) {
-                    if (process(static_cast<const uint8_t *>(bufs[b.index].p), t)) {
-                        lastKeptNs = t;
-                        state = 2;
-                    }
-                }
+                const bool fresh = dequeued++ > 0 && b.sequence != 0;
+                if (b.index < bufs.size() && b.bytesused >= size_t(stride) * H)
+                    consume(static_cast<const uint8_t *>(bufs[b.index].p), fresh, monoNowNs());
                 ioctl(fd, VIDIOC_QBUF, &b);
             }
             ioctl(fd, VIDIOC_STREAMOFF, &type);
         }
         for (auto &b : bufs)
             if (b.p != MAP_FAILED) munmap(b.p, b.len);
+        v4l2_requestbuffers rel{};
+        rel.count = 0;
+        rel.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+        rel.memory = V4L2_MEMORY_MMAP;
+        ioctl(fd, VIDIOC_REQBUFS, &rel);
         return ok;
     }
 
@@ -233,70 +299,100 @@ class FeedCapture {
         int fl = fcntl(fd, F_GETFL);
         fcntl(fd, F_SETFL, fl | O_NONBLOCK);
         mode = "read";
-        std::printf("feed %s %dx%d RGB24 via read(), kept at 1/%d\n", device.c_str(), W, H, factor);
-        std::fflush(stdout);
+        if (!announced) {
+            std::printf("feed %s %dx%d RGB24 via read(), kept at 1/%d, attached on demand\n", device.c_str(), W, H, factor);
+            std::fflush(stdout);
+            announced = true;
+        }
         const size_t size = size_t(stride) * H;
         std::vector<uint8_t> raw(size);
-        while (!quit) {
+        const uint64_t t0 = monoNowNs();
+        int frames = 0;
+        while (keepAttached(t0)) {
             size_t got = 0;
-            while (got < size && !quit) {
+            while (got < size && keepAttached(t0)) {
                 pollfd pfd{fd, POLLIN, 0};
-                if (poll(&pfd, 1, 200) <= 0) continue;
+                if (poll(&pfd, 1, 50) <= 0) continue;
                 ssize_t n = ::read(fd, raw.data() + got, size - got);
                 if (n <= 0) {
                     if (n < 0 && (errno == EINTR || errno == EAGAIN)) continue;
                     error = "feed read ended";
-                    state = -1;
                     return;
                 }
                 got += size_t(n);
             }
-            if (quit) break;
-            framesSeen++;
-            uint64_t t = monoNowNs();
-            if (wanted(t) && process(raw.data(), t)) {
-                lastKeptNs = t;
-                state = 2;
-            }
+            if (got < size) break;
+            consume(raw.data(), frames++ > 0, monoNowNs());
         }
     }
 
-    void run() {
+    // One attach: open, stream until the demand ends, close. Returns false when
+    // the device could not be opened or set up.
+    bool session() {
         state = 1;
         int fd = ::open(device.c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
         if (fd < 0) {
             error = "open " + device + ": " + strerror(errno);
-            state = -1;
-            std::printf("feed unavailable (%s); room map stays on its fill colour\n", error.c_str());
-            std::fflush(stdout);
-            return;
+            return false;
         }
         v4l2_format fmt{};
         fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         if (ioctl(fd, VIDIOC_G_FMT, &fmt) < 0 || fmt.fmt.pix.pixelformat != V4L2_PIX_FMT_RGB24) {
             error = "unexpected feed format";
-            state = -1;
             ::close(fd);
-            std::printf("feed unavailable (%s)\n", error.c_str());
-            std::fflush(stdout);
-            return;
+            return false;
         }
         W = int(fmt.fmt.pix.width);
         H = int(fmt.fmt.pix.height);
         stride = fmt.fmt.pix.bytesperline ? int(fmt.fmt.pix.bytesperline) : W * 3;
+        const uint64_t t0 = monoNowNs();
+        attachStartNs = t0;
+        attachedFlag = true;
+        attaches++;
         if (!runMmap(fd) && !quit) {
-            std::printf("feed mmap streaming failed (%s); using read()\n", error.c_str());
+            if (error != lastError) std::printf("feed mmap streaming failed (%s); using read()\n", error.c_str());
+            lastError = error;
             std::fflush(stdout);
             ::close(fd);
             fd = ::open(device.c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
             if (fd < 0) {
                 error = "reopen " + device + ": " + strerror(errno);
-                state = -1;
-                return;
+                attachedNs += monoNowNs() - t0;
+                attachedFlag = false;
+                return false;
             }
             runRead(fd);
         }
         ::close(fd);
-        if (state != -1) state = 0;
+        attachedNs += monoNowNs() - t0;
+        attachedFlag = false;
+        return true;
+    }
+
+    void run() {
+        uint64_t retryAt = 0;
+        while (!quit) {
+            if (!demand() || monoNowNs() < retryAt) {
+                if (state.load() != -1) state = 0;
+                usleep(5000);
+                continue;
+            }
+            const uint64_t keptBefore = framesKept.load();
+            if (session()) {
+                state = 0;
+                lastError.clear();
+                // a stream that ended without a single fresh frame: don't spin
+                if (framesKept.load() == keptBefore && streaming.load()) usleep(200000);
+                continue;
+            }
+            state = -1;
+            if (error != lastError) {
+                std::printf("feed unavailable (%s); retrying every 5 s, the room map keeps its last state\n", error.c_str());
+                std::fflush(stdout);
+                lastError = error;
+            }
+            shotsDone = shotsWanted.load();  // drop pending shots
+            retryAt = monoNowNs() + 5000000000ull;
+        }
     }
 };

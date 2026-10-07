@@ -2,7 +2,9 @@
    (vr:controllerbindingui, controllerbinding.html, 2400x1350; page 2 of the
    Steam dashboard frame, so the same window as Steam main). Window glass
    with the primitives look of Steam's settings: fills, capsules, white
-   selected, hover fills (the page is laser-only: no gamepad focus).
+   selected. The page is laser-only (no gamepad focus), so hover is the
+   only targeting cue: controls use the strong SteamVR hover
+   (--lgs-vr-hover-fill + rim, 10-systemui.css section 0).
    Every rule is scoped to body.ControllerMainBorderRadius (this page only;
    the files are bundled into every SteamVR page). Look only: no geometry,
    scrollbar widths untouched, SteamVR's .5 mirrored column and .Disabled
@@ -14,6 +16,8 @@ body.ControllerMainBorderRadius {
   --lgs-vr-r-window: calc(var(--lgs-r-window) * 1.875);
   --lgs-vr-r-card: calc(var(--lgs-r-card) * 1.875);
   --lgs-vr-r-row: calc(var(--lgs-r-row) * 1.875);
+  /* restated so the hover rim uses this page's scale */
+  --lgs-vr-hover-rim: inset 0 0 0 calc(1.5px * 1.875) var(--lgs-control-outline);
   /* the overlay's own rounded corners (body clips): Steam's window radius */
   border-radius: var(--lgs-vr-r-window);
 
@@ -53,8 +57,8 @@ body.ControllerMainBorderRadius {
   }
   & .PageTitleBar .PageTitleBackButton:hover,
   & .PageTitleBar .OptionsButton:not(.Disabled):hover {
-    background: var(--lgs-hover-fill);
-    box-shadow: var(--lgs-control-rim);
+    background: var(--lgs-vr-hover-fill);
+    box-shadow: var(--lgs-control-rim), var(--lgs-vr-hover-rim);
   }
   & .PageTitleBar .PageTitleButton:not(.Disabled):active {
     background: var(--lgs-pressed-fill);
@@ -74,8 +78,8 @@ body.ControllerMainBorderRadius {
     transition: background-color var(--lgs-t-fast) var(--lgs-ease);
   }
   & .ButtonControl:not(.Disabled):hover {
-    background: var(--lgs-hover-fill);
-    box-shadow: var(--lgs-control-rim);
+    background: var(--lgs-vr-hover-fill);
+    box-shadow: var(--lgs-control-rim), var(--lgs-vr-hover-rim);
   }
   & .ButtonControl:not(.Disabled):active {
     background: var(--lgs-pressed-fill);
@@ -97,7 +101,8 @@ body.ControllerMainBorderRadius {
     transition: background-color var(--lgs-t-fast) var(--lgs-ease);
   }
   & .AppSelectContainer:hover {
-    background: var(--lgs-hover-fill);
+    background: var(--lgs-vr-hover-fill);
+    box-shadow: var(--lgs-vr-hover-rim);
   }
   /* app art is content: opaque, concentric small radius */
   & .AppSelectContainer .AppImage {
@@ -149,7 +154,8 @@ body.ControllerMainBorderRadius {
     transition: background-color var(--lgs-t-fast) var(--lgs-ease);
   }
   & .InlineDropdownLabel:hover {
-    background: var(--lgs-hover-fill);
+    background: var(--lgs-vr-hover-fill);
+    box-shadow: var(--lgs-vr-hover-rim);
   }
   & .InlineDropdownLabel.ReadOnly {
     background: transparent;
@@ -179,8 +185,11 @@ body.ControllerMainBorderRadius {
     color: var(--lgs-text-1);
     transition: background-color var(--lgs-t-fast) var(--lgs-ease), color var(--lgs-t-fast) var(--lgs-ease);
   }
+  /* (warning / error / selected tabs keep their fill: their rules are
+     more specific; the rim still marks the pointed tab) */
   & .Tab:hover {
-    background: var(--lgs-hover-fill);
+    background: var(--lgs-vr-hover-fill);
+    box-shadow: var(--lgs-vr-hover-rim);
   }
   /* sets with unbound actions keep their warning as a whole fill */
   & .Label.Tab.Warning {
@@ -196,10 +205,14 @@ body.ControllerMainBorderRadius {
     border-bottom-color: transparent;
     color: var(--lgs-text-on-selected);
   }
+  /* SteamVR positions the count absolutely over the end of the tab label;
+     stock covers the overlap with an opaque chip, so ours is opaque too
+     (the panel tint) with a white count on every tab state */
   & .UnboundActionsCount {
-    background-color: var(--lgs-fill-sunken);
+    background-color: var(--lgs-vr-solid-bg);
+    box-shadow: inset 0 0 0 1px var(--lgs-separator);
     border-radius: var(--lgs-r-capsule);
-    color: inherit;
+    color: var(--lgs-text-1);
   }
   & .ControllerTitle.Label,
   & .Label.Title,
@@ -213,6 +226,14 @@ body.ControllerMainBorderRadius {
   & .ControllerTitle.Label {
     opacity: 1;
   }
+  /* SteamVR's .5 dimming of the mirrored column and of unbound ("None")
+     rows multiplies with translucent glass: over a bright room their labels
+     fell below 3:1 (2.95), under stock (3.6-4.9). They stay clearly dimmer
+     than live rows, one vibrancy step up (.64). */
+  & .Mirrored,
+  & .None .Label.BindingLabel {
+    opacity: 0.64;
+  }
   & .Label.Description {
     color: var(--lgs-text-2);
   }
@@ -222,7 +243,7 @@ body.ControllerMainBorderRadius {
     border-radius: var(--lgs-vr-r-row);
   }
   & .SourceModeGroup:hover {
-    background-color: var(--lgs-fill-2);
+    background-color: var(--lgs-fill-3);
   }
   & .SourceModeGroup.Edit {
     background-color: var(--lgs-fill-3);
@@ -250,7 +271,8 @@ body.ControllerMainBorderRadius {
   & .ChordManageButtons:hover,
   & .ChordBindingCloseButton:hover,
   & .InputSettingsCloseButton:hover {
-    background: var(--lgs-hover-fill);
+    background: var(--lgs-vr-hover-fill);
+    box-shadow: var(--lgs-vr-hover-rim);
   }
   & .ChordBindingSet,
   & .ChordBindingRow,
@@ -299,7 +321,7 @@ body.ControllerMainBorderRadius {
     color: var(--lgs-text-1);
   }
   & .InlineDropdownItem:hover {
-    background: var(--lgs-hover-fill);
+    background: var(--lgs-vr-hover-fill);
   }
   & .InlineDropdownItem.Selected {
     background: var(--lgs-selected-fill);
@@ -322,7 +344,7 @@ body.ControllerMainBorderRadius {
     color: var(--lgs-text-1);
   }
   & .DropdownPopoverButton:hover {
-    background-color: var(--lgs-hover-fill);
+    background-color: var(--lgs-vr-hover-fill);
   }
   & .DropdownPopoverButton:active {
     background-color: var(--lgs-pressed-fill);

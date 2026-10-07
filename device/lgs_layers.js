@@ -40,11 +40,11 @@
 // glass that glassd really replaces.
 //
 // Cost: nothing runs per frame while the UI is still. Mutations, scrolls,
-// transitions, animations and pointer moves wake a requestAnimationFrame loop
-// on the window that changed. The loop samples until rects stop changing,
+// transitions and animations wake a requestAnimationFrame loop for the window
+// that changed. The loop samples until rects stop changing,
 // plus ACTIVE_MS. A 2 s safety resample catches anything missed. While
 // SteamVR reports the dashboard hidden, nothing is measured. If the theme
-// stays off for 5 s (a daemon that died without calling stop()), it stops.
+// stays off for 30 s (a daemon that died without calling stop()), it stops.
 (function lgsLayersInstall() {
   'use strict';
   const W = window;
@@ -59,14 +59,16 @@
   const MATERIALS = ['window', 'panel', 'liquid', 'thick'];
   const POLL_MS = 500;        // dashboard state, window list, stalled-frame watchdog
   const RESAMPLE_EVERY = 4;   // safety resample every N polls (2 s)
-  const ACTIVE_MS = 700;      // keep sampling this long after a change signal
+  const ACTIVE_MS = 400;      // keep sampling this long after a change signal
   const MIN_PX = 4;           // texture px; smaller layers are dropped
   const OVERLAP_PX = 2;       // texture px two layers may overlap
   const MAX_LAYERS = 23;      // hard cap per surface
-  const THEME_OFF_POLLS = 10; // stop after the theme has been off this many polls (5 s)
+  const THEME_OFF_POLLS = 60; // stop after the theme has been off this many polls (30 s)
   const HIT_POINTS = [[0.5, 0.5], [0.25, 0.5], [0.75, 0.5], [0.5, 0.25], [0.5, 0.75]];
-  const WAKE_EVENTS = ['scroll', 'transitionrun', 'transitionend', 'animationstart', 'animationend',
-    'mouseover', 'mouseout', 'visibilitychange'];
+  // Hover alone never moves a layer; hover effects that do move one animate,
+  // and those fire transition/animation events.
+  const WAKE_EVENTS = ['scroll', 'transitionrun', 'transitionstart', 'transitionend',
+    'animationstart', 'animationend', 'visibilitychange'];
 
   let S = null;               // running state; null while stopped
   let idSeq = 0;
@@ -338,7 +340,9 @@
       if (!m) continue;
       seen.add(key);
       let ent = S.ents.get(key);
-      if (ent && ent.win !== win) { detach(ent); ent = null; }
+      let stale = false;
+      try { stale = !!ent && (ent.win !== win || ent.doc !== win.document); } catch (_) { stale = true; }
+      if (stale) { detach(ent); ent = null; }
       if (!ent) {
         ent = attach(m.s, m.name, key, win);
         S.ents.set(key, ent);
@@ -714,12 +718,14 @@
     S.rafWin = null;
     const t0 = performance.now();
     let active = false;
+    let computed = 0;
     S.csCache = new Map();
     try {
       for (const ent of S.ents.values()) {
         const due = ent.force || !ent.result || t0 < ent.activeUntil || ent.lastChanged;
         if (!due) continue;
         ent.force = false;
+        computed++;
         let res;
         try { res = computeEntry(ent, null); } catch (e) {
           S.lastError = String(e && e.stack || e).slice(0, 400);
@@ -737,8 +743,8 @@
     } finally {
       S.csCache = null;
     }
+    if (computed || S.structureChanged || S.lastBody === null) emit();
     S.structureChanged = false;
-    emit();
     const ms = performance.now() - t0;
     S.ticks++;
     S.lastMs = ms;
@@ -780,9 +786,12 @@
     if (S.themeOffPolls >= THEME_OFF_POLLS) { stop(); return; }
     try { syncWindows(); } catch (e) { S.lastError = String(e && e.stack || e).slice(0, 400); }
     refreshDash();
-    if (S.polls % RESAMPLE_EVERY === 0 || S.structureChanged) for (const e of S.ents.values()) e.force = true;
+    const resample = S.polls % RESAMPLE_EVERY === 0 || S.structureChanged;
+    if (resample) for (const e of S.ents.values()) e.force = true;
     // a frame request on a window that stopped rendering must not stall us
-    if (S.raf && performance.now() - S.rafAt > 250) cancelFrame();
+    let stalled = false;
+    if (S.raf && performance.now() - S.rafAt > 250) { cancelFrame(); stalled = true; }
+    if (!resample && !stalled) return;
     if (!S.dash) { if (!S.raf) S.raf = setTimeout(tick, 0); } else schedule();
   }
 
@@ -854,7 +863,7 @@
         visible: !!(e.result && e.result.visible),
         layers: e.result ? e.result.layers.length : 0,
         attrs: e.applied.size,
-        computes: e.computes, changes: e.changes, wakes: e.wakes,
+        computes: e.computes, changes: e.changes, wakes: Object.assign({}, e.wakes),
       });
     }
     let nav = null;

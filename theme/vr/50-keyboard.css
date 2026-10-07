@@ -11,15 +11,24 @@
 .VRKBContainer {
   /* this page is 1920 px wide for a keyboard Steam draws 854 CSS px wide */
   --lgs-vr-kb-scale: 2.25;
+  --lgs-vr-kb-r: calc(var(--lgs-r-panel) * var(--lgs-vr-kb-scale));
+  /* laser-only: the strong SteamVR hover (10-systemui.css section 0), rim
+     at this page's scale */
+  --lgs-vr-hover-rim: inset 0 0 0 calc(1.5px * var(--lgs-vr-kb-scale)) var(--lgs-control-outline);
   color: var(--lgs-text-1);
 }
 
-/* the slab: panel glass over the room (the page outside it stays clear);
-   concentric with the keys: key radius + SteamVR's 5px slab padding */
+/* the slab: panel glass over the room (the page outside it stays clear),
+   at Steam's keyboard radius (--lgs-r-panel, 35-hud.css) at this scale:
+   54px. What sits in its top corners follows the curve (concentric:
+   slab radius - inset): the preview well (5px in) and, in minimal mode
+   without a preview, the first row's corner keys (7px in). The bottom
+   keys sit 33px above the slab edge, where the slab curve already clears
+   their normal corners. */
 .VRKBBackground {
   background: var(--lgs-panel-sheen), var(--lgs-panel-bg);
   box-shadow: var(--lgs-panel-rim);
-  border-radius: calc(var(--lgs-r-small) * var(--lgs-vr-kb-scale) + 5px);
+  border-radius: var(--lgs-vr-kb-r);
 }
 .VRKBRow {
   background-color: transparent;
@@ -30,6 +39,8 @@
   background-color: var(--lgs-well-bg);
   box-shadow: var(--lgs-well-shadow);
   border-radius: calc(var(--lgs-r-small) * var(--lgs-vr-kb-scale));
+  border-top-left-radius: calc(var(--lgs-vr-kb-r) - 5px);
+  border-top-right-radius: calc(var(--lgs-vr-kb-r) - 5px);
 }
 .VRKBPreviewTextPart {
   color: var(--lgs-text-1);
@@ -58,9 +69,24 @@
 .VRKBKey .VRKBKeyFace > img {
   filter: brightness(0) invert(0.96);
 }
+.VRKBBackground:not(:has(> .VRKBPreviewWrapper)) > .VRKBRows > .VRKBRow:first-child > .VRKBKey:first-child {
+  border-top-left-radius: calc(var(--lgs-vr-kb-r) - 7px);
+}
+.VRKBBackground:not(:has(> .VRKBPreviewWrapper)) > .VRKBRows > .VRKBRow:first-child > .VRKBKey:last-child {
+  border-top-right-radius: calc(var(--lgs-vr-kb-r) - 7px);
+}
+/* laser hover: the only cue for which key the laser will hit. Letter keys
+   go from fill-2 to the focus fill, special keys from fill-3 one step
+   further (the pressed fill; pressing a key paints it white, below), both
+   with the inner rim. The special-key rule carries the :has() so it
+   outranks the special-key rest fill. */
 .VRKBKey:hover {
-  background-color: var(--lgs-hover-fill);
+  background-color: var(--lgs-vr-hover-fill);
+  box-shadow: var(--lgs-control-rim), var(--lgs-vr-hover-rim);
   color: var(--lgs-text-1);
+}
+.VRKBKey:has(> .VRKBKeyFace > img):hover {
+  background-color: var(--lgs-pressed-fill);
 }
 /* touched / pressed key and the latched shift: the white key */
 .VRKBKey[style*="background"] {

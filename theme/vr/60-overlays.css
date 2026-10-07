@@ -40,8 +40,10 @@
   background: var(--lgs-fill-2);
   transition: background-color var(--lgs-t-fast) var(--lgs-ease);
 }
+/* laser-only: the strong SteamVR hover (10-systemui.css section 0) */
 .MessageOverlayPanel .ButtonControl:not(.Disabled):hover {
-  background: var(--lgs-hover-fill);
+  background: var(--lgs-vr-hover-fill);
+  box-shadow: var(--lgs-control-rim), var(--lgs-vr-hover-rim);
 }
 .MessageOverlayPanel .ButtonControl:not(.Disabled):active {
   background: var(--lgs-pressed-fill);
@@ -139,8 +141,8 @@
   color: var(--lgs-text-1);
 }
 .BindingCalloutActionList .ButtonControl:not(.Disabled):hover {
-  background: var(--lgs-hover-fill);
-  box-shadow: var(--lgs-control-rim);
+  background: var(--lgs-vr-hover-fill);
+  box-shadow: var(--lgs-control-rim), var(--lgs-vr-hover-rim);
 }
 .BindingCalloutActionList .ButtonControl:not(.Disabled):active {
   background: var(--lgs-pressed-fill);

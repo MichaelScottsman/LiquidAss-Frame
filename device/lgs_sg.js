@@ -40,9 +40,11 @@
   const SLAB_BEHIND = 0.0008;     // slab sits this far behind its popped crop
   const MIN_PIECE = 1;            // px; smaller mosaic slivers are dropped
   const ROOT_ID = 'lgs-sg-root';
-  // true: one reparent-to-panel per surface holding every item's anchor;
-  // false: one reparent-to-panel per item (the structure the spike proved).
-  const SHARED_REPARENT = opts.sharedReparent !== undefined ? !!opts.sharedReparent : false;
+  // true (default): one reparent-to-panel per surface holding every item's
+  // panel-anchor. false: one reparent-to-panel per item. Verified on the
+  // Frame: SteamVR lays sibling reparent-to-panel nodes of one parent out
+  // side by side, so with several items only the shared form stays in place.
+  const SHARED_REPARENT = opts.sharedReparent !== undefined ? !!opts.sharedReparent : true;
   // Debug: {kind: [r,g,b]} wraps that kind's panels in a SteamVR tint node,
   // e.g. {base:[1,.35,.35], pop:[.35,1,.35]}, to see which copy is ours.
   const DEBUG_TINT = opts.debugTint || null;
@@ -97,6 +99,10 @@
     pushTimer: 0,
     reattaches: 0,
     wasAttached: false,
+    lastSpec: null,
+    parents: {},
+    parentSig: '',
+    relayouts: 0,
     lastContact: Date.now(),
     expired: false,
     updates: 0,
@@ -351,18 +357,73 @@
 
   function num(v, dflt) { const n = Number(v); return Number.isFinite(n) ? n : dflt; }
 
-  // Spec surface -> item descriptors.
-  function describe(s, M, want, counts) {
+  // How Steam shows a surface: the part of its texture the parent panel
+  // displays (uv) and the panel's metres per texture pixel (mpp).
+  //  - Popups and the bar are PooledPopup panels on this page. Steam crops a
+  //    popup's texture to its content and changes that range live.
+  //  - The main window is mounted from Steam's own scene graph; its frame
+  //    node gives its height in scene metres (override-pre-resize-main-
+  //    panel-height, 1.5 for 1080 px = 0.001389 m/px, about 10% less than the
+  //    popups' 0.00153; measured on the Frame). A user resize of the window
+  //    is not visible from here.
+  function parentInfo(key, texH) {
+    const el = document.getElementById('PooledPopup-' + key);
+    if (el && typeof el.buildNode === 'function') {
+      try {
+        const p = el.buildNode({}, el)[1].properties;
+        const uv = [p.uv_min[0], p.uv_min[1], p.uv_max[0], p.uv_max[1]].map(Number);
+        if (uv.every(Number.isFinite) && uv[2] > uv[0] && uv[3] > uv[1]) {
+          return { src: 'popup', uv, mpp: num(p['meters-per-pixel'], 0) };
+        }
+      } catch (_) { /* fall through */ }
+    }
+    for (const f of document.querySelectorAll('vsg-node[vsg-type=frame-node]')) {
+      let mounted = false;
+      for (const m of f.querySelectorAll('vsg-node[vsg-type=mountedscenegraph]')) {
+        try {
+          if (m.buildNode({}, m)[1].properties.mountable_id === 'system.standalone::' + key) { mounted = true; break; }
+        } catch (_) { /* skip */ }
+      }
+      if (!mounted) continue;
+      try {
+        const h = num(f.buildNode({}, f)[1].properties['override-pre-resize-main-panel-height'], 0);
+        if (h > 0 && texH > 0) return { src: 'frame', uv: [0, 0, 1, 1], mpp: h / texH };
+      } catch (_) { /* skip */ }
+    }
+    return { src: 'none', uv: [0, 0, 1, 1], mpp: 0 };
+  }
+
+  // Spec surface -> item descriptors. Everything is clipped to the part of
+  // the texture the parent panel shows; anchors are relative to that part.
+  function describe(s, Mspec, Mfallback, want, counts, info) {
     const key = String(s.steamKey);
     const Wd = Math.round(num(s.texW, 0)), Ht = Math.round(num(s.texH, 0));
     const g = s.glassd;
     if (!Wd || !Ht || !g || !g.key || !Array.isArray(g.backdrop)) return;
+    const P = parentInfo(key, Ht);
+    const M = Mspec > 0 ? Mspec : (P.mpp || Mfallback);
+    info[key] = { src: P.src, uv: P.uv.map(r6), mpp: M };
+    if (!(M > 0)) return;
     const scale = num(g.scale, 0.75) || 0.75;
     const coverDz = num(s.coverDz, 0.001), baseDz = num(s.baseDz, 0.002);
     const short = key.replace(/^valve\.steam\.gamepadui\./, '');
-    const add = (k, d) => { want.set(key + '#' + k, Object.assign({ parentKey: key }, d)); counts[d.kind] = (counts[d.kind] || 0) + 1; };
+    const add = (k, d) => { want.set(key + '#' + k, Object.assign({ parentKey: key, ms: M }, d)); counts[d.kind] = (counts[d.kind] || 0) + 1; };
+    // R: the displayed region in texture px; au/av: texture px -> anchor
+    const R = {
+      x0: Math.max(0, Math.round(P.uv[0] * Wd)), y0: Math.max(0, Math.round(P.uv[1] * Ht)),
+      x1: Math.min(Wd, Math.round(P.uv[2] * Wd)), y1: Math.min(Ht, Math.round(P.uv[3] * Ht)),
+    };
+    if (R.x1 - R.x0 < 2 || R.y1 - R.y0 < 2) return;
+    const au = (x) => (x / Wd - P.uv[0]) / (P.uv[2] - P.uv[0]);
+    const av = (y) => (y / Ht - P.uv[1]) / (P.uv[3] - P.uv[1]);
 
-    add('cover', { kind: 'cover', px: [Wd, Ht], u: 0.5, v: 0.5, z: coverDz, key: g.key, uv: g.backdrop.map(Number), mpp: M / scale, name: 'lgs:cover:' + short });
+    // cover: glassd's backdrop maps linearly onto the Steam texture
+    const [b0, b1, b2, b3] = g.backdrop.map(Number);
+    add('cover', {
+      kind: 'cover', px: [R.x1 - R.x0, R.y1 - R.y0], u: au((R.x0 + R.x1) / 2), v: av((R.y0 + R.y1) / 2), z: coverDz,
+      key: g.key, uv: [b0 + (b2 - b0) * R.x0 / Wd, b1 + (b3 - b1) * R.y0 / Ht, b0 + (b2 - b0) * R.x1 / Wd, b1 + (b3 - b1) * R.y1 / Ht],
+      mpp: M / scale, name: 'lgs:cover:' + short,
+    });
 
     const holes = [];
     const seen = new Set();
@@ -370,15 +431,16 @@
       if (!p || p.id === undefined || seen.has(String(p.id))) continue;
       const x = num(p.x, NaN), y = num(p.y, NaN), w = num(p.w, 0), h = num(p.h, 0);
       if (!(w > 0 && h > 0) || !Number.isFinite(x) || !Number.isFinite(y)) continue;
-      const x0 = Math.max(0, Math.round(x)), y0 = Math.max(0, Math.round(y));
-      const x1 = Math.min(Wd, Math.round(x + w)), y1 = Math.min(Ht, Math.round(y + h));
-      if (x1 - x0 < 2 || y1 - y0 < 2) continue;   // scrolled out of the surface
+      const x0 = Math.max(R.x0, Math.round(x)), y0 = Math.max(R.y0, Math.round(y));
+      const x1 = Math.min(R.x1, Math.round(x + w)), y1 = Math.min(R.y1, Math.round(y + h));
+      if (x1 - x0 < 2 || y1 - y0 < 2) continue;   // outside what Steam shows (scrolled away)
       seen.add(String(p.id));
-      holes.push({ x0, y0, x1, y1 });
+      holes.push({ x0: x0 - R.x0, y0: y0 - R.y0, x1: x1 - R.x0, y1: y1 - R.y0 });
       const dz = num(p.dz, 0.012);
       const id = String(p.id);
+      const u = au((x0 + x1) / 2), v = av((y0 + y1) / 2);
       add('pop:' + id, {
-        kind: 'pop', px: [x1 - x0, y1 - y0], u: (x0 + x1) / 2 / Wd, v: (y0 + y1) / 2 / Ht, z: dz,
+        kind: 'pop', px: [x1 - x0, y1 - y0], u, v, z: dz,
         key, uv: [x0 / Wd, y0 / Ht, x1 / Wd, y1 / Ht], mpp: M, name: 'lgs:pop:' + short + ':' + id,
       });
       if (Array.isArray(p.slab) && p.slab.length === 4) {
@@ -386,19 +448,31 @@
         const [s0, t0, s1, t1] = p.slab.map(Number);
         const fx0 = (x0 - x) / w, fx1 = (x1 - x) / w, fy0 = (y0 - y) / h, fy1 = (y1 - y) / h;
         add('slab:' + id, {
-          kind: 'slab', px: [x1 - x0, y1 - y0], u: (x0 + x1) / 2 / Wd, v: (y0 + y1) / 2 / Ht, z: dz - SLAB_BEHIND,
+          kind: 'slab', px: [x1 - x0, y1 - y0], u, v, z: dz - SLAB_BEHIND,
           key: g.key, uv: [s0 + (s1 - s0) * fx0, t0 + (t1 - t0) * fy0, s0 + (s1 - s0) * fx1, t0 + (t1 - t0) * fy1],
           mpp: M / scale, name: 'lgs:slab:' + short + ':' + id,
         });
       }
     }
 
-    guillotine(Wd, Ht, holes).forEach((p, i) => {
+    guillotine(R.x1 - R.x0, R.y1 - R.y0, holes).forEach((q, i) => {
+      const p = { x0: q.x0 + R.x0, y0: q.y0 + R.y0, x1: q.x1 + R.x0, y1: q.y1 + R.y0 };
       add('base:' + i, {
-        kind: 'base', px: [p.x1 - p.x0, p.y1 - p.y0], u: (p.x0 + p.x1) / 2 / Wd, v: (p.y0 + p.y1) / 2 / Ht, z: baseDz,
+        kind: 'base', px: [p.x1 - p.x0, p.y1 - p.y0], u: au((p.x0 + p.x1) / 2), v: av((p.y0 + p.y1) / 2), z: baseDz,
         key, uv: [p.x0 / Wd, p.y0 / Ht, p.x1 / Wd, p.y1 / Ht], mpp: M, name: 'lgs:base:' + short + ':' + i,
       });
     });
+  }
+
+  // Parent geometry of every surface in a spec (the tick re-lays out on change).
+  function parentSig(spec) {
+    const out = [];
+    for (const s of (spec && Array.isArray(spec.surfaces)) ? spec.surfaces : []) {
+      if (!s || !s.steamKey || s.visible === false) continue;
+      const P = parentInfo(String(s.steamKey), Math.round(num(s.texH, 0)));
+      out.push(s.steamKey + ':' + P.uv.map(r6).join(',') + ':' + P.mpp);
+    }
+    return out.join('|');
   }
 
   // ------------------------------------------------------------ API
@@ -408,22 +482,23 @@
     st.expired = false;
     st.updates++;
     st.lastSpecAt = Date.now();
-    spec = spec || {};
-    let M = num(spec.M, 0);
-    if (M > 0) { st.M = M; st.MSource = 'spec'; } else {
-      if (!st.M) { st.M = readM(); st.MSource = st.M ? 'PooledPopup' : ''; }
-      M = st.M;
-    }
+    st.lastSpec = spec || {};
+    return build(st.lastSpec);
+  }
+
+  function build(spec) {
+    const Mspec = num(spec.M, 0);
+    if (!st.M) { st.M = readM(); st.MSource = st.M ? 'PooledPopup' : ''; }
     const want = new Map();
     const counts = {};
-    if (M > 0) {
-      for (const s of Array.isArray(spec.surfaces) ? spec.surfaces : []) {
-        if (!s || !s.steamKey || s.visible === false) continue;
-        try { describe(s, M, want, counts); } catch (e) { note('describe ' + s.steamKey + ': ' + e.message); }
-      }
-    } else if ((spec.surfaces || []).length) {
-      note('no meters-per-pixel yet (no PooledPopup panel); nothing built');
+    const info = {};
+    for (const s of Array.isArray(spec.surfaces) ? spec.surfaces : []) {
+      if (!s || !s.steamKey || s.visible === false) continue;
+      try { describe(s, Mspec, st.M, want, counts, info); } catch (e) { note('describe ' + s.steamKey + ': ' + e.message); }
     }
+    st.parents = info;
+    st.parentSig = parentSig(spec);
+    const M = Mspec || st.M;
     const attached = ensureAttached();
     let dirty = false;
     for (const [k, it] of st.items) {
@@ -439,6 +514,7 @@
   }
 
   function clear() {
+    st.lastSpec = null;
     for (const it of st.items.values()) removeItem(it);
     st.items.clear();
     if (st.root && st.root.parentNode) st.root.remove();
@@ -465,6 +541,8 @@
       scheduler: { module: sched.module, push: !!sched.push, retire: !!sched.retire, error: sched.error },
       attached: !!(st.root && app && st.root.parentNode === app),
       M: st.M, MSource: st.MSource,
+      parents: st.parents,
+      relayouts: st.relayouts,
       surfaces,
       items: st.items.size,
       panels: counts,
@@ -485,7 +563,7 @@
     return [...st.items.entries()].map(([k, it]) => ({
       k, kind: it.d.kind, parent: it.d.parentKey, anchor: [r6(it.d.u), r6(it.d.v)], z: r6(it.d.z),
       key: it.d.key, uv: it.d.uv.map(r6), mpp: it.d.mpp,
-      px: it.d.px, sizeM: it.d.px ? [r6(it.d.px[0] * st.M), r6(it.d.px[1] * st.M)] : null,
+      px: it.d.px, sizeM: it.d.px ? [r6(it.d.px[0] * it.d.ms), r6(it.d.px[1] * it.d.ms)] : null,
       sgids: [it.top ? it.top.__lgsSgid : null, it.anchor.__lgsSgid, it.xf.__lgsSgid, it.panel.__lgsSgid],
       connected: it.anchor.isConnected,
     }));
@@ -503,6 +581,12 @@
   st.tick = setInterval(() => {
     if (st.destroyed) return;
     if (st.items.size) ensureAttached();
+    // Steam re-crops popups and the bar as their content changes
+    if (st.lastSpec && !st.expired) {
+      try {
+        if (parentSig(st.lastSpec) !== st.parentSig) { st.relayouts++; build(st.lastSpec); }
+      } catch (e) { note('relayout: ' + e.message); }
+    }
     if (WATCHDOG_MS > 0 && st.items.size && Date.now() - st.lastContact > WATCHDOG_MS) {
       note('no heartbeat for ' + WATCHDOG_MS + ' ms: cleared');
       clear();

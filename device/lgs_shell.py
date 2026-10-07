@@ -22,7 +22,7 @@ the Steam theme goes off, and on exit it removes every node, class and file it
 made. If it dies without cleaning up, the scene-graph nodes and the lgs-native
 class clear themselves within 12 s (heartbeat watchdogs).
 
-  lgs_shell.py start [--glassd PATH|none] [--stay]
+  lgs_shell.py start [--glassd PATH|none] [--glassd-args "ARGS"] [--stay]
                                             start the unit (lgs on does this; --stay,
                                             for lab tests only, keeps it dormant
                                             instead of exiting while the theme is off)
@@ -278,8 +278,9 @@ def material_for(surface):
 # ------------------------------------------------------------------ the daemon
 
 class Shell:
-    def __init__(self, glassd_path, stay=False):
+    def __init__(self, glassd_path, stay=False, glassd_args=None):
         self.glassd_path = glassd_path
+        self.glassd_args = list(glassd_args or [])
         self.stay = stay                      # lab aid: go dormant instead of exiting on theme off
         self.stopping = False
         self.stop_task = None
@@ -333,16 +334,23 @@ class Shell:
     # ---------------------------------------------------------------- state
     def mode(self):
         if not self.glassd_path:
-            return "css-only (no glassd)"
+            return "css-only (glassd disabled)"
         if self.g_given_up:
             return "css-only (glassd gave up)"
+        if not os.access(self.glassd_path, os.X_OK):
+            return "css-only (no glassd binary; python glass.py native-build)"
         if self.native_ok():
             return "native"
         return "starting"
 
+    def native_possible(self):
+        """A glassd binary to run: without one the daemon only themes SteamVR
+        pages (CSS only) and injects neither the reporter nor lgs_sg.js."""
+        return bool(self.glassd_path and not self.g_given_up and os.access(self.glassd_path, os.X_OK))
+
     def native_ok(self):
-        return bool(self.gproc and self.gproc.returncode is None and self.g_frames and self.gout
-                    and self.steam_ok and self.theme_on)
+        return bool(self.native_possible() and self.gproc and self.gproc.returncode is None
+                    and self.g_frames and self.gout and self.steam_ok and self.theme_on)
 
     def current_report(self):
         if self.report is not None:
@@ -373,7 +381,8 @@ class Shell:
                       "lgsNative": self.native_applied},
             "systemui": {"connected": self.sysui_ok, "sgVersion": self.sg_version, "spec": self.spec_summary,
                          "items": sg.get("items"), "panels": sg.get("panels"), "nodes": sg.get("nodes"),
-                         "attached": sg.get("attached"), "M": sg.get("M"), "pushes": sg.get("pushes"),
+                         "attached": sg.get("attached"), "parents": sg.get("parents"),
+                         "relayouts": sg.get("relayouts"), "pushes": sg.get("pushes"),
                          "pushesLastSec": sg.get("pushesLastSec"), "reattaches": sg.get("reattaches"),
                          "scheduler": sg.get("scheduler"), "expired": sg.get("expired"), "sgErrors": sg.get("errors")},
             "steamvrPages": {"paused": os.path.exists(VR_PAUSE), "version": self.vr_version, "pages": self.vr_pages},
@@ -400,13 +409,26 @@ class Shell:
                               # informational, for glassd's slab world point:
                               "x": round(float(L.get("x") or 0)), "y": round(float(L.get("y") or 0)),
                               "dz": float(L.get("dz") or 0)})
-            surfaces.append({"name": s["name"], "overlayKey": s["overlayKey"],
-                             "texW": round(float(s.get("texW") or 0)), "texH": round(float(s.get("texH") or 0)),
-                             "radius": round(float(s.get("radius") or 0)), "material": material_for(s),
-                             "visible": bool(s.get("visible", True)), "slabs": slabs})
+            surf = {"name": s["name"], "overlayKey": s["overlayKey"],
+                    "texW": round(float(s.get("texW") or 0)), "texH": round(float(s.get("texH") or 0)),
+                    "radius": round(float(s.get("radius") or 0)), "material": material_for(s),
+                    "visible": bool(s.get("visible", True)), "slabs": slabs}
+            # the cover's rounded shapes (bar segments, a popup's card); glassd
+            # covers the whole texture with `radius` when absent
+            if isinstance(s.get("shapes"), list):
+                shapes = []
+                for sh in s["shapes"]:
+                    try:
+                        shapes.append({k: round(float(sh.get(k) or 0)) for k in ("x", "y", "w", "h", "r")})
+                    except (AttributeError, TypeError, ValueError):
+                        continue
+                surf["shapes"] = shapes
+            surfaces.append(surf)
         return {"dial": read_dial(), "surfaces": surfaces}
 
     def write_glassd_json(self, force=False):
+        if not self.native_possible():
+            return False
         cfg = self.glassd_config()
         full = json.dumps(cfg, sort_keys=True)
         struct = json.dumps({"dial": cfg["dial"], "surfaces": [
@@ -546,7 +568,8 @@ class Shell:
                 await self.steam.send("Runtime.addBinding", {"name": BINDING})
                 self.steam_ok = True
                 log("steam: connected")
-                await self.inject_reporter()
+                if self.native_possible():
+                    await self.inject_reporter()
                 tick = 0
                 while not self.stopping and not self.steam.closed:
                     on = await self.steam.eval("!!(window.__LGS && window.__LGS.state && window.__LGS.state.enabled)", 10)
@@ -558,8 +581,14 @@ class Shell:
                         log("steam: theme is off; tearing down")
                         self.request_stop("steam theme off", strip_vr=True)
                         return
-                    # reporter installed later, changed on disk, or lost (page reload)
-                    if tick % 3 == 0 and os.path.exists(LAYERS_JS):
+                    # reporter installed later, changed on disk, or lost (page reload);
+                    # stopped again when there is no glassd (CSS only)
+                    if tick % 3 == 0 and not self.native_possible() and self.reporter_version:
+                        r = await self.steam.eval(REPORTER_STOP_JS, 10)
+                        log(f"steam: no glassd; reporter stopped ({r})")
+                        self.reporter_version, self.reporter_state = None, "stopped (css only)"
+                        self.report, self.fallback = None, None
+                    elif tick % 3 == 0 and self.native_possible() and os.path.exists(LAYERS_JS):
                         if file_version(LAYERS_JS) != self.reporter_version:
                             await self.inject_reporter()
                         elif self.reporter_state in ("injected", "reporting") and \
@@ -567,8 +596,10 @@ class Shell:
                             log("steam: reporter gone (page reloaded?); re-injecting")
                             await self.inject_reporter()
                     # no reporter (or it never reported): glass for the main window only
-                    if self.report is None and (self.reporter_state == "missing"
-                                                or time.time() - self.reporter_injected_at > 10):
+                    if not self.native_possible():
+                        pass
+                    elif self.report is None and (self.reporter_state == "missing"
+                                                  or time.time() - self.reporter_injected_at > 10):
                         size = await self.steam.eval(MAIN_SIZE_JS, 10)
                         fb = None
                         if size:
@@ -647,6 +678,9 @@ class Shell:
         last_ping = 0.0
         while not self.stopping:
             try:
+                if not self.native_possible():   # CSS only: leave systemui alone
+                    await asyncio.sleep(3)
+                    continue
                 ok = await asyncio.get_running_loop().run_in_executor(None, lgs_vr.available)
                 if not ok:
                     await asyncio.sleep(3)
@@ -663,6 +697,10 @@ class Shell:
                         pass
                     self.changed.clear()
                     if self.stopping:
+                        break
+                    if not self.native_possible():   # glassd gave up or vanished
+                        await self.sysui.eval("window.__LGS_SG ? (window.__LGS_SG.destroy(), 'cleared') : 'absent'", 10)
+                        log("systemui: no glassd; scene graph removed")
                         break
                     if file_version(SG_JS) != self.sg_version:
                         await self.inject_sg()
@@ -757,7 +795,7 @@ class Shell:
                     pass
             self.gout, self.gout_mtime, self.g_frames = None, None, False
             self.write_glassd_json(force=True)
-            args = [self.glassd_path] + os.environ.get("LGS_GLASSD_ARGS", "").split()
+            args = [self.glassd_path] + self.glassd_args + os.environ.get("LGS_GLASSD_ARGS", "").split()
             try:
                 self.gproc = await asyncio.create_subprocess_exec(
                     *args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT,
@@ -967,6 +1005,13 @@ def stay_arg(argv):
     return "--stay" in argv
 
 
+def glassd_args_arg(argv):
+    """--glassd-args "ARGS": extra glassd arguments (tests: --no-feed, --key-prefix)."""
+    if "--glassd-args" in argv:
+        return argv[argv.index("--glassd-args") + 1].split()
+    return []
+
+
 def glassd_arg(argv):
     if "--glassd" in argv:
         v = argv[argv.index("--glassd") + 1]
@@ -974,7 +1019,7 @@ def glassd_arg(argv):
     return GLASSD_BIN
 
 
-def start(glassd=GLASSD_BIN, stay=False):
+def start(glassd=GLASSD_BIN, stay=False, glassd_args=None):
     """Start the unit (idempotent). Also resumes SteamVR page theming that a
     lab "--theme off" on a vr: page paused. stay=True (lab testing only) keeps
     it running, dormant, while the Steam theme is off."""
@@ -991,7 +1036,8 @@ def start(glassd=GLASSD_BIN, stay=False):
            "-p", "KillMode=mixed", "-p", "TimeoutStopSec=15",
            "--description=Glass Shell: native glass layer + SteamVR page theming (transient)",
            "/usr/bin/python3", "-u", os.path.realpath(__file__), "daemon",
-           "--glassd", glassd or "none"] + (["--stay"] if stay else [])
+           "--glassd", glassd or "none"] + (["--stay"] if stay else []) + \
+        (["--glassd-args", " ".join(glassd_args)] if glassd_args else [])
     r = subprocess.run(cmd, capture_output=True, text=True, env=user_env())
     return "started" if r.returncode == 0 else f"failed: {r.stderr.strip()}"
 
@@ -1036,11 +1082,11 @@ def main(argv):
     cmd = argv[1] if len(argv) > 1 else "status"
     if cmd == "daemon":
         try:
-            return asyncio.run(Shell(glassd_arg(argv), stay_arg(argv)).run())
+            return asyncio.run(Shell(glassd_arg(argv), stay_arg(argv), glassd_args_arg(argv)).run())
         except KeyboardInterrupt:
             return 0
     if cmd == "start":
-        print(start(glassd_arg(argv), stay_arg(argv)))
+        print(start(glassd_arg(argv), stay_arg(argv), glassd_args_arg(argv)))
     elif cmd == "stop":
         print(stop())
     elif cmd == "status":

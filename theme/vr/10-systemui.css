@@ -40,21 +40,36 @@
       inset 0 0 0 var(--lgs-vr-ring-w) rgba(255, 255, 255, 0.90),
       0 0 0 1px rgba(255, 255, 255, 0.25),
       0 0 32px rgba(255, 255, 255, 0.30);
-  /* the window grabber: a translucent white Liquid Glass capsule. The faint
-     dark hairline and shadow keep it visible over a bright room. */
+  /* the window grabber: a translucent white Liquid Glass capsule with a
+     two-tone edge: the white body reads over a dark room, the dark inner
+     and outer rings over a bright one (the white alone vanishes there).
+     The 60px hit padding around the bar leaves room for the outer ring. */
   --lgs-vr-grabber: rgba(255, 255, 255, 0.62);
   --lgs-vr-grabber-sheen: linear-gradient(rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0) 70%);
+  --lgs-vr-grabber-edge:
+      inset 0 0 0 1.5px rgba(0, 0, 0, 0.55),
+      inset 0 2.5px 0 rgba(255, 255, 255, 0.55),
+      0 0 0 1px rgba(0, 0, 0, 0.32);
   --lgs-vr-grabber-rim:
-      inset 0 1px 0 rgba(255, 255, 255, 0.60),
-      inset 0 0 0 1px rgba(255, 255, 255, 0.16),
-      0 0 0 1px rgba(0, 0, 0, 0.16),
+      var(--lgs-vr-grabber-edge),
       0 1px 6px rgba(0, 0, 0, 0.34);
   --lgs-vr-grabber-glow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.80),
-      0 0 0 0.5px rgba(0, 0, 0, 0.18),
+      var(--lgs-vr-grabber-edge),
       0 0 16px rgba(255, 255, 255, 0.45);
-  /* inner circle / row highlight used by the frame controls and menus */
+  /* inner pill / row highlight used by the frame controls and menus */
   --lgs-vr-hit-inset: 3px;
+  /* laser hover on SteamVR's laser-only pages (settings, bindings, keyboard,
+     message overlays, room setup, Now Playing in laser mode). There is no
+     gamepad focus there, so pointing must read at a glance: the focus fill
+     plus a thin inner rim (Steam's own pages light a pointed control with
+     .gpfocus; this is the same fill without the glow). Pages with their own
+     scale restate the rim (40-bindings.css, 50-keyboard.css). */
+  --lgs-vr-hover-fill: var(--lgs-focus-fill);
+  --lgs-vr-hover-rim: inset 0 0 0 calc(1.5px * var(--lgs-vr-scale)) var(--lgs-control-outline);
+  /* the panel tint (--lgs-panel-bg's colour), opaque: for small capsules
+     SteamVR itself fades (the frame controls' .6 idle opacity) and chips it
+     lays over text (the unbound-actions count) */
+  --lgs-vr-solid-bg: rgb(28, 30, 40);
 }
 
 
@@ -84,27 +99,29 @@
 
 /* ------------------------------------------------------------------ */
 /* 2. Resize corner (ResizeHandle panel, laser-only)                   */
-/*    Thin white stroke at vibrancy 2; brighter on hover/drag. Steam's */
-/*    hover scale(1.4) and stroke growth stay untouched.               */
+/*    White stroke with a tight two-pass dark halo (cursor style), so  */
+/*    it reads over a dark and a bright room; pure white on hover and  */
+/*    drag. SteamVR's stroke width, hover scale(1.4) and stroke growth */
+/*    stay untouched. The stroke is near-opaque (vibrancy 1, not 2): a */
+/*    translucent stroke lets its own halo show through and turns grey */
+/*    over a grey room.                                                */
 /* ------------------------------------------------------------------ */
 
 %{ResizeSVG} {
-  color: var(--lgs-text-2);
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
-}
-%{ResizeSVG} path {
-  stroke-width: 4.5;
+  color: var(--lgs-text-1);
+  filter: drop-shadow(0 0 0.8px rgba(0, 0, 0, 0.9)) drop-shadow(0 0 0.8px rgba(0, 0, 0, 0.9))
+          drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4));
 }
 %{ResizeHandleButton}:hover %{ResizeSVG},
 %{ResizeHandleButton}%{ResizeHandleButton>ForceActive} %{ResizeSVG} {
-  color: var(--lgs-text-1);
+  color: var(--lgs-knob);
 }
 
 
 /* ------------------------------------------------------------------ */
 /* 3. Frame controls under the window (legacy-frame-controls panel)    */
-/*    Each Section = a panel-glass capsule over the room; buttons are  */
-/*    circular hit highlights inside it (our ::before, which Steam     */
+/*    Each Section = a panel-glass capsule over the room; buttons get  */
+/*    a pill highlight concentric with it (our ::before, which Steam   */
 /*    doesn't use on these buttons), white icons. SteamVR's idle .6    */
 /*    container opacity, margins and paddings stay (quad width).       */
 /* ------------------------------------------------------------------ */
@@ -116,6 +133,16 @@
   /* stacking context so the buttons' highlight (z-index -1) paints above
      this glass and below the icons; no geometry */
   isolation: isolate;
+  /* in step with SteamVR's own .4s opacity fade of the container */
+  transition: background-color 0.4s ease-out;
+}
+/* idle (SteamVR fades the container to .6 exactly when it is neither
+   pointed at nor gamepad-focused): the capsule tint goes opaque, so the
+   faded capsule is a .6 tint like stock and the white icons keep at least
+   stock contrast over a bright room; hover and focus bring back the panel
+   glass at full opacity */
+%{FrameControlsContainer}:not(:hover):not(%{FrameControlsContainer>HasGamepadFocus}) %{FrameControlsContainer>Section} {
+  background-color: var(--lgs-vr-solid-bg);
 }
 %{FrameControlsContainer} .ButtonControl,
 %{FrameControlsContainer} .ButtonControl:not(.Disabled):hover,
@@ -126,20 +153,22 @@
   color: var(--lgs-text-1);
   border-radius: var(--lgs-r-capsule);
 }
+/* pure white glyphs (stock draws some #fff): with SteamVR's .6 idle fade
+   every glyph keeps at least stock contrast over a bright room */
 %{FrameControlsContainer} .ButtonControl.WithIcon > .Icon path,
 %{FrameControlsContainer} .ButtonControl.WithIcon > .Icon circle {
-  fill: var(--lgs-text-1);
+  fill: var(--lgs-knob);
 }
+/* a pill inset 3px in the button: concentric with the section capsule
+   (25.5 - 3 = 22.5), wide enough that the ring clears every glyph (the
+   36-unit glyphs at 38px overflow a 45px circle); one-button sections
+   (54-67 x 51) stay near-circles */
 %{FrameControlsContainer} .ButtonControl::before {
   content: "";
   position: absolute;
-  top: var(--lgs-vr-hit-inset);
-  left: 50%;
-  height: calc(100% - 2 * var(--lgs-vr-hit-inset));
-  aspect-ratio: 1;
-  translate: -50% 0;
+  inset: var(--lgs-vr-hit-inset);
   z-index: -1;
-  border-radius: 50%;
+  border-radius: var(--lgs-r-capsule);
   background: transparent;
   pointer-events: none;
   transition: background-color var(--lgs-t-fast) var(--lgs-ease),
@@ -304,8 +333,15 @@
 %{ControllerAppIcon} {
   border-radius: var(--lgs-r-row);
 }
-/* battery pips are whole-fill colour: full-strength green (Steam dims
-   them to 65%), orange under 30%, red when low */
+/* battery pips are whole-fill colour (DESIGN §9): green, orange under 30%,
+   red when low; empty pips are white .24 fills on the card. The pip PNGs
+   (a soft glow band, black empty pips) are swapped for an SVG of the same
+   natural size (210x25, pips measured from the PNG), so the img box stays
+   160x19. Data URIs can't read CSS variables: the fills are the token hex
+   values (--lgs-green #30d158, --lgs-orange #ff9f0a, --lgs-red #ff453a).
+   Only the horizontal "controller_model_" set is swapped; the charging PNGs
+   and SteamVR's vertical "vert_" set keep a full-strength tint (Steam dims
+   them to 65%), hue-rotated to orange / red. */
 %{ControllerBattery} {
   filter: saturate(1.15);
 }
@@ -314,6 +350,24 @@
 }
 %{ControllerBattery}:is([src*="_low."], [src*="_charging_red."]) {
   filter: hue-rotate(-118deg) saturate(1.5);
+}
+%{ControllerBattery}:is([src*="controller_model_battery_"], [src*="controller_model_low."]) {
+  filter: none;
+}
+%{ControllerBattery}[src*="controller_model_battery_4."] {
+  content: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='210' height='25' viewBox='0 0 210 25'%3E%3Ccircle cx='58.5' cy='12.5' r='9.4' fill='%2330d158'/%3E%3Ccircle cx='91.5' cy='12.5' r='9.4' fill='%2330d158'/%3E%3Ccircle cx='123.5' cy='12.5' r='9.4' fill='%2330d158'/%3E%3Ccircle cx='156.5' cy='12.5' r='9.4' fill='%2330d158'/%3E%3C/svg%3E");
+}
+%{ControllerBattery}[src*="controller_model_battery_3."] {
+  content: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='210' height='25' viewBox='0 0 210 25'%3E%3Ccircle cx='58.5' cy='12.5' r='9.4' fill='%2330d158'/%3E%3Ccircle cx='91.5' cy='12.5' r='9.4' fill='%2330d158'/%3E%3Ccircle cx='123.5' cy='12.5' r='9.4' fill='%2330d158'/%3E%3Ccircle cx='156.5' cy='12.5' r='9.4' fill='rgba(255,255,255,0.24)'/%3E%3C/svg%3E");
+}
+%{ControllerBattery}[src*="controller_model_battery_2."] {
+  content: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='210' height='25' viewBox='0 0 210 25'%3E%3Ccircle cx='58.5' cy='12.5' r='9.4' fill='%2330d158'/%3E%3Ccircle cx='91.5' cy='12.5' r='9.4' fill='%2330d158'/%3E%3Ccircle cx='123.5' cy='12.5' r='9.4' fill='rgba(255,255,255,0.24)'/%3E%3Ccircle cx='156.5' cy='12.5' r='9.4' fill='rgba(255,255,255,0.24)'/%3E%3C/svg%3E");
+}
+%{ControllerBattery}[src*="controller_model_battery_1."] {
+  content: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='210' height='25' viewBox='0 0 210 25'%3E%3Ccircle cx='58.5' cy='12.5' r='9.4' fill='%23ff9f0a'/%3E%3Ccircle cx='91.5' cy='12.5' r='9.4' fill='rgba(255,255,255,0.24)'/%3E%3Ccircle cx='123.5' cy='12.5' r='9.4' fill='rgba(255,255,255,0.24)'/%3E%3Ccircle cx='156.5' cy='12.5' r='9.4' fill='rgba(255,255,255,0.24)'/%3E%3C/svg%3E");
+}
+%{ControllerBattery}[src*="controller_model_low."] {
+  content: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='210' height='25' viewBox='0 0 210 25'%3E%3Ccircle cx='58.5' cy='12.5' r='9.4' fill='%23ff453a'/%3E%3Ccircle cx='91.5' cy='12.5' r='9.4' fill='rgba(255,255,255,0.24)'/%3E%3Ccircle cx='123.5' cy='12.5' r='9.4' fill='rgba(255,255,255,0.24)'/%3E%3Ccircle cx='156.5' cy='12.5' r='9.4' fill='rgba(255,255,255,0.24)'/%3E%3C/svg%3E");
 }
 
 
@@ -396,8 +450,10 @@
   color: var(--lgs-text-1);
   transition: background-color var(--lgs-t-fast) var(--lgs-ease);
 }
+/* laser-only panel: the strong laser hover (section 0) */
 [class*="roomsetup_RoomSetupContainer_"] [class*="roomsetup_ButtonControl_"]:hover {
-  background: var(--lgs-hover-fill);
+  background: var(--lgs-vr-hover-fill);
+  box-shadow: var(--lgs-control-rim), var(--lgs-vr-hover-rim);
   color: var(--lgs-text-1);
 }
 [class*="roomsetup_RoomSetupContainer_"] [class*="roomsetup_ButtonControl_"]:active {

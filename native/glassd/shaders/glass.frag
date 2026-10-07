@@ -1,5 +1,5 @@
-// glassd glass: one rounded rectangle of glass (a surface's cover, or a slab
-// under a popped element), ported from vr/shaders/glass.frag.
+// glassd glass: one piece of glass (a surface's cover: the union of its rounded
+// shapes; or a slab under a popped element), ported from vr/shaders/glass.frag.
 //
 // Each texel maps to a world point on the Steam surface (element position plus
 // dz toward the viewer for slabs). The view ray from the head through that
@@ -12,9 +12,11 @@
 uniform vec2 uOrigin;      // region origin in this texture (px; y = row, row 0 = top)
 uniform float uScale;      // glassd px per Steam px
 uniform vec2 uElemOff;     // region top-left on the surface (Steam px): the element for slabs, 0 for covers
-uniform vec2 uShapeC;      // shape centre, region-local Steam px
-uniform vec2 uHalf;        // shape half size (Steam px)
-uniform float uRad;        // corner radius (Steam px)
+uniform int uNS;           // number of rounded shapes (1..8); the glass is their union
+uniform vec4 uShapes[8];   // per shape: centre x, y (region-local Steam px), half width, half height
+uniform float uRads[8];    // per shape: corner radius (Steam px)
+uniform vec2 uShapeC;      // centre of the union's bounding box, region-local Steam px
+uniform vec2 uHalf;        // half size of that box (Steam px): magnification and sheen span the union
 uniform vec3 uO;           // world position of Steam pixel (0,0) (top-left)
 uniform vec3 uU;           // world step per Steam px to the right
 uniform vec3 uV;           // world step per Steam px downward
@@ -53,18 +55,27 @@ vec3 frosted(vec2 uv, float lod) {
   s += textureLod(uRoom, uv + vec2(0.25, -0.5) * texel, lod).rgb;
   return s * 0.25;
 }
-float sdf(vec2 p) { return sdRoundRect(p, uHalf, uRad); }
+// Signed distance to the union of the shapes (region-local Steam px), so rims,
+// bezels and coverage follow the union's outline and overlapping shapes merge.
+float sdf(vec2 q) {
+  float d = 1e9;
+  for (int i = 0; i < 8; i++) {
+    if (i >= uNS) break;
+    d = min(d, sdRoundRect(q - uShapes[i].xy, uShapes[i].zw, uRads[i]));
+  }
+  return d;
+}
 
 void main() {
   vec2 local = (gl_FragCoord.xy - uOrigin) / uScale;  // region-local Steam px, y down
-  vec2 p = local - uShapeC;                            // from the shape centre, y down
-  float d = sdf(p);
+  vec2 p = local - uShapeC;                            // from the union's centre, y down
+  float d = sdf(local);
   float dpx = d * uScale;                              // in this texture's pixels
   float inside = clamp(0.5 - dpx, 0.0, 1.0);
   if (inside <= 0.0) { oColor = vec4(0.0); return; }
 
   vec2 e = vec2(0.5, 0.0);
-  vec2 g = vec2(sdf(p + e.xy) - sdf(p - e.xy), sdf(p + e.yx) - sdf(p - e.yx));
+  vec2 g = vec2(sdf(local + e.xy) - sdf(local - e.xy), sdf(local + e.yx) - sdf(local - e.yx));
   g = dot(g, g) > 1e-10 ? normalize(g) : vec2(0.0, -1.0);
   vec2 gU = vec2(g.x, -g.y);   // outward normal, y up
   vec2 pU = vec2(p.x, -p.y);

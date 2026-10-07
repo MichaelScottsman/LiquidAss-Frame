@@ -3,8 +3,10 @@
    control SteamVR reuses (Now Playing's bindings / video-settings modals,
    dropdown popovers). Window glass with the same primitives look as Steam's
    settings: grouped fills, capsules, the white selected item/segment/radio,
-   white knobs, hover fills (laser only: SteamVR shows "Use Laser Mouse to
-   Interact" under this page, there is no gamepad focus here).
+   white knobs. Laser only: SteamVR shows "Use Laser Mouse to Interact"
+   under this page and draws no gamepad focus, so hover is the only
+   targeting cue and uses the strong SteamVR hover (--lgs-vr-hover-fill +
+   rim, 10-systemui.css section 0); pressed stays brighter.
    Advanced settings keep a recognisable marker without SteamVR's purple
    slabs: their wells and buttons are tinted with a purple glass fill.
    Steam-owned and never touched: the segmented control's sliding ::after
@@ -33,16 +35,33 @@
 }
 
 /* ------------------------------------------------------------------ */
-/* 2. Sidebar: a lighter fill column; items are inset rounded rows     */
-/*    (our ::after; SteamVR uses ::before for its press effect), the   */
-/*    current section is the white selected row.                       */
+/* 2. Sidebar: the same raised pane as Steam Settings (60-settings.css), */
+/*    its sibling page in this window: inset 8/6/8/8, r-panel (window  */
+/*    radius - 8, concentric), panel sheen + fill-1 + glass rim. The   */
+/*    pane is our ::before (SteamVR uses no ::before on the sidebar,   */
+/*    which is position:relative); isolation keeps it under the list. */
+/*    Items are capsules (our ::after; SteamVR uses ::before for its   */
+/*    press effect); the current section is the white capsule. All     */
+/*    insets x1.45, this page's scale.                                 */
 /* ------------------------------------------------------------------ */
 
 .SettingsSidebar {
-  background: var(--lgs-fill-1);
-  box-shadow: inset -1px 0 0 var(--lgs-separator);
-  border-top-left-radius: var(--lgs-vr-r-window);
-  border-bottom-left-radius: var(--lgs-vr-r-window);
+  /* item capsule insets: 8px inside the pane on both sides, like Steam */
+  --lgs-vr-side-ixl: calc(16px * var(--lgs-vr-scale));
+  --lgs-vr-side-ixr: calc(14px * var(--lgs-vr-scale));
+  background: transparent;
+  box-shadow: none;
+  isolation: isolate;
+}
+.SettingsSidebar::before {
+  content: "";
+  position: absolute;
+  inset: calc(8px * var(--lgs-vr-scale)) calc(6px * var(--lgs-vr-scale)) calc(8px * var(--lgs-vr-scale)) calc(8px * var(--lgs-vr-scale));
+  z-index: -1;
+  border-radius: calc(var(--lgs-r-panel) * var(--lgs-vr-scale));
+  background: var(--lgs-panel-sheen), var(--lgs-fill-1);
+  box-shadow: var(--lgs-glass-rim);
+  pointer-events: none;
 }
 .SettingsSidebarButton,
 .SettingsSidebarButton.Active,
@@ -52,38 +71,48 @@
 .SettingsSidebarButton::after {
   content: "";
   position: absolute;
-  inset: 4px 18px;  /* = --iy --ix of the selected row below */
+  /* = --iy --ixr --iy --ixl of the selected capsule below */
+  inset: 4px var(--lgs-vr-side-ixr) 4px var(--lgs-vr-side-ixl);
   z-index: 5;
-  border-radius: var(--lgs-vr-r-row);
+  border-radius: var(--lgs-r-capsule);
   background: transparent;
   pointer-events: none;
   transition: background-color var(--lgs-t-fast) var(--lgs-ease), box-shadow var(--lgs-t-fast) var(--lgs-ease);
 }
 .SettingsSidebarButton:hover::after {
-  background-color: var(--lgs-hover-fill);
+  background-color: var(--lgs-vr-hover-fill);
+  box-shadow: var(--lgs-vr-hover-rim);
 }
 .SettingsSidebarButton:not(.Active):active::after {
   background-color: var(--lgs-pressed-fill);
 }
-/* the current section: a white inset rounded row painted on the button
-   itself (gradient layers draw the rounded rect), so its dark label sits
-   on its own background. The layers overlap by 1px to avoid seams, so the
-   white must be opaque: the knob white (--lgs-knob, #fff), which the
-   selected fill (.94 white) reaches anyway where it doubles up. */
+/* the current section: a white inset capsule painted on the button
+   itself (gradient layers draw it), so its dark label sits on its own
+   background. The layers overlap by 1px to avoid seams (a non-overlapping
+   3-layer capsule showed hairline seams at this page's fractional scale),
+   so the white must be opaque: the knob white (--lgs-knob, #fff), which
+   the selected fill (.94 white) reaches anyway where it doubles up.
+   --r = (73px button - 2 x 4px) / 2: corner radius = capsule. */
 .SettingsSidebarButton.Active,
 .SettingsSidebarButton.Active:hover {
   --c: var(--lgs-knob);
-  --ix: 18px;
+  --ixl: var(--lgs-vr-side-ixl);
+  --ixr: var(--lgs-vr-side-ixr);
   --iy: 4px;
-  --r: round(var(--lgs-vr-r-row), 1px);
+  --r: 32px;
   background:
-    linear-gradient(var(--c), var(--c)) center / calc(100% - 2 * var(--ix)) calc(100% - 2 * var(--iy) - 2 * var(--r) + 2px) no-repeat,
-    linear-gradient(var(--c), var(--c)) center top var(--iy) / calc(100% - 2 * var(--ix) - 2 * var(--r) + 2px) var(--r) no-repeat,
-    linear-gradient(var(--c), var(--c)) center bottom var(--iy) / calc(100% - 2 * var(--ix) - 2 * var(--r) + 2px) var(--r) no-repeat,
-    radial-gradient(circle at 100% 100%, var(--c) calc(var(--r) - 0.75px), transparent var(--r)) left var(--ix) top var(--iy) / var(--r) var(--r) no-repeat,
-    radial-gradient(circle at 0 100%, var(--c) calc(var(--r) - 0.75px), transparent var(--r)) right var(--ix) top var(--iy) / var(--r) var(--r) no-repeat,
-    radial-gradient(circle at 100% 0, var(--c) calc(var(--r) - 0.75px), transparent var(--r)) left var(--ix) bottom var(--iy) / var(--r) var(--r) no-repeat,
-    radial-gradient(circle at 0 0, var(--c) calc(var(--r) - 0.75px), transparent var(--r)) right var(--ix) bottom var(--iy) / var(--r) var(--r) no-repeat;
+    linear-gradient(var(--c), var(--c)) left var(--ixl) center / calc(100% - var(--ixl) - var(--ixr)) calc(100% - 2 * var(--iy) - 2 * var(--r) + 2px) no-repeat,
+    linear-gradient(var(--c), var(--c)) left calc(var(--ixl) + var(--r) - 1px) top var(--iy) / calc(100% - var(--ixl) - var(--ixr) - 2 * var(--r) + 2px) var(--r) no-repeat,
+    linear-gradient(var(--c), var(--c)) left calc(var(--ixl) + var(--r) - 1px) bottom var(--iy) / calc(100% - var(--ixl) - var(--ixr) - 2 * var(--r) + 2px) var(--r) no-repeat,
+    radial-gradient(circle at 100% 100%, var(--c) calc(var(--r) - 0.75px), transparent var(--r)) left var(--ixl) top var(--iy) / var(--r) var(--r) no-repeat,
+    radial-gradient(circle at 0 100%, var(--c) calc(var(--r) - 0.75px), transparent var(--r)) right var(--ixr) top var(--iy) / var(--r) var(--r) no-repeat,
+    radial-gradient(circle at 100% 0, var(--c) calc(var(--r) - 0.75px), transparent var(--r)) left var(--ixl) bottom var(--iy) / var(--r) var(--r) no-repeat,
+    radial-gradient(circle at 0 0, var(--c) calc(var(--r) - 0.75px), transparent var(--r)) right var(--ixr) bottom var(--iy) / var(--r) var(--r) no-repeat;
+}
+/* the current section is never "hovered" on top of its white */
+.SettingsSidebarButton.Active:hover::after {
+  background-color: transparent;
+  box-shadow: none;
 }
 .SettingsSidebarButton .Label,
 .SettingsSidebarButton:hover .Label {
@@ -164,8 +193,8 @@
   transition: background-color var(--lgs-t-fast) var(--lgs-ease), box-shadow var(--lgs-t-fast) var(--lgs-ease);
 }
 .SettingsMain .ButtonControl:not(.Disabled):hover {
-  background-color: var(--lgs-hover-fill);
-  box-shadow: var(--lgs-control-rim);
+  background-color: var(--lgs-vr-hover-fill);
+  box-shadow: var(--lgs-control-rim), var(--lgs-vr-hover-rim);
 }
 .SettingsMain .ButtonControl:not(.Disabled):active {
   background-color: var(--lgs-pressed-fill);
@@ -215,10 +244,10 @@
   color: var(--lgs-text-1);
 }
 .SettingsItem.RadioButtons .RadioButton:hover {
-  background: var(--lgs-hover-fill);
+  background: var(--lgs-vr-hover-fill);
 }
 .SettingsItem.RadioButtons .RadioButton:not(.Selected):hover {
-  box-shadow: var(--lgs-control-rim);
+  box-shadow: var(--lgs-control-rim), var(--lgs-vr-hover-rim);
 }
 .SettingsItem.RadioButtons .RadioButton:not(.Selected):active {
   background: var(--lgs-pressed-fill);
@@ -335,8 +364,13 @@
 .SettingsMain .SliderControl:not(.Color).Sliding .Track {
   opacity: 1;
 }
-.SettingsMain .SliderControl .Track .Detent {
-  background: var(--lgs-text-3);
+/* detent ticks (e.g. the 100% mark) must read on the white value fill and
+   on the unfilled track: a vibrancy-2 white tick with difference blending
+   turns dark grey over the white fill and a dim light grey over the track
+   ("notches dim", DESIGN §4). Colour tracks keep SteamVR's tick. */
+.SettingsMain .SliderControl:not(.Color) .Track .Detent {
+  background: var(--lgs-text-2);
+  mix-blend-mode: difference;
 }
 .SettingsMain .SliderControl:not(.Color) .Handle {
   background: var(--lgs-knob);
@@ -382,7 +416,7 @@
   color: var(--lgs-text-1);
 }
 .SettingsMain .DropdownPopoverButton:hover {
-  background-color: var(--lgs-hover-fill);
+  background-color: var(--lgs-vr-hover-fill);
 }
 .SettingsMain .DropdownPopoverButton:active {
   background-color: var(--lgs-pressed-fill);
