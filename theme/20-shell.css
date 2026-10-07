@@ -4,7 +4,10 @@
    the in-window footer legend as a floating capsule, the app-details scrim,
    and the search route's chrome and result tiles.
    Wrapped as html.lgs-on { ... } by the injector. Look only: no geometry,
-   no transforms, no visibility changes. */
+   no transforms, no visibility changes. Two rendering-only hints are used
+   on purpose and explained where they appear: will-change on the window's
+   inner wrapper (backdrop root) and transform-style on Back (so its glass
+   can blur). Coverage, shots and audits: docs/coverage/shell.md. */
 
 /* ------------------------------------------------------------------ */
 /* 1. Window glass                                                     */
@@ -28,6 +31,18 @@
   box-shadow: var(--lgs-window-rim);
   pointer-events: none;
   z-index: 20000;
+}
+
+/* Backdrop root just inside the glass. backdrop-filter re-composites
+   everything painted before it up to its backdrop root; without this,
+   every blurred control over plain window glass would blur the glass tint
+   itself and double its opacity (measured: alpha .725 -> .93, a dark
+   blot over a bright room). With the root here, Liquid Glass blurs only
+   page content. will-change:opacity is a rendering hint only: no layout,
+   no containing block for fixed elements, and the stacking context it
+   makes wraps every Steam layer, so their relative z-order is unchanged. */
+%{MainNavMenuMainSplit} {
+  will-change: opacity;
 }
 
 /* Overlay paths Steam renders on a transparent window (/apprunning,
@@ -57,11 +72,6 @@
   background: var(--lgs-window-sheen), var(--lgs-window-bg);
 }
 
-/* Route content inherits glass-friendly body text. */
-%{BasicHome} {
-  text-shadow: none;
-}
-
 /* ------------------------------------------------------------------ */
 /* 2. Header: Back + search as Liquid Glass capsules over content      */
 /* ------------------------------------------------------------------ */
@@ -76,8 +86,46 @@
   box-shadow: none;
 }
 
+/* Header capsules: Liquid Glass that really blurs the content scrolling
+   under the header. Steam's header is a 3D rendering context
+   (transform-style: preserve-3d, Steam-owned); in it, only layers that
+   take part in the 3D context see the page behind. A flat child (and
+   anything inside one, like a ::before of Back or of the overflow:hidden
+   search container) is flattened into its own surface, where
+   backdrop-filter sees nothing (measured). So:
+   - the search capsule is #header::after (a direct 3D participant),
+     anchored to the search container so it follows Steam's layout in
+     every language and mode;
+   - Back opts into the 3D context (preserve-3d: no transform, no fixed
+     children, no geometry change) so its ::before capsule participates.
+   The face layers a light glass tint over Apple's dimming scrim, so white
+   labels stay readable over bright art while the capsule still reads
+   lighter than the window glass around it. */
+#header%{Profile>Header} {
+  --lgs-capsule-face: var(--lgs-panel-sheen),
+      linear-gradient(var(--lgs-glass-bg), var(--lgs-glass-bg)),
+      linear-gradient(var(--lgs-scrim), var(--lgs-scrim));
+  --lgs-capsule-hover: var(--lgs-panel-sheen),
+      linear-gradient(var(--lgs-hover-fill), var(--lgs-hover-fill)),
+      linear-gradient(var(--lgs-glass-bg), var(--lgs-glass-bg)),
+      linear-gradient(var(--lgs-scrim), var(--lgs-scrim));
+  --lgs-capsule-filled: var(--lgs-panel-sheen),
+      linear-gradient(var(--lgs-fill-2), var(--lgs-fill-2)),
+      linear-gradient(var(--lgs-glass-bg), var(--lgs-glass-bg)),
+      linear-gradient(var(--lgs-scrim), var(--lgs-scrim));
+  --lgs-capsule-focus: var(--lgs-panel-sheen),
+      linear-gradient(var(--lgs-focus-fill), var(--lgs-focus-fill)),
+      linear-gradient(var(--lgs-glass-bg), var(--lgs-glass-bg)),
+      linear-gradient(var(--lgs-scrim), var(--lgs-scrim));
+  --lgs-capsule-pressed: var(--lgs-panel-sheen),
+      linear-gradient(var(--lgs-pressed-fill), var(--lgs-pressed-fill)),
+      linear-gradient(var(--lgs-glass-bg), var(--lgs-glass-bg)),
+      linear-gradient(var(--lgs-scrim), var(--lgs-scrim));
+}
+
 /* Back: a glass capsule (Back is laser-only, not gamepad focusable). */
 %{BackContainer} {
+  transform-style: preserve-3d;
   color: var(--lgs-text-1);
   text-shadow: var(--lgs-text-shadow);
 }
@@ -90,7 +138,7 @@
   right: 6px;
   z-index: -1;
   border-radius: var(--lgs-r-capsule);
-  background: var(--lgs-glass-bg);
+  background: var(--lgs-capsule-face);
   backdrop-filter: var(--lgs-glass-blur);
   box-shadow: var(--lgs-glass-rim), var(--lgs-glass-shadow);
   pointer-events: none;
@@ -100,10 +148,10 @@
   color: var(--lgs-text-1);
 }
 %{BackContainer}:hover::before {
-  background: linear-gradient(var(--lgs-hover-fill), var(--lgs-hover-fill)), var(--lgs-glass-bg);
+  background: var(--lgs-capsule-hover);
 }
 %{BackContainer}:active::before {
-  background: linear-gradient(var(--lgs-focus-fill), var(--lgs-focus-fill)), var(--lgs-glass-bg);
+  background: var(--lgs-capsule-pressed);
 }
 %{BackContainer>BackButton} {
   color: inherit;
@@ -114,72 +162,78 @@
   background: transparent;
 }
 
-/* Search: one capsule in every state (idle, filled, focused). */
-%{SearchAndTitleContainer}%{ShowingSearch}::before {
+/* Search: one capsule in every state (idle, filled, hover, focused). */
+#header%{Profile>Header} > %{SearchAndTitleContainer}%{ShowingSearch} {
+  anchor-name: --lgs-search-field;
+}
+#header%{Profile>Header}:has(> %{SearchAndTitleContainer}%{ShowingSearch})::after {
   content: "";
   position: absolute;
   top: 4px;
   bottom: 4px;
-  left: 2px;
-  right: 8px;
+  left: calc(anchor(--lgs-search-field left, 100%) + 2px);
+  right: calc(anchor(--lgs-search-field right, 0px) + 8px);
   z-index: -1;
   border-radius: var(--lgs-r-capsule);
-  background: var(--lgs-glass-bg);
+  background: var(--lgs-capsule-face);
   backdrop-filter: var(--lgs-glass-blur);
   box-shadow: var(--lgs-glass-rim), var(--lgs-glass-shadow);
   pointer-events: none;
   transition: background var(--lgs-t-fast) var(--lgs-ease), box-shadow var(--lgs-t-fast) var(--lgs-ease);
 }
-%{SearchAndTitleContainer}%{ShowingSearch}:hover::before {
-  background: linear-gradient(var(--lgs-hover-fill), var(--lgs-hover-fill)), var(--lgs-glass-bg);
+#header%{Profile>Header}:has(> %{SearchAndTitleContainer}%{ShowingSearch}:hover)::after {
+  background: var(--lgs-capsule-hover);
 }
-/* filled (text present, or on /search): a slightly denser capsule */
-%{SearchAndTitleContainer}%{ShowingSearch}:has(> %{SearchFieldBackground}%{WhiteBackground})::before {
-  background: linear-gradient(var(--lgs-fill-2), var(--lgs-fill-2)), var(--lgs-glass-bg);
+/* filled (text present, or on /search): a slightly brighter face, so the
+   field reads as "active" the way Steam's grey field did */
+#header%{Profile>Header}:has(> %{SearchAndTitleContainer}%{ShowingSearch} > %{SearchFieldBackground}%{WhiteBackground})::after {
+  background: var(--lgs-capsule-filled);
 }
-/* focused: illuminated from within */
-%{SearchAndTitleContainer}%{ShowingSearch}.gpfocuswithin::before {
-  background: linear-gradient(var(--lgs-focus-fill), var(--lgs-focus-fill)), var(--lgs-glass-bg) !important;
+/* focused (the field takes gamepad focus): illuminated from within */
+#header%{Profile>Header}:has(> %{SearchAndTitleContainer}%{ShowingSearch}.gpfocuswithin)::after {
+  background: var(--lgs-capsule-focus) !important;
   box-shadow: var(--lgs-focus-ring) !important;
 }
 /* Steam's own field fill (grey #b8bcbf / white) is replaced by the
-   capsule above; its scaleX expand transform stays untouched. */
-%{SearchFieldBackground},
-%{SearchFieldBackground}%{WhiteBackground} {
-  background: transparent;
+   capsule above; its scaleX expand transform stays untouched.
+   (Steam's field rules reach (0,5,0); anchoring on Steam's literal
+   #header id outranks them without !important.) */
+#header %{SearchAndTitleContainer} %{SearchFieldBackground},
+#header %{SearchAndTitleContainer} %{SearchFieldBackground}%{WhiteBackground} {
+  background-color: transparent;
 }
-%{SearchIconLeft},
-%{SearchIconLeft}%{WhiteBackground},
-%{SearchIconRight},
-%{SearchIconRight}%{WhiteBackground} {
+#header %{SearchAndTitleContainer} %{SearchIconLeft},
+#header %{SearchAndTitleContainer} %{SearchIconLeft}%{WhiteBackground},
+#header %{SearchAndTitleContainer} %{SearchIconRight},
+#header %{SearchAndTitleContainer} %{SearchIconRight}%{WhiteBackground} {
   color: var(--lgs-text-2);
-  fill: currentColor;
 }
-%{SearchAndTitleContainer}.gpfocuswithin %{SearchIconLeft} {
+#header %{SearchAndTitleContainer}.gpfocuswithin %{SearchIconLeft},
+#header %{SearchAndTitleContainer}%{ShowingSearch}:hover %{SearchIconLeft} {
   color: var(--lgs-text-1);
 }
-%{SearchBox},
-%{SearchBox}%{WhiteBackground} {
+#header %{SearchAndTitleContainer} %{SearchBox},
+#header %{SearchAndTitleContainer} %{SearchBox}%{WhiteBackground} {
   color: var(--lgs-text-1);
   caret-color: var(--lgs-text-1);
   text-shadow: var(--lgs-text-shadow);
 }
-%{SearchBox}::placeholder {
+#header %{SearchAndTitleContainer} %{SearchBox}::placeholder {
   color: var(--lgs-text-2);
 }
-%{SearchAndTitleContainer}%{ShowingSearch}:hover %{SearchBox}::placeholder {
+#header %{SearchAndTitleContainer}%{ShowingSearch}:hover %{SearchBox}::placeholder {
   color: var(--lgs-text-1);
 }
-%{SearchBox}::-webkit-search-cancel-button {
+#header %{SearchAndTitleContainer} %{SearchBox}::-webkit-search-cancel-button {
   background-color: var(--lgs-fill-3);
   border-radius: var(--lgs-r-capsule);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  box-shadow: var(--lgs-control-rim);
 }
-%{SearchBox}::-webkit-search-cancel-button:hover {
+#header %{SearchAndTitleContainer} %{SearchBox}::-webkit-search-cancel-button:hover {
   background-color: var(--lgs-hover-fill);
 }
-%{SearchBox}::-webkit-search-cancel-button:active {
-  background-color: var(--lgs-focus-fill);
+#header %{SearchAndTitleContainer} %{SearchBox}::-webkit-search-cancel-button:active {
+  background-color: var(--lgs-pressed-fill);
 }
 
 /* Title mode (calibration, device support, captive portal ...):
@@ -227,11 +281,15 @@
   border-image: none;
   border-top-color: transparent;
 }
-%{FooterLegend} > :first-child {
+/* (the legend's first child is a flex spacer, so count legend items) */
+%{FooterLegend} > :nth-child(1 of %{ActionButtonLegend}) {
   anchor-name: --lgs-legend-first;
 }
-%{FooterLegend} > :last-child {
+%{FooterLegend} > :nth-last-child(1 of %{ActionButtonLegend}) {
   anchor-name: --lgs-legend-last;
+}
+%{FooterLegend} > :nth-child(1 of %{ActionButtonLegend}):nth-last-child(1 of %{ActionButtonLegend}) {
+  anchor-name: --lgs-legend-first, --lgs-legend-last;
 }
 #Footer%{BasicFooter}::after {
   content: "";
@@ -242,7 +300,12 @@
   right: calc(anchor(--lgs-legend-last right, 0px) - 4px);
   z-index: -1;
   border-radius: var(--lgs-r-capsule);
-  background: var(--lgs-glass-bg);
+  /* Liquid Glass: blurs the content under the footer (not the window
+     tint, see the backdrop root above); the scrim layer keeps the white
+     labels readable over bright art */
+  background: var(--lgs-panel-sheen),
+      linear-gradient(var(--lgs-glass-bg), var(--lgs-glass-bg)),
+      linear-gradient(var(--lgs-scrim), var(--lgs-scrim));
   backdrop-filter: var(--lgs-glass-blur);
   box-shadow: var(--lgs-glass-rim), var(--lgs-glass-shadow);
   pointer-events: none;
@@ -255,7 +318,7 @@
   background-color: var(--lgs-hover-fill);
 }
 %{ActionButtonLegend}:active {
-  background-color: var(--lgs-focus-fill);
+  background-color: var(--lgs-pressed-fill);
 }
 %{ActionButtonLegend} %{ActionButtonLabel} {
   color: var(--lgs-text-1);
@@ -291,6 +354,100 @@
 /* 5. Search route (/search/tab/*)                                     */
 /* ------------------------------------------------------------------ */
 
+/* Tab row (All / Library / Friends / Store / Tools / Hidden): the
+   segments sit in one Liquid Glass capsule; the selected segment is the
+   white pill. Scoped to the search page; the same tabbed-page component on
+   library routes belongs to the library area.
+   The capsule is an ::after of the row wrapper, which is Steam's 3D
+   context root (preserve-3d), so it takes part in that context and its
+   blur sees the results scrolling underneath. Anchored to the first and
+   last tab, it hugs the segments whatever the tab count or language. */
+%{GamepadSearch} %{FixCenterAlignScroll} > :nth-child(1 of %{GamepadTabbedPage>Tab}) {
+  anchor-name: --lgs-search-tab-first;
+}
+%{GamepadSearch} %{FixCenterAlignScroll} > :nth-last-child(1 of %{GamepadTabbedPage>Tab}) {
+  anchor-name: --lgs-search-tab-last;
+}
+%{GamepadSearch} %{FixCenterAlignScroll} > :nth-child(1 of %{GamepadTabbedPage>Tab}):nth-last-child(1 of %{GamepadTabbedPage>Tab}) {
+  anchor-name: --lgs-search-tab-first, --lgs-search-tab-last;
+}
+%{GamepadSearch} %{TabHeaderRowWrapper}::after {
+  content: "";
+  position: absolute;
+  top: calc(anchor(--lgs-search-tab-first top, 0px) - 4px);
+  bottom: calc(anchor(--lgs-search-tab-first bottom, 100%) - 4px);
+  left: calc(anchor(--lgs-search-tab-first left, 100%) - 4px);
+  right: calc(anchor(--lgs-search-tab-last right, 0px) - 4px);
+  z-index: -1;
+  border-radius: var(--lgs-r-capsule);
+  background: var(--lgs-panel-sheen),
+      linear-gradient(var(--lgs-glass-bg), var(--lgs-glass-bg)),
+      linear-gradient(var(--lgs-scrim), var(--lgs-scrim));
+  backdrop-filter: var(--lgs-glass-blur);
+  box-shadow: var(--lgs-glass-rim), var(--lgs-glass-shadow);
+  pointer-events: none;
+}
+/* Steam's pinned band behind the row (dark slab + 100px blur, shown once
+   results scroll under it) becomes a soft scroll edge: window tint fading
+   out downwards, with a lighter blur faded by the same mask, so results
+   dissolve under the capsule instead of meeting a hard-edged bar. Its box,
+   z-index and show/hide stay Steam's. */
+%{GamepadSearch} %{TabHeaderRowWrapper}::before {
+  background: linear-gradient(180deg, var(--lgs-window-bg) 0%, transparent 100%);
+  backdrop-filter: var(--lgs-glass-blur);
+  -webkit-mask-image: linear-gradient(180deg, #000 55%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 55%, transparent 100%);
+  box-shadow: none;
+}
+%{GamepadSearch} %{GamepadTabbedPage>Tab} {
+  border-radius: var(--lgs-r-capsule);
+  color: var(--lgs-text-1);
+  transition: background-color var(--lgs-t-fast) var(--lgs-ease),
+      color var(--lgs-t-fast) var(--lgs-ease), box-shadow var(--lgs-t-fast) var(--lgs-ease);
+}
+%{GamepadSearch} %{GamepadTabbedPage>Tab}:hover {
+  background-color: var(--lgs-hover-fill);
+  color: var(--lgs-text-1);
+}
+%{GamepadSearch} %{GamepadTabbedPage>Tab} %{TabCount} {
+  color: var(--lgs-text-2);
+}
+/* selected (and focused, which selects): the white pill, dark label */
+%{GamepadSearch} %{GamepadTabbedPage>Tab}%{GamepadTabbedPage>Selected},
+%{GamepadSearch} %{GamepadTabbedPage>Tab}%{GamepadTabbedPage>Selected}:hover,
+%{GamepadSearch} %{GamepadTabbedPage>Tab}.gpfocus {
+  background-color: var(--lgs-selected-fill) !important;
+  color: var(--lgs-text-on-selected) !important;
+}
+%{GamepadSearch} %{GamepadTabbedPage>Tab}%{GamepadTabbedPage>Selected} %{TabCount},
+%{GamepadSearch} %{GamepadTabbedPage>Tab}.gpfocus %{TabCount} {
+  color: var(--lgs-text-on-selected) !important;
+  opacity: 0.6;
+}
+/* controller focus: the white pill gets a separated bright ring (a scrim
+   gap, then the focus outline and glow), so focused differs clearly from
+   merely selected */
+%{GamepadSearch} %{GamepadTabbedPage>Tab}.gpfocus {
+  box-shadow: 0 0 0 2px var(--lgs-scrim), 0 0 0 4px var(--lgs-focus-outline),
+      var(--lgs-focus-glow) !important;
+}
+/* row arrows (laser): secondary until hovered or focused */
+%{GamepadSearch} %{TabHeaderRowWrapper} %{Arrows} {
+  color: var(--lgs-text-2);
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.32));
+  border-radius: var(--lgs-r-capsule);
+  transition: color var(--lgs-t-fast) var(--lgs-ease), background-color var(--lgs-t-fast) var(--lgs-ease);
+}
+%{GamepadSearch} %{TabHeaderRowWrapper} %{Arrows}:hover {
+  color: var(--lgs-text-1);
+  background-color: var(--lgs-hover-fill);
+}
+%{GamepadSearch} %{TabHeaderRowWrapper} %{Arrows}.gpfocus {
+  color: var(--lgs-text-1) !important;
+  background-color: var(--lgs-focus-fill) !important;
+  box-shadow: var(--lgs-focus-ring) !important;
+}
+
 /* Result art is content: opaque, rounded to the card radius. */
 %{GamepadSearch} %{ResultTemplateImage} {
   border-radius: var(--lgs-r-card);
@@ -308,7 +465,7 @@
 }
 /* focus: a bright ring around the art; Steam's scale-up stays */
 %{GamepadSearch} %{ResultTemplate}.gpfocuswithin %{ResultTemplateImage} {
-  box-shadow: var(--lgs-focus-ring-outer), 0 12px 24px rgba(0, 0, 0, 0.32) !important;
+  box-shadow: var(--lgs-focus-ring-outer), var(--lgs-glass-shadow) !important;
 }
 
 /* label row under each tile */
@@ -327,7 +484,7 @@
 /* "View more in the Store": a glass fill tile instead of a grey slab */
 %{GamepadSearch} %{RedirectResultBackground} {
   background: var(--lgs-panel-sheen), var(--lgs-fill-2);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  box-shadow: var(--lgs-glass-rim);
 }
 %{GamepadSearch} %{OverlaidText} {
   color: var(--lgs-text-1);

@@ -1,0 +1,376 @@
+/* Glass Shell, area "settings": every /settings page on surface main.
+   Layout-level look only; the controls (field rows, toggles, sliders,
+   dropdowns, buttons, inputs, menus, modals) come from 10-primitives.css
+   and are only refined here inside settings containers.
+
+   Scope: Steam's PagedSettingsDialog is shared with game Properties
+   (%{AppProperties}, appdetails area) and Notes (%{NotesPagedSettings},
+   social area); those are excluded so each owner keeps its own page.
+
+   Look only: colours, fills, radii, rims, small paint-only pseudo-elements
+   (pointer-events:none). Never geometry, never Steam's transforms
+   (%{ScaledChildren} scale, page-switch translateY, virtualized rows).
+   Wrapped as html.lgs-on { ... } by the bundler.
+   Coverage, shots, audits: docs/coverage/settings.md. */
+
+
+/* ======================================================================
+   1. Page skeleton: the window glass shows through, the page list becomes
+   a raised sidebar pane (a fill, not glass: no glass on glass).
+   ====================================================================== */
+
+%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog}:not(%{AppProperties}, %{NotesPagedSettings}) {
+  background: none;
+
+  /* content column: plain window glass (no blur: the page scrolls in it) */
+  & > %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingDialog_ContentColumn} {
+    background: none;
+  }
+
+  /* sidebar column: transparent; the pane is its ::before, inset from the
+     window edge (concentric with the window: 32 - 8 = 24). isolation keeps
+     the pane under the list without touching z-index of any Steam layer. */
+  & > %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListColumn} {
+    background: none;
+    isolation: isolate;
+  }
+  & > %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListColumn}::before {
+    content: "";
+    position: absolute;
+    inset: 8px 6px 8px 8px;
+    z-index: -1;
+    border-radius: var(--lgs-r-panel);
+    background: var(--lgs-panel-sheen), var(--lgs-fill-1);
+    box-shadow: var(--lgs-glass-rim);
+    pointer-events: none;
+  }
+
+  /* group separators in the list: hairlines */
+  & %{PagedSettingsDialog>Separator} {
+    background: var(--lgs-separator);
+  }
+
+
+  /* ====================================================================
+     2. Page list items: a capsule inside the pane. Rest transparent,
+     hover fill, selected (current page) = the white pill, focus =
+     illuminated + ring. The capsule is the item's ::before (unused by
+     Steam); the item's own transform makes it the containing block.
+     ==================================================================== */
+
+  & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem} {
+    color: var(--lgs-text-1);
+    text-shadow: var(--lgs-text-shadow);
+    border-left-color: transparent;
+  }
+  & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}::before {
+    content: "";
+    position: absolute;
+    inset: 3px 14px 3px 16px;
+    z-index: -1;
+    border-radius: var(--lgs-r-capsule);
+    background: transparent;
+    pointer-events: none;
+    transition: background-color var(--lgs-t-fast) var(--lgs-ease),
+                box-shadow var(--lgs-t-fast) var(--lgs-ease);
+  }
+  /* Steam's own blue gradients and left bar go: the capsule carries state */
+  & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}:is(:hover, :focus, .gpfocus, %{PagedSettingsDialog_PageList_ShowTitle>Active}) {
+    background: none !important;
+    border-left-color: transparent !important;
+  }
+  & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}:hover::before {
+    background-color: var(--lgs-hover-fill);
+  }
+  & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}:is(:focus, .gpfocus) {
+    color: var(--lgs-text-1) !important;
+  }
+  & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}:is(:focus, .gpfocus)::before {
+    background-color: var(--lgs-focus-fill);
+    box-shadow: var(--lgs-focus-ring);
+  }
+  /* selected: white pill, dark label and icon */
+  & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}%{PagedSettingsDialog_PageList_ShowTitle>Active} {
+    color: var(--lgs-text-on-selected) !important;
+    text-shadow: none;
+  }
+  & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}%{PagedSettingsDialog_PageList_ShowTitle>Active}::before {
+    background-color: var(--lgs-selected-fill);
+    box-shadow: var(--lgs-pill-shadow);
+  }
+  /* selected and focused: the white pill gets a separated bright ring
+     (scrim gap, outline, glow) so focus still reads on white */
+  & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}%{PagedSettingsDialog_PageList_ShowTitle>Active}:is(:focus, .gpfocus)::before {
+    background-color: var(--lgs-selected-fill);
+    box-shadow: 0 0 0 2px var(--lgs-scrim), 0 0 0 4px var(--lgs-focus-outline), var(--lgs-focus-glow);
+  }
+  & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}%{PagedSettingsDialog_PageList_ShowTitle>DisabledItem} {
+    color: var(--lgs-text-disabled);
+  }
+
+
+  /* ====================================================================
+     3. Page title, section headers, body text
+     ==================================================================== */
+
+  & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageContent} .DialogHeader {
+    color: var(--lgs-text-1);
+  }
+  /* section headers: secondary label, aligned with the row labels in the
+     card below (Steam's rows pad 12px) */
+  & .SettingsDialogSubHeader {
+    color: var(--lgs-text-2);
+    text-shadow: var(--lgs-text-shadow);
+    padding-inline-start: 12px;
+  }
+  & %{SettingsDialogBodyText} {
+    color: var(--lgs-text-1);
+    text-shadow: var(--lgs-text-shadow);
+  }
+  & %{SettingsDialogDescriptionText} {
+    color: var(--lgs-text-2);
+  }
+
+
+  /* ====================================================================
+     4. Scroll edges: rows dissolve under the floating header capsules and
+     the footer legend instead of being cut by the window edge. Masks only
+     (no geometry, no hit-testing change); focused rows never reach the
+     faded band (Steam's scroll-padding keeps them 250px / 60px away).
+     ==================================================================== */
+
+  & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageContent} {
+    -webkit-mask-image: linear-gradient(180deg, transparent 4px, #000 44px, #000 calc(100% - 22px), transparent 100%);
+    mask-image: linear-gradient(180deg, transparent 4px, #000 44px, #000 calc(100% - 22px), transparent 100%);
+  }
+  & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageList} {
+    -webkit-mask-image: linear-gradient(180deg, transparent 6px, #000 30px, #000 calc(100% - 20px), transparent 100%);
+    mask-image: linear-gradient(180deg, transparent 6px, #000 30px, #000 calc(100% - 20px), transparent 100%);
+  }
+
+
+  /* ====================================================================
+     5. Page-specific widgets
+     ==================================================================== */
+
+  /* --- Game Recording: recording-mode radio cards -------------------- */
+  & %{RecordingModeOption} {
+    background-color: var(--lgs-fill-1);
+    border-radius: var(--lgs-r-card);
+    box-shadow: var(--lgs-control-rim);
+    color: var(--lgs-text-1);
+    transition: background-color var(--lgs-t-fast) var(--lgs-ease),
+                box-shadow var(--lgs-t-fast) var(--lgs-ease),
+                color var(--lgs-t-fast) var(--lgs-ease);
+  }
+  & %{RecordingModeOption}:hover {
+    background-color: var(--lgs-hover-fill);
+  }
+  /* chosen mode: a stronger fill and lit edge; the white pip says "selected" */
+  & %{RecordingModeOption}%{WarningBox>Active} {
+    background-color: var(--lgs-fill-3);
+    box-shadow: var(--lgs-control-rim), inset 0 0 0 1px var(--lgs-control-outline);
+  }
+  /* focus: illuminated; Steam's floating FocusRing draws the ring */
+  & %{RecordingModeOption}.gpfocus {
+    background-color: var(--lgs-focus-fill) !important;
+    box-shadow: var(--lgs-control-rim) !important;
+  }
+  & %{RecordingModeOption} %{WarningBox>Header} {
+    color: var(--lgs-text-1);
+  }
+  & %{RecordingModeOption} %{FieldSeparator>Body} {
+    color: var(--lgs-text-2);
+  }
+  & %{RecordingModeOption} %{Pip} {
+    background-color: var(--lgs-fill-sunken);
+    box-shadow: inset 0 0 0 1.5px var(--lgs-control-outline);
+  }
+  & %{RecordingModeOption} %{Pip}%{ActivePip} {
+    background: radial-gradient(circle, var(--lgs-text-on-selected) 0 3.5px, var(--lgs-selected-fill) 4px);
+    border-color: var(--lgs-selected-fill);
+    box-shadow: var(--lgs-pill-shadow);
+  }
+
+  /* --- Downloads: "game update timing" pseudo-row ------------------- */
+  & %{FakeContainer} {
+    background-color: var(--lgs-fill-1);
+    border-radius: var(--lgs-r-card);
+    color: var(--lgs-text-1);
+  }
+
+  /* --- Bluetooth: "Not connected" badge, scanning header ------------ */
+  & %{BluetoothDeviceQuickAccessField>NotConnectedLabel} {
+    color: var(--lgs-text-2);
+  }
+  & %{NotConnectedLabel>Header} {
+    color: var(--lgs-text-2);
+  }
+
+  /* --- Notifications: sticky "Notify me via" column headers ---------- */
+  & %{CheckboxHeaders} %{NotifyViaHeader} {
+    color: var(--lgs-text-2);
+  }
+  & %{CheckboxHeaders} %{CheckboxColumn} {
+    color: var(--lgs-text-1);
+    text-shadow: var(--lgs-text-shadow);
+  }
+  & %{NotificationSectionHeader} {
+    color: var(--lgs-text-2);
+  }
+  & %{NotificationSectionHeader} %{Toggles} {
+    color: var(--lgs-text-1);
+  }
+
+  /* --- Home: hidden games and instructions --------------------------- */
+  & %{HiddenGameLabel} {
+    color: var(--lgs-text-1);
+  }
+  & %{HiddenGameLabel} %{GameCount} {
+    color: var(--lgs-text-1);
+  }
+  & :is(%{AppSelectorButton>Description}, %{Instructions}) {
+    color: var(--lgs-text-2);
+  }
+
+  /* --- Family: the page's one primary action ------------------------- */
+  & button.DialogButton%{TrySteamFamiliesButton}.Primary {
+    background: var(--lgs-tint-primary);
+    color: var(--lgs-text-on-tint);
+  }
+}
+
+
+/* ======================================================================
+   6. Storage (/settings/storage): drive tabs, usage bar, app rows.
+   %{ContentManagement}%{InPagedSettings} only exists on this page.
+   ====================================================================== */
+
+%{ContentManagement}%{InPagedSettings} {
+
+  /* drive tabs: capsules; selected = white pill, focus = lit + ring */
+  & %{InstallFolder} {
+    background-color: var(--lgs-fill-1);
+    box-shadow: var(--lgs-control-rim);
+    color: var(--lgs-text-2);
+    transition: background-color var(--lgs-t-fast) var(--lgs-ease),
+                box-shadow var(--lgs-t-fast) var(--lgs-ease);
+  }
+  & %{InstallFolder} %{DriveName},
+  & %{InstallFolder} > svg {
+    color: var(--lgs-text-1);
+  }
+  & %{InstallFolder} %{DriveSize} {
+    color: var(--lgs-text-2);
+  }
+  & %{InstallFolder}:hover {
+    background-color: var(--lgs-hover-fill);
+  }
+  & %{InstallFolder}%{IsSelected},
+  & %{InstallFolder}%{IsSelected}:hover {
+    background-color: var(--lgs-selected-fill);
+    box-shadow: var(--lgs-pill-shadow);
+  }
+  & %{InstallFolder}%{IsSelected} %{DriveName},
+  & %{InstallFolder}%{IsSelected} > svg {
+    color: var(--lgs-text-on-selected);
+  }
+  & %{InstallFolder}%{IsSelected} %{DriveSize} {
+    color: var(--lgs-text-on-selected);
+    opacity: 0.66;
+  }
+  & %{InstallFolder}:is(:focus, .gpfocus):not(%{IsSelected}) {
+    background-color: var(--lgs-focus-fill) !important;
+    box-shadow: var(--lgs-focus-ring) !important;
+  }
+  & %{InstallFolder}:is(:focus, .gpfocus):not(%{IsSelected}) :is(%{DriveName}, %{DriveSize}),
+  & %{InstallFolder}:is(:focus, .gpfocus):not(%{IsSelected}) > svg {
+    color: var(--lgs-text-1) !important;
+  }
+  & %{InstallFolder}%{IsSelected}:is(:focus, .gpfocus) {
+    background-color: var(--lgs-selected-fill) !important;
+    box-shadow: 0 0 0 2px var(--lgs-scrim), 0 0 0 4px var(--lgs-focus-outline), var(--lgs-focus-glow) !important;
+  }
+
+  /* usage bar: a sunken capsule track; categories keep their colours
+     (they key the legend), drawn from the system palette */
+  & %{LibraryHeader} %{DriveName} {
+    color: var(--lgs-text-2);
+  }
+  & %{DriveUsageIndicator} {
+    background: var(--lgs-fill-3);
+    border-radius: var(--lgs-r-capsule);
+    box-shadow: var(--lgs-track-depth);
+  }
+  & %{DriveUsageGames} { background-color: var(--lgs-blue); }
+  & %{DriveUsageWorkshop} { background-color: var(--lgs-green); }
+  & %{DriveUsageShader} { background-color: var(--lgs-purple); }
+  & :is(%{DriveUsageOther}, %{DriveUsageOtherDot}) { background-color: var(--lgs-yellow); }
+  & %{DriveUsageFreeSpace} { background-color: var(--lgs-fill-3); }
+  & %{DriveUsageText} {
+    color: var(--lgs-text-1);
+  }
+  & %{DriveUsageNumber} {
+    color: var(--lgs-text-2);
+  }
+  & %{OtherInfo} svg {
+    color: var(--lgs-text-2);
+  }
+
+  /* list header: "Items 17" + hairline rule */
+  & %{AppHeader} {
+    color: var(--lgs-text-1);
+  }
+  & %{AppHeaderValue} {
+    color: var(--lgs-text-2);
+  }
+  & %{ContentManagement>Rule} {
+    background-color: var(--lgs-separator);
+  }
+
+  /* app rows (virtualized: geometry is inline and untouched) */
+  & %{AppBody} {
+    border-radius: var(--lgs-r-row);
+    transition: background-color var(--lgs-t-fast) var(--lgs-ease),
+                box-shadow var(--lgs-t-fast) var(--lgs-ease);
+  }
+  & %{AppBody}:hover {
+    background-color: var(--lgs-hover-fill);
+  }
+  & %{AppBody}:is(.gpfocus, :focus) {
+    background-color: var(--lgs-focus-fill) !important;
+    box-shadow: var(--lgs-focus-ring) !important;
+  }
+  & %{ContentManagement>AppName},
+  & %{AppSize} {
+    color: var(--lgs-text-1);
+  }
+  & %{AppUsageValue},
+  & %{AppInfoItem} svg {
+    color: var(--lgs-text-2);
+  }
+  & %{AppBody}:is(.gpfocus, :focus) :is(%{AppUsageValue}, %{AppInfoItem} svg) {
+    color: var(--lgs-text-1);
+  }
+  /* small capsule art is content: opaque, rounded to the small radius */
+  & %{AppBodyPortrait} :is(%{LibraryItemBox}, %{PortraitImage>Container}, %{PortraitImage>Image}) {
+    border-radius: var(--lgs-r-small);
+  }
+}
+
+
+/* ======================================================================
+   7. Dialogs opened from settings pages (rendered in the modal layer, so
+   outside the page scope; the sheet itself is the primitives' modal)
+   ====================================================================== */
+
+/* Game Recording quality: the bitrate table sits in a sunken well */
+%{BitRateTable} {
+  background: var(--lgs-well-bg);
+  box-shadow: var(--lgs-well-shadow);
+  border-radius: var(--lgs-r-row);
+  color: var(--lgs-text-1);
+}
+%{AutoExplainer} {
+  color: var(--lgs-text-2);
+}

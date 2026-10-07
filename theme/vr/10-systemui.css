@@ -1,0 +1,486 @@
+/* Glass Shell, area "steamvr": the pieces SteamVR's own systemui page draws
+   around the dashboard window (vr:systemui, a 1860x2048 atlas where every
+   vsg-node[vsg-type=panel] becomes its own VR quad).
+   - window grab bar, resize corner, frame controls (+ tooltips, More Options
+     popout, gamepad-mode pill), controller status card
+   - the on-demand systemui panels (app transition, IPD, progress, framerate,
+     gamepad-unsupported, room setup, Steam loading, persistent notifications,
+     guided tour)
+   Bundled for every SteamVR page after the shared tokens and wrapped as
+   html.lgs-on { ... }. Look only: no geometry, no panel-root box changes
+   (they are physical quad sizes), no transforms SteamVR animates, nothing
+   painted on html/body/#root/vsg-app (row 0 of the atlas carries the panel
+   UV table). Panels clip at their box, so rims are inset.
+   Coverage, shots and audits: docs/coverage/steamvr.md.
+
+   Tokens: modules that exist only in systemui (roomsetup, framerate,
+   gamepadunsupportedmessage, loadingthrobber, persistentnotifications) are
+   matched by their CSS-module prefix ([class*="module_Name_"]) instead of
+   a readable token: every theme/vr file is bundled into every SteamVR page, and a
+   token that resolves only in systemui would be "unresolved" on the binding
+   and keyboard pages. */
+
+/* ------------------------------------------------------------------ */
+/* 0. Shared values for the SteamVR pages                              */
+/* ------------------------------------------------------------------ */
+
+& {
+  /* SteamVR draws the dashboard window's own pages (Now Playing, SteamVR
+     settings) 1858 px wide where Steam draws main 1280 CSS px wide for the
+     same window: window-level radii and rings scale by this so the corners
+     match Steam's window glass exactly. The binding page (2400 px) sets its
+     own value in 40-bindings.css. */
+  --lgs-vr-scale: 1.45;
+  --lgs-vr-r-window: calc(var(--lgs-r-window) * var(--lgs-vr-scale));
+  --lgs-vr-r-card: calc(var(--lgs-r-card) * var(--lgs-vr-scale));
+  --lgs-vr-r-row: calc(var(--lgs-r-row) * var(--lgs-vr-scale));
+  --lgs-vr-ring-w: calc(2px * var(--lgs-vr-scale));
+  /* focus ring and glow for window-level controls at this scale */
+  --lgs-vr-focus-ring:
+      inset 0 0 0 var(--lgs-vr-ring-w) rgba(255, 255, 255, 0.90),
+      0 0 0 1px rgba(255, 255, 255, 0.25),
+      0 0 32px rgba(255, 255, 255, 0.30);
+  /* the window grabber: a translucent white Liquid Glass capsule. The faint
+     dark hairline and shadow keep it visible over a bright room. */
+  --lgs-vr-grabber: rgba(255, 255, 255, 0.62);
+  --lgs-vr-grabber-sheen: linear-gradient(rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0) 70%);
+  --lgs-vr-grabber-rim:
+      inset 0 1px 0 rgba(255, 255, 255, 0.60),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.16),
+      0 0 0 1px rgba(0, 0, 0, 0.16),
+      0 1px 6px rgba(0, 0, 0, 0.34);
+  --lgs-vr-grabber-glow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.80),
+      0 0 0 0.5px rgba(0, 0, 0, 0.18),
+      0 0 16px rgba(255, 255, 255, 0.45);
+  /* inner circle / row highlight used by the frame controls and menus */
+  --lgs-vr-hit-inset: 3px;
+}
+
+
+/* ------------------------------------------------------------------ */
+/* 1. Window grab bar (GrabHandle panel, laser-only)                   */
+/*    Steam owns: the scaleX grow transform, inline width, 60px hit    */
+/*    padding, 12px height. Only colour, rim and the transition list.  */
+/* ------------------------------------------------------------------ */
+
+%{GrabHandleBar} {
+  background-color: var(--lgs-vr-grabber);
+  background-image: var(--lgs-vr-grabber-sheen);
+  box-shadow: var(--lgs-vr-grabber-rim);
+  border-radius: var(--lgs-r-capsule);
+  /* SteamVR's own transform timing is kept as is */
+  transition: transform 0.08s ease-out,
+              background-color var(--lgs-t-fast) var(--lgs-ease),
+              box-shadow var(--lgs-t-fast) var(--lgs-ease);
+}
+/* laser hover and while dragging: lit from within */
+%{GrabHandleButton}:hover %{GrabHandleBar},
+%{GrabHandleBar}%{GrabHandleBar>ForceActive} {
+  background-color: var(--lgs-focus-outline);
+  box-shadow: var(--lgs-vr-grabber-glow);
+}
+
+
+/* ------------------------------------------------------------------ */
+/* 2. Resize corner (ResizeHandle panel, laser-only)                   */
+/*    Thin white stroke at vibrancy 2; brighter on hover/drag. Steam's */
+/*    hover scale(1.4) and stroke growth stay untouched.               */
+/* ------------------------------------------------------------------ */
+
+%{ResizeSVG} {
+  color: var(--lgs-text-2);
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+}
+%{ResizeSVG} path {
+  stroke-width: 4.5;
+}
+%{ResizeHandleButton}:hover %{ResizeSVG},
+%{ResizeHandleButton}%{ResizeHandleButton>ForceActive} %{ResizeSVG} {
+  color: var(--lgs-text-1);
+}
+
+
+/* ------------------------------------------------------------------ */
+/* 3. Frame controls under the window (legacy-frame-controls panel)    */
+/*    Each Section = a panel-glass capsule over the room; buttons are  */
+/*    circular hit highlights inside it (our ::before, which Steam     */
+/*    doesn't use on these buttons), white icons. SteamVR's idle .6    */
+/*    container opacity, margins and paddings stay (quad width).       */
+/* ------------------------------------------------------------------ */
+
+%{FrameControlsContainer} %{FrameControlsContainer>Section} {
+  background: var(--lgs-panel-sheen), var(--lgs-panel-bg);
+  box-shadow: var(--lgs-panel-rim);
+  border-radius: var(--lgs-r-capsule);
+  /* stacking context so the buttons' highlight (z-index -1) paints above
+     this glass and below the icons; no geometry */
+  isolation: isolate;
+}
+%{FrameControlsContainer} .ButtonControl,
+%{FrameControlsContainer} .ButtonControl:not(.Disabled):hover,
+%{FrameControlsContainer} .ButtonControl:not(.Disabled):active,
+%{FrameControlsContainer} .ButtonControl%{GamepadFocused} {
+  background: none;
+  box-shadow: none;
+  color: var(--lgs-text-1);
+  border-radius: var(--lgs-r-capsule);
+}
+%{FrameControlsContainer} .ButtonControl.WithIcon > .Icon path,
+%{FrameControlsContainer} .ButtonControl.WithIcon > .Icon circle {
+  fill: var(--lgs-text-1);
+}
+%{FrameControlsContainer} .ButtonControl::before {
+  content: "";
+  position: absolute;
+  top: var(--lgs-vr-hit-inset);
+  left: 50%;
+  height: calc(100% - 2 * var(--lgs-vr-hit-inset));
+  aspect-ratio: 1;
+  translate: -50% 0;
+  z-index: -1;
+  border-radius: 50%;
+  background: transparent;
+  pointer-events: none;
+  transition: background-color var(--lgs-t-fast) var(--lgs-ease),
+              box-shadow var(--lgs-t-fast) var(--lgs-ease);
+}
+/* laser hover */
+%{FrameControlsContainer} .ButtonControl:hover::before {
+  background-color: var(--lgs-hover-fill);
+}
+/* gamepad focus (D-pad down from the window): fill + ring, inset only
+   (the panel clips at the capsule's height) */
+%{FrameControlsContainer} .ButtonControl%{GamepadFocused}::before {
+  background-color: var(--lgs-focus-fill);
+  box-shadow: inset 0 0 0 2px var(--lgs-focus-outline), inset 0 0 10px rgba(255, 255, 255, 0.20);
+}
+/* pressed */
+%{FrameControlsContainer} .ButtonControl:active::before {
+  background-color: var(--lgs-pressed-fill);
+}
+
+/* 3.1 Frame-control tooltips (legacy-tooltip-N panels): panel glass
+   capsule; padding and font stay (the panel is width:fit-content). */
+.ControlBarButtonTooltip {
+  background: var(--lgs-panel-sheen), var(--lgs-panel-bg);
+  box-shadow: var(--lgs-panel-rim);
+  color: var(--lgs-text-1);
+  text-shadow: var(--lgs-text-shadow);
+}
+
+/* 3.2 More Options popout: a panel-glass menu with rounded inset rows
+   (row highlight drawn by our ::before; Steam's row paddings and the 1px
+   separators stay, recoloured as hairlines). */
+%{AdditionalOptions} {
+  background: var(--lgs-panel-sheen), var(--lgs-panel-bg);
+  box-shadow: var(--lgs-panel-rim);
+  border-radius: var(--lgs-r-menu);
+  isolation: isolate;
+}
+%{AdditionalOptions} .ButtonControl%{AdditionalOptionsRow},
+%{AdditionalOptions} .ButtonControl%{AdditionalOptionsRow}:not(.Disabled):hover,
+%{AdditionalOptions} .ButtonControl%{AdditionalOptionsRow}:not(.Disabled):active,
+%{AdditionalOptions} .ButtonControl%{AdditionalOptionsRow}%{GamepadFocused} {
+  background: none;
+  box-shadow: none;
+  color: var(--lgs-text-1);
+}
+%{AdditionalOptions} > .ButtonControl:not(:first-child) {
+  border-top-color: var(--lgs-separator);
+}
+%{AdditionalOptions} .ButtonControl%{AdditionalOptionsRow} > .Icon path,
+%{AdditionalOptions} .ButtonControl%{AdditionalOptionsRow} > .Icon circle {
+  fill: var(--lgs-text-1);
+}
+%{AdditionalOptions} .ButtonControl%{AdditionalOptionsRow} > %{AdditionalOptionsLabel} {
+  color: var(--lgs-text-1);
+  text-shadow: var(--lgs-text-shadow);
+}
+%{AdditionalOptions} .ButtonControl%{AdditionalOptionsRow}::before {
+  content: "";
+  position: absolute;
+  inset: 3px 8px;
+  z-index: -1;
+  border-radius: var(--lgs-r-row);
+  background: transparent;
+  pointer-events: none;
+  transition: background-color var(--lgs-t-fast) var(--lgs-ease),
+              box-shadow var(--lgs-t-fast) var(--lgs-ease);
+}
+%{AdditionalOptions} .ButtonControl%{AdditionalOptionsRow}:first-child::before {
+  top: 8px;
+}
+%{AdditionalOptions} .ButtonControl%{AdditionalOptionsRow}:last-child::before {
+  bottom: 8px;
+}
+%{AdditionalOptions} .ButtonControl%{AdditionalOptionsRow}:hover::before {
+  background-color: var(--lgs-hover-fill);
+}
+%{AdditionalOptions} .ButtonControl%{AdditionalOptionsRow}%{GamepadFocused}::before {
+  background-color: var(--lgs-focus-fill);
+  box-shadow: inset 0 0 0 2px var(--lgs-focus-outline);
+}
+%{AdditionalOptions} .ButtonControl%{AdditionalOptionsRow}:active::before {
+  background-color: var(--lgs-pressed-fill);
+}
+
+/* 3.3 Frame gamepad-mode pill under laser-only pages.
+   "Use Laser Mouse to Interact" (Disabled) = panel glass capsule;
+   "Enter Gamepad Mode" = the tinted primary. Hit-area padding stays. */
+%{ButtonPill} {
+  background: var(--lgs-panel-sheen), var(--lgs-panel-bg);
+  box-shadow: var(--lgs-panel-rim);
+  color: var(--lgs-text-1);
+  text-shadow: var(--lgs-text-shadow);
+  transition: background-color var(--lgs-t-fast) var(--lgs-ease);
+}
+%{ButtonHitArea}:not(%{ButtonPill>Disabled}) %{ButtonPill} {
+  background: var(--lgs-panel-sheen), var(--lgs-tint-primary);
+  color: #fff;
+}
+%{ButtonHitArea}:not(%{ButtonPill>Disabled}):hover:not(:active) %{ButtonPill} {
+  background: var(--lgs-tint-lift), var(--lgs-tint-primary);
+}
+%{ButtonHitArea}:not(%{ButtonPill>Disabled}):active %{ButtonPill} {
+  background: var(--lgs-tint-lift), var(--lgs-tint-lift), var(--lgs-tint-primary);
+}
+%{ButtonHitArea}%{ButtonPill>Disabled} %{ButtonPill} {
+  background: var(--lgs-panel-sheen), var(--lgs-panel-bg);
+}
+
+
+/* ------------------------------------------------------------------ */
+/* 4. Controller status (controllerstatus_N, mapped onto the           */
+/*    controller model). A panel-glass card behind the hand / gamepad  */
+/*    icon and battery, only when there is something to show. The card */
+/*    is our ::before, anchored to SteamVR's own icon and battery      */
+/*    frames so it hugs the content in every layout (no geometry).     */
+/* ------------------------------------------------------------------ */
+
+%{ControllerStatusRoot} {
+  isolation: isolate;
+}
+%{ControllerStatusRoot} %{ControllerPrimaryIconFrame} {
+  anchor-name: --lgs-vr-ctl-icon;
+}
+%{ControllerStatusRoot} %{ControllerBatteryFrame} {
+  anchor-name: --lgs-vr-ctl-batt;
+}
+%{ControllerStatusRoot}:has(%{ControllerHand}, %{ControllerGamepadIcon}, %{ControllerBattery})::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: max(4px, calc(anchor(--lgs-vr-ctl-icon top, 4px) - 16px));
+  bottom: max(4px, calc(anchor(--lgs-vr-ctl-batt bottom, 4px) - 10px));
+  left: 18px;
+  right: 18px;
+  border-radius: var(--lgs-r-panel);
+  background: var(--lgs-panel-sheen), var(--lgs-panel-bg);
+  box-shadow: var(--lgs-panel-rim);
+  pointer-events: none;
+}
+/* hand glyph: SteamVR's grey PNG drawn white (alpha kept) */
+%{ControllerHand} {
+  filter: brightness(0) invert(0.94);
+}
+/* gamepad-mode glyph and its connection dots */
+%{ControllerRoleIcon} {
+  color: var(--lgs-text-1);
+}
+%{ControllerConnectionDots} span {
+  background: var(--lgs-text-3);
+}
+/* Frame controllers use the large layout, where SteamVR stacks the content
+   on the card's bottom edge: move 8px of the battery row's top padding to
+   its bottom (same total height, nothing else moves) so the pips sit inside
+   the card instead of on its rim. */
+%{ControllerStatusRoot}%{LargeStatusArea} %{ControllerBatteryFrame} {
+  padding-top: 12px;
+  padding-bottom: 11px;
+}
+%{ControllerAppIcon} {
+  border-radius: var(--lgs-r-row);
+}
+/* battery pips are whole-fill colour: full-strength green (Steam dims
+   them to 65%), orange under 30%, red when low */
+%{ControllerBattery} {
+  filter: saturate(1.15);
+}
+%{ControllerBattery}[src*="_battery_1."] {
+  filter: hue-rotate(-82deg) saturate(1.35) brightness(1.05);
+}
+%{ControllerBattery}:is([src*="_low."], [src*="_charging_red."]) {
+  filter: hue-rotate(-118deg) saturate(1.5);
+}
+
+
+/* ------------------------------------------------------------------ */
+/* 5. On-demand systemui panels (appear as their own quads)            */
+/* ------------------------------------------------------------------ */
+
+/* 5.1 App transition ("Next Up" / "Now Exiting" / "Waiting..."): the
+   art is content (rounded, never tinted); the label is panel glass.
+   Border widths stay (geometry); only their colour goes clear, and the
+   glass stops at the padding edge so the rim sits on the visible edge. */
+.TransitionAppImage {
+  border-color: transparent;
+  border-radius: var(--lgs-r-panel);
+}
+.TransitionAppImage.Waiting::after {
+  border-radius: var(--lgs-r-panel);
+}
+.TransitionAppLabels {
+  background: var(--lgs-panel-sheen), var(--lgs-panel-bg);
+  background-clip: padding-box;
+  box-shadow: var(--lgs-panel-rim);
+  border-color: transparent;
+  border-radius: var(--lgs-r-panel);
+  color: var(--lgs-text-1);
+  text-shadow: var(--lgs-text-shadow);
+}
+.TransitionAppLabels .AppStatus {
+  color: var(--lgs-text-2);
+}
+
+/* 5.2 IPD readout */
+.IPDParent {
+  background: var(--lgs-panel-sheen), var(--lgs-panel-bg);
+  box-shadow: var(--lgs-panel-rim);
+  border-radius: var(--lgs-r-panel);
+  --ipddescriptiontext: var(--lgs-text-2);
+  --ipdvaluetext: var(--lgs-text-1);
+}
+
+/* 5.3 Hold-to-recenter / long-press progress ring */
+.ProgressContainer .CircularProgressbar .CircularProgressbar-path {
+  stroke: var(--lgs-green);
+}
+.ProgressContainer .CircularProgressbar .CircularProgressbar-background {
+  fill: var(--lgs-panel-bg);
+}
+
+/* 5.4 Refresh-rate change and gamepad-unsupported pills */
+[class*="framerate_FramerateRoot_"],
+[class*="gamepadunsupportedmessage_GamepadUnsupportedRoot_"] {
+  background: var(--lgs-panel-sheen), var(--lgs-panel-bg);
+  /* SteamVR's 1-3px borders stay (geometry) but go clear around the glass */
+  background-clip: padding-box;
+  box-shadow: var(--lgs-panel-rim);
+  border-color: transparent;
+  border-radius: var(--lgs-r-capsule);
+  color: var(--lgs-text-1);
+  text-shadow: var(--lgs-text-shadow);
+}
+
+/* 5.5 Play-area setup / boundary prompts */
+[class*="roomsetup_RoomSetupContainer_"] {
+  background: var(--lgs-panel-sheen), var(--lgs-panel-bg);
+  box-shadow: var(--lgs-panel-rim);
+  border-radius: var(--lgs-r-panel);
+  color: var(--lgs-text-1);
+}
+[class*="roomsetup_RoomSetupContainer_"] [class*="roomsetup_Title_"] {
+  color: var(--lgs-text-1);
+  text-shadow: var(--lgs-text-shadow);
+}
+[class*="roomsetup_RoomSetupContainer_"] [class*="roomsetup_Body_"] {
+  color: var(--lgs-text-2);
+}
+[class*="roomsetup_RoomSetupContainer_"] [class*="roomsetup_ButtonControl_"] {
+  background: var(--lgs-fill-2);
+  box-shadow: var(--lgs-control-rim);
+  border-radius: var(--lgs-r-capsule);
+  color: var(--lgs-text-1);
+  transition: background-color var(--lgs-t-fast) var(--lgs-ease);
+}
+[class*="roomsetup_RoomSetupContainer_"] [class*="roomsetup_ButtonControl_"]:hover {
+  background: var(--lgs-hover-fill);
+  color: var(--lgs-text-1);
+}
+[class*="roomsetup_RoomSetupContainer_"] [class*="roomsetup_ButtonControl_"]:active {
+  background: var(--lgs-pressed-fill);
+}
+[class*="roomsetup_RoomSetupContainer_"] [class*="roomsetup_ButtonControl_"][class*="roomsetup_Colorful_"] {
+  background: var(--lgs-tint-primary);
+  color: #fff;
+}
+[class*="roomsetup_RoomSetupContainer_"] [class*="roomsetup_ButtonControl_"][class*="roomsetup_Colorful_"]:hover {
+  background: var(--lgs-tint-lift), var(--lgs-tint-primary);
+}
+
+/* 5.6 Steam not ready / boot overlay */
+[class*="loadingthrobber_LoadingRoot_"] {
+  background: var(--lgs-panel-sheen), var(--lgs-panel-bg);
+  background-clip: padding-box;
+  box-shadow: var(--lgs-panel-rim);
+  border-color: transparent;
+  border-radius: var(--lgs-r-panel);
+  color: var(--lgs-text-1);
+}
+[class*="loadingthrobber_LoadingRoot_"] [class*="loadingthrobber_Body_"] {
+  color: var(--lgs-text-2);
+}
+[class*="loadingthrobber_LoadingRoot_"] [class*="loadingthrobber_ButtonControl_"] {
+  background-color: var(--lgs-tint-primary);
+  border-radius: var(--lgs-r-capsule);
+  color: #fff;
+}
+[class*="loadingthrobber_LoadingRoot_"] [class*="loadingthrobber_ButtonControl_"]:hover {
+  background-color: var(--lgs-tint-primary);
+  background-image: var(--lgs-tint-lift);
+}
+/* the spinner's black disc (Steam-owned ::before): panel glass disc */
+[class*="loadingthrobber_LoadingThrobberContainer_"]::before {
+  background: var(--lgs-panel-sheen), var(--lgs-panel-bg);
+  box-shadow: var(--lgs-panel-rim);
+}
+
+/* 5.7 Persistent notifications (tracking recording, casting): each
+   indicator a small panel-glass capsule. Their own fade animation stays. */
+[class*="persistentnotifications_TrackingDataRecordingNotification_"],
+[class*="persistentnotifications_CastingVRScreenNotification_"] {
+  background: var(--lgs-panel-sheen), var(--lgs-panel-bg);
+  box-shadow: var(--lgs-panel-rim);
+  border-radius: var(--lgs-r-capsule);
+}
+
+/* 5.8 Frame guided tour / learning topics: the tooltip card is panel
+   glass; the blue guide line and dots keep their semantic blue. */
+%{TopPanelContainer} {
+  background: var(--lgs-panel-sheen), var(--lgs-panel-bg);
+  box-shadow: var(--lgs-panel-rim);
+  border-radius: var(--lgs-r-panel);
+  border-bottom-color: var(--lgs-blue);
+}
+%{TourTooltipContainer}%{RightFlow} %{TopPanelContainer} {
+  border-right-color: var(--lgs-blue);
+}
+%{TourTooltipContents},
+%{CenteredContent} {
+  color: var(--lgs-text-1);
+}
+%{LearningTopicParagraph} {
+  text-shadow: var(--lgs-text-shadow);
+}
+%{BodyText} {
+  color: var(--lgs-text-2);
+}
+%{ButtonContainer} %{LearnMoreButton},
+%{ButtonContainer} %{DismissAllButton} {
+  border-radius: var(--lgs-r-capsule);
+}
+%{ButtonContainer} %{LearnMoreButton} {
+  background: var(--lgs-fill-2);
+  box-shadow: var(--lgs-control-rim);
+  color: var(--lgs-text-1);
+}
+%{ButtonContainer} %{BlueButton},
+%{ButtonContainer} button.DialogButton%{LearnMoreButton},
+%{ButtonContainer} button.DialogButton%{DismissAllButton} {
+  background: var(--lgs-tint-primary);
+  color: #fff;
+}
+%{ButtonContainer} %{BlueButton}:hover {
+  background: var(--lgs-tint-lift), var(--lgs-tint-primary);
+}

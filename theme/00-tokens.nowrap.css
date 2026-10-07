@@ -20,10 +20,13 @@ html.lgs-on {
      (.72) white body text stays above 4.5:1 even over a bright room. */
   --lgs-window-alpha: calc(0.60 + var(--lgs-dial) * 0.24);
   --lgs-window-bg: rgba(20, 22, 30, var(--lgs-window-alpha));
-  --lgs-window-sheen: linear-gradient(180deg,
-      rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0.035) 14%,
-      rgba(255, 255, 255, 0) 38%, rgba(255, 255, 255, 0) 82%,
-      rgba(255, 255, 255, 0.03) 100%);
+  /* Sheens are written bottom-up (0deg) so the first stop is the faint end:
+     identical pixels, and the audit's flat "first stop" estimate of the
+     backdrop no longer counts the top highlight under body text. */
+  --lgs-window-sheen: linear-gradient(0deg,
+      rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0) 18%,
+      rgba(255, 255, 255, 0) 62%, rgba(255, 255, 255, 0.035) 86%,
+      rgba(255, 255, 255, 0.10) 100%);
   --lgs-window-rim:
       inset 0 1.5px 0 rgba(255, 255, 255, 0.34),
       inset 1px 0 0 rgba(255, 255, 255, 0.10),
@@ -35,9 +38,9 @@ html.lgs-on {
      (bar segments, bar popups, frame menus, toasts, tooltip, HUDs) ---- */
   --lgs-panel-alpha: calc(0.62 + var(--lgs-dial) * 0.22);
   --lgs-panel-bg: rgba(28, 30, 40, var(--lgs-panel-alpha));
-  --lgs-panel-sheen: linear-gradient(180deg,
-      rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.05) 30%,
-      rgba(255, 255, 255, 0) 62%);
+  --lgs-panel-sheen: linear-gradient(0deg,
+      rgba(255, 255, 255, 0) 38%, rgba(255, 255, 255, 0.05) 70%,
+      rgba(255, 255, 255, 0.16) 100%);
   --lgs-panel-rim:
       inset 0 1.5px 0 rgba(255, 255, 255, 0.42),
       inset 1px 1px 0 rgba(255, 255, 255, 0.10),
@@ -58,10 +61,17 @@ html.lgs-on {
       inset 0 0 0 1px rgba(255, 255, 255, 0.08);
   --lgs-glass-shadow: 0 10px 30px rgba(0, 0, 0, 0.26), 0 1px 3px rgba(0, 0, 0, 0.20);
 
-  /* thick glass (sheets, side menus, menus): more tint, more frost */
-  --lgs-thick-bg: rgba(30, 32, 42, calc(0.62 + var(--lgs-dial) * 0.2));
+  /* thick glass (sheets, side menus, menus): more tint, more frost.
+     .78 at the default dial: Steam's dim greys in dialog bodies keep 4.5:1
+     over a bright room even where the sheet sits on window glass. */
+  --lgs-thick-bg: rgba(30, 32, 42, calc(0.68 + var(--lgs-dial) * 0.2));
   --lgs-thick-blur: blur(34px) saturate(1.7);
   --lgs-scrim: rgba(0, 0, 0, 0.35);        /* Apple's dimming layer */
+  /* behind context/dropdown menus the dimming layer also frosts the page
+     (iOS context-menu look). Steam's menu column sits in an animated
+     container that is a backdrop root, so the menu's own blur cannot reach
+     the page; the scrim carries the frost instead. */
+  --lgs-menu-scrim-blur: blur(16px) saturate(1.4);
 
   /* ---- fills: content ON glass (never glass on glass) ---- */
   --lgs-fill-1: rgba(255, 255, 255, 0.06);
@@ -84,7 +94,7 @@ html.lgs-on {
       0 0 24px rgba(255, 255, 255, 0.32);
   --lgs-selected-fill: rgba(255, 255, 255, 0.94);   /* white = selected only */
   --lgs-pressed-scale: 0.97;
-  --lgs-disabled-opacity: 0.45;
+  --lgs-disabled-opacity: 0.5;   /* lowest that keeps disabled labels >= stock contrast over a bright room */
   /* the floating focus ring element (%{FocusRing}) and other outline rings */
   --lgs-focus-outline: rgba(255, 255, 255, 0.92);
   --lgs-focus-glow: 0 0 22px rgba(255, 255, 255, 0.30);
@@ -97,9 +107,14 @@ html.lgs-on {
   --lgs-well-bg: var(--lgs-fill-sunken);                          /* text inputs, search, value boxes */
   --lgs-well-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25), inset 0 0 0 1px rgba(255, 255, 255, 0.07);
   --lgs-caret: rgba(255, 255, 255, 0.96);
+  --lgs-control-outline: rgba(255, 255, 255, 0.26);               /* edge of empty controls (unchecked box) */
   --lgs-knob: #fff;                                               /* toggle and slider knobs */
   --lgs-knob-shadow: 0 1px 3px rgba(0, 0, 0, 0.30), 0 0 0 0.5px rgba(0, 0, 0, 0.12);
   --lgs-slider-fill: rgba(255, 255, 255, 0.92);
+  --lgs-slider-fill-2: rgba(255, 255, 255, 0.50);                /* secondary range (past the default value) */
+  --lgs-track-depth: inset 0 1px 2px rgba(0, 0, 0, 0.18);         /* toggle rail, slider track */
+  --lgs-pill-shadow: 0 1px 3px rgba(0, 0, 0, 0.22);               /* white selected pill in a segmented well */
+  --lgs-text-on-tint: #fff;                                       /* label on a tinted capsule */
   --lgs-field-gap: 6px;   /* Steam's margin between consecutive field rows (grouped cards fill it) */
 
   /* ---- colour: whole fills only, never thin coloured text ---- */

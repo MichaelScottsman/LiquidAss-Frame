@@ -1,0 +1,152 @@
+/* Glass Shell, area "steamvr": SteamVR pages that only exist while they are
+   shown (each its own vrwebhelper page and overlay quad):
+   - messageoverlay.html  (IVROverlay::ShowMessageOverlay from an app)
+   - notificationtoast.html (SteamVR's own notification toasts)
+   - bindingcallouts.html (an app's binding callouts / tutorial callouts)
+   None has a side-effect-free trigger; the rules follow SteamVR's source
+   classes and were verified on static mocks built from those classes
+   (theme/vr/pre/sys_zoo.js). Panel glass like Steam's toasts, fills for
+   buttons, the first message button as the one tinted primary.
+   Wrapped as html.lgs-on { ... }. Look only. */
+
+/* ------------------------------------------------------------------ */
+/* 1. Message overlay                                                  */
+/* ------------------------------------------------------------------ */
+
+.MessageOverlayPanel {
+  background: var(--lgs-panel-sheen), var(--lgs-panel-bg);
+  box-shadow: var(--lgs-panel-rim);
+  border-radius: var(--lgs-r-panel);
+  color: var(--lgs-text-1);
+}
+.MessageOverlayTextPanel {
+  color: var(--lgs-text-1);
+}
+.MessageOverlayTextPanel h1 {
+  color: var(--lgs-text-1);
+  text-shadow: var(--lgs-text-shadow);
+}
+.MessageOverlayTextPanel p {
+  color: var(--lgs-text-1);
+}
+.MessageOverlayPanel .ButtonControl,
+.MessageOverlayPanel .ButtonControl:not(.Disabled):hover,
+.MessageOverlayPanel .ButtonControl:not(.Disabled):active {
+  border-radius: var(--lgs-r-capsule);
+  box-shadow: var(--lgs-control-rim);
+  color: var(--lgs-text-1);
+}
+.MessageOverlayPanel .ButtonControl {
+  background: var(--lgs-fill-2);
+  transition: background-color var(--lgs-t-fast) var(--lgs-ease);
+}
+.MessageOverlayPanel .ButtonControl:not(.Disabled):hover {
+  background: var(--lgs-hover-fill);
+}
+.MessageOverlayPanel .ButtonControl:not(.Disabled):active {
+  background: var(--lgs-pressed-fill);
+}
+/* the first button is the app's affirmative answer */
+.MessageOverlayButtonContainer > .ButtonControl:first-child {
+  background: var(--lgs-tint-primary);
+  color: #fff;
+}
+.MessageOverlayButtonContainer > .ButtonControl:first-child:not(.Disabled):hover {
+  background: var(--lgs-tint-lift), var(--lgs-tint-primary);
+}
+.MessageOverlayButtonContainer > .ButtonControl:first-child:not(.Disabled):active {
+  background: var(--lgs-tint-lift), var(--lgs-tint-lift), var(--lgs-tint-primary);
+}
+.MessageOverlayPanel .ButtonControl.Disabled {
+  opacity: var(--lgs-disabled-opacity);
+}
+
+
+/* ------------------------------------------------------------------ */
+/* 2. Notification toast (notificationtoast.html)                      */
+/*    Steam's toast look: panel-glass rounded rect, icon left, title   */
+/*    text-1, body text-2. Margins, clamps and sizes stay.             */
+/* ------------------------------------------------------------------ */
+
+.VRNotificationFrame {
+  background: var(--lgs-panel-sheen), var(--lgs-panel-bg);
+  box-shadow: var(--lgs-panel-rim);
+  border-radius: var(--lgs-r-panel);
+  color: var(--lgs-text-1);
+}
+.VRNotificationApplicationName {
+  color: var(--lgs-text-1);
+  text-shadow: var(--lgs-text-shadow), 0 0 6px rgba(0, 0, 0, 0.45);
+}
+.VRNotificationHeader {
+  color: var(--lgs-text-1);
+  text-shadow: var(--lgs-text-shadow);
+}
+.VRNotificationText {
+  color: var(--lgs-text-2);
+}
+.VRToastImage {
+  border-radius: var(--lgs-r-small);
+}
+
+
+/* ------------------------------------------------------------------ */
+/* 3. Binding callouts (bindingcallouts.html)                          */
+/* ------------------------------------------------------------------ */
+
+.BindingCalloutActionPanel {
+  background: var(--lgs-panel-sheen), var(--lgs-panel-bg);
+  box-shadow: var(--lgs-panel-rim);
+  border-radius: var(--lgs-r-panel);
+  color: var(--lgs-text-1);
+}
+.BindingCalloutTitle {
+  color: var(--lgs-text-1);
+  text-shadow: var(--lgs-text-shadow);
+}
+.BindingCalloutConfigName,
+.BindingCalloutModeSlot {
+  color: var(--lgs-text-2);
+}
+.BindingCalloutImage {
+  border-radius: var(--lgs-r-card);
+}
+/* each callout bubble at a controller input */
+.BindingCallout,
+.ChordCalloutContainer {
+  background: var(--lgs-panel-sheen), var(--lgs-panel-bg);
+  box-shadow: var(--lgs-panel-rim);
+  border-color: transparent;
+  border-radius: var(--lgs-r-row);
+  transition: background-color var(--lgs-t-fast) var(--lgs-ease), box-shadow var(--lgs-t-fast) var(--lgs-ease);
+}
+.BindingCallout .Label,
+.ChordCalloutBody .Label,
+.ChordCalloutPlus {
+  color: var(--lgs-text-1);
+}
+/* the input is being pressed right now: lit from within */
+.BindingCallout.CalloutInputActive,
+.ChordCalloutContainer.CalloutInputActive {
+  background: var(--lgs-panel-sheen), linear-gradient(var(--lgs-focus-fill), var(--lgs-focus-fill)), var(--lgs-panel-bg);
+  box-shadow: inset 0 0 0 2px var(--lgs-focus-outline);
+}
+.BindingCalloutActionList .ButtonControl,
+.BindingCalloutActionList .ButtonControl.CloseButton:not(:hover) {
+  background: var(--lgs-fill-2);
+  box-shadow: var(--lgs-control-rim);
+  border-radius: var(--lgs-r-capsule);
+  color: var(--lgs-text-1);
+}
+.BindingCalloutActionList .ButtonControl:not(.Disabled):hover {
+  background: var(--lgs-hover-fill);
+  box-shadow: var(--lgs-control-rim);
+}
+.BindingCalloutActionList .ButtonControl:not(.Disabled):active {
+  background: var(--lgs-pressed-fill);
+}
+/* the action set shown right now: the white selected pill */
+.BindingCalloutActionList .ButtonControl.ActionSetSelected:not(:hover) {
+  background: var(--lgs-selected-fill);
+  color: var(--lgs-text-on-selected);
+}

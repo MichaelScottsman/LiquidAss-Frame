@@ -37,29 +37,37 @@ button.DialogButton%{*GamepadDialogContent>Button}:hover {
   transition: background-color var(--lgs-t-fast) var(--lgs-ease);
 }
 
-/* the one tinted action: Primary = blue confirm, GreenPlay = play green,
-   Destructive = red. Whole-capsule fill, white label. */
-button.DialogButton%{*GamepadDialogContent>Button}.Primary {
+/* the one tinted action: a dialog's confirm (Primary in the dialog footer
+   row) is blue at rest, Destructive red; GreenPlay is play green. Steam marks
+   other buttons Primary too (row actions such as Disconnect): those stay
+   neutral at rest and take the tint on hover and focus, so a screen keeps a
+   single tinted capsule. Whole-capsule fill, white label. */
+:is(.DialogFooter, %{ModalButtonRow}) button.DialogButton%{*GamepadDialogContent>Button}.Primary {
   background: var(--lgs-tint-primary);
-  color: #fff;
+  color: var(--lgs-text-on-tint);
+}
+:is(.DialogFooter, %{ModalButtonRow}) button.DialogButton%{*GamepadDialogContent>Button}.Destructive {
+  background: var(--lgs-tint-danger);
+  color: var(--lgs-text-on-tint);
 }
 button.DialogButton%{*GamepadDialogContent>Button}.Primary:hover {
+  background: var(--lgs-tint-primary);
+  color: var(--lgs-text-on-tint);
+}
+:is(.DialogFooter, %{ModalButtonRow}) button.DialogButton%{*GamepadDialogContent>Button}.Primary:hover {
   background: var(--lgs-tint-lift), var(--lgs-tint-primary);
+}
+button.DialogButton%{*GamepadDialogContent>Button}.Destructive:hover {
+  background: var(--lgs-tint-lift), var(--lgs-tint-danger);
+  color: var(--lgs-text-on-tint);
 }
 button.DialogButton.GreenPlay {
   background: var(--lgs-tint-play);
-  color: #fff;
+  color: var(--lgs-text-on-tint);
   box-shadow: var(--lgs-control-rim);
 }
 button.DialogButton.GreenPlay:hover {
   background: var(--lgs-tint-lift), var(--lgs-tint-play);
-}
-button.DialogButton%{*GamepadDialogContent>Button}.Destructive {
-  background: var(--lgs-tint-danger);
-  color: #fff;
-}
-button.DialogButton%{*GamepadDialogContent>Button}.Destructive:hover {
-  background: var(--lgs-tint-lift), var(--lgs-tint-danger);
 }
 
 /* focus (controller and laser): illuminate from within + bright rim.
@@ -71,16 +79,16 @@ button.DialogButton%{*GamepadDialogContent>Button}.gpfocus {
 }
 button.DialogButton%{*GamepadDialogContent>Button}.gpfocus.Primary {
   background: var(--lgs-tint-lift), var(--lgs-tint-primary) !important;
-  color: #fff !important;
+  color: var(--lgs-text-on-tint) !important;
 }
 button.DialogButton%{*GamepadDialogContent>Button}.gpfocus.Destructive {
   background: var(--lgs-tint-lift), var(--lgs-tint-danger) !important;
-  color: #fff !important;
+  color: var(--lgs-text-on-tint) !important;
 }
 button.DialogButton.GreenPlay.gpfocus {
   background: var(--lgs-tint-lift), var(--lgs-tint-play) !important;
   box-shadow: var(--lgs-focus-ring) !important;
-  color: #fff !important;
+  color: var(--lgs-text-on-tint) !important;
 }
 /* Glyph buttons darken their icon for Steam's white focus; ours is not white */
 button.DialogButton%{*GamepadDialogContent>Button}.gpfocus.Glyph {
@@ -94,7 +102,7 @@ button.DialogButton%{*GamepadDialogContent>Button}:enabled:active {
 }
 button.DialogButton%{*GamepadDialogContent>Button}.Primary:enabled:active {
   background: var(--lgs-tint-lift), var(--lgs-tint-lift), var(--lgs-tint-primary) !important;
-  color: #fff !important;
+  color: var(--lgs-text-on-tint) !important;
 }
 
 /* active option shown while focus is elsewhere: pressed-in well */
@@ -106,9 +114,11 @@ button.DialogButton%{*GamepadDialogContent>Button}%{*GamepadDialogContent>Active
 /* disabled: neutral (never tinted) and dimmer; Steam keeps pointer-events */
 button.DialogButton%{*GamepadDialogContent>Button}:is(.Disabled, [disabled]),
 button.DialogButton%{*GamepadDialogContent>Button}:is(.Disabled, [disabled]):hover {
-  background: var(--lgs-fill-2);
-  color: var(--lgs-text-1);
-  box-shadow: var(--lgs-control-rim);
+  /* recessed and dim (Steam also darkens disabled buttons); a disabled
+     confirm is never tinted */
+  background: var(--lgs-fill-sunken) !important;
+  color: var(--lgs-text-1) !important;
+  box-shadow: none;
   opacity: var(--lgs-disabled-opacity);
 }
 button.DialogButton%{*GamepadDialogContent>Button}:is(.Disabled, [disabled]).gpfocus {
@@ -188,7 +198,7 @@ button.DialogButton%{*GamepadDialogContent>Button}:is(.Disabled, [disabled]).gpf
 }
 /* when the focus is on a button, dropdown or input inside the row, that
    control carries the ring; the row only glows softly around it */
-%{*GamepadDialogContent>Field}:not(%{*GamepadDialogContent>Classic})%{*GamepadDialogContent>HighlightOnFocus}.gpfocuswithin:has(:is(button.DialogButton, input, textarea).gpfocus)::after {
+%{*GamepadDialogContent>Field}:not(%{*GamepadDialogContent>Classic})%{*GamepadDialogContent>HighlightOnFocus}.gpfocuswithin:has(:is(button.DialogButton, input, textarea, .DialogCheckbox, .RadioButton).gpfocus)::after {
   background: var(--lgs-hover-fill);
   box-shadow: none;
 }
@@ -220,7 +230,7 @@ button.DialogButton%{*GamepadDialogContent>Button}:is(.Disabled, [disabled]).gpf
 }
 %{*GamepadDialogContent>Toggle} %{*GamepadDialogContent>ToggleRail} {
   background: var(--lgs-fill-3);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.18);
+  box-shadow: var(--lgs-track-depth);
 }
 %{*GamepadDialogContent>Toggle} %{*GamepadDialogContent>ToggleRail}::before {
   background: var(--lgs-toggle-on);
@@ -235,7 +245,7 @@ button.DialogButton%{*GamepadDialogContent>Button}:is(.Disabled, [disabled]).gpf
 }
 /* focused toggle: white rim on the knob, soft halo pill behind */
 %{*GamepadDialogContent>Toggle}.gpfocus:not(%{*GamepadDialogContent>Disabled}) %{*GamepadDialogContent>ToggleSwitch} {
-  border-color: rgba(255, 255, 255, 0.95);
+  border-color: var(--lgs-focus-outline);
 }
 %{*GamepadDialogContent>Toggle}.gpfocus::after {
   background-color: var(--lgs-fill-2);
@@ -266,7 +276,8 @@ button.DialogButton%{*GamepadDialogContent>Button}:is(.Disabled, [disabled]).gpf
   background-color: var(--lgs-fill-3);
   border-radius: var(--lgs-r-capsule);
   --left-track-color: var(--lgs-slider-fill);
-  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.18);
+  --default-value-track-color: var(--lgs-slider-fill-2);
+  box-shadow: var(--lgs-track-depth);
 }
 %{*SliderControlPanelGroup>SliderTrack}::before {
   border-radius: var(--lgs-r-capsule);
@@ -279,7 +290,7 @@ button.DialogButton%{*GamepadDialogContent>Button}:is(.Disabled, [disabled]).gpf
   box-shadow: var(--lgs-knob-shadow);
 }
 %{*SliderControlPanelGroup>SliderControlAndNotches}:not(%{*SliderControlPanelGroup>Disabled}).gpfocus %{*SliderControlPanelGroup>SliderHandle} {
-  border-color: rgba(255, 255, 255, 0.45);
+  border-color: var(--lgs-focus-fill);
   box-shadow: var(--lgs-knob-shadow), var(--lgs-focus-glow);
 }
 %{*SliderControlPanelGroup>SliderControlAndNotches}%{*SliderControlPanelGroup>Disabled} %{*SliderControlPanelGroup>SliderHandle} {
@@ -330,13 +341,29 @@ button%{DropDownControlButton}.DialogButton.gpfocus %{*GamepadDialogContent>Drop
 button%{DropDownControlButton}.DialogButton:has(%{DropDownLabelContainer}) {
   border-radius: var(--lgs-r-card);
 }
-%{DropDownLabelTitle},
-.gpfocus %{DropDownLabelTitle} {
+button%{DropDownControlButton}.DialogButton %{DropDownLabelTitle} {
   color: var(--lgs-text-1);
 }
-:is(%{DropDownLabelDescription}, %{DropDownLabelUpperDescription}),
-.gpfocus :is(%{DropDownLabelDescription}, %{DropDownLabelUpperDescription}) {
+button%{DropDownControlButton}.DialogButton :is(%{DropDownLabelDescription}, %{DropDownLabelUpperDescription}) {
   color: var(--lgs-text-2);
+}
+/* Game Recording quality options: Steam dims both parts for its white focus */
+button%{DropDownControlButton}.DialogButton %{BitrateOption},
+button%{DropDownControlButton}.DialogButton.gpfocus %{BitrateOption} {
+  color: var(--lgs-text-2);
+}
+button%{DropDownControlButton}.DialogButton %{BitrateOption} %{BitrateSetting>Emphasis},
+button%{DropDownControlButton}.DialogButton.gpfocus %{BitrateOption} %{BitrateSetting>Emphasis} {
+  color: var(--lgs-text-1);
+}
+/* the same rich labels inside menu rows follow the row colour (dark on the
+   white selected pill, white elsewhere); secondary lines at vibrancy 2 */
+%{*BasicContextMenuModal>contextMenuItem} %{DropDownLabelTitle} {
+  color: inherit;
+}
+%{*BasicContextMenuModal>contextMenuItem} :is(%{DropDownLabelDescription}, %{DropDownLabelUpperDescription}) {
+  color: inherit;
+  opacity: 0.74;
 }
 
 
@@ -410,7 +437,7 @@ input%{*GamepadDialogContent>BasicTextInput}:is(:disabled, :read-only, .disabled
 %{Group}:not(%{CenteredPill}) > %{Group>Button}%{Group>Active}:hover {
   background: var(--lgs-selected-fill);
   color: var(--lgs-text-on-selected);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22);
+  box-shadow: var(--lgs-pill-shadow);
 }
 %{Group>Button}:not(%{Group>Active}) + %{Group>Button}:not(%{Group>Active})::before {
   background: var(--lgs-separator);
@@ -425,7 +452,7 @@ input%{*GamepadDialogContent>BasicTextInput}:is(:disabled, :read-only, .disabled
 
 .DialogCheckbox {
   background-color: var(--lgs-well-bg);
-  box-shadow: var(--lgs-well-shadow);
+  box-shadow: var(--lgs-well-shadow), inset 0 0 0 1.5px var(--lgs-control-outline);
   border-radius: var(--lgs-r-small);
   transition: background-color var(--lgs-t-fast) var(--lgs-ease);
 }
@@ -462,6 +489,14 @@ input%{*GamepadDialogContent>BasicTextInput}:is(:disabled, :read-only, .disabled
   filter: none;
   padding: 8px;
 }
+/* Steam's 15px/40px end margins were invisible on a transparent column; on a
+   glass sheet they read as empty glass. The 8px padding replaces them. */
+%{*BasicContextMenuModal>contextMenuContents} > :first-child {
+  margin-top: 0;
+}
+%{*BasicContextMenuModal>contextMenuContents} > :last-child {
+  margin-bottom: 0;
+}
 %{*BasicContextMenuModal>contextMenuItem} {
   background: transparent;
   color: var(--lgs-text-1);
@@ -478,15 +513,15 @@ input%{*GamepadDialogContent>BasicTextInput}:is(:disabled, :read-only, .disabled
 }
 %{*BasicContextMenuModal>contextMenuItem}:hover:is(%{*BasicContextMenuModal>Destructive}, .Stop) {
   background: var(--lgs-tint-danger);
-  color: #fff;
+  color: var(--lgs-text-on-tint);
 }
 %{*BasicContextMenuModal>contextMenuItem}:hover:is(%{*BasicContextMenuModal>Positive}, .Stream, .Connect, .Launch, .PlayMusic, .Play, .Resume, .BorrowApp) {
   background: var(--lgs-tint-play);
-  color: #fff;
+  color: var(--lgs-text-on-tint);
 }
 %{*BasicContextMenuModal>contextMenuItem}:hover:is(%{*BasicContextMenuModal>Emphasis}, .Download, .Update, .PreLoad, .Install) {
   background: var(--lgs-tint-primary);
-  color: #fff;
+  color: var(--lgs-text-on-tint);
 }
 
 /* selected value / open-submenu parent: the white selected pill */
@@ -507,15 +542,15 @@ input%{*GamepadDialogContent>BasicTextInput}:is(:disabled, :read-only, .disabled
 }
 %{*BasicContextMenuModal>contextMenuItem}:is(%{*BasicContextMenuModal>Focused}, .gpfocus):is(%{*BasicContextMenuModal>Positive}, .Stream, .Connect, .Launch, .PlayMusic, .Play, .Resume, .BorrowApp) {
   background: var(--lgs-tint-lift), var(--lgs-tint-play) !important;
-  color: #fff !important;
+  color: var(--lgs-text-on-tint) !important;
 }
 %{*BasicContextMenuModal>contextMenuItem}:is(%{*BasicContextMenuModal>Focused}, .gpfocus):is(%{*BasicContextMenuModal>Emphasis}, .Download, .Update, .PreLoad, .Install) {
   background: var(--lgs-tint-lift), var(--lgs-tint-primary) !important;
-  color: #fff !important;
+  color: var(--lgs-text-on-tint) !important;
 }
 %{*BasicContextMenuModal>contextMenuItem}:is(%{*BasicContextMenuModal>Focused}, .gpfocus):is(%{*BasicContextMenuModal>Destructive}, .Stop) {
   background: var(--lgs-tint-lift), var(--lgs-tint-danger) !important;
-  color: #fff !important;
+  color: var(--lgs-text-on-tint) !important;
 }
 
 %{*BasicContextMenuModal>contextMenuItem}.disabled,
@@ -539,6 +574,11 @@ input%{*GamepadDialogContent>BasicTextInput}:is(:disabled, :read-only, .disabled
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 8.5l3.2 3.2L13 4.8' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
   pointer-events: none;
 }
+/* check glyphs inside menu rows (e.g. the "Play from" target) follow the
+   label colour instead of a thin blue stroke */
+%{*BasicContextMenuModal>contextMenuItem} .SVGIcon_DialogCheck path {
+  stroke: currentColor;
+}
 %{*BasicContextMenuModal>contextMenuItem}%{*BasicContextMenuModal>MenuSectionHeader} {
   color: var(--lgs-text-2);
 }
@@ -560,11 +600,23 @@ input%{*GamepadDialogContent>BasicTextInput}:is(:disabled, :read-only, .disabled
 %{GamepadDialogOverlay} .ModalOverlayContent.ModalOverlayBackground {
   background: var(--lgs-scrim);
 }
+%{GamepadDialogOverlay} .ModalOverlayContent.ModalOverlayBackground:has(~ .ModalOverlayContent.active .BasicUIContextMenu) {
+  backdrop-filter: var(--lgs-menu-scrim-blur);
+}
 %{*GamepadDialogContent>ModalPosition} > %{*GamepadDialogContent_InnerWidth>GamepadDialogContent} {
   background: var(--lgs-panel-sheen), var(--lgs-thick-bg) !important;
   backdrop-filter: var(--lgs-thick-blur);
   border-color: transparent;
   border-radius: var(--lgs-r-sheet);
+  box-shadow: var(--lgs-glass-rim), var(--lgs-glass-shadow);
+}
+/* custom scrolling content placed straight in the modal (no dialog card;
+   e.g. long text panels): give it the same sheet so it never sits on the
+   bare scrim. Colour only (keeps any image a custom panel paints). */
+%{*GamepadDialogContent>ModalPosition} > div.Panel:not(%{*GamepadDialogContent>ModalClickToDismiss}):has(> %{ScrollPanel}) {
+  background-color: var(--lgs-thick-bg);
+  backdrop-filter: var(--lgs-thick-blur);
+  border-radius: var(--lgs-r-panel);
   box-shadow: var(--lgs-glass-rim), var(--lgs-glass-shadow);
 }
 %{*GamepadDialogContent>ModalPosition} .DialogHeader {
@@ -573,7 +625,8 @@ input%{*GamepadDialogContent>BasicTextInput}:is(:disabled, :read-only, .disabled
 %{*GamepadDialogContent>ModalPosition} .DialogBodyText {
   color: var(--lgs-text-1);
 }
-:is(.DialogSubHeader, .DialogControlsSectionHeader) {
+.BasicUI :is(.DialogSubHeader, .DialogControlsSectionHeader),
+:is(.DialogSubHeader, .DialogControlsSectionHeader):not(.lgs-x) {
   color: var(--lgs-text-2);
   border-color: var(--lgs-separator);
 }
@@ -591,7 +644,29 @@ input%{*GamepadDialogContent>BasicTextInput}:is(:disabled, :read-only, .disabled
 %{FocusRing} {
   outline: 2px solid var(--lgs-focus-outline) !important;
   outline-offset: 2px;
-  border-radius: var(--lgs-r-row);
+  /* r-row on panels and segments, tighter on small targets (checkboxes) */
+  border-radius: min(var(--lgs-r-row), 35%);
   box-shadow: var(--lgs-focus-glow);
   opacity: 1 !important;
+}
+
+
+/* ======================================================================
+   11. Generic progress bar (ProgressBar component: downloads, updates, zoo)
+   Same language as the slider: fill-3 capsule track, white fill. Steam's
+   indeterminate sweep animation is left as is.
+   ====================================================================== */
+
+%{ProgressBarIndeterminate>ProgressBar},
+.gpfocus %{ProgressBarIndeterminate>ProgressBar} {
+  background: var(--lgs-fill-3);
+  border-radius: var(--lgs-r-capsule);
+  /* the fill paints inline "background: var(--gpColor-Blue, #1a9fff)" */
+  --gpColor-Blue: var(--lgs-slider-fill);
+}
+%{ProgressBarIndeterminate>ProgressBar} %{Indeterminate>Percent} {
+  border-radius: var(--lgs-r-capsule);
+}
+%{ProgressBarFieldStatus} %{ProgressBar>TextContainer} %{OperationText} {
+  color: var(--lgs-text-2);
 }
