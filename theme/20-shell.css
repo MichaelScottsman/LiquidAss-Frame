@@ -19,7 +19,8 @@
                                               sets aria-label = stock text)
    Shared values other areas read (WN §3.2, C1a's interface table):
      --lgs-hdr-pad     page-root top padding: 68px fallback, 0 with lgs-hdr-108
-     --lgs-guard-top   124px, --lgs-guard-bottom 612px (window y, VP P-23)
+     --lgs-guard-top   124px, --lgs-guard-bottom 596px (window y, VP P-23:
+                       16 px above the ornament capsule's top, 612)
      --lgs-c1a-tint    the window tint on %{BasicUiRoot}; the name is frozen
                        (C3b's CC-M sets it transparent, REQ C3b->C1a)
    Tokens: contracts/tokens.md (P4). Private values are --lgs-c1a-*.
@@ -32,7 +33,7 @@
 & {
   --lgs-hdr-pad: 68px;
   --lgs-guard-top: 124px;
-  --lgs-guard-bottom: 612px;
+  --lgs-guard-bottom: 596px;
   /* the tab bar's pitch (popup px) until the daemon writes the live one
      (WN §3.3.2): 52 is the floor and fits the panel at every r >= 0.863 */
   --lgs-c1a-tab-p: var(--lgs-tab-pitch, 52px);
@@ -56,6 +57,13 @@
    the content clip below. */
 %{BasicUiRoot} {
   --lgs-c1a-gh: var(--lgs-glass-h);
+  /* the bottom ornament straddles the glass edge centred, as visionOS
+     attaches a bottom toolbar: Steam's legend row (y 628-712) is lifted
+     16 px to y 612-696 (44 px on the glass, 40 below it, clear of
+     SteamVR's frame controls and their tooltips); page content ends 8 px
+     above the capsule (y 604), so nothing runs under it */
+  --lgs-c1a-orn-lift: 16px;
+  --lgs-c1a-cut: calc(var(--lgs-ornament-y, 628px) - var(--lgs-c1a-orn-lift) - 8px);
   /* the smoky tint (WN §8.4) as the root's own background, sized to the
      glass, so it sits under every page and the audit's contrast model
      (ancestor backgrounds over the room) sees it; the margin stays clear */
@@ -120,12 +128,13 @@
   will-change: opacity;
 }
 
-/* The window's shape is the page's clip: on `window` and `hero` routes
-   content that scrolls below the glass (y 656-720, the ornament margin)
-   is cut by the glass edge instead of floating over the room. Hit testing
-   there is already the footer's (#Footer spans y 628-720 above it). */
+/* The page's clip: on `window` and `hero` routes content ends 8 px above
+   the ornament capsule (y 604, --lgs-c1a-cut), so it never runs under the
+   capsule's upper half or below the glass edge into the room. The band
+   604-656 is clear window glass the capsule straddles. Hit testing below
+   612 is the ornament's. */
 %{BasicUiRoot}:not([data-lgs-glass="window-full"], [data-lgs-glass="windowless"]) > %{MainNavMenuMainSplit} > %{BasicHome}:not(%{PopupBody>TransparentBackground}) {
-  clip-path: inset(0 0 calc(100% - var(--lgs-c1a-gh)) 0 round 0 0 var(--lgs-r-window) var(--lgs-r-window));
+  clip-path: inset(0 0 calc(100% - var(--lgs-c1a-cut)) 0);
 }
 
 /* Every layer that repaints Steam's opaque gradient (or black) over the
@@ -565,6 +574,10 @@
   /* no gap: the members' hit boxes abut (VP P-07); the 4 px between their
      visible pills is a 2 px share of each member's own box */
   gap: 0;
+  /* the lift (section 1): the row moves up, Steam's measured footer stays
+     92 px (the margins cancel), so pages still end where Steam puts them */
+  margin-top: calc(-1 * var(--lgs-c1a-orn-lift, 0px));
+  margin-bottom: var(--lgs-c1a-orn-lift, 0px);
 }
 /* Steam's flex spacer would push the legends right; the capsule is
    centred (it is empty and takes no clicks) */
@@ -685,7 +698,7 @@
   cursor: default;
 }
 %{BasicUiRoot} #Footer%{BasicFooter} .lgs-opt[data-lgs-t2][aria-disabled="true"] {
-  opacity: .38;
+  opacity: .55;
 }
 %{BasicUiRoot} #Footer%{BasicFooter} .lgs-opt[data-lgs-t2] .lgs-opt-glyph {
   flex: none;
@@ -791,8 +804,8 @@
   left: var(--lgs-orn-x);
   right: auto;
   width: var(--lgs-orn-w);
-  top: 0;
-  bottom: 8px;
+  top: calc(-1 * var(--lgs-c1a-orn-lift, 0px));
+  bottom: calc(8px + var(--lgs-c1a-orn-lift, 0px));
 }
 /* Native glass (T2 node .lgs-orn-plate, device/rt/20-shell.js): the
    capsule's rect for P6's reporter, the liquid plate shell-ornament and
@@ -810,8 +823,8 @@
   left: var(--lgs-orn-x);
   right: auto;
   width: var(--lgs-orn-w);
-  top: 0;
-  bottom: 8px;
+  top: calc(-1 * var(--lgs-c1a-orn-lift, 0px));
+  bottom: calc(8px + var(--lgs-c1a-orn-lift, 0px));
 }
 
 /* Quiet legend (only A and B, T2's data-lgs-orn="quiet"): no capsule
@@ -855,8 +868,8 @@
   content: "";
   position: absolute;
   z-index: -1;
-  top: 0;
-  bottom: 8px;
+  top: calc(-1 * var(--lgs-c1a-orn-lift, 0px));
+  bottom: calc(8px + var(--lgs-c1a-orn-lift, 0px));
   left: var(--lgs-orn-gl, 50%);
   right: var(--lgs-orn-gr, 50%);
   width: auto;
@@ -868,6 +881,20 @@
   opacity: 0;
   --lgs-maxside: 960; /* the widest ornament: a swell of 12 px or less, under P-53's 1.5 % */
   animation: lgs-mat-glass-out var(--lgs-motion-mat-out, 350ms ease-out);
+}
+
+/* Native glass: once glassd draws the ornament plate (acked), the plate
+   is the capsule's glass on both sides of the window edge. The CSS tint's
+   two tones (light over the page, dark over the room) would split it in
+   half at the edge, so the capsule keeps one even scrim (white labels
+   stay legible), no drop shadow of its own (the plate's contact shadow)
+   and no in-page frost (nothing runs under it any more). */
+&.lgs-native %{BasicUiRoot} #Footer%{BasicFooter}[data-lgs-orn="capsule"]:has(> .lgs-orn-plate[data-lgs-plate-ack]):not(%{FloatingVRFooter}, %{QuickAccessFooter}) {
+  --lgs-c1a-orn-bg: linear-gradient(var(--lgs-scrim), var(--lgs-scrim));
+  --lgs-c1a-orn-shade: 0 0 0 0 transparent;
+}
+&.lgs-native %{BasicUiRoot} #Footer%{BasicFooter}[data-lgs-orn="capsule"]:has(> .lgs-orn-plate[data-lgs-plate-ack]):not(%{FloatingVRFooter}, %{QuickAccessFooter})::after {
+  backdrop-filter: none;
 }
 
 @media (prefers-contrast: more) {
@@ -895,6 +922,11 @@
   --menu-item-height: calc(var(--lgs-c1a-tab-p) - 6px);
   --menu-icon-size: calc(var(--lgs-c1a-tab-d) * .52);
   --menu-font-size: var(--lgs-fs-callout);
+  /* the capsules' corner radius: collapsed, half the column (a capsule of
+     circles); expanded, a 30 px rounded rectangle (a capsule radius on the
+     wide panel made it an oval blob). The native cover reads the same
+     radius from .lgs-tabcap (theme/layers/20-shell.json) */
+  --lgs-c1a-tab-r: 30px;
   background: none;
   box-shadow: none;
   border-radius: 0;
@@ -912,6 +944,7 @@
   transition-timing-function: var(--lgs-ease-snappy, ease);
 }
 %{DashboardMenu}%{Variant_FrameMenu}%{DashboardMenu>Collapsed} {
+  --lgs-c1a-tab-r: calc(var(--lgs-c1a-tab-d) / 2 + 12px);
   width: calc(var(--lgs-c1a-tab-d) + 24px);
   transition-duration: var(--lgs-d-fade, 441ms);
   transition-timing-function: var(--lgs-ease-fade, ease);
@@ -935,16 +968,16 @@
 %{DashboardMenu}%{Variant_FrameMenu} %{DashboardMenu>ItemOuter}:nth-child(1 of %{DashboardMenu>ItemOuter}),
 %{DashboardMenu}%{Variant_FrameMenu} %{DashboardMenu>ItemOuter}:nth-child(7 of %{DashboardMenu>ItemOuter}) {
   padding-top: 6px;
-  border-top-left-radius: calc(var(--lgs-c1a-tab-d) / 2 + 12px) !important;
-  border-top-right-radius: calc(var(--lgs-c1a-tab-d) / 2 + 12px) !important;
+  border-top-left-radius: var(--lgs-c1a-tab-r) !important;
+  border-top-right-radius: var(--lgs-c1a-tab-r) !important;
   background: linear-gradient(180deg, rgb(255 255 255 / .08), rgb(255 255 255 / 0) 60%), var(--lgs-c1a-tab-fill);
   box-shadow: var(--lgs-raised-shadow);
 }
 %{DashboardMenu}%{Variant_FrameMenu} %{DashboardMenu>ItemOuter}:nth-child(6 of %{DashboardMenu>ItemOuter}),
 %{DashboardMenu}%{Variant_FrameMenu} %{DashboardMenu>ItemOuter}:nth-last-child(1 of %{DashboardMenu>ItemOuter}) {
   padding-bottom: 6px;
-  border-bottom-left-radius: calc(var(--lgs-c1a-tab-d) / 2 + 12px) !important;
-  border-bottom-right-radius: calc(var(--lgs-c1a-tab-d) / 2 + 12px) !important;
+  border-bottom-left-radius: var(--lgs-c1a-tab-r) !important;
+  border-bottom-right-radius: var(--lgs-c1a-tab-r) !important;
 }
 /* 10 popup px between the two capsules */
 %{DashboardMenu}%{Variant_FrameMenu} %{DashboardMenu>ItemOuter}:nth-child(7 of %{DashboardMenu>ItemOuter}) {
@@ -959,7 +992,7 @@
   position: absolute;
   left: 0;
   right: 0;
-  border-radius: calc(var(--lgs-c1a-tab-d) / 2 + 12px);
+  border-radius: var(--lgs-c1a-tab-r);
   pointer-events: none;
   /* each capsule's E3 edge (WN §8.1: arc + lobe; P4's hook on ::before),
      whole-capsule, so the rows' slices never draw a ring of their own.
@@ -988,9 +1021,22 @@
 %{DashboardMenu}%{Variant_FrameMenu} %{DashboardMenu>Item} {
   background: transparent !important;
   --lgs-ill: nav;
-  /* the pill ends 12 px inside the capsule (concentric with its ends) */
+  /* expanded: the pill ends 10 px inside the 30 px panel (the end rows'
+     6 px padding + 4 px), so its 20 px corners are concentric */
+  --lgs-ill-inset: 4px 10px;
+  --lgs-ill-r: calc(var(--lgs-c1a-tab-r) - 10px);
+}
+/* collapsed: the pill ends 12 px inside the capsule (concentric with its
+   ends) */
+%{DashboardMenu}%{Variant_FrameMenu}%{DashboardMenu>Collapsed} %{DashboardMenu>Item} {
   --lgs-ill-inset: 4px 12px;
   --lgs-ill-r: var(--lgs-r-capsule);
+}
+/* without C1a's runtime (no .lgs-tabcap) the native cover is the menu's
+   own box: give it the panel's corners so it is never a square slab
+   (REQ P7->C1a) */
+%{DashboardMenu}%{Variant_FrameMenu}:not(:has(> .lgs-tabcap)) {
+  border-radius: var(--lgs-c1a-tab-r);
 }
 /* tabs never scale on focus or selection (VP P-05, PLAN §1.4). Steam
    zooms the focused and the current item 1.1x with its own transform;

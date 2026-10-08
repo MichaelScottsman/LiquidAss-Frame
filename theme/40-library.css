@@ -796,7 +796,8 @@
    share of each gap, so neighbours' hit boxes abut (P-07). */
 %{BasicUiRoot} #Footer%{BasicFooter}[data-lgs-orn-fixed="library"] %{ActionButtonLegend} {
   position: absolute;
-  top: 0;
+  /* C1a lifts the ornament row (and its capsule) by --lgs-c1a-orn-lift */
+  top: calc(-1 * var(--lgs-c1a-orn-lift, 0px));
   box-sizing: border-box;
   height: var(--lgs-ornament, 84px);
   margin: 0;

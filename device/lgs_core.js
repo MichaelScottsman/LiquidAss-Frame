@@ -257,18 +257,54 @@
     applied: new Set(),
   };
 
-  function apply(doc) {
+  // Per-window scoping (perf, docs/phase2/perf.md §3.1). An area file that styles
+  // exactly one pooled popup is left out of every other window's sheet: its rules
+  // can never match there, but Chrome still evaluates their :has() / sibling
+  // invalidation on every hover, focus and dwell class change. With 32-launcher.css
+  // (the "+" list, surface barpopup) in main's sheet, every laser hover there was a
+  // whole-document style recalc: in-step A/B, hover sweep 69 -> 88 fps, long frames
+  // 54 -> 16. A rule that must also reach another window does not belong in a file
+  // listed here.
+  const SCOPED = [
+    { file: '32-launcher.css', only: /\.barpopup\./ },
+  ];
+  const cssCache = new Map();   // scope signature -> css text
+  function cssFor(name) {
+    const n = String(name || '');
+    // window.__LGS_NO_SCOPE = true (then __LGS.sweep()) gives every window the whole bundle: perf A/B only
+    const sig = SCOPED.map((s) => (W.__LGS_NO_SCOPE === true || s.only.test(n) ? '1' : '0')).join('');
+    let text = cssCache.get(sig);
+    if (text === undefined) {
+      if (sig.indexOf('0') < 0) text = state.css;
+      else {
+        const drop = new Set(SCOPED.filter((s, i) => sig[i] === '0').map((s) => s.file));
+        text = state.css.split(/(?=\/\* [0-9A-Za-z_.-]+\.css \*\/\n)/)
+          .filter((part) => { const m = /^\/\* ([0-9A-Za-z_.-]+\.css) \*\//.exec(part); return !(m && drop.has(m[1])); })
+          .join('');
+      }
+      cssCache.set(sig, text);
+    }
+    return { text, key: state.version + ':' + sig };
+  }
+
+  function apply(doc, name) {
     if (!doc || !doc.head || !doc.body || !doc.documentElement) return false;
     const root = doc.documentElement;
     if (!root.classList.contains(ROOT_CLASS)) root.classList.add(ROOT_CLASS);
+    const want = cssFor(name);
     let st = doc.getElementById(IDS.style);
+    // The sheet's identity is its key (version + scope), not its ~0.9 MB text:
+    // reading textContent every sweep built and compared that string for each
+    // window every 1.5 s.
     if (!st) {
       st = doc.createElement('style');
       st.id = IDS.style;
-      st.textContent = state.css;
+      st.textContent = want.text;
+      st.setAttribute('data-lgs-key', want.key);
       doc.head.appendChild(st);
-    } else if (st.textContent !== state.css) {
-      st.textContent = state.css;
+    } else if (st.getAttribute('data-lgs-key') !== want.key) {
+      st.textContent = want.text;
+      st.setAttribute('data-lgs-key', want.key);
     }
     // Steam appends route CSS chunks as they load; stay last so equal-specificity
     // rules resolve in the theme's favour.
@@ -296,7 +332,7 @@
   function sweep() {
     if (!state.enabled) return;
     for (const { name, win } of popups()) {
-      try { if (apply(win.document)) state.applied.add(name); } catch (_) { /* window closing */ }
+      try { if (apply(win.document, name)) state.applied.add(name); } catch (_) { /* window closing */ }
       if (lens) {
         for (const spec of lensSpecs) {
           try {

@@ -106,6 +106,23 @@ theme on, CSS only, no flags (lab steps pop their own; the 70 s overlays expired
 
 ## Log
 
+### 2026-10-07 21:35–21:50: wearer report, Settings > Audio artefacts (native default)
+
+- Report: content pane a skewed trapezoid off its content, hero icon + title on a separate offset slab, search
+  capsule loose, sidebar without glass. Reproduced (`native-session --mode laser`, `hv --offaxis 30` on
+  `/settings/audio`): with the `settings-hero` pop live, main's base mosaic is cut into guillotine pieces around the
+  hero, and those pieces (each its own `inherit-from-parent-panel` panel) do not stay coplanar with each other and the
+  cover off axis: the content piece shifted/skewed, the title piece vanished. With 0 pops main is one base piece
+  and lines up.
+- Fix: `theme/layers/60-settings.json` has no layers (the hero pop removed; flat beats broken); the hero circle in
+  `theme/60-settings.css` loses its 10 mm shadow. After: `sgcheck` `/settings/audio` and `/settings/system` main
+  **0 pops**, PASS; `hv` audio (off axis 30) and system: one coherent window, content aligned. Frames viewed and
+  deleted on both machines.
+- Gates `/settings/audio` laser and pad: AUD, SIZE, OUTLINE, MOTION PASS; TYPE fails only on C4a's FieldDescription
+  (open REQ C6a->C4a (3)).
+- **Note for P7 (lgs_sg.js, not C6a's):** any pop on main splits the base mosaic into pieces that misalign off axis
+  (seen here with one 90 × 90 pop); other areas' main pops are likely affected the same way.
+
 ### 2026-10-07 session 1 (09:50 onward), build 11094443
 
 - Built T1 (`theme/60-settings.css`), T2 (`device/rt/60-settings.js`), fragment `theme/layers/60-settings.json`;

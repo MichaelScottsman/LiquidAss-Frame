@@ -1,24 +1,10 @@
 {
   "version": 2,
-  "about": "C6a Steam Settings (SET §5, PLAN §1.7 row 'Settings hero icon, account avatar': +10 mm, decorative crop, both profiles). The hero's 60 px colour circle (.DialogHeader::before, drawn only while wp.c6a T2 has keyed the page and measured its title: [data-lgs-hero] on the dialog root; an absolute ::before, which P6 can crop) pops +10 mm as a non-interactive crop over a liquid slab with the hole's contact shadow. Admission: covered by the window cover (bare glass above the first platter), no focusable intersects it (decorative: rule 2 sets no cap), 60 x 60 (rule 5), never over media, not destructive, dropped while the page scrolls or a modal is open (rule 6), and dropped for good once the content is scrolled at all ([data-lgs-scrolled], T2: scrollTop > 0), so the hero slides under the toolbar row flat (SET §5, review R2 M1). Menus, alerts and sheets opened from settings pages are C1c's (22-presentations.json); the list page stays at 0 (PLAN §1.12). Behind wp.c6a.",
+  "about": "C6a Steam Settings (SET §5, PLAN §1.7). No pops and no plates: Settings is one flat window on 00-base's window cover (C1a's data-lgs-glass=\"window\"). The +10 mm hero pop (settings-hero, .DialogHeader::before) was removed on 2026-10-07 (wearer report, Settings > Audio): every pop cuts main's base mosaic into guillotine pieces, and on the main window those pieces did not stay coplanar with each other and with the cover off axis (headset view: the content pane a skewed trapezoid off its glass, the hero and title on a separate offset piece, the search capsule loose above, the sidebar on its own piece). One uncut base piece lines up with the cover; flat and correct beats popped and broken (PLAN §1.7 admission is optional for a decorative pop). The hero circle stays a flat CSS element. Menus, alerts and sheets opened from settings pages are C1c's (22-presentations.json). Behind wp.c6a.",
   "flag": "wp.c6a",
   "surfaces": {
     "main": {
-      "layers": [
-        {
-          "id": "settings-hero",
-          "sel": "%{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog}[data-lgs-hero]:not([data-lgs-scrolled]):not(%{AppProperties}, %{NotesPagedSettings}) %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageContent} > .DialogContent_InnerWidth > .DialogHeader",
-          "pseudo": "::before",
-          "r": 30,
-          "mm": 10,
-          "slab": "liquid",
-          "hole": true,
-          "flag": "wp.c6a",
-          "wearer": {
-            "mm": 10
-          }
-        }
-      ]
+      "layers": []
     }
   }
 }

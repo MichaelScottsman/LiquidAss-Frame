@@ -188,11 +188,9 @@
     clip-path: inset(0 0 92px 0);
   }
 
-  /* compact hero (SET §3.5): Title 1, centred, one line; 60 + 16 px. The circle (60 px, so a
-     +10 mm pop passes admission rule 5) needs T2's page key, glyph and the title's measured width
-     (data-lgs-hero, --lgs-set-hero-tw): the circle and the title are centred as one group, and the
-     circle is an absolutely placed ::before so the reporter can crop it (P6 measures only absolute
-     pseudo-elements) */
+  /* compact hero (SET §3.5): Title 1, centred, one line; 60 + 16 px. The 60 px circle needs T2's
+     page key, glyph and the title's measured width (data-lgs-hero, --lgs-set-hero-tw): the circle
+     and the title are centred as one group. It stays flat on the window plane (no native pop) */
   & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageContent} > .DialogContent_InnerWidth > .DialogHeader {
     position: relative;
     justify-content: center;
@@ -220,7 +218,9 @@
       var(--lgs-set-glyph, none) center / 32px 32px no-repeat,
       linear-gradient(180deg, rgb(255 255 255 / .24), rgb(255 255 255 / 0) 60%),
       var(--lgs-set-tint, var(--lgs-gray));
-    box-shadow: var(--lgs-shadow-10mm);
+    /* flat on the window plane (the +10 mm native pop was removed: it cut the window's base
+       mosaic into pieces that did not line up off axis), so no depth shadow */
+    box-shadow: none;
     pointer-events: none;
   }
 

@@ -135,7 +135,7 @@
   const POLL_MS = 500;          // dashboard state, window list, liveness, stalled-frame watchdog
   const RESAMPLE_EVERY = 4;     // safety re-measure every N polls (2 s)
   const DEEP_EVERY = 5;         // every Nth resample also re-queries and re-hit-tests (10 s)
-  const MIN_TICK_MS = 33;       // sampling cap (~30 Hz; sg pushes <= 30/s anyway)
+  const MIN_TICK_MS = 66;       // sampling cap (~15 Hz: lgs_sg pushes <= 15/s, so faster samples were never shown; perf.md §3.3)
   const TAIL_MS = 80;           // keep sampling this long after a sample changed something
   const SCROLL_SETTLE_MS = 150; // a scroller is still after this long without a scroll event
   const ANIM_MAX_MS = 1500;     // a running transition/animation counts at most this long

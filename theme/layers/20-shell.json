@@ -5,7 +5,7 @@
     "Window cover: 00-base.json's main.modes, keyed on the data-lgs-glass value C1a's runtime sets on %{BasicUiRoot} (window 656, window-full and hero 720, radius 54; windowless: plates only). Nothing to change here.",
     "Nothing in the toolbar row or the bottom ornament pops: the legacy hdr-back, hdr-search, footer and sort-filter pops are superseded while wp.c1a is on (they come back with the flag off).",
     "The ornament is a liquid plate (shell-ornament, the T2 node #Footer > .lgs-orn-plate, also the data-lgs-nopop box); on windowless routes Back and the search field are liquid plates (shell-back, shell-search). These are DOM attributes from device/rt/20-shell.js, not rules.",
-    "frame.menu: liquid (PLAN §1.6), and its cover is the tab bar's two capsules (the T2 nodes .lgs-tabcap), not the menu's box (which also holds the gap and the band under the bar). Without the runtime the cover falls back to the box. Either way the cover is a capsule (r: capsule = half its short side), never a square slab: this fragment's owns fields apply whatever its flag (REQ P7->C1a, review R2 M2).",
+    "frame.menu: liquid (PLAN §1.6), and its cover is the tab bar's two capsules (the T2 nodes .lgs-tabcap), not the menu's box (which also holds the gap and the band under the bar). Without the runtime the cover falls back to the box. The cover's radius is the element's own border-radius (no r field), which 20-shell.css §4 sets from --lgs-c1a-tab-r: collapsed a capsule (half the column), expanded a 30 px rounded rectangle (a capsule radius on the expanded panel drew an oval blob); the fallback box gets the same radius, so it is never a square slab (REQ P7->C1a, review R2 M2).",
     "The tab bar's +25 mm is P7's tabBarDepth rule (theme/sg/00-base.json) and the always-visible flag is theme/popups/20-shell.json (tabBarAlways): never a crop."
   ],
   "flag": "wp.c1a",
@@ -16,7 +16,6 @@
       "material": "liquid",
       "cover": {
         "sel": "%{DashboardMenu}%{Variant_FrameMenu} > .lgs-tabcap, %{DashboardMenu}%{Variant_FrameMenu}:not(:has(> .lgs-tabcap))",
-        "r": "capsule",
         "all": true
       },
       "layers": []
