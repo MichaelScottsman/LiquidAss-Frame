@@ -34,11 +34,14 @@
    ATT, the attended cell whose name plate shows (keyed on the input mode,
    P-01, P-02): .gpfocus in gamepad mode; under the laser :hover after P3's
    0.4 s attention step (.lgs-attend-400, cells tagged data-lgs-c2b-step) or,
-   without that, P3's 80 ms dwell; plain :hover without the runtime. Never on
-   a cell whose name shows whole (data-lgs-c2b-fit="whole"). Written out as
-   :is(:root:not(.lgs-input-laser) .gpfocus,
-       :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover,
-       :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"])
+   without that, P3's 80 ms dwell; plain :hover with no input mode. Never on a
+   cell whose name shows whole (data-lgs-c2b-fit="whole"). The runtime
+   (32-launcher.js) tags it [data-lgs-c2b-att], its covered row-mates
+   [data-lgs-c2b-dim], each cell's column [data-lgs-c2b-col] and each label
+   box [data-lgs-c2b-lbl], so the plate rules are plain attribute selectors:
+   no previous-sibling :has(), no column pseudo-classes, no :root in :is() (perf.md
+   2.2 1: those made the popup open in ~1 s). Without the runtime no plate
+   shows (each label stays one line ending in "...").
 
    Material: panel (PLAN 1.6), E3 edge from P4's hook, no border, no ring.
    Sizes are popup px (m .83): 72 x 96 cells = 87 x 116 main px. */
@@ -165,8 +168,8 @@
 }
 /* the attended cell's own label is legible at once (no fade back from .22
    when it was under the previous plate) */
-&:not(.lgs-input-laser) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}.gpfocus %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
-&:not(.lgs-input-pad) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:hover %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}) {
+&:not(.lgs-input-laser) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}.gpfocus [data-lgs-c2b-lbl],
+&:not(.lgs-input-pad) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:hover [data-lgs-c2b-lbl] {
   transition-duration: 0s;
 }
 /* Steam's active dot (::before, at left -6 px) and separator (::after, .5 px
@@ -458,7 +461,7 @@
 /*    in columns 2 and 3 unless that would cross x 6 or x 294              */
 /* ---------------------------------------------------------------------- */
 
-%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"]) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}) {
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}[data-lgs-c2b-att] [data-lgs-c2b-lbl] {
   position: absolute;
   z-index: 3;
   top: 60px;
@@ -489,12 +492,11 @@
 /* on gamepad focus it is part of the focus look: on at once, entering
    through lgs-focus-in like the cell's light, so the first frame shows 60 %
    (P-18) */
-&:not(.lgs-input-laser) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}.gpfocus:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"]) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}) {
-  /* (the plate selector's :is() repeated, so this rule outranks it) */
+&:not(.lgs-input-laser) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}.gpfocus[data-lgs-c2b-att] [data-lgs-c2b-lbl] {
   animation: lgs-focus-in var(--lgs-motion-hover-in, 294ms ease) backwards;
 }
 /* the plate's text: the whole name on one line */
-%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"]) %{Marquee>Content} {
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}[data-lgs-c2b-att] %{Marquee>Content} {
   display: block !important;
   max-height: none;
   white-space: nowrap;
@@ -502,27 +504,27 @@
   text-overflow: ellipsis;
   animation: none !important;
 }
-%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"]) %{Marquee>Content} > .lgs-c2b-l2 {
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}[data-lgs-c2b-att] %{Marquee>Content} > .lgs-c2b-l2 {
   display: inline;
   max-width: none;
   overflow: visible;
 }
-%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:nth-child(4n+1):is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"]) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}) {
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}[data-lgs-c2b-att][data-lgs-c2b-col="0"] [data-lgs-c2b-lbl] {
   left: 0;
   translate: none;
   transform-origin: 0 50%;
 }
-%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:nth-child(4n+2):is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"]) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}) {
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}[data-lgs-c2b-att][data-lgs-c2b-col="1"] [data-lgs-c2b-lbl] {
   /* centred, but its left edge never before the grid's x 6 (the cell starts
      at 78: 36 + 78 - 108 = 6) */
   translate: max(-50%, -108px) 0;
 }
-%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:nth-child(4n+3):is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"]) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}) {
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}[data-lgs-c2b-att][data-lgs-c2b-col="2"] [data-lgs-c2b-lbl] {
   /* centred, but its right edge never past the grid's x 294 (the cell starts
      at 150: 150 + 36 + 108 = 294) */
   translate: min(-50%, calc(108px - 100%)) 0;
 }
-%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:nth-child(4n):is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"]) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}) {
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}[data-lgs-c2b-att][data-lgs-c2b-col="3"] [data-lgs-c2b-lbl] {
   left: auto;
   right: 0;
   translate: none;
@@ -530,26 +532,15 @@
 }
 /* the cell whose plate shows paints above its neighbours (z-index works on
    grid items) */
-%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"]) {
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}[data-lgs-c2b-att] {
   z-index: 2;
 }
 /* the labels the plate lies over fade to .22 (HA 4, PLAN-2b-4; the
-   mockup's .is-under), on fade both ways. The runtime measures each
-   plate and tags the row-mates it covers (data-lgs-c2b-under: l1-l3 to its
-   left, r1-r3 to its right). Without the tag (CSS only) every row-mate
-   fades: the plate may reach any column of its row, never another row */
-%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"]):not([data-lgs-c2b-under]):not(:nth-child(4n)) + %{DashboardBarPopupListItem} %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
-%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"]):not([data-lgs-c2b-under]):is(:nth-child(4n+1), :nth-child(4n+2)) + %{DashboardBarPopupListItem} + %{DashboardBarPopupListItem} %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
-%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"]):not([data-lgs-c2b-under]):nth-child(4n+1) + %{DashboardBarPopupListItem} + %{DashboardBarPopupListItem} + %{DashboardBarPopupListItem} %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
-%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:has(+ %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"]):not([data-lgs-c2b-under]):not(:nth-child(4n+1))) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
-%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:has(+ %{DashboardBarPopupListItem} + %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"]):not([data-lgs-c2b-under]):is(:nth-child(4n+3), :nth-child(4n))) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
-%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:has(+ %{DashboardBarPopupListItem} + %{DashboardBarPopupListItem} + %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"]):not([data-lgs-c2b-under]):nth-child(4n)) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
-%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"])[data-lgs-c2b-under~="r1"] + %{DashboardBarPopupListItem} %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
-%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"])[data-lgs-c2b-under~="r2"] + %{DashboardBarPopupListItem} + %{DashboardBarPopupListItem} %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
-%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"])[data-lgs-c2b-under~="r3"] + %{DashboardBarPopupListItem} + %{DashboardBarPopupListItem} + %{DashboardBarPopupListItem} %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
-%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:has(+ %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"])[data-lgs-c2b-under~="l1"]) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
-%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:has(+ %{DashboardBarPopupListItem} + %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"])[data-lgs-c2b-under~="l2"]) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
-%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:has(+ %{DashboardBarPopupListItem} + %{DashboardBarPopupListItem} + %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"])[data-lgs-c2b-under~="l3"]) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}) {
+   mockup's .is-under), on fade both ways. The runtime measures each plate
+   (data-lgs-c2b-under: l1-l3 to its left, r1-r3 to its right) and tags the
+   row-mates it covers while it shows (data-lgs-c2b-dim; every row-mate when
+   the plate was not measured) */
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}[data-lgs-c2b-dim] [data-lgs-c2b-lbl] {
   opacity: .22;
   /* in with the plate's materialize (250 ms, done by 650 ms under the
      laser: PLAN-2b-4's 800 ms), back on fade (441 ms, the label's own rule) */

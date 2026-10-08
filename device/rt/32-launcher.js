@@ -14,6 +14,14 @@
 //         no ellipsis across inside a clamp, and the clamp's own "..." overflows the label when
 //         the last word and the "..." do not fit (seen live: "Remote..", "System..");
 //       - data-lgs-c2b-under on a cell with a plate: the row-mates whose labels its plate covers;
+//       - data-lgs-c2b-col (0-3, the cell's grid column: the plate's placement) on each cell and
+//         data-lgs-c2b-lbl on its label box (a bucketable key for the label rules);
+//       - data-lgs-c2b-att on the attended cell (its name plate shows) and data-lgs-c2b-dim on the
+//         row-mates its plate covers (their labels fade to .22). The CSS keys on these attributes
+//         only: no previous-sibling :has(), no :nth-child, no :root inside :is() (perf.md 2.2 1,
+//         5 1: those made the popup's first style recalc cost 500-800 ms). Recomputed in a
+//         microtask (before paint) on any class change in the popup (gpfocus, P3's .lgs-dwell /
+//         .lgs-attend-400, the html input-mode classes) and on mouseover / mouseout (:hover);
 //       - a cell whose program has no icon is tagged data-lgs-c2b-glyph (terminal, gear, remote, screens,
 //         display, camera) by keywords of its name, so the CSS can draw a distinct glyph (HA 0.3);
 //       - with P3, rt.attend steps the cells at 400 ms (.lgs-attend-400) and each cell is tagged
@@ -63,7 +71,8 @@ const GLYPHS = [
   [/camera/i, 'camera'],
   [/desktop|display|monitor/i, 'display'],
 ];
-const ATTRS = ['data-lgs-row', 'data-lgs-c2b-fit', 'data-lgs-c2b-glyph', 'data-lgs-c2b-step', 'data-lgs-c2b-under'];
+const ATTRS = ['data-lgs-row', 'data-lgs-c2b-fit', 'data-lgs-c2b-glyph', 'data-lgs-c2b-step', 'data-lgs-c2b-under',
+  'data-lgs-c2b-col', 'data-lgs-c2b-lbl', 'data-lgs-c2b-att', 'data-lgs-c2b-dim'];
 
 __LGS_RT.define({
   name: 'launcher',
@@ -80,15 +89,28 @@ __LGS_RT.define({
     // ---------------------------------------------------------------- T2: tags, from an observer
     rt.windows.track((w) => {
       if (w.kind !== 'barpopup') return undefined;
-      let queued = false;
+      let queued = false, dimQueued = false;
       const run = () => { queued = false; if (LAUNCHER_STATE.cur === S && w.visible()) tagPopup(S, w.doc); };
-      let mo = null;
+      const dimRun = () => { dimQueued = false; if (LAUNCHER_STATE.cur === S && w.visible()) attendTags(w.doc); };
+      const dimSoon = () => { if (!dimQueued) { dimQueued = true; Promise.resolve().then(dimRun); } };
+      let mo = null, moc = null;
       try {
         mo = new w.win.MutationObserver(() => { if (!queued) { queued = true; Promise.resolve().then(run); } });
         mo.observe(w.doc.body || w.doc.documentElement, { childList: true, subtree: true });
-      } catch (e) { mo = null; rt.warn('launcher: no observer on a barpopup window (tags on show only)', String((e && e.message) || e)); }
+        // the attended cell: gamepad focus and P3's attention are classes, the input mode is a class on <html>
+        moc = new w.win.MutationObserver(dimSoon);
+        moc.observe(w.doc.documentElement, { attributes: true, attributeFilter: ['class'], subtree: true });
+      } catch (e) { rt.warn('launcher: no observer on a barpopup window (tags on show only)', String((e && e.message) || e)); }
+      // :hover has no mutation
+      const opt = { capture: true, passive: true };
+      try { w.doc.addEventListener('mouseover', dimSoon, opt); w.doc.addEventListener('mouseout', dimSoon, opt); } catch (_) { /* gone */ }
       if (w.visible()) tagPopup(S, w.doc);
-      return () => { try { if (mo) mo.disconnect(); } catch (_) { /* gone */ } untag(w.doc); };
+      return () => {
+        try { if (mo) mo.disconnect(); } catch (_) { /* gone */ }
+        try { if (moc) moc.disconnect(); } catch (_) { /* gone */ }
+        try { w.doc.removeEventListener('mouseover', dimSoon, opt); w.doc.removeEventListener('mouseout', dimSoon, opt); } catch (_) { /* gone */ }
+        untag(w.doc);
+      };
     });
     rt.windows.onShow((w) => {
       if (w.kind !== 'barpopup') return;
@@ -176,6 +198,8 @@ function launcherSels(rt) {
     ITEM: rt.sel('%{DashboardBarPopupListItem}'),
     MC: rt.sel('%{Marquee>Content}'),
     ICON: rt.sel('%{PopupBody>Icon}'),
+    FL: rt.sel('%{*GamepadDialogContent>FieldLabel}'),
+    FI: rt.sel('%{*GamepadDialogContent>FieldIcon}'),
   };
 }
 function cellTest(rt) {
@@ -212,6 +236,10 @@ function tagPopup(S, doc) {
     // two lines, or in another place
     const l2 = mc.querySelector('.lgs-c2b-l2');
     const col = c.parentElement ? Array.prototype.indexOf.call(c.parentElement.children, c) % 4 : 0;
+    if (c.getAttribute('data-lgs-c2b-col') !== String(col)) c.setAttribute('data-lgs-c2b-col', String(col));
+    // the label box (the field label's child that is not the icon column): the label rules' key
+    const fl = c.querySelector(s.FL);
+    if (fl) for (const k of fl.children) { if (!k.matches(s.FI)) { if (!k.hasAttribute('data-lgs-c2b-lbl')) k.setAttribute('data-lgs-c2b-lbl', ''); break; } }
     const key = name + '\u0000' + col + (l2 ? '\u0000' + l2.getAttribute('data-fit') : '');
     if (S.fit.get(c) !== key) todo.push([c, mc, name, key, col]);
     // the CSS keys the laser's plate on P3's 0.4 s step only where it is registered
@@ -226,7 +254,7 @@ function tagPopup(S, doc) {
       c.removeAttribute('data-lgs-c2b-glyph');
     }
   }
-  if (!todo.length) return;
+  if (!todo.length) { attendTags(doc); return; }
   let probe = null;
   try {
     probe = doc.createElement('div');
@@ -263,6 +291,47 @@ function tagPopup(S, doc) {
     try { S.rt.warn('launcher: label fit not measured (the one-line floor stays)', String((e && e.message) || e)); } catch (_) { /* rt dead */ }
   } finally {
     try { if (probe) probe.remove(); } catch (_) { /* gone */ }
+  }
+  attendTags(doc);
+}
+
+// The attended cell (its name plate shows) and the row-mates its plate covers, as attributes, so the
+// CSS needs no state logic across siblings. The attended cell, keyed on the input mode (P-01, P-02):
+// .gpfocus unless the laser is the input; under the laser :hover after P3's 0.4 s step
+// (.lgs-attend-400 on cells tagged data-lgs-c2b-step) or P3's 80 ms dwell without it; plain :hover
+// with no input mode. Never a cell whose name shows whole. Covered row-mates: data-lgs-c2b-under
+// (l1-l3, r1-r3), or every row-mate when it was not measured. Writes only what changed.
+function attendTags(doc) {
+  let cells;
+  try { cells = doc.querySelectorAll('[data-lgs-c2b-col]'); } catch (_) { return; }
+  if (!cells.length) return;
+  const de = doc.documentElement;
+  const laser = de.classList.contains('lgs-input-laser'), pad = de.classList.contains('lgs-input-pad');
+  const att = new Set(), dim = new Set();
+  for (const c of cells) {
+    if (c.getAttribute('data-lgs-c2b-fit') === 'whole') continue;
+    let on = false;
+    try {
+      if (!laser && c.classList.contains('gpfocus')) on = true;
+      else if (laser) on = (c.hasAttribute('data-lgs-c2b-step') ? c.classList.contains('lgs-attend-400') : c.classList.contains('lgs-dwell')) && c.matches(':hover');
+      else if (!pad) on = c.matches(':hover');
+    } catch (_) { on = false; }
+    if (!on) continue;
+    att.add(c);
+    const sibs = c.parentElement ? c.parentElement.children : [c];
+    const i = Array.prototype.indexOf.call(sibs, c), row = Math.floor(i / 4);
+    const under = c.getAttribute('data-lgs-c2b-under');
+    const offs = under === null ? [-3, -2, -1, 1, 2, 3]
+      : under.split(' ').filter(Boolean).map((t) => (t[0] === 'l' ? -1 : 1) * Number(t.slice(1)));
+    for (const o of offs) {
+      const j = i + o, m = sibs[j];
+      if (m && Math.floor(j / 4) === row) dim.add(m);
+    }
+  }
+  for (const c of cells) {
+    const a = att.has(c), d = !a && dim.has(c);
+    if (a !== c.hasAttribute('data-lgs-c2b-att')) { if (a) c.setAttribute('data-lgs-c2b-att', ''); else c.removeAttribute('data-lgs-c2b-att'); }
+    if (d !== c.hasAttribute('data-lgs-c2b-dim')) { if (d) c.setAttribute('data-lgs-c2b-dim', ''); else c.removeAttribute('data-lgs-c2b-dim'); }
   }
 }
 

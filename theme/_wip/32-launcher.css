@@ -297,15 +297,15 @@
   -webkit-line-clamp: none;
   text-overflow: ellipsis;
 }
-&:not(.lgs-input-laser) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}.gpfocus:nth-child(4n+1) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
-&.lgs-input-laser %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}.lgs-dwell:hover:nth-child(4n+1) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
-&:not(.lgs-input-laser):not(.lgs-input-pad) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:hover:nth-child(4n+1) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}) {
+&:not(.lgs-input-laser) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}.gpfocus[data-lgs-c2b-col="0"] %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
+&.lgs-input-laser %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}.lgs-dwell:hover[data-lgs-c2b-col="0"] %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
+&:not(.lgs-input-laser):not(.lgs-input-pad) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:hover[data-lgs-c2b-col="0"] %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}) {
   left: 0;
   translate: none;
 }
-&:not(.lgs-input-laser) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}.gpfocus:nth-child(4n) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
-&.lgs-input-laser %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}.lgs-dwell:hover:nth-child(4n) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
-&:not(.lgs-input-laser):not(.lgs-input-pad) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:hover:nth-child(4n) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}) {
+&:not(.lgs-input-laser) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}.gpfocus[data-lgs-c2b-col="3"] %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
+&.lgs-input-laser %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}.lgs-dwell:hover[data-lgs-c2b-col="3"] %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
+&:not(.lgs-input-laser):not(.lgs-input-pad) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:hover[data-lgs-c2b-col="3"] %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}) {
   left: auto;
   right: 0;
   translate: none;
