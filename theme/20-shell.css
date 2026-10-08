@@ -240,9 +240,12 @@
 }
 /* the Back reveal (T2): after 0.6 s of attention the circle grows into a
    capsule naming the page Back returns to (WN §3.2). The box takes the
-   text's width at once (no layout animation, LAB); the glass grows out of
-   the circle with P5's clip morph on `snappy` and the label fades in on
-   `fade` (under Reduce Motion lgs-morph is P5's plain fade, P-56) */
+   text's width at once (no layout animation, LAB) and the chevron keeps
+   its place; the glass grows out of the circle with P5's clip morph on
+   `snappy`; the Large Title leaves first (150 ms) and the label comes in
+   after it on `fade`, so the two never overlap. Leaving: the label goes at
+   once and the glass slides back into the circle on `snappy` (T2, Web
+   Animations). Reduce Motion: lgs-morph is P5's plain fade (P-56) */
 #header %{BackContainer}[data-lgs-exempt="E-BACK"] {
   width: auto;
   min-width: var(--lgs-hit);
@@ -261,9 +264,13 @@
 }
 #header %{BackContainer}[data-lgs-reveal] > .lgs-back-reveal {
   max-width: 320px;
+  padding-left: 4px;
   padding-right: 26px;
   opacity: 1;
-  transition: opacity var(--lgs-motion-fade, 441ms ease) calc(var(--lgs-d-snappy, 488ms) * .3);
+  transition: none;
+  /* an animation, not a transition: the label node is new on the first
+     reveal, and a new node never transitions */
+  animation: lgs-fade-in var(--lgs-motion-fade, 441ms ease) var(--lgs-d-page-out, 150ms) backwards;
 }
 #header %{BackContainer}[data-lgs-reveal]::before {
   --sx: 0px;
@@ -274,16 +281,19 @@
   --lgs-morph-r: 30px;
   animation: lgs-morph var(--lgs-motion-snappy, 488ms ease) backwards;
 }
+/* the chevron stays where the circle centred it (80 - 28) / 2 = 26 */
 #header %{BackContainer}[data-lgs-reveal] {
   justify-content: flex-start;
-  padding-left: 16px;
+  padding-left: 26px;
 }
-/* the Large Title steps back while the reveal names the way back */
+/* the Large Title steps back while the reveal names the way back: out in
+   150 ms (before the label comes in), back on `fade` */
 #header > .lgs-title {
   transition: opacity var(--lgs-motion-fade, 441ms ease);
 }
 #header[data-lgs-reveal] > .lgs-title {
   opacity: 0;
+  transition: opacity var(--lgs-motion-page-out, 150ms linear);
 }
 /* section roots (T2 route map): borderless, chevron white .70 */
 %{BasicUiRoot}[data-lgs-back="root"] #header %{BackContainer}::before {
@@ -293,7 +303,7 @@
 %{BasicUiRoot}[data-lgs-back="root"] #header %{BackContainer} {
   color: var(--lgs-text-2);
 }
-%{BasicUiRoot} #header %{BackContainer}[data-lgs-reveal]::before {
+%{BasicUiRoot} #header %{BackContainer}:is([data-lgs-reveal], [data-lgs-unreveal])::before {
   background: var(--lgs-raised-bg);
   box-shadow: var(--lgs-raised-shadow);
 }
@@ -364,7 +374,7 @@
   transition: box-shadow var(--lgs-d-hover-in, 294ms) var(--lgs-ease-b0, ease-out);
 }
 /* laser hover: + white .08 on the well */
-#header %{SearchAndTitleContainer}%{ShowingSearch}:hover %{SearchFieldBackground} {
+&:not(.lgs-input-pad) #header %{SearchAndTitleContainer}%{ShowingSearch}:hover %{SearchFieldBackground} {
   background: linear-gradient(rgb(255 255 255 / var(--lgs-hover-add)), rgb(255 255 255 / var(--lgs-hover-add))), var(--lgs-fill-thick);
 }
 /* focus: the system's only ring (VP P-17), in both input modes, each by
@@ -425,7 +435,7 @@
   background-color: rgb(255 255 255 / .16);
   box-shadow: none;
 }
-#header %{SearchAndTitleContainer} %{SearchBox}::-webkit-search-cancel-button:hover {
+&:not(.lgs-input-pad) #header %{SearchAndTitleContainer} %{SearchBox}::-webkit-search-cancel-button:hover {
   background-color: rgb(255 255 255 / calc(.16 + var(--lgs-hover-add)));
 }
 /* the circle variant (Home, hero routes, Settings, /account, ...): a
@@ -539,36 +549,45 @@
   padding-bottom: 8px;
   /* the capsule's E3 edge (P4's hook on ::before, placed below) */
   --lgs-edge: liquid;
+  /* the capsule's glass: liquid over the page (y 628-656), tinted over the
+     room below (also its leaving ghost, below) */
+  --lgs-c1a-orn-bg:
+    linear-gradient(180deg, rgb(255 255 255 / .12), rgb(255 255 255 / .03) 55%),
+    linear-gradient(180deg, rgb(28 30 40 / .30) 0, rgb(28 30 40 / .30) 22px,
+      rgb(28 30 40 / calc(.58 + var(--lgs-dial) * .24)) 40px);
+  --lgs-c1a-orn-shade: var(--lgs-mat-liquid-shade), 0 7px 22px rgb(0 0 0 / .28);
 }
 %{BasicUiRoot} #Footer%{BasicFooter}:not(%{FloatingVRFooter}, %{QuickAccessFooter}) %{FooterLegend} {
   height: var(--lgs-ornament);
   padding: 0;
   justify-content: center;
   align-items: center;
-  gap: 4px;
+  /* no gap: the members' hit boxes abut (VP P-07); the 4 px between their
+     visible pills is a 2 px share of each member's own box */
+  gap: 0;
 }
 /* Steam's flex spacer would push the legends right; the capsule is
    centred (it is empty and takes no clicks) */
 %{BasicUiRoot} #Footer%{BasicFooter} %{FooterLegend} > %{PopupBody>Spacer} {
   flex: 0 0 0px;
-  /* the row's 4 px gap after the empty spacer would push the members
-     2 px right of centre (AT-6 asks for +-1) */
-  margin: 0 -4px 0 0;
+  margin: 0;
 }
 
-/* Members: 60 px capsules inside an 84 px hit row (VP P-07: adjacent hit
-   boxes abut), label first (22 Semibold, mixed case), the glyph badge
-   trailing like a menu's keyboard shortcut. */
+/* Members: 60 px capsules inside an 84 px hit row whose boxes abut along
+   the row (VP P-07: the light is inset 12 px top and bottom and 2 px at
+   each side, so neighbouring pills stay 4 px apart), label first (22
+   Semibold, mixed case), the glyph badge trailing like a menu's keyboard
+   shortcut. */
 %{BasicUiRoot} #Footer%{BasicFooter} %{ActionButtonLegend} {
   height: var(--lgs-ornament);
   box-sizing: border-box;
-  padding: 0 var(--lgs-btn-pad);
+  padding: 0 calc(var(--lgs-btn-pad) + 2px);
   border-radius: var(--lgs-r-capsule);
   background: none !important;
   isolation: isolate;
   color: var(--lgs-text-1);
   --lgs-ill: raised;
-  --lgs-ill-inset: 12px 0;
+  --lgs-ill-inset: 12px 2px;
   --lgs-ill-r: var(--lgs-r-capsule);
   --lgs-ill-z: -1;
 }
@@ -610,6 +629,39 @@
   filter: invert(1);
   mix-blend-mode: screen;
   opacity: .70;
+}
+/* T2 (data-lgs-glyph, --lgs-c1a-glyph = the image's own URL): Steam's glyph
+   is a white disc (the menu glyph a white pill) with the letter cut out,
+   so the letter is drawn as the image's own background (white .70) seen
+   through a mask of those holes: the full box minus the glyph, cut to a
+   circle inside the disc's edge. No blend mode: an inverted opaque disc
+   screened over the translucent capsule came out as an opaque dark disc
+   with a light ring (review R2 m8); now only the letter lands on the .16
+   badge, as WN draws it, for whatever glyph set Steam shows */
+%{BasicUiRoot} #Footer%{BasicFooter} %{ActionButtonLegend} %{FooterGlyphSize}[data-lgs-glyph] {
+  filter: none;
+  mix-blend-mode: normal;
+  opacity: 1;
+  background: rgb(255 255 255 / .70);
+  -webkit-mask-image: radial-gradient(circle closest-side, #000 84%, transparent 90%), linear-gradient(#000 0 0), var(--lgs-c1a-glyph);
+  mask-image: radial-gradient(circle closest-side, #000 84%, transparent 90%), linear-gradient(#000 0 0), var(--lgs-c1a-glyph);
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-composite: source-in, xor;
+  mask-composite: intersect, exclude;
+}
+/* the menu glyph: keep only the middle of its pill (the bars), drawn 1.5x
+   so the bars read at the letters' size inside the 30 px badge */
+%{BasicUiRoot} #Footer%{BasicFooter} %{ActionButtonLegend} %{FooterGlyphSize}%{*PillShapedIcon}[data-lgs-glyph] {
+  -webkit-mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0), var(--lgs-c1a-glyph);
+  mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0), var(--lgs-c1a-glyph);
+  -webkit-mask-size: 50% 34%, 100% 100%, 100% 100%;
+  mask-size: 50% 34%, 100% 100%, 100% 100%;
+  scale: 1.5;
 }
 /* laser mode: glyph badges collapse (no width, no paint); the legend, its
    label and its click target stay (no function hidden) */
@@ -657,13 +709,16 @@
   font-weight: 500;
   color: var(--lgs-text-2);
 }
-/* 14 px between member groups: before the first quiet member */
-%{BasicUiRoot} #Footer%{BasicFooter} %{ActionButtonLegend}:not([data-lgs-btn="OK"], [data-lgs-btn="CANCEL"]) + %{ActionButtonLegend}:is([data-lgs-btn="OK"], [data-lgs-btn="CANCEL"]) {
-  margin-left: 10px;
+/* 14 px between the member groups' pills, inside the first quiet member's
+   own box (its light starts 12 px in), so the hit boxes still abut; an
+   area's fixed slots place their members themselves */
+%{BasicUiRoot} #Footer%{BasicFooter}:not([data-lgs-orn-fixed]) %{ActionButtonLegend}:not([data-lgs-btn="OK"], [data-lgs-btn="CANCEL"]) + %{ActionButtonLegend}:is([data-lgs-btn="OK"], [data-lgs-btn="CANCEL"]) {
+  padding-left: calc(var(--lgs-btn-pad) + 12px);
+  --lgs-ill-inset: 12px 2px 12px 12px;
 }
 /* compact members (T2 sets it when the members would pass 960 px) */
 %{BasicUiRoot} #Footer%{BasicFooter}[data-lgs-orn-compact] %{ActionButtonLegend} {
-  padding: 0 16px;
+  padding: 0 18px;
 }
 %{BasicUiRoot} #Footer%{BasicFooter}[data-lgs-orn-compact] %{ActionButtonLegend} :is(%{ActionButtonLabel}, %{CompatFooterDescription}) {
   font-size: var(--lgs-fs-subhead);
@@ -688,12 +743,14 @@
 %{BasicUiRoot} #Footer%{BasicFooter} %{FooterLegend} > :nth-child(1 of %{ActionButtonLegend}):nth-last-child(1 of %{ActionButtonLegend}) {
   anchor-name: --lgs-orn-first, --lgs-orn-last;
 }
+/* 12 px of capsule padding outside the first and last pill (their boxes
+   reach 2 px past their pills) */
 %{BasicUiRoot} #Footer%{BasicFooter}:not(%{FloatingVRFooter}, %{QuickAccessFooter})::before,
 %{BasicUiRoot} #Footer%{BasicFooter}:not(%{FloatingVRFooter}, %{QuickAccessFooter})::after {
   top: anchor(--lgs-orn-first top, 0px);
   bottom: anchor(--lgs-orn-first bottom, 8px);
-  left: calc(anchor(--lgs-orn-first left, 100%) - 12px);
-  right: calc(anchor(--lgs-orn-last right, 0px) - 12px);
+  left: calc(anchor(--lgs-orn-first left, 100%) - 10px);
+  right: calc(anchor(--lgs-orn-last right, 0px) - 10px);
   border-radius: var(--lgs-r-capsule);
 }
 %{BasicUiRoot} #Footer%{BasicFooter}:not(%{FloatingVRFooter}, %{QuickAccessFooter})::after {
@@ -702,23 +759,22 @@
   z-index: -1;
   pointer-events: none;
   /* liquid over the page (y 628-656), tinted over the room below */
-  background:
-    linear-gradient(180deg, rgb(255 255 255 / .12), rgb(255 255 255 / .03) 55%),
-    linear-gradient(180deg, rgb(28 30 40 / .30) 0, rgb(28 30 40 / .30) 22px,
-      rgb(28 30 40 / calc(.58 + var(--lgs-dial) * .24)) 40px);
+  background: var(--lgs-c1a-orn-bg);
   backdrop-filter: var(--lgs-mat-liquid-blur);
-  box-shadow: var(--lgs-mat-liquid-shade), 0 7px 22px rgb(0 0 0 / .28);
+  box-shadow: var(--lgs-c1a-orn-shade);
 }
 /* Motion (WN §7, PLAN §1.5; P5's keyframes and tokens). The capsule's
    glass materializes in (lgs-mat-glass-in, 250 ms) whenever the legend
-   becomes a capsule; the quiet legend's dim band comes in over
-   materialize-out's 350 ms as the capsule glass leaves. A member Steam
-   adds fades its label in on `fade`; the labels already there never move
-   by animation. A width change of the capsule rides `snappy` (T2: a
-   scale FLIP on ::before/::after, device/rt/20-shell.js). Reduce Motion:
-   P5's keyframes are opacity only. */
+   becomes a capsule; when it becomes quiet, the capsule's glass
+   dematerializes at its old rect (lgs-mat-glass-out, 350 ms, the ghost
+   on ::before below) while the quiet legend's dim band fades in over the
+   same 350 ms. A member Steam adds fades its label in on `fade`; the
+   labels already there never move by animation. A width change of the
+   capsule slides its ends on `snappy` (T2: Web Animations on ::before and
+   ::after, device/rt/20-shell.js). Reduce Motion: P5's keyframes are
+   opacity only and the ends do not slide. */
 %{BasicUiRoot} #Footer%{BasicFooter}[data-lgs-orn="capsule"]:not(%{FloatingVRFooter}, %{QuickAccessFooter})::after {
-  --lgs-maxside: 640;
+  --lgs-maxside: 960; /* the widest ornament: a swell of 12 px or less, under P-53's 1.5 % */
   animation: lgs-mat-glass-in var(--lgs-motion-mat-in, 250ms linear) backwards;
 }
 %{BasicUiRoot} #Footer%{BasicFooter}[data-lgs-orn="quiet"]:not(%{FloatingVRFooter}, %{QuickAccessFooter})::after {
@@ -745,8 +801,8 @@
   position: absolute;
   top: anchor(--lgs-orn-first top, 0px);
   bottom: anchor(--lgs-orn-first bottom, 8px);
-  left: calc(anchor(--lgs-orn-first left, 100%) - 12px);
-  right: calc(anchor(--lgs-orn-last right, 0px) - 12px);
+  left: calc(anchor(--lgs-orn-first left, 100%) - 10px);
+  right: calc(anchor(--lgs-orn-last right, 0px) - 10px);
   border-radius: var(--lgs-r-capsule);
   pointer-events: none;
 }
@@ -781,8 +837,8 @@
 %{BasicUiRoot}:not([data-lgs-glass="window-full"]) #Footer%{BasicFooter}[data-lgs-orn="quiet"]:not([data-lgs-band="off"])::after {
   top: calc(anchor(--lgs-orn-first top, 0px) + 12px);
   bottom: calc(anchor(--lgs-orn-first bottom, 8px) + 12px);
-  left: calc(anchor(--lgs-orn-first left, 100%) - 10px);
-  right: calc(anchor(--lgs-orn-last right, 0px) - 10px);
+  left: calc(anchor(--lgs-orn-first left, 100%) - 8px);
+  right: calc(anchor(--lgs-orn-last right, 0px) - 8px);
   background: rgb(0 0 0 / .62);
   filter: blur(7px);
 }
@@ -790,10 +846,35 @@
   color: rgb(255 255 255 / .82);
   text-shadow: var(--lgs-text-room-shadow);
 }
+/* capsule -> quiet (T2 sets data-lgs-orn-leave for 600 ms with the old
+   rect in --lgs-orn-gl / --lgs-orn-gr): the capsule's glass leaves as P5's
+   dematerialize (held while nothing else moves, then dissolved, 350 ms);
+   at rest it is opacity 0. ::before is free in the quiet legend (no E3
+   hook there). Native mode: glassd fades its own plate, so no ghost. */
+&:not(.lgs-native) %{BasicUiRoot} #Footer%{BasicFooter}[data-lgs-orn="quiet"][data-lgs-orn-leave]:not(%{FloatingVRFooter}, %{QuickAccessFooter})::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: 0;
+  bottom: 8px;
+  left: var(--lgs-orn-gl, 50%);
+  right: var(--lgs-orn-gr, 50%);
+  width: auto;
+  border-radius: var(--lgs-r-capsule);
+  background: var(--lgs-c1a-orn-bg);
+  backdrop-filter: var(--lgs-mat-liquid-blur);
+  box-shadow: var(--lgs-c1a-orn-shade);
+  pointer-events: none;
+  opacity: 0;
+  --lgs-maxside: 960; /* the widest ornament: a swell of 12 px or less, under P-53's 1.5 % */
+  animation: lgs-mat-glass-out var(--lgs-motion-mat-out, 350ms ease-out);
+}
 
 @media (prefers-contrast: more) {
+  %{BasicUiRoot} #Footer%{BasicFooter}:not(%{FloatingVRFooter}, %{QuickAccessFooter}) {
+    --lgs-c1a-orn-bg: var(--lgs-mat-liquid-bg);
+  }
   %{BasicUiRoot} #Footer%{BasicFooter}:not(%{FloatingVRFooter}, %{QuickAccessFooter})::after {
-    background: var(--lgs-mat-liquid-bg);
     backdrop-filter: none;
   }
 }
@@ -881,8 +962,14 @@
   border-radius: calc(var(--lgs-c1a-tab-d) / 2 + 12px);
   pointer-events: none;
   /* each capsule's E3 edge (WN §8.1: arc + lobe; P4's hook on ::before),
-     whole-capsule, so the rows' slices never draw a ring of their own */
+     whole-capsule, so the rows' slices never draw a ring of their own.
+     The hook's conic light is centred on the box: on an 82 px wide, 400 px
+     tall capsule most of the upper sides fall in the key light's bright
+     sector (measured dL 164 down the left side, twice the window's top
+     arc), which reads as a line; .45 of dimming brings the brightest part
+     to the window rim's level */
   --lgs-edge: liquid;
+  --lgs-edge-dim: .45;
 }
 &.lgs-native %{DashboardMenu}%{Variant_FrameMenu} > .lgs-tabcap[data-lgs-cover] {
   --lgs-edge: none;
@@ -913,7 +1000,8 @@
 %{DashboardMenu}%{Variant_FrameMenu} %{DashboardMenu>Item} {
   transition-duration: 0s;
 }
-%{DashboardMenu}%{Variant_FrameMenu} %{DashboardMenu>Item}:is(.gpfocus, %{DashboardMenu>Active}) {
+%{DashboardMenu}%{Variant_FrameMenu} %{DashboardMenu>Item}%{DashboardMenu>Active},
+&:not(.lgs-input-laser) %{DashboardMenu}%{Variant_FrameMenu} %{DashboardMenu>Item}.gpfocus {
   scale: calc(1 / 1.1);
 }
 %{DashboardMenu}%{Variant_FrameMenu} %{DashboardMenu>ItemOuter}::before {

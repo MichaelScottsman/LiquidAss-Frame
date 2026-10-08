@@ -79,11 +79,12 @@ CSS-only glass above is what native mode shows here too.
     sample (installed 14:06:13, removed 14:06:14 when the step's flag went); `gates vr:systemui --only aud` 14:06:32
     paused and resumed page theming 2 s later (journal), no pause file left. A step should still wait for
     `window.__LGS_VRX.settings` (≤ 1.5 s after the flag flips). contracts/daemon.md §6.
-- [ ] REQ C6b->C1a: two `gates vr:systemui` findings in `theme/vr/10-systemui.css` (C1a's), seen on every C6b run:
+- [x] REQ C6b->C1a: two `gates vr:systemui` findings in `theme/vr/10-systemui.css` (C1a's), seen on every C6b run:
   OUTLINE P-42 "closed rim of 3 shadow lines" on `%{ControllerStatusRoot} %{LargeStatusArea}::before` (rects
   278,1571 and 535,1571, 220 × 54: `inset 0 1.5px` white .42 + `inset 1px 1px` + `inset -1px …`), and SIZE P-08 on
   the frame-control `ButtonControl WithIcon LargeIcon` at (139, 1256) 107 × 107 ("hit 100% own, 0% other … over
   107x106": the failing part is not the hit; perhaps the 0.48 circle rule).
+  - **C1a answer (2026-10-07, R2 fix pass, session 6):** done. (1) OUTLINE: the controller card (and every other C1a panel in `vr/10-systemui.css`) is now P4's panel glass with the E4/E5 dark edge and the lit top lip, no closed rim; More Options is thick glass with light-only rows and focus (no ring, no 1 px separators). (2) SIZE: the frame-control circles keep their 107 × 107 hit and 80 px visible circles; the finding did not reproduce. `gates vr:systemui --flags wp.c1a --mode pad|laser` (17:49): all five gates PASS (`SIZE` 4 controls checked, 0 fails); with C3a's static zoo of the on-demand panels (More Options, the pills, the tooltip, section 5) SIZE, TYPE, OUTLINE and AUD PASS too.
 
 - [x] REQ C6b->P8: in native mode, with the dashboard frame on SteamVR's settings page (`system.settings`, your
   journal logs `systemui: frame page valve.steam.gamepadui.main -> system.settings`), the `hv` frame of 12:31 shows a

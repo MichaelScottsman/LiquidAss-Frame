@@ -52,19 +52,30 @@
 /*    padding, 12px height. Only colour, rim and the transition list.  */
 /* ------------------------------------------------------------------ */
 
+/* SteamVR's bar is 12 grab px (3.6 mm), a hairline in the headset; WN
+   §3.5.2's window bar is a 9.6 mm pill (32 grab px). Its box stays
+   SteamVR's (width, height, scaleX grow: geometry, LAB): the pill is drawn
+   10 px thicker on each side with a spread of its own colour (a filled
+   capsule, not a ring: spread 10 > the 2 px ring rule), inside the
+   button's 60 px hit padding, so the panel never clips it */
 %{GrabHandleBar} {
   --lgs-c1a-bar: rgb(255 255 255 / .46);
   background-color: var(--lgs-c1a-bar);
   background-image: none;
-  box-shadow: 0 1px 6px rgb(0 0 0 / .34);
+  box-shadow: 0 0 0 10px var(--lgs-c1a-bar);
+  /* the soft shadow from the whole pill's silhouette (a box-shadow would
+     lie under the spread only and show the 12 px bar as a lighter stripe) */
+  filter: drop-shadow(0 2px 6px rgb(0 0 0 / .30));
   border-radius: var(--lgs-r-capsule);
   /* no transition of ours: SteamVR's own transform timing stays as is */
 }
 /* laser hover and while dragging: white .92 (WN §3.5.2) */
 %{GrabHandleButton}:hover %{GrabHandleBar},
 %{GrabHandleBar}%{GrabHandleBar>ForceActive} {
-  background-color: rgb(255 255 255 / .92);
-  box-shadow: 0 1px 8px rgb(0 0 0 / .38);
+  --lgs-c1a-bar: rgb(255 255 255 / .92);
+  background-color: var(--lgs-c1a-bar);
+  box-shadow: 0 0 0 10px var(--lgs-c1a-bar);
+  filter: drop-shadow(0 2px 8px rgb(0 0 0 / .34));
 }
 
 
@@ -254,6 +265,10 @@
   box-shadow: var(--lgs-c1a-vr-panel-shade);
   color: var(--lgs-text-2);
   text-shadow: none;
+  /* mixed case, no tracking (WN §3.5.2, VP P-84); SteamVR sets uppercase */
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 600;
   transition: background-color var(--lgs-d-hover-in, 294ms) var(--lgs-ease-b0, ease-out);
 }
 %{ButtonHitArea}:not(%{ButtonPill>Disabled}) %{ButtonPill} {

@@ -99,7 +99,11 @@
   /* 13 + 26 - 39 = 0: the title takes no room in Steam's centring, so the
      slab, not slab + title, is what sits centred in the box */
   margin: 13px 0 -39px;
-  padding: 0 0 0 calc(50% - var(--lgs-c1c-w) / 2 + 20px);
+  padding: 0 calc(50% - var(--lgs-c1c-w) / 2 + 20px);
+  /* a long game name stays inside the slab: one line, ellipsis (C2c REQ-16) */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font: 700 22px/26px var(--lgs-font);
   letter-spacing: 0;
   text-align: start;
@@ -283,12 +287,12 @@
 }
 
 /* ------------------------------------------------------------------ */
-/* 5. Steam's Cancel: a 56 px quiet capsule, last (PLAN §1.12, HA-11)     */
+/* 5. Steam's Cancel: a 60 px quiet capsule, last (PLAN §1.16 R2-5)       */
 /* ------------------------------------------------------------------ */
 
 /* Steam appends a separator and Cancel to every top-level menu; submenus
    (the container's second slab) have none. The element is 60 tall for the
-   hit region (P-80); the visible capsule is 56 (2 px clear border). */
+   hit region (P-80) and the visible capsule fills it (R2-5: 60 visible). */
 %{*BasicContextMenuHeader>BasicContextMenuModal} %{*BasicContextMenuModal>BasicContextMenuContainer} > %{*BasicContextMenuModal>contextMenuContents}:first-child > %{*BasicContextMenuModal>contextMenuItem}:last-child {
   align-self: center;
   justify-content: center;
@@ -298,8 +302,8 @@
   height: 60px;
   margin-top: 0;
   padding: 0 44px;
-  border: 2px solid transparent;
-  background: rgb(255 255 255 / .08) padding-box !important;
+  border: 0;
+  background: rgb(255 255 255 / .08) border-box !important;
   border-radius: var(--lgs-r-capsule);
   font: 500 22px/1.2 var(--lgs-font);
   color: var(--lgs-text-2) !important;

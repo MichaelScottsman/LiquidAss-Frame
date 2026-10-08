@@ -1,0 +1,72 @@
+{
+  "_doc": "C2c (PLAN-2c-2, G-MOCK): live selectors for the library catalogue's three mockups (docs/phase2/mockups/home-apps-library.html, -library-pad.html, -filter.html, re-rendered in round R2). Run with --flags wp.p3,wp.c1a,wp.c1c,wp.c2c and the mockup's input mode (--mode laser for library and filter, --mode pad for library-pad). Known by-design deltas: live members and buttons are their 80 px hit boxes around 60 px visible fills (dy -10 / -12, dh +20 / +24); the VR sub-filter's live node is Steam's centred radio group (604 wide) around the three 140 px segments the mockup draws (424); the scrubber's live node is its 80 px hit column around the 60 px capsule (dx -10, dw +20); the More circle is its 80 px hit box. The pres open only what the mockup shows (Steam's tile menu from the More circle, the Filters sheet with X) and the lab's restore closes it; nothing is chosen.",
+  "surface": "main",
+  "mockScale": 1,
+  "mockOrigin": [320, 66],
+  "mockups": {
+    "home-apps-library": {
+      "route": "/library/tab/AllGames",
+      "pre": "(async()=>{const R=window.__LGS_RT;await R.settled();L.nav('/library/tab/AllGames');await L.sleep(1800);const W=L.surface('main');const D=W.document;const A=L.qa('main','%{CSSGrid} %{LibraryItemBox}')[1];const r=A.getBoundingClientRect();for(const t of ['pointerover','mouseover','pointermove','mousemove'])A.dispatchEvent(new (t.startsWith('pointer')?W.PointerEvent:W.MouseEvent)(t,{bubbles:true,clientX:r.x+r.width/2,clientY:r.y+r.height/2}));await L.sleep(900);const m=D.querySelector('.lgs-more');if(m&&m.getClientRects().length){L.click('main','.lgs-more');await L.sleep(1200);}return 'menu '+!!D.querySelector('.BasicUIContextMenu, [class*=contextMenu]');})()",
+      "map": {
+        "window": "%{BasicUiRoot}",
+        "tabs": "%{GamepadLibrary} %{FixCenterAlignScroll}",
+        "tab-prev": "%{GamepadLibrary} %{TabHeaderRowWrapper} %{Arrows}",
+        "tab-next": "%{GamepadLibrary} %{TabHeaderRowWrapper} %{Arrows}@last",
+        "subfilter": "%{GamepadLibrary} %{VRLibraryFilterGroup}",
+        "scrubber": ".lgs-lib-scrub",
+        "poster-source": "%{GamepadLibrary} %{CSSGrid} %{LibraryItemBox}@nth=1",
+        "more": ".lgs-more",
+        "tile-menu": "%{*BasicContextMenuModal>BasicContextMenuContainer}",
+        "back": "#header %{BackContainer}",
+        "search": "#header %{SearchAndTitleContainer}",
+        "trail": "%{GamepadLibrary} %{SortAndFilterContainer}",
+        "orn-menu": "#Footer .lgs-opt",
+        "orn-a": "#Footer [data-lgs-btn=\"OK\"]",
+        "orn-b": "#Footer [data-lgs-btn=\"CANCEL\"]",
+        "ornament": "#Footer > .lgs-orn-plate"
+      }
+    },
+    "home-apps-library-pad": {
+      "route": "/library/tab/AllGames",
+      "pre": "(async()=>{const R=window.__LGS_RT;await R.settled();L.nav('/library/tab/AllGames');await L.sleep(1800);await L.root();await L.sleep(300);L.gpTakeEl(L.qa('main','%{CSSGrid} %{LibraryItemBox}')[3]);await L.sleep(1200);return JSON.stringify(L.focused()).slice(0,80);})()",
+      "map": {
+        "window": "%{BasicUiRoot}",
+        "tabs": "%{GamepadLibrary} %{FixCenterAlignScroll}",
+        "tab-prev": "%{GamepadLibrary} %{TabHeaderRowWrapper} %{Arrows}",
+        "tab-next": "%{GamepadLibrary} %{TabHeaderRowWrapper} %{Arrows}@last",
+        "subfilter": "%{GamepadLibrary} %{VRLibraryFilterGroup}",
+        "scrubber": ".lgs-lib-scrub",
+        "poster-focus": "%{GamepadLibrary} %{CSSGrid} %{LibraryItemBox}.gpfocus",
+        "more": ".lgs-more",
+        "compat": "%{GamepadLibrary} %{LibraryItemBox}.gpfocus %{SteamDeckCompatInfo}",
+        "back": "#header %{BackContainer}",
+        "search": "#header %{SearchAndTitleContainer}",
+        "orn-x": "#Footer [data-lgs-btn=\"SECONDARY\"]",
+        "orn-y": "#Footer [data-lgs-btn=\"OPTIONS\"]",
+        "orn-menu": "#Footer [data-lgs-btn=\"MENU\"]",
+        "orn-a": "#Footer [data-lgs-btn=\"OK\"]",
+        "orn-b": "#Footer [data-lgs-btn=\"CANCEL\"]",
+        "ornament": "#Footer > .lgs-orn-plate"
+      }
+    },
+    "home-apps-filter": {
+      "route": "/library/tab/AllGames",
+      "pre": "(async()=>{const R=window.__LGS_RT;await R.settled();L.nav('/library/tab/AllGames');await L.sleep(1800);const W=L.surface('main');const D=W.document;L.q('main','%{CSSGrid} %{LibraryItemBox}').dispatchEvent(new W.CustomEvent('vgp_onsecondaryaction',{bubbles:true,cancelable:true,detail:{button:3,source:0,is_repeat:false}}));await L.sleep(1800);const b=L.q('main','%{DialogWrapper>CompatFilterDialog} > %{DialogWrapper>DialogBody}');if(b){b.scrollTop=224;}await L.sleep(500);return 'sheet '+!!b;})()",
+      "map": {
+        "window": "%{BasicUiRoot}",
+        "sheet": "%{DialogWrapper}:has(> %{DialogWrapper>CompatFilterDialog})",
+        "sheet-close": ".lgs-sheet-close",
+        "sheet-title": "%{DialogWrapper>CompatFilterDialogTitle}",
+        "sheet-body": "%{DialogWrapper>CompatFilterDialog} > %{DialogWrapper>DialogBody}",
+        "compat-active": "%{DialogWrapper>CompatFilterDialogRow}%{DialogWrapper>Active}",
+        "sec-players": "%{FilterBucket}%{Filters>Player}",
+        "chip-first": "%{FilterBucket}%{Filters>Player} %{FilterArea>Row} > .tool-tip-source",
+        "trail": "%{GamepadLibrary} %{SortAndFilterContainer}",
+        "orn-menu": "#Footer .lgs-opt",
+        "orn-a": "#Footer [data-lgs-btn=\"OK\"]",
+        "orn-b": "#Footer [data-lgs-btn=\"CANCEL\"]",
+        "ornament": "#Footer > .lgs-orn-plate"
+      }
+    }
+  }
+}

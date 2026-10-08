@@ -244,7 +244,14 @@
     let span = q(back, ':scope > .lgs-back-reveal');
     const text = on ? previousTitle() : null;
     const header = back.closest('#header');
-    if (!text) { back.removeAttribute('data-lgs-reveal'); if (header) header.removeAttribute('data-lgs-reveal'); return; }
+    if (!text) {
+      const w0 = back.hasAttribute('data-lgs-reveal') ? back.getBoundingClientRect().width : 0;
+      back.removeAttribute('data-lgs-reveal');
+      if (header) header.removeAttribute('data-lgs-reveal');
+      if (w0) collapseBack(back, w0);
+      return;
+    }
+    if (S.unreveal) endUnreveal();
     if (!span) {
       span = back.ownerDocument.createElement('span');
       span.className = 'lgs-back-reveal';
@@ -255,14 +262,57 @@
     back.setAttribute('data-lgs-reveal', '');
     if (header) header.setAttribute('data-lgs-reveal', '');
   }
+  // leaving the reveal (WN §7 "Back reveal": width on `snappy`): the label is gone at once (content before
+  // glass) and the capsule's glass slides back into the circle; on section roots, whose Back has no fill
+  // at rest, the circle then fades (data-lgs-unreveal keeps the fill meanwhile, 20-shell.css §2). Forwards
+  // fill, cancelled in the same task as the attribute goes, so no frame shows the rest state early.
+  function collapseBack(back, w0) {
+    if (S.unreveal) endUnreveal();
+    const w1 = back.getBoundingClientRect().width;
+    const M = S.rt.shared && S.rt.shared.motion;
+    const win = back.ownerDocument.defaultView;
+    if (!(w0 - w1 > 2) || typeof back.animate !== 'function' || !M || typeof M.timing !== 'function'
+      || (typeof M.reduced === 'function' && M.reduced(win))) return;
+    const t = M.timing('snappy', {});
+    // a borderless section-root Back (no fill at rest; windowless routes keep their plate)
+    const root = !!(S.root && S.root.getAttribute('data-lgs-back') === 'root' && S.root.getAttribute('data-lgs-glass') !== 'windowless');
+    const from = (10 - (w0 - w1)) + 'px';
+    const kf = root
+      ? [{ right: from, opacity: 1 }, { right: '10px', opacity: 1, offset: 0.7 }, { right: '10px', opacity: 0 }]
+      : [{ right: from }, { right: '10px' }];
+    back.setAttribute('data-lgs-unreveal', '');
+    let anim = null;
+    try { anim = back.animate(kf, { duration: t.duration, easing: t.easing, fill: 'forwards', pseudoElement: '::before' }); } catch (_) { anim = null; }
+    if (!anim) { back.removeAttribute('data-lgs-unreveal'); return; }
+    const rec = S.unreveal = { back, anim };
+    anim.finished.then(() => { if (S && S.unreveal === rec) endUnreveal(); }, () => { /* cancelled */ });
+  }
+  function endUnreveal() {
+    const u = S.unreveal;
+    S.unreveal = null;
+    if (!u) return;
+    try { u.back.removeAttribute('data-lgs-unreveal'); } catch (_) { /* gone */ }
+    try { u.anim.cancel(); } catch (_) { /* gone */ }
+  }
+  // P3's attention can be removed and installed again while the shell stays (its flag wp.p3 is P3's own,
+  // and the shell does not depend on it): its registrations then go with the old instance. Each install
+  // publishes a new rt.attention object, so a registration is renewed whenever that object changed
+  // (checked on every route change and footer/header update; cheap).
   function wireReveal() {
-    if (!S || S.revealReg || typeof S.rt.attend !== 'function') return;
+    if (!S) return;
+    const att = S.rt.attention || null;
+    if (S.revealReg && S.revealAtt === att) return;
+    if (S.revealReg) { try { S.revealReg.off(); } catch (_) { /* gone with its instance */ } S.revealReg = null; }
+    S.revealAtt = null;
+    if (typeof S.rt.attend !== 'function' || !att) return;
     try {
       S.revealReg = S.rt.attend(S.backSel, {
         dwellMs: 600, surfaces: ['main'], classes: false,
         onDwell(el) { reveal(el.closest('[data-lgs-exempt]') || el, true); },
         onLeave(el) { reveal(el.closest('[data-lgs-exempt]') || el, false); },
       });
+      S.revealAtt = att;
+      S.revealWires = (S.revealWires || 0) + 1;
     } catch (e) { log('warn', 'back reveal', String(e && e.message || e)); }
   }
 
@@ -403,6 +453,7 @@
       const rg = fiberProps(el, 'rgButtons', 4);
       const n = Array.isArray(rg) && rg.length ? rg[0] : null;
       setAttr(el, 'data-lgs-btn', n === null ? null : (BTN[n] || ('B' + n)));
+      applyGlyph(q(el, S.glyphSel));
     }
     applyOptions(footer, steam);
     const legends = Array.from(footer.querySelectorAll(S.legendSel));
@@ -432,32 +483,87 @@
       const had = footer.hasAttribute('data-lgs-orn-compact');
       if (had) footer.removeAttribute('data-lgs-orn-compact');
       const a = legends[0].getBoundingClientRect(), b = legends[legends.length - 1].getBoundingClientRect();
-      const width = b.right - a.left + 24;
+      const width = b.right - a.left + 20; // the capsule: 10 px outside the abutting hit boxes
       setAttr(footer, 'data-lgs-orn-compact', width > 960 ? '' : null);
     } else if (footer.hasAttribute('data-lgs-orn-compact')) footer.removeAttribute('data-lgs-orn-compact');
   }
-  // WN §7 "Ornament legend change": the capsule's width follows its members at once in layout (anchors);
-  // its glass and E3 edge ride `snappy` from the old width as a scale FLIP (LAB: scale only, no layout
-  // animation). The capsule is centred, so the default origin keeps both ends symmetric. Web Animations
-  // with no fill: nothing stays applied when it ends (MO R11); none under Reduce Motion (P-56).
+  // the glyph badge (20-shell.css §3): the image's own URL as a mask source, so CSS can light only the
+  // letter Steam's glyph cuts out of its disc (whatever glyph set the controller has)
+  function applyGlyph(img) {
+    if (!img) return;
+    const src = img.src || '';
+    const v = src ? 'url("' + src.replace(/["\\\n]/g, encodeURIComponent) + '")' : '';
+    if (v && img.style.getPropertyValue('--lgs-c1a-glyph') !== v) img.style.setProperty('--lgs-c1a-glyph', v);
+    setAttr(img, 'data-lgs-glyph', v ? '' : null);
+  }
+  // WN §7 "Ornament legend change" and "Ornament capsule <-> quiet legend". The labels never move by
+  // animation (they take their new places at once); only the backing does.
+  // (1) A width change of the capsule: its glass (::after) and its E3 edge (::before, P4's hook) slide
+  //     their ends from the old rect to the new one on `snappy`. The ends are our own absolutely placed
+  //     pseudo-elements (nothing of Steam's is laid out again), so the capsule keeps its radius and its
+  //     shadow all the way (a scale FLIP stretched the round ends; a clip cut the shadow). Web Animations
+  //     with no fill: when it ends, the CSS anchors give the same rect (MO R11, nothing stays applied).
+  // (2) capsule -> quiet: the capsule's glass dematerializes at its old rect (#Footer[data-lgs-orn-leave]
+  //     ::before, P5's lgs-mat-glass-out, 350 ms) while the quiet band fades in (CSS); quiet -> capsule:
+  //     lgs-mat-glass-in on ::after (CSS). Reduce Motion: no slide (the rect changes at once, P-56); P5's
+  //     keyframes are fades there.
   function morphOrnament(footer, look) {
     const plate = footer.querySelector(':scope > .lgs-orn-plate');
-    const w = look === 'capsule' && plate ? plate.getBoundingClientRect().width : 0;
-    const prev = S.ornFooter === footer ? S.ornW : 0;
+    let box = null;
+    if (look === 'capsule' && plate) {
+      const p = plate.getBoundingClientRect(), f = footer.getBoundingClientRect();
+      if (p.width > 0) box = { l: p.left - f.left, r: f.right - p.right, w: p.width };
+    }
+    const same = S.ornFooter === footer;
+    const prev = same ? S.ornBox : null;
+    const prevLook = same ? S.ornLook : null;
     S.ornFooter = footer;
-    S.ornW = w;
-    if (!(w > 0 && prev > 0) || Math.abs(w - prev) < 3 || typeof footer.animate !== 'function') return;
+    S.ornBox = box;
+    S.ornLook = look;
+    S.ornW = box ? box.w : 0;
+    if (prevLook === 'capsule' && look === 'quiet' && prev) leaveGhost(footer, prev);
+    if (!box || !prev || (Math.abs(box.l - prev.l) < 2 && Math.abs(box.r - prev.r) < 2) || typeof footer.animate !== 'function') return;
     const M = S.rt.shared && S.rt.shared.motion;
     if (!M || typeof M.timing !== 'function') return;
     const win = footer.ownerDocument.defaultView;
     if (typeof M.reduced === 'function' && M.reduced(win)) return;
     const t = M.timing('snappy', {});
-    const s0 = Math.max(.5, Math.min(2, prev / w));
+    const kf = [{ left: prev.l + 'px', right: prev.r + 'px' }, { left: box.l + 'px', right: box.r + 'px' }];
+    for (const a of S.ornAnims || []) { try { a.cancel(); } catch (_) { /* gone */ } }
+    S.ornAnims = [];
     for (const pe of ['::after', '::before']) {
-      try { footer.animate([{ scale: s0 + ' 1' }, { scale: '1 1' }], { duration: t.duration, easing: t.easing, pseudoElement: pe }); }
+      try { S.ornAnims.push(footer.animate(kf, { duration: t.duration, easing: t.easing, pseudoElement: pe })); }
       catch (_) { /* no pseudo-element animations */ }
     }
     S.ornMorphs = (S.ornMorphs || 0) + 1;
+  }
+  // the capsule's glass leaving: a ghost of it on ::before at its old rect for the length of
+  // lgs-mat-glass-out (its rest state is opacity 0, so taking the attribute away later changes nothing)
+  function leaveGhost(footer, prev) {
+    footer.style.setProperty('--lgs-orn-gl', prev.l + 'px');
+    footer.style.setProperty('--lgs-orn-gr', prev.r + 'px');
+    footer.removeAttribute('data-lgs-orn-leave');
+    void footer.offsetWidth; // restart the CSS animation if a leave is still running
+    footer.setAttribute('data-lgs-orn-leave', '');
+    const token = S.ornLeave = {};
+    let tries = 0;
+    // the ghost goes once its dematerialize has ended (checked, not timed: a paused or slowed clock, as in
+    // the lab's filmstrips, keeps it until it is really done); at most about 10 s
+    const done = () => {
+      if (!S || S.ornLeave !== token) return;
+      let pending = false;
+      try {
+        pending = footer.isConnected && footer.getAnimations({ subtree: true }).some((a) => a.animationName === 'lgs-mat-glass-out'
+          && a.effect && a.effect.pseudoElement === '::before' && a.playState !== 'finished');
+      } catch (_) { pending = false; }
+      if (pending && ++tries < 40) { S.rt.setTimeout(done, 250); return; }
+      S.ornLeave = null;
+      footer.removeAttribute('data-lgs-orn-leave');
+      footer.style.removeProperty('--lgs-orn-gl');
+      footer.style.removeProperty('--lgs-orn-gr');
+    };
+    S.rt.setTimeout(done, 450);
+    S.ornLeaves = (S.ornLeaves || 0) + 1;
   }
   function schedule() {
     if (!S || S.pending) return;
@@ -465,7 +571,7 @@
     H.requestAnimationFrame(() => {
       if (!S) return;
       S.pending = false;
-      try { applyBack(); applyTitle(); applyOrnament(); applyToolbarPlates(); } catch (e) { log('warn', 'update failed', String(e && e.message || e)); }
+      try { applyBack(); applyTitle(); applyOrnament(); applyToolbarPlates(); wireReveal(); } catch (e) { log('warn', 'update failed', String(e && e.message || e)); }
     });
   }
 
@@ -708,12 +814,21 @@
     for (const n of doc.querySelectorAll('#Footer .lgs-opt, #header .lgs-back-reveal, #Footer > .lgs-orn-plate')) n.remove();
     for (const n of doc.querySelectorAll('[data-lgs-plate-id="shell-back"], [data-lgs-plate-id="shell-search"]')) clearPlate(n);
     for (const n of doc.querySelectorAll('#header[data-lgs-reveal], #header [data-lgs-reveal]')) n.removeAttribute('data-lgs-reveal');
+    if (S.unreveal) endUnreveal();
+    for (const n of doc.querySelectorAll('#header [data-lgs-unreveal]')) n.removeAttribute('data-lgs-unreveal');
+    for (const a of S.ornAnims || []) { try { a.cancel(); } catch (_) { /* gone */ } }
+    S.ornAnims = [];
+    S.ornLeave = null;
     if (S.revealReg) { try { S.revealReg.off(); } catch (_) { /* gone */ } S.revealReg = null; }
     for (const f of doc.querySelectorAll('#Footer')) {
-      for (const a of ['data-lgs-orn', 'data-lgs-orn-compact', 'data-lgs-orn-fixed', 'data-lgs-band']) f.removeAttribute(a);
-      f.style.removeProperty('--lgs-orn-x');
-      f.style.removeProperty('--lgs-orn-w');
+      for (const a of ['data-lgs-orn', 'data-lgs-orn-compact', 'data-lgs-orn-fixed', 'data-lgs-band', 'data-lgs-orn-leave']) f.removeAttribute(a);
+      for (const v of ['--lgs-orn-x', '--lgs-orn-w', '--lgs-orn-gl', '--lgs-orn-gr']) f.style.removeProperty(v);
       for (const el of f.querySelectorAll('[data-lgs-btn]')) el.removeAttribute('data-lgs-btn');
+      for (const el of f.querySelectorAll('[data-lgs-glyph]')) {
+        el.removeAttribute('data-lgs-glyph');
+        el.style.removeProperty('--lgs-c1a-glyph');
+        if (el.getAttribute('style') === '') el.removeAttribute('style');
+      }
     }
   }
 
@@ -728,6 +843,7 @@
         splitSel: sel(rt, '%{MainNavMenuMainSplit}'),
         footerSel: '#Footer' + sel(rt, '%{BasicFooter}') + ':not(' + sel(rt, '%{FloatingVRFooter}') + ')',
         legendSel: sel(rt, '%{ActionButtonLegend}'),
+        glyphSel: sel(rt, '%{FooterGlyphSize}'),
         backSel: '#header ' + sel(rt, '%{BackContainer}'),
         searchSel: '#header ' + sel(rt, '%{SearchAndTitleContainer}%{ShowingSearch}'),
         backLabelSel: sel(rt, '%{BackContainer>BackButton}'),
@@ -782,7 +898,8 @@
         _optionsText(el) { return S ? optionsText(el || null) : null; },
         status() {
           return S ? { route: S.route, header: Object.assign({}, S.hdr, { rewrites: S.hdrRewrites }), tab: S.tab, opt: S.opt, hooks: Array.from(S.hooks.keys()), slots: Array.from(S.slots.keys()),
-            footer: S.footer ? { orn: S.footer.getAttribute('data-lgs-orn'), fixed: S.footer.getAttribute('data-lgs-orn-fixed'), w: S.ornW || 0, morphs: S.ornMorphs || 0 } : null } : null;
+            reveal: { wired: !!S.revealReg, live: !!S.revealReg && S.revealAtt === (S.rt.attention || null), wires: S.revealWires || 0, stack: S.stack.slice(-3), title: previousTitle() },
+            footer: S.footer ? { orn: S.footer.getAttribute('data-lgs-orn'), fixed: S.footer.getAttribute('data-lgs-orn-fixed'), w: S.ornW || 0, morphs: S.ornMorphs || 0, leaves: S.ornLeaves || 0 } : null } : null;
         },
       };
       rt.expose('shell', api);

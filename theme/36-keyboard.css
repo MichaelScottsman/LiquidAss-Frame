@@ -38,7 +38,7 @@
   --c4b-sheen: linear-gradient(180deg, rgb(255 255 255 / .07), rgb(255 255 255 / 0) 60%);
   --c4b-sheen-mod: linear-gradient(180deg, rgb(255 255 255 / .05), rgb(255 255 255 / 0) 60%);
   --c4b-sheen-lit: linear-gradient(180deg, rgb(255 255 255 / .12), rgb(255 255 255 / 0) 60%);
-  --c4b-sheen-enter: linear-gradient(180deg, rgb(255 255 255 / .18), rgb(255 255 255 / 0) 60%);
+  --c4b-sheen-enter: none; /* no sheen on Enter: it would lower label contrast (R2 M1) */
   --c4b-lip: inset 0 1.5px 1.5px -1px rgb(255 255 255 / .24);
   --c4b-contact: 0 2px 3px rgb(0 0 0 / .22);
   --c4b-glow: 0 0 16px 2px rgb(255 255 255 / .30);
@@ -62,7 +62,7 @@
   --key-shift-color: var(--lgs-text-1);
   --key-backspace-background-color: var(--c4b-mod);
   --key-backspace-color: var(--lgs-text-1);
-  --key-enter-background-color: var(--lgs-tint-primary);
+  --key-enter-background-color: rgb(0 110 220); /* opaque deeper tint: white label 4.9:1 (AUD, R2 M1) */
   --key-enter-color: var(--lgs-text-on-tint);
   --key-enter-action-button-glyph-color: var(--lgs-text-on-tint);
   --key-spacebar-background-color: var(--c4b-key);
@@ -183,11 +183,11 @@
   background-image: var(--c4b-sheen-lit);
   color: var(--lgs-text-1);
 }
-/* Enter lit: its blue stays, a white lift over it */
+/* Enter lit: its blue stays; lift from the brighter lip and the glow */
 %{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme %{Modal>KeyboardEnter}%{Modal>Focused}:not(%{Modal>Touched}),
 &:not(.lgs-input-pad) %{Modal>Keyboard}%{Modal>VRFloatingKeyboard}.DefaultTheme %{KeyboardKeyHitArea}:hover > %{Modal>KeyboardEnter}:not(%{Modal>Touched}) {
   background-color: var(--key-enter-background-color);
-  background-image: linear-gradient(rgb(255 255 255 / .20), rgb(255 255 255 / .20));
+  background-image: none; /* lit = lip + glow only, keeps the label at 4.9:1 */
   color: var(--lgs-text-on-tint);
   box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / .50), 0 2px 4px rgb(0 0 0 / .25), var(--c4b-glow);
 }

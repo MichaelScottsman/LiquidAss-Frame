@@ -7,9 +7,13 @@
    T1 (this file) owns the layout of the game page: the hero fills the 656 px
    window, the action cluster (Play 280 x 80, 80 px circles, gaps 16) sits on
    the art at y 448-528, the segmented tab capsule (64) with paired arrows sits
-   at y 548-612 and pins at y 116 under the toolbar. Steam's scroll maths are
-   kept: the outer scroller's range is 432 px (hero 656 - 208 overlap + play
-   row 80 + tab page 624 - 720), so the pinned tab page starts at y 96.
+   at y 548-612 and pins at y 116 under the toolbar. The hero column (logo,
+   chip, stats, cluster, tab row) starts at x 104 (--gp-col): VP P-29 puts
+   Play's centre within 400 px of the window centre (104 + 140 = 244), as the
+   revision 3 mockups draw it; tab content keeps the 40 px inset. Steam's
+   scroll maths are kept: the outer scroller's range is 432 px (hero 656 - 208
+   overlap + play row 80 + tab page 624 - 720), so the pinned tab page starts
+   at y 96.
    No focusable is moved in DOM order; flex `order` only moves the arrows,
    which the D-pad never reaches (GP §3.3).
 
@@ -25,6 +29,7 @@
    no ring anywhere (VP P-42). */
 
 & {
+  --gp-col: 104px;
   --gp-clear-bg: rgb(255 255 255 / .12);
   --gp-clear-blur: blur(10px) saturate(1.3);
   --gp-focus-fill: rgb(255 255 255 / .32);
@@ -108,28 +113,32 @@
     transition: opacity var(--lgs-motion-fade);
   }
 
-  /* logo: a 560 x 124 box at (40, 108); Steam's anchors land inside it */
+  /* logo: a 560 x 124 box at (104, 108); Steam's anchors land inside it */
   & %{BoxSizerContainer} {
     top: 108px;
-    left: 40px;
+    left: var(--gp-col);
     right: auto;
     width: 560px;
     height: 124px;
   }
-  /* the VR chip row at (40, 244) */
+  /* the VR chip row at (104, 244) */
   & %{TopCapsule>TitleSection} {
     top: 244px;
     left: 0;
     right: 0;
     height: 36px;
-    padding: 0 0 0 40px;
+    padding: 0 0 0 var(--gp-col);
     justify-content: flex-start;
   }
   & %{TopCapsule>TitleSection} %{Features} {
     order: -1;
     margin: 0 auto 0 0;
   }
+  /* the glyph disc leads the label, as the mockup's chip (Steam lays the
+     two out row-reversed; neither is focusable): the 4 / 14 px padding hugs
+     the disc and the text */
   & %{PurchaseNoticeContainer} {
+    flex-direction: row;
     height: 36px;
     border-radius: var(--lgs-r-capsule);
     background: rgb(255 255 255 / .16);
@@ -137,6 +146,11 @@
     gap: 8px;
     padding: 0 14px 0 4px;
     box-shadow: none;
+  }
+  /* Steam's 12 px gap under the last notice centred the chip 6 px high in
+     its 36 px row: the row's top is the chip's top (y 244) */
+  & %{PurchaseNoticeContainer}:last-child {
+    margin-bottom: 0;
   }
   & %{PurchaseNoticeLabel} {
     background: none;
@@ -175,7 +189,7 @@
   }
   & %{PlaySection} {
     height: 80px;
-    padding: 0 40px;
+    padding: 0 40px 0 var(--gp-col);
   }
   & %{Header>ActionRow} {
     position: relative;
@@ -185,35 +199,41 @@
     justify-content: flex-start;
   }
   /* the stats block is not reached by the D-pad (GP §0.4): it leaves the row
-     and sits above the cluster, y 334-394, as one line per stat ("Last
-     played Oct 2", the mockup's .gp-stats: label then value, Steam's order);
-     its tooltip source is a 60 px tall target. One line keeps the text inside
-     Steam's 46 px overflow-hidden wrapper (R2 M1: label over value clipped
-     the value's bottom third) */
+     and sits above the cluster as one line, "Last Played Oct 2  Play Time
+     10.2 hours" (the mockup's .gp-stats: label then value on one baseline,
+     Steam's order, stats 22 px apart). Each stat's tooltip source is an
+     80 px tall hover target, y 314-394 (P-08, P-80), with the text at its
+     foot, y 358-384 (GP §4.1; the tooltip lane y 388-436 stays free of
+     text). Steam caps %{StatusAndStats} at 46 px with overflow: hidden: the
+     cap is lifted to the 80 px block, so neither the text nor the targets
+     are cut (R2 M1: label over value in the 46 px box cut the value's bottom
+     third) */
   & %{StatusAndStats} {
     position: absolute;
     left: 0;
-    top: -114px;
-    height: 60px;
-    width: 1160px;
+    top: -134px;
+    height: 80px;
+    max-height: 80px;
+    width: calc(1240px - var(--gp-col));
   }
   & %{StatusAndStats} %{GameStatsSection} {
-    height: 60px;
-    gap: 28px;
+    height: 80px;
+    gap: 22px;
     align-items: center;
   }
   & %{StatusAndStats} %{GameStatsSection} > * {
-    height: 60px;
+    height: 80px;
     display: flex;
     align-items: center;
   }
   & %{StatusAndStats} %{GameStat} {
-    height: 60px;
-    min-height: 60px;
+    height: 80px;
+    min-height: 80px;
+    box-sizing: border-box;
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     background: none;
-    padding: 0;
+    padding: 0 0 10px;
   }
   & %{StatusAndStats} %{GameStatRight} {
     display: flex;
@@ -383,7 +403,8 @@
     margin-left: 0;
     align-items: center;
   }
-  & %{AppButtons} > * {
+  & %{AppButtons} > *,
+  & %{AppButtons} %{ControllerConfigButton} {
     margin: 0;
   }
   & %{MenuButtonContainer} {
@@ -418,23 +439,44 @@
     white-space: nowrap;
     pointer-events: none;
   }
-  /* private badge: a 30 px red disc on the gear's top right, outside the
-     gear's own 80 px target but for a 4 px touch */
+  /* private badge: Steam's indicator (focusable: false as in stock; its one
+     function is the laser hover tooltip "private"). A 30 px red disc at the
+     gear's top right (x 835-865, y 429-459), drawn in the upper left of its
+     own 114 px round hover target, which starts 1 px clear of the gear's
+     box: the target is round (P-83) and its circle holds the whole 80 x 80
+     P-08 box around its centre (an 80 px circle left the box corners
+     unhit, 92 % own), and it never takes a sample from Manage (REQ
+     C5b->C5a). The disc is Steam's own red circle (its first svg) in the
+     system red, inside the target's circle; the eye glyph is centred on it
+     (Steam places it at 2 px, 2 px) */
   & %{PrivateAppActiveIndicator} {
     position: absolute;
-    top: -8px;
-    right: -30px;
-    left: auto;
-    width: 30px;
-    height: 30px;
+    top: -32px;
+    left: 81px;
+    right: auto;
+    width: 114px;
+    height: 114px;
+    box-sizing: border-box;
+    padding: 13px 0 0 13px;
     z-index: 2;
     border-radius: 50%;
-    background: var(--lgs-fill-danger);
+    background: none;
     display: flex;
-    align-items: center;
-    justify-content: center;
+    align-items: flex-start;
+    justify-content: flex-start;
   }
-  & %{PrivateAppActiveIndicator} svg {
+  & %{PrivateAppActiveIndicator} > svg:not(%{FeatureHidden}) {
+    flex: none;
+    width: 30px;
+    height: 30px;
+  }
+  & %{PrivateAppActiveIndicator} > svg:not(%{FeatureHidden}) circle {
+    fill: var(--lgs-fill-danger);
+  }
+  & %{PrivateAppActiveIndicator} svg%{FeatureHidden} {
+    position: absolute;
+    top: 18px;
+    left: 18px;
     width: 20px;
     height: 20px;
     color: #fff;
@@ -444,8 +486,9 @@
 
 /* ======================================================================
    4. The segmented tab capsule and the paired arrows (GP §3.3)
-   At rest: capsule (40, 548) 64 tall, arrows (x + 16) 160 x 64, over the
-   art in clear glass. Pinned (details): y 116, liquid glass.
+   At rest: capsule (104, 548) 64 tall, then the two 80 px arrow targets,
+   over the art in clear glass. Pinned (details): y 116, the same x (the tab
+   row never moves in x), liquid glass.
    ====================================================================== */
 
 %{PartnerEventOverlayContainer>AppDetailsMain} {
@@ -455,7 +498,7 @@
   }
   & %{AppDetailsContainer} %{TabHeaderRowWrapper} {
     height: 92px;
-    padding: 20px 40px 8px;
+    padding: 20px 40px 8px var(--gp-col);
     box-sizing: border-box;
   }
   /* Steam's pinned band: the one scroll edge at the top of the page */
@@ -484,6 +527,12 @@
     box-shadow: var(--lgs-shadow-10mm);
     --lgs-edge: clear;
     transition: background-color var(--lgs-motion-fade);
+    /* the focused segment's outer glow (P4's white hook) stays inside the
+       track: Steam's tab scroller (84 px, overflow-x auto) cut it into a
+       square frame around the capsule (R2 lead). The track's own shadow is
+       outside this clip; nothing that can be clicked lies outside the
+       capsule (the scroller's 10 px bands are empty) */
+    overflow: clip;
   }
   & %{AppDetailsContainer} %{TabRowTabs} %{TabsRowScroll},
   & %{AppDetailsContainer} %{TabRowTabs} %{ScrollPanel} {
@@ -1359,11 +1408,18 @@
 
 
 /* phase 2 (GP §4.10, the single-column fallback of SOC §3.11): content from
-   y 108 under the toolbar row; Title 2; stats in title case at 20 px; rows
-   96 tall with 64 px icons; My / Global as the game page's segmented track */
+   y 108 under the toolbar row, in SM-D17's 1136 px column (x 72-1208; VP
+   P-81: no full-width band near the glass edges); Title 2; stats in title
+   case at 20 px; rows keep Steam's 80 px slots at its 88 px pitch (the list
+   places each row absolutely, inline height 80: a taller row overlapped the
+   next one), 64 px icons, the rarity line trailing under the unlock date;
+   My / Global as the game page's segmented track, pinned at y 116 under the
+   toolbar (Steam pinned it at y 40, under Back and the search capsule) */
 %{AchievementList>Page} {
   & %{AchievementList>HeaderContainer} {
     margin-top: calc(var(--lgs-hdr-pad, 68px) - 24px);
+    padding-left: 72px;
+    padding-right: 72px;
   }
   & %{LeaderboardsButton>Title} {
     font: var(--lgs-type-title2);
@@ -1399,9 +1455,60 @@
   & %{StatsBlock} %{Indeterminate>Percent} {
     background: rgb(255 255 255 / .86);
   }
+  /* both lists (My and Global): the 1136 px column, no Steam slab (the
+     Global list painted #0e141b over the glass) */
+  & %{AchievementTabs} %{*ListTitle>AchievementList} {
+    padding-left: 72px;
+    padding-right: 72px;
+    background: none;
+  }
+  /* Global: Steam's 68 px slots at a 76 px pitch; the share in Footnote
+     Semibold (Steam's 14 px failed G-TYPE) */
+  & %{*AchievementList>GlobalAchievementListItem} %{*AchievementList>Percent} {
+    font: var(--lgs-type-footnote);
+    font-weight: 600;
+    line-height: 24px;
+  }
+  /* Steam's Global row rules are deeper (16 / 12 px), so the row's own
+     path; the description white (white .70 on the rarity fill measured
+     3.9:1 over a bright room) */
+  & %{*AchievementList>GlobalAchievementListItem} %{*AchievementList>Info} %{*AchievementList>Title} {
+    font: var(--lgs-type-headline);
+    line-height: 28px;
+    color: var(--lgs-text-1);
+  }
+  & %{*AchievementList>GlobalAchievementListItem} %{*AchievementList>Info} %{*AchievementList>Description} {
+    font: var(--lgs-type-subhead);
+    line-height: 24px;
+    color: var(--lgs-text-1);
+  }
   & :is(%{*AchievementList>AchievementListItemBase}, %{*AchievementList>GlobalAchievementListItem}) {
-    min-height: 96px;
+    min-height: 0;
     border-radius: 24px;
+  }
+  & :is(%{*AchievementList>AchievementListItemBase}, %{*AchievementList>GlobalAchievementListItem}) > %{*AchievementList>Container} {
+    box-sizing: border-box;
+    height: 100%;
+    padding: 8px 16px;
+    gap: 16px;
+    align-items: center;
+  }
+  /* the rarity line ("60.6% of players ...") trails under the unlock date,
+     so the text column holds two lines in the 80 px slot */
+  & %{*AchievementList>Container}:has(%{*AchievementList>InBody}) > %{*AchievementList>Right} {
+    align-self: flex-start;
+    min-width: 340px;
+    margin-top: 10px;
+    text-align: right;
+  }
+  & %{*AchievementList>AchievementGlobalPercentage}%{*AchievementList>InBody} {
+    position: absolute;
+    right: 16px;
+    bottom: 12px;
+    max-width: 340px;
+    align-items: flex-end;
+    text-align: right;
+    white-space: nowrap;
   }
   & %{AchievementIconWrapper},
   & %{AchievementIconWrapper} img {
@@ -1409,9 +1516,11 @@
   }
   & :is(%{*AchievementList>AchievementTitle}, %{*AchievementList>Title}) {
     font: var(--lgs-type-headline);
+    line-height: 28px;
   }
   & :is(%{*AchievementList>AchievementDescription}, %{*AchievementList>Description}) {
     font: var(--lgs-type-subhead);
+    line-height: 24px;
   }
   & %{*AchievementList>UnlockDate} {
     font: var(--lgs-type-subhead);
@@ -1420,10 +1529,14 @@
   & %{*AchievementList>AchievementGlobalPercentage} {
     font: var(--lgs-type-footnote);
   }
+  /* Steam's 25 px slot between two rows: the label fills it, inset like
+     the row text (a margin pushed it 20 px into the next row) */
   & %{*AchievementList>ListTitle} {
-    margin-top: 16px;
+    margin: 0;
+    padding: 0 0 0 16px;
     font: var(--lgs-type-callout);
     font-weight: 600;
+    line-height: 25px;
     color: var(--lgs-text-2);
     text-transform: none;
     letter-spacing: 0;
@@ -1435,10 +1548,25 @@
     text-transform: none;
     letter-spacing: 0;
   }
-  /* My / Global: a 64 px track of 60 px segments, arrows paired after it */
+  /* My / Global: a 64 px track of 60 px segments, arrows paired after it.
+     The tab page is 96 px shorter than the window (Steam's: 40), so at the
+     page's full scroll its top is y 96 and the track pins at y 116 under
+     the toolbar row, as on the game page (GP §3.3). The list inside keeps
+     Steam's 680 px viewport, so its windowed rows are the same as stock's;
+     the page clips the 56 px that hang below it (out of the scroll range
+     too), and the list's end padding and scroll padding keep the last row
+     and a focused row above y 612 (P-23) */
+  & %{AchievementTabs} %{GamepadTabbedPage} {
+    height: calc(100vh - 96px);
+    min-height: 0;
+    overflow: clip;
+  }
+  & %{AchievementTabs} %{TabContents} {
+    height: calc(100vh - 40px);
+  }
   & %{AchievementTabs} %{TabHeaderRowWrapper} {
-    height: 80px;
-    padding: 8px 40px;
+    height: 92px;
+    padding: 20px 72px 8px;
     box-sizing: border-box;
   }
   & %{AchievementTabs} %{TabRow} {
@@ -1456,6 +1584,9 @@
     border-radius: 32px;
     background: var(--lgs-fill-thick);
     box-shadow: var(--lgs-recessed-shadow);
+    /* the focused segment's glow stays inside the track (no square frame
+       from Steam's tab scroller, as on the game page) */
+    overflow: clip;
   }
   & %{AchievementTabs} %{TabRowTabs} %{TabsRowScroll} {
     -webkit-mask-image: none;
@@ -1528,6 +1659,9 @@
   }
   & %{AchievementTabs} %{TabContentsScroll} {
     padding-top: 92px;
+    padding-bottom: 168px;
+    scroll-padding-top: 100px;
+    scroll-padding-bottom: 168px;
   }
 }
 
@@ -1621,7 +1755,7 @@
     background: var(--lgs-fill-nav) !important;
   }
   & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}%{PagedSettingsDialog_PageList_ShowTitle>Active}::before {
-    background: radial-gradient(42% 3px at 30% calc(var(--lgs-row-gap) / 2 + 3px), rgb(255 255 255 / .45), rgb(255 255 255 / 0)) no-repeat;
+    background: radial-gradient(22% 2px at 34% calc(var(--lgs-row-gap) / 2 + 2px), rgb(255 255 255 / .45), rgb(255 255 255 / 0)) no-repeat;
   }
   & %{PagedSettingsDialog_PageList_ShowTitle>PagedSettingsDialog_PageListItem}%{PagedSettingsDialog_PageList_ShowTitle>DisabledItem} {
     color: var(--lgs-text-disabled) !important;
@@ -1703,6 +1837,28 @@
   }
 
   /* ---- page widgets -------------------------------------------------- */
+  /* R2 fix 1: every Properties page at visionOS sizes, not only General
+     (G-SIZE P-08 / P-80 / P-83, G-TYPE, G-OUTLINE P-42 / P-43, AUD). The
+     content pane is 120 px narrower than stock (SET's 400 px sidebar), so
+     rows grow in height and text in size to keep every box's area. */
+
+  /* descriptions that wrap are body text: Callout 22 (P-38); C4a's row
+     primitive sets 20, so the same weight of selector, later in the bundle */
+  & %{*GamepadDialogContent>Field} %{*GamepadDialogContent>FieldDescription} {
+    font: var(--lgs-type-callout);
+  }
+  /* a page's own paragraphs (Steam's classless text blocks in the dialog
+     body: Controller's Steam Input note, Betas' access-code note): Callout,
+     white (Steam's 14 px grey fell to 2.8:1 over a bright room) */
+  & .DialogBody > div:not([class]) {
+    font: var(--lgs-type-callout);
+    color: var(--lgs-text-1);
+  }
+  /* "(Selected by Valve testing for this title)": Steam's dim grey fell to
+     3.5:1 over a bright room (AUD CONTRAST) */
+  & %{SecondaryText} {
+    color: var(--lgs-text-1);
+  }
 
   /* General: launch-options detail line */
   & %{Detail} {
@@ -1710,40 +1866,94 @@
     color: var(--lgs-text-2);
   }
 
-  /* Compatibility: the "Override ARM translation" checkbox block */
+  /* Compatibility: the "Override ARM translation" checkbox as an 80 px
+     capsule row, 8 px clear of the field above (P-08, P-80, P-83) */
   & .DialogCheckbox_Container%{ThrobberContainer>Checkbox} {
+    box-sizing: border-box;
+    min-height: 80px;
+    margin-top: 8px;
+    padding: 8px 24px;
+    align-items: center;
     background-color: var(--lgs-fill-1);
-    border-radius: var(--lgs-r-card);
+    border-radius: 40px;
     box-shadow: none;
   }
+  & .DialogCheckbox_Container%{ThrobberContainer>Checkbox} :is(.DialogToggle_Label, .DialogToggle_Label span) {
+    font: var(--lgs-type-body);
+    color: var(--lgs-text-1);
+  }
 
-  /* Updates: build info line */
-  & %{BuildInfo} {
+  /* Updates: build info lines; the pop-up's "Use global setting" prefix */
+  & %{BuildInfo},
+  & %{BuildInfo} > div {
+    font: var(--lgs-type-subhead);
     color: var(--lgs-text-2);
+  }
+  & %{DefaultOptionText} {
+    color: var(--lgs-text-1);
   }
 
   /* Installed Files: size readout */
   & %{BrowseDiskSizeLabel} {
+    font: var(--lgs-type-callout);
     color: var(--lgs-text-2);
   }
   & %{BlueHighlight}%{BrowseDiskSize} {
+    font: var(--lgs-type-callout);
+    font-weight: 600;
     color: var(--lgs-text-1);
   }
 
-  /* Game Versions & Betas: a grouped table card */
+  /* Game Versions & Betas: a column header row and one 80 px row per beta,
+     8 px apart, each its own rounded fill (no 1 px rules: P-43). The radio
+     is Steam's own input drawn as an 80 px round target with a check on
+     the selected beta (never pressed by the lab) */
   & %{BetaHeaderRow} {
-    background: var(--lgs-fill-2);
-    border-radius: var(--lgs-r-row) var(--lgs-r-row) 0 0;
+    box-sizing: border-box;
+    height: auto;
+    min-height: 80px;
+    margin-bottom: 8px;
+    padding: 0;
+    align-items: stretch;
+    background: none;
+    border-radius: 0;
+  }
+  & %{BetaHeaderRow} > * {
+    box-sizing: border-box;
+    min-height: 80px;
+    display: flex;
+    align-items: center;
+    border-radius: 40px;
+    font: var(--lgs-type-footnote);
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0;
     color: var(--lgs-text-2);
+  }
+  /* no scroller shadow (Steam's inset top shade drew a dark box behind the
+     first row's corners) */
+  & %{BetasTable} {
+    gap: 8px;
+    border: 0 none;
+    background: none;
+    box-shadow: none;
+  }
+  & %{BetaRow} {
+    box-sizing: border-box;
+    flex: 0 0 auto;
+    height: auto;
+    min-height: 80px;
+    align-items: stretch;
+    border-radius: var(--lgs-r-row);
   }
   & %{BetaRow}:is(%{EvenRow}, %{OddRow}) {
     background: var(--lgs-fill-1);
     color: var(--lgs-text-1);
-    box-shadow: inset 0 -1px 0 var(--lgs-separator);
+    box-shadow: none;
     transition: background-color var(--lgs-motion-hover-in);
   }
   & %{BetaRow}:is(%{EvenRow}, %{OddRow}):last-child {
-    border-radius: 0 0 var(--lgs-r-row) var(--lgs-r-row);
+    border-radius: var(--lgs-r-row);
     box-shadow: none;
   }
   & %{BetaRow}:is(%{EvenRow}, %{OddRow}):hover {
@@ -1755,60 +1965,212 @@
   & %{BetaRow}:is(.gpfocus, .gpfocuswithin) {
     background: var(--gp-focus-fill) !important;
   }
-  & %{BetaRow} %{DescText} {
-    color: var(--lgs-text-2);
+  /* cells: no rules of Steam's (its blue mark on the selected row's first
+     cell bent into an arc on the round cell); the check is the mark */
+  & %{BetaRow} > * {
+    box-sizing: border-box;
+    min-height: 80px;
+    display: flex;
+    align-items: center;
+    border: 0 none;
+    border-radius: 40px;
+    box-shadow: none;
   }
-  & %{BetaRow}:is(.gpfocus, .gpfocuswithin) %{DescText} {
+  & :is(%{BetaRow}, %{BetaHeaderRow}) > %{BetaRadioButton} {
+    flex: 0 0 80px;
+    width: 80px;
+    justify-content: center;
+  }
+  & %{BetasTable} %{BetaRow} > %{BetaRadioButton} {
+    border: 0 none;
+  }
+  & :is(%{BetaRow}, %{BetaHeaderRow}) > %{BetaName} {
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 2px;
+    padding: 8px 16px 8px 4px;
+  }
+  & :is(%{BetaRow}, %{BetaHeaderRow}) > %{BetaLastUpdated} {
+    flex: 0 0 auto;
+    min-width: 160px;
+    justify-content: flex-end;
+    padding: 0 24px 0 8px;
+    text-align: right;
+  }
+  & %{BetaRow} > %{BetaLastUpdated} {
+    font: var(--lgs-type-subhead);
     color: var(--lgs-text-1);
   }
+  & %{BetaRow} %{NameText} {
+    font: var(--lgs-type-body);
+    font-weight: 600;
+    color: var(--lgs-text-1);
+  }
+  /* secondary lines stay white: on the lit or selected fill, white .70
+     measured 3.7:1 over a bright room (AUD CONTRAST) */
+  & %{BetaRow} %{DescText} {
+    font: var(--lgs-type-subhead);
+    color: var(--lgs-text-1);
+  }
+  & %{BetaRadioButton} input {
+    -webkit-appearance: none;
+    appearance: none;
+    flex: none;
+    box-sizing: border-box;
+    width: 80px;
+    height: 80px;
+    margin: 0;
+    border: 0 none;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgb(255 255 255 / .16) 0 13px, rgb(255 255 255 / 0) 14px);
+    outline: none;
+  }
+  & %{BetaRadioButton} input:checked {
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28'%3E%3Ccircle cx='14' cy='14' r='14' fill='%23fff' fill-opacity='.94'/%3E%3Cpath d='M8.2 14.4l3.8 3.8 7.8-8.2' fill='none' stroke='%230d0e12' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 28px 28px no-repeat;
+  }
   & %{BetaLabel} {
+    font: var(--lgs-type-subhead);
     color: var(--lgs-text-2);
   }
 
-  /* Controller: Steam Input status grid */
+  /* Controller: the Steam Input text block and status grid at Callout and
+     Subheadline, white (Steam's 14 px grey fell to 2.8:1 over a bright room) */
+  & %{TopGap},
+  & %{TopGap}%{SteamInputStatus} {
+    font: var(--lgs-type-callout);
+    color: var(--lgs-text-1);
+  }
   & %{SteamInputStatusGrid} {
+    padding: 8px 20px;
+    row-gap: 4px;
     background: var(--lgs-fill-1);
     border-radius: var(--lgs-r-card);
     box-shadow: none;
   }
+  & %{SteamInputStatusGrid} :is(%{ThrobberContainer>Controller}, %{SteamInputStatus}, span) {
+    font: var(--lgs-type-subhead);
+    line-height: 30px;
+  }
+  /* names and statuses white: Steam's grey ", SteamOS Default" fell to
+     2.3:1 over a bright room */
+  & %{SteamInputStatusGrid} :is(%{ThrobberContainer>Controller}, span) {
+    color: var(--lgs-text-1);
+  }
   & %{SteamInputLink} {
+    font: inherit;
     color: var(--lgs-text-1);
     text-decoration: underline;
     text-decoration-color: var(--lgs-text-3);
-    text-underline-offset: 2px;
+    text-underline-offset: 3px;
   }
 
-  /* DLC: one grouped table card */
+  /* DLC: a platter holding Steam's grid; header and rows 80 px (the header
+     cells are 80 px targets, title case), cells round (P-83) and clear, the
+     focused one lit; the name link fills its cell */
   & %{DlcGrid} {
+    grid-auto-rows: minmax(80px, auto);
+    row-gap: 4px;
+    column-gap: 4px;
+    padding: 8px;
+    border: 0 none;
     background: var(--lgs-fill-1);
-    border-radius: var(--lgs-r-card);
+    border-radius: var(--lgs-r-platter);
     box-shadow: none;
   }
+  & %{DlcGrid} > * {
+    box-sizing: border-box;
+    min-height: 80px;
+    border-radius: 40px;
+  }
+  /* the header cells sit in Steam's max-content first track (sticky) */
   & %{DlcHeader} {
-    background: var(--lgs-fill-2);
+    box-sizing: border-box;
+    height: auto;
+    min-height: 80px;
+    padding: 0 12px;
+    border-radius: 40px;
+    background: none;
+    font: var(--lgs-type-footnote);
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0;
     color: var(--lgs-text-2);
+  }
+  & %{Install} {
+    min-width: 80px;
+  }
+  & %{DlcGrid} [role="cell"]:has(> a.Focusable) {
+    padding-block: 0;
+  }
+  & %{DlcGrid} a.Focusable {
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    height: auto;
+    min-height: 80px;
+    border-radius: 40px;
+    text-decoration: none;
+  }
+  & %{DlcGrid} %{ThrobberContainer>Name} {
+    align-items: center;
+    height: auto;
+    gap: 16px;
+    padding: 0 16px 0 8px;
   }
   & %{DlcArt}%{DLCArt},
   & %{DlcArt}%{DLCArt} img {
     border-radius: var(--lgs-r-small);
   }
+  & %{DlcGrid} %{NameText} {
+    font: var(--lgs-type-callout);
+    color: var(--lgs-text-1);
+    text-decoration: none;
+  }
   & :is(%{Added}, %{SizeDisk}) {
+    padding: 0 8px;
+    font: var(--lgs-type-subhead);
     color: var(--lgs-text-2);
   }
+  & %{SizeDisk} .tool-tip-source {
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    min-width: 80px;
+    min-height: 80px;
+    border-radius: 40px;
+  }
 
-  /* Privacy: DLC visibility list */
+  /* Privacy: the DLC visibility rows, each an 80 px rounded row, 8 px apart */
   & %{PrivacyDLCDescription} {
+    font: var(--lgs-type-callout);
     color: var(--lgs-text-2);
   }
   & %{PrivacyDLCList} {
+    background: none;
+  }
+  & %{PrivacyDLCRow} {
+    margin-top: 8px;
+    border-radius: var(--lgs-r-row);
     background: var(--lgs-fill-1);
-    border-radius: var(--lgs-r-card);
+    box-shadow: none;
   }
   & %{PrivacyDLCRow} + %{PrivacyDLCRow} {
-    box-shadow: inset 0 1px 0 var(--lgs-separator);
+    box-shadow: none;
+  }
+  & %{DLCTitleArea} {
+    box-sizing: border-box;
+    min-height: 80px;
+    align-items: center;
+    border-radius: 40px;
   }
   & %{DLCTitleArea} img {
     border-radius: var(--lgs-r-small);
+  }
+  & %{DLCTitleArea} %{NameText} {
+    font: var(--lgs-type-callout);
+    color: var(--lgs-text-1);
   }
 
   /* Workshop: subscribed item rows (look only; Unsubscribe never pressed) */

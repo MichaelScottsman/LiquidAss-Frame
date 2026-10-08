@@ -190,8 +190,9 @@ function gpSample(S, img) {
       a.sort(function (p, q) { return p - q; });
       return a[Math.min(a.length - 1, Math.floor(a.length * 0.95))];
     }
-    var text = p95(40, 244, 620, 390);     // chip, stats line (labels white .80)
-    var ctl = p95(432, 448, 718, 612);     // Steam Input label, tab labels (white .96 on white .12)
+    // window px; the hero column starts at x 104 (theme --gp-col, VP P-29)
+    var text = p95(104, 244, 684, 390);    // chip, stats line (labels white .80)
+    var ctl = p95(496, 448, 782, 612);     // Steam Input label, tab labels (white .96 on white .12)
     var tool = Math.max(p95(24, 24, 84, 84), p95(380, 24, 900, 84)); // Back, search glyphs (3:1)
     return {
       dimL: gpSolve(text, 0.80, 0, 4.5, 0.40),

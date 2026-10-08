@@ -112,7 +112,7 @@ Part of the Frame's interface is drawn by SteamVR, not Steam: `vrwebhelper` page
 - `vr:` steps use their own device lock (`lab-vr.lock`), so they don't wait on Steam route captures.
   - `--theme on` themes only the SteamVR pages.
   - `--theme off` stops the `lgs-vr` watcher and strips them.
-- For users, `lgs on` starts the transient watcher unit `lgs-vr`, which keeps new SteamVR pages themed. It exits when the Steam side is turned off and never survives a reboot.
+- For users, `lgs on` starts the transient unit `lgs-shell` (P8), which keeps new SteamVR pages themed and runs the native layer when it is on. `lgs off` stops it at once; a theme off without `lgs off` (a lab `--stock` step) makes it dormant until the theme is back (`docs/phase2/contracts/daemon.md` §1). It never survives a reboot or a Steam restart.
 - **Now Playing only exists while a scene app runs.** The only app you may start for this is the user's own Liquid Glass Frame showcase:
   - start it with `python ../.claude/skills/run-liquid-glass-frame/driver.py start`, and only if `driver.py status` shows it isn't already running (another session may be using it)
   - stop it with `driver.py stop` when done

@@ -28,12 +28,17 @@
 /* ------------------------------------------------------------------ */
 
 %{GamepadSearch},
+.lgs-search-layer,
 .lgs-search-zero,
 .lgs-search-glass {
   --lgs-c1b-x: 160px;           /* sheet left (centred: (1280 - 960) / 2) */
-  --lgs-c1b-y: 100px;           /* 14 px under the 64 px field (22-86) */
+  --lgs-c1b-y: 108px;           /* PLAN §1.12 [R2-6]: sheets from y 108,
+                                   under the toolbar row (the field ends
+                                   at 86) */
   --lgs-c1b-w: var(--lgs-sheet-max-w, 960px);
-  --lgs-c1b-h: 500px;           /* bottom at 600, ornament from 628 */
+  --lgs-c1b-h: 488px;           /* R2-6: <= 488 on `window` routes; bottom
+                                   596, centre y 352 (P-35: 24 px of the
+                                   glass centre 328); ornament from 628 */
   --lgs-c1b-bar: 96px;          /* scope bar band: 16 + 64 track + 16 */
   --lgs-c1b-pad: 14px;          /* results inset: WN's 32 would cut Steam's
                                    five columns to 170 px (AUD SHRUNK < .85);
@@ -91,8 +96,11 @@
   box-shadow: var(--lgs-mat-thick-shade), var(--lgs-shadow-10mm);
   --lgs-edge: thick;
   --lgs-edge-z: 3;
-  /* present (MO §4.8): sheet-in 735, scale .97 -> 1 from the field */
+  /* present (MO §4.8): sheet-in 735 from the field; the swell starts at
+     .985, not the preset's .97: the sheet is 960 wide, and VP P-53 allows a
+     surface wider than 600 px no scale change over 1.5 % */
   transform-origin: 50% 0;
+  --lgs-sheet-s0: .985;
   animation: lgs-sheet-in var(--lgs-motion-sheet-in, 735ms linear) backwards;
 }
 %{GamepadSearch} > %{GamepadTabbedPage} > *,
@@ -107,10 +115,14 @@
 /* the pinned band: the sheet's own top, no slab and no blur (no glass on
    glass, P-45); results fade out under it through the scroller's mask */
 %{GamepadSearch} %{TabHeaderRowWrapper} {
+  box-sizing: border-box;
   height: var(--lgs-c1b-bar);
   left: 0;
   right: 0;
   width: auto;
+  padding: 0 !important;        /* Steam's 36 px side padding would put
+                                   the arrows 36 px inside the sheet and
+                                   leave the track 728 px (review R2 M1) */
 }
 %{GamepadSearch} %{TabHeaderRowWrapper}::before {
   background: none !important;
@@ -184,7 +196,7 @@
    labels, 16 px padding; E-SEG compact: ≥ 120 wide), because six regular
    ones (≥ 140) do not fit the 800 px between the arrows. 60 tall in the 64
    track (PLAN §1.3: 56-60), sized to their content and never shrunk, so a
-   count always sits 6 px after its own label and 32 px before the next one.
+   count always sits 8 px after its own label and 32 px before the next one.
    Each segment is the containing block of its own light (P4's --lgs-ill
    ::after, tokens.md §3.2). T2 tags them data-lgs-exempt="E-SEG". */
 %{GamepadSearch} %{GamepadTabbedPage>Tab} {
@@ -194,7 +206,7 @@
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 8px;
   height: 60px !important;
   max-height: none !important;
   min-width: 120px;
@@ -222,6 +234,7 @@
   text-transform: none;
   letter-spacing: 0;
   color: inherit;
+  margin: 0;                    /* Steam's 8 px; the segment's gap sets it */
 }
 %{GamepadSearch} %{GamepadTabbedPage>Tab} %{TabCount} {
   font: 500 20px/1 var(--lgs-font);
@@ -252,6 +265,10 @@
   background-color: var(--lgs-selected-fill) !important;
   color: var(--lgs-text-on-selected) !important;
   --lgs-ill: white;
+  /* the segment's own outer glow under P4's: on the sheet's dark frost
+     the hook's glow alone measured +19.5 L in the P-16 band (needs +20);
+     blurred, never a ring (P-17, P-42) */
+  box-shadow: var(--lgs-white-glow, 0 0 22px 8px rgb(255 255 255 / .55)) !important;
 }
 &:not(.lgs-input-laser) %{GamepadSearch} %{GamepadTabbedPage>Tab}.gpfocus %{TabCount} {
   color: var(--lgs-text-on-selected-2) !important;
@@ -422,28 +439,50 @@
 .lgs-search-glass[data-lgs-search-state="zero"] {
   scale: calc(880 / 960) 1;
   border-radius: calc(var(--lgs-r-sheet, 44px) * 960 / 880) / var(--lgs-r-sheet, 44px);
-  --lgs-sheet-s0: calc(.97 * 880 / 960) .97;
+  --lgs-sheet-s0: calc(.985 * 880 / 960) .985;
 }
-/* the page you left: a decorative clone, never focused, never clicked */
-.lgs-snap {
+/* the page you left: a decorative clone, never focused, never clicked.
+   In-page backdrop-filter does not frost on the device (C1c's M2-open
+   finding; probe: brightness(.15) in the sheet's backdrop-filter left the
+   page behind untouched), so the frost is drawn: the picture itself is
+   blurred and darkened (static, one layer: the cheap way, G-PERF), and a
+   second, sharp copy (.lgs-snap-sharp) lies over it everywhere except
+   under the sheet's rounded rect. The page you were on stays sharp under
+   the .35 scrim (WN §4.2, review R2 m2), and only what lies behind the
+   sheet is frosted. */
+.lgs-snap,
+.lgs-snap-sharp {
   position: absolute;
   inset: 0;
   z-index: 0;
-  /* in-page backdrop-filter does not frost on the device (C1c's M2-open
-     finding; probe here: brightness(.15) in the sheet's backdrop-filter
-     left the page behind untouched), so the picture itself is softened:
-     static, drawn once while the sheet is open */
-  filter: blur(14px) saturate(1.15);
   isolation: isolate;     /* its own stacking context: Steam's z-indexed
                              rows inside the clone stay under the scrim */
   overflow: hidden;
   pointer-events: none;
 }
-.lgs-snap > * {
+.lgs-snap {
+  filter: blur(14px) saturate(1.15) brightness(.8);
+}
+.lgs-snap > *,
+.lgs-snap-sharp > * {
   position: absolute !important;
   inset: 0;
   animation: none !important;
   transition: none !important;
+}
+/* the hole under the sheet: the glass's own rect (zero 880 at x 200,
+   results 960 at x 160), radius 44 */
+.lgs-search-layer > .lgs-snap-sharp,
+.lgs-search-layer:has(> .lgs-search-glass[data-lgs-pop]) > :is(.lgs-snap, .lgs-search-scrim) {
+  -webkit-mask:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 960 488' preserveAspectRatio='none'><rect width='960' height='488' rx='44' ry='44'/></svg>") var(--lgs-c1b-cut-x, var(--lgs-c1b-x)) var(--lgs-c1b-y) / var(--lgs-c1b-cut-w, var(--lgs-c1b-w)) var(--lgs-c1b-h) no-repeat,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+.lgs-search-layer:has(> .lgs-search-glass[data-lgs-search-state="zero"]) {
+  --lgs-c1b-cut-x: 200px;
+  --lgs-c1b-cut-w: 880px;
 }
 .lgs-search-scrim {
   position: absolute;
@@ -455,32 +494,67 @@
 .lgs-search-zero {
   font-family: var(--lgs-font);
 }
+/* The sheet's glass (CSS-only): over the frosted picture, on ::after, the
+   thick tint (denser under text than the preset alone) and the material's
+   inner shade; the E3 edge on ::before (z 3). */
 .lgs-search-glass {
   z-index: 2;
   pointer-events: none;
-  /* a denser tint under text than the thick preset alone (.30-.50): the
-     CSS-only sheet cannot frost what is behind it (see .lgs-snap) */
-  background: linear-gradient(rgb(26 28 36 / .34), rgb(26 28 36 / .34)), var(--lgs-mat-thick-bg);
+  isolation: isolate;
+  background: none;
+  backdrop-filter: none;
+  box-shadow: var(--lgs-shadow-10mm);
 }
+.lgs-search-glass::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  background: linear-gradient(rgb(26 28 36 / .34), rgb(26 28 36 / .34)), var(--lgs-mat-thick-bg);
+  box-shadow: var(--lgs-mat-thick-shade);
+  pointer-events: none;
+}
+/* Native mode, once glassd acknowledges the sheet's pop (the reporter's
+   data-lgs-pop on the glass, theme/layers/21-search.json): glassd's thick
+   slab is the glass, its shadow and its edge. The crop must carry only the
+   sheet's content over that slab (review R2 M6), so the tint and the
+   shadow go, and the picture and the scrim are cut out under the sheet's
+   rounded rect too (above): under the crop the base shows glassd's hole,
+   filled with the scrim's tone ("fill": "scrim", PLAN §1.8). An
+   unacknowledged sheet keeps the CSS look. */
 .lgs-search-glass[data-lgs-pop] {
-  background: none;     /* glassd's thick slab is the glass in native mode */
-  box-shadow: none;     /* and carries the shadow */
-  --lgs-edge: none;     /* and the edges (material, not CSS) */
+  box-shadow: none;
+  --lgs-edge: none;
+}
+.lgs-search-glass[data-lgs-pop]::after {
+  display: none;
 }
 
 /* Dismiss (WN §4.9, PLAN §1.5: inside Steam's ≤ 200 ms exit; content
    before glass). Steam keeps the search route mounted for its own exit
    transition (0.8-1.1 s after B), and the picture layer lives outside the
    route, so 21-search.js sets html.lgs-c1b-leaving on the history event
-   that leaves /search: the content fades out in 100 ms, then the glass, the
-   scrim and the picture in 150 ms (page-out, linear), all done by 200 ms.
-   Under Reduce Motion these are already fades of <= 200 ms. */
+   that leaves /search: the content fades out on page-out (150 ms,
+   linear) at once, the glass and the scrim on page-out after the page
+   delay (40 ms), so content leads glass and the sheet is gone by 190 ms
+   (tokens only, P-58). The picture of the page stays: the real page comes
+   back under it (Steam's route transition paints it above this layer) and
+   is the same picture, so nothing blinks between the sheet leaving and the
+   page returning; the layer goes when the route unmounts. Under Reduce
+   Motion these are already fades of <= 200 ms. */
 &.lgs-c1b-leaving .lgs-search-zero,
 &.lgs-c1b-leaving %{GamepadSearch} > %{GamepadTabbedPage} > * {
-  animation: lgs-fade-out 100ms linear forwards !important;
+  animation: lgs-fade-out var(--lgs-motion-page-out, 150ms linear) forwards !important;
 }
-&.lgs-c1b-leaving .lgs-search-layer {
-  animation: lgs-fade-out var(--lgs-motion-page-out, 150ms linear) 50ms forwards;
+&.lgs-c1b-leaving .lgs-search-layer > :is(.lgs-search-scrim, .lgs-search-glass) {
+  animation: lgs-fade-out var(--lgs-motion-page-out, 150ms linear) var(--lgs-delay-page, 40ms) forwards;
+}
+/* zero state -> results: the zero state's content stays for the cross-fade
+   (21-search.js keeps it 200 ms as .is-out) while Steam's page fades in */
+.lgs-search-zero.is-out {
+  pointer-events: none;
+  animation: lgs-fade-out var(--lgs-motion-page-out, 150ms linear) forwards !important;
 }
 /* Zero state -> results (the first keystroke): the sheet is already
    presented, so Steam's page does not present it again (no second
@@ -508,10 +582,11 @@
   padding: 28px 40px 32px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 14px;
   color: var(--lgs-text-1);
 }
 .lgs-search-h {
+  align-self: flex-start;      /* as wide as its text (G-MOCK rects) */
   margin: 0;
   font: 700 28px/1.2 var(--lgs-font);
   letter-spacing: -.01em;
@@ -529,9 +604,13 @@
 .lgs-search-row[data-lgs-search="recent"] {
   gap: 0;
 }
+.lgs-search-row[data-lgs-search="recent-search"] {
+  align-self: flex-start;      /* the row hugs its capsules */
+}
 .lgs-search-game {
   box-sizing: border-box;
   width: 160px;
+  height: 180px;               /* the whole cell is the target (WN §4.5) */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -556,7 +635,7 @@
 &:not(.lgs-input-laser) .lgs-search-game.gpfocus .lgs-search-disc,
 &.lgs-input-laser .lgs-search-game:is(.lgs-dwell:hover, .lgs-attend-80) .lgs-search-disc,
 &:not(.lgs-input-laser):not(.lgs-input-pad) .lgs-search-game:hover .lgs-search-disc {
-  scale: 1.10;
+  scale: var(--lgs-disc-lift, 1.10);
   box-shadow: 0 6px 18px rgb(0 0 0 / .40), 0 0 26px 2px rgb(255 255 255 / .22), inset 0 1.5px 1.5px -1px rgb(255 255 255 / .45);
 }
 &:not(.lgs-input-laser) .lgs-search-game.gpfocus .lgs-search-disc {
@@ -602,7 +681,7 @@
   box-sizing: border-box;
   display: inline-flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   height: 60px;
   padding: 0 24px;
   border-radius: var(--lgs-r-capsule, 999px);
@@ -644,6 +723,310 @@
   color: var(--lgs-text-2);
 }
 
+/* ------------------------------------------------------------------ */
+/* 5. The All summary (21-search.js LgsAll; WN §4.6, Q6)                */
+/*    In Steam's own scroller under the scope bar. Row 1: the Top Hit   */
+/*    (372 x 170) and Steam's next library matches as posters           */
+/*    (113 x 170). Row 2: the Software cell (300 x 84, providers), then  */
+/*    "Store (N)" over Steam's own first store tiles and See All. Below: */
+/*    the other library matches and friends, in Steam's own grid.        */
+/* ------------------------------------------------------------------ */
+
+.lgs-all {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 0 18px 30px;        /* + the scroller's 14: content inset 32;
+                                  the first row 96 under the sheet's top */
+  font-family: var(--lgs-font);
+  color: var(--lgs-text-1);
+}
+.lgs-all-anchor {
+  display: none;
+}
+.lgs-all-row1 {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  min-height: 204px;           /* 170 cards; the attended poster's name
+                                  and status hang under it into the row
+                                  gap (to 220) */
+}
+.lgs-all-row2 {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+.lgs-all-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+/* Title 3 section headers: Steam's own strings with Steam's counts */
+.lgs-all-h {
+  align-self: flex-start;
+  margin: 0;
+  font: 600 28px/1.25 var(--lgs-font);
+  letter-spacing: -.01em;
+  color: var(--lgs-text-1);
+  white-space: nowrap;
+}
+
+/* content cards: opaque art, never glass (P-45); the sheen at once on
+   attention (--lgs-ill: card), the x1.05 lift and its contact shadow on
+   gamepad focus or after the 80 ms laser dwell (--lgs-lift, P-06) */
+.lgs-all-hit,
+.lgs-all-poster {
+  position: relative;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  outline: none;
+  --lgs-ill: card;
+  scale: calc(1 + (var(--lgs-card-lift, 1.05) - 1) * var(--lgs-lift, 0));
+  box-shadow: 0 calc(6px + 8px * var(--lgs-lift, 0)) calc(18px + 14px * var(--lgs-lift, 0)) rgb(0 0 0 / calc(.30 + .16 * var(--lgs-lift, 0)));
+  transition: scale var(--lgs-motion-snappy, 488ms ease), box-shadow var(--lgs-motion-snappy, 488ms ease);
+}
+.lgs-all-hit {
+  margin-right: 8px;           /* 24 to the first poster, 16 between them */
+  width: 372px;
+  height: 170px;
+  border-radius: var(--lgs-r-card, 20px);
+  overflow: hidden;
+  background: rgb(255 255 255 / .06);
+}
+.lgs-all-poster {
+  width: 113px;
+  height: 170px;
+  border-radius: 16px;
+  background: rgb(255 255 255 / .06);
+}
+.lgs-all-art {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+.lgs-all-art img.lgs-all-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.lgs-all-art img.lgs-all-logo {
+  display: none;               /* the Top Hit names itself in Title 3 */
+}
+.lgs-all-mono {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 10px;
+  box-sizing: border-box;
+  text-align: center;
+  font: 600 20px/1.2 var(--lgs-font);
+  color: var(--lgs-text-1);
+  background: linear-gradient(160deg, #3b4a63, #1a2232);
+}
+/* the Top Hit: a scrim under its text, the tag, the name, Steam's status
+   and Open (a fill drawn on the card: the card is the one target) */
+.lgs-all-hit::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(0deg, rgb(0 0 0 / .66), rgb(0 0 0 / .05) 62%);
+}
+.lgs-all-tag {
+  position: absolute;
+  left: 14px;
+  top: 14px;
+  z-index: 2;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 15px;
+  display: grid;
+  place-items: center;
+  background: rgb(0 0 0 / .45);
+  font: 600 18px/1 var(--lgs-font);
+  color: var(--lgs-text-1);
+}
+.lgs-all-hit-name {
+  position: absolute;
+  left: 18px;
+  bottom: 40px;
+  z-index: 2;
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font: 600 28px/1.15 var(--lgs-font);
+  letter-spacing: -.01em;
+  color: var(--lgs-text-1);
+}
+.lgs-all-hit-status {
+  position: absolute;
+  left: 18px;
+  bottom: 14px;
+  z-index: 2;
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font: 500 18px/1.3 var(--lgs-font);
+  color: rgb(255 255 255 / .82);
+}
+.lgs-all-open {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 2;
+  height: 60px;
+  padding: 0 24px;
+  box-sizing: border-box;
+  border-radius: var(--lgs-r-capsule, 999px);
+  display: grid;
+  place-items: center;
+  background: rgb(255 255 255 / .24);
+  font: 600 24px/1 var(--lgs-font);
+  color: var(--lgs-text-1);
+  pointer-events: none;
+}
+/* posters: art only at rest; the attended poster shows its name and
+   Steam's status under it (DESIGN2 §7.8), keyed on the input mode */
+.lgs-all-poster-name,
+.lgs-all-poster-status {
+  position: absolute;
+  left: 50%;
+  translate: -50% 0;
+  width: 160px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--lgs-motion-fade, 441ms linear);
+}
+.lgs-all-poster-name {
+  top: 174px;
+  font: 600 20px/1.2 var(--lgs-font);
+  color: var(--lgs-text-1);
+}
+.lgs-all-poster-status {
+  top: 198px;
+  font: 500 18px/1.2 var(--lgs-font);
+  color: var(--lgs-text-2);
+}
+&:not(.lgs-input-laser) .lgs-all-poster.gpfocus > :is(.lgs-all-poster-name, .lgs-all-poster-status),
+&.lgs-input-laser .lgs-all-poster:is(.lgs-dwell:hover, .lgs-attend-80) > :is(.lgs-all-poster-name, .lgs-all-poster-status),
+&:not(.lgs-input-laser):not(.lgs-input-pad) .lgs-all-poster:hover > :is(.lgs-all-poster-name, .lgs-all-poster-status) {
+  opacity: 1;
+}
+/* a program as the Top Hit (S-A) and the Software cell (S-B): a fill
+   inside the sheet (no glass on glass), the program's icon on a disc */
+.lgs-all-prog,
+.lgs-all-soft {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  align-content: center;
+  column-gap: 14px;
+  box-sizing: border-box;
+  background: rgb(255 255 255 / .10);
+  color: var(--lgs-text-1);
+  outline: none;
+}
+.lgs-all-prog {
+  padding: 0 24px;
+  column-gap: 20px;
+}
+.lgs-all-prog::before {
+  content: none;
+}
+.lgs-all-soft {
+  position: relative;
+  width: 300px;
+  height: 84px;
+  padding: 0 26px 0 14px;
+  border-radius: var(--lgs-r-capsule, 999px);  /* a text control: a capsule
+                                                   (VP P-83) */
+  --lgs-ill: raised;
+}
+.lgs-all-chip {
+  grid-row: 1 / span 2;
+  position: relative;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: rgb(255 255 255 / .11);
+}
+.lgs-all-prog .lgs-all-chip {
+  width: 96px;
+  height: 96px;
+}
+.lgs-all-chip img {
+  width: 48px;
+  height: 48px;
+  display: block;
+}
+.lgs-all-prog .lgs-all-chip img {
+  width: 80px;
+  height: 80px;
+}
+.lgs-all-chip .lgs-all-mono {
+  font-size: 26px;
+}
+.lgs-all-prog-name {
+  align-self: end;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font: 600 24px/1.25 var(--lgs-font);
+}
+.lgs-all-prog .lgs-all-prog-name {
+  font-size: 28px;
+  letter-spacing: -.01em;
+}
+.lgs-all-prog-line {
+  align-self: start;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font: 500 18px/1.3 var(--lgs-font);
+  color: var(--lgs-text-2);
+}
+/* Steam's own result grid in a run: as wide as its columns, Steam's tiles
+   and handlers inside (section 3 styles them as in Steam's grid) */
+.lgs-all-run {
+  position: relative;
+  flex: 0 0 auto;
+}
+.lgs-all-storerow {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.lgs-all-seeall {
+  flex: 0 0 auto;
+  margin-top: 11px;            /* centred on the tiles' art (82) */
+}
+.lgs-all-seeall svg {
+  width: 22px;
+  height: 22px;
+  color: var(--lgs-text-2);
+}
+
 /* Reduce Motion: fades only (MO C8) */
 @media (prefers-reduced-motion: reduce) {
   %{GamepadSearch} > %{GamepadTabbedPage},
@@ -653,8 +1036,14 @@
   }
   %{GamepadSearch} %{ResultTemplateImage},
   .lgs-search-disc,
-  .lgs-search-glass {
+  .lgs-search-glass,
+  .lgs-all-hit,
+  .lgs-all-poster {
     transition: none;      /* the 880 -> 960 morph is a cut; the content
                               cross-fade carries the change (P-56) */
+  }
+  .lgs-all-poster-name,
+  .lgs-all-poster-status {
+    transition: opacity var(--lgs-d-reduce, 180ms) linear;
   }
 }

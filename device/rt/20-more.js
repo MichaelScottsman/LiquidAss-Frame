@@ -165,6 +165,9 @@
   }
   function show(st, host, placement) {
     if (st.leaveT) { st.leaveT(); st.leaveT = null; }
+    // a new host while the circle shows (gamepad focus to the next card): it materializes again in its new
+    // place instead of jumping there (WN §7 "More circle appear": no pop-in)
+    const moved = !!(st.host && st.host !== host && st.node.classList.contains('lgs-more-show'));
     st.host = host;
     st.placement = placement;
     const doc = st.entry.doc;
@@ -178,6 +181,7 @@
     if (label) st.node.setAttribute('aria-label', label); else st.node.removeAttribute('aria-label');
     place(st);
     wireTip();
+    if (moved) { st.node.classList.remove('lgs-more-show'); void st.node.offsetWidth; S.rematerialized = (S.rematerialized || 0) + 1; }
     st.node.classList.add('lgs-more-show');
     try { RT.shell && RT.shell._setTarget(host); } catch (_) { /* shell off */ }
   }

@@ -35,7 +35,6 @@
   :where(%{BarSurfaceSection}%{LowBatteryGauge>Tabs})::before,
   :where(%{BarSurfaceSection}%{Tray})::before,
   :where(%{BarSurface}%{Bookend})::before,
-  :where(%{BasicHome})::before,
   :where(%{BasicUiRoot})::before,
   :where(%{Container>MenuButton})::before,
   :where(%{DashboardBarPopupContents})::before,
@@ -116,7 +115,6 @@
      the rim sits above it like a real rim, as Phase 1's did (z 20000) */
 /* lgs-hosts edge:window ::before begin */
   :where(.lgs-hosts-edge-window)::before,
-  :where(%{BasicHome})::before,
   :where(%{BasicUiRoot})::before,
   :where([data-lgs-mat="window"])::before
 /* lgs-hosts edge:window ::before end */
@@ -129,7 +127,7 @@
      menus have no scrim unless a dialog is .inactive below) */
   &:is(:has(.ModalOverlayContent.inactive), :has(.ModalOverlayContent.active):not(:has(.ModalOverlayContent.active .BasicUIContextMenu)))
 /* lgs-hosts edge:window where::before begin */
-:where(.lgs-hosts-edge-window, %{BasicHome}, %{BasicUiRoot}, [data-lgs-mat="window"])::before
+:where(.lgs-hosts-edge-window, %{BasicUiRoot}, [data-lgs-mat="window"])::before
 /* lgs-hosts edge:window where::before end */
   { --lgs-edge-dim: .35; }
 }
@@ -211,7 +209,6 @@
   :where(%{BarSurfaceSection}%{LowBatteryGauge>Tabs})::before,
   :where(%{BarSurfaceSection}%{Tray})::before,
   :where(%{BarSurface}%{Bookend})::before,
-  :where(%{BasicHome})::before,
   :where(%{BasicUiRoot})::before,
   :where(%{Container>MenuButton})::before,
   :where(%{DashboardBarPopupContents})::before,

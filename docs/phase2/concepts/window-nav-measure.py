@@ -87,9 +87,12 @@ def focus(path, specs):
     return ok
 
 
-def ring(path_with, path_without, x, y):
+def ring(path_with, path_without, x, y, r=40):
+    # only the neighbourhood of the pointer (r shot px; the ring is 16 CSS px = 24 shot px): the two captures
+    # also differ where the page reacted to the move (a dwelled card's light), which is not the ring
     d = np.abs(lum(path_with) - lum(path_without))
     yy, xx = np.mgrid[0:d.shape[0], 0:d.shape[1]]
+    d = d * (((xx - x) ** 2 + (yy - y) ** 2) <= r * r)
     w = d * (d >= 30)
     if w.sum() == 0:
         print('no difference between the two captures -> FAIL')

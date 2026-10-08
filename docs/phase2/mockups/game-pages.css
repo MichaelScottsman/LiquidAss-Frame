@@ -196,11 +196,11 @@
 .gp-note { position: absolute; z-index: 60; font: 600 15px/20px ui-monospace, Consolas, monospace; color: #111; background: #ffe27a;
   padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
 
-/* menus as window-nav §5.1 / PLAN §1.12: 40 px header inside the slab, Steam's Cancel as a 56 px quiet capsule
-   (white .08, Medium white .70) centred under the rows (HA-11) */
+/* menus as window-nav §5.1 / PLAN §1.12: 40 px header inside the slab, Steam's Cancel as a 60 px quiet capsule
+   (white .08, Medium white .70) centred under the rows (HA-11; PLAN R2-5: 60 visible, >= 192 wide, VP P-80) */
 .gp-menu .hdr { height: 40px; }
-.gp-menu .cancel { align-self: center; display: inline-flex; align-items: center; justify-content: center; height: 56px; padding: 0 32px; margin-top: 2px;
-  border-radius: 28px; background: rgb(255 255 255 / .08); font: 500 22px/1 var(--lg-font); color: var(--lg-text-2); }
+.gp-menu .cancel { align-self: center; display: inline-flex; align-items: center; justify-content: center; height: 60px; min-width: 192px; padding: 0 32px; margin-top: 4px; box-sizing: border-box;
+  border-radius: 30px; background: rgb(255 255 255 / .08); font: 500 22px/1 var(--lg-font); color: var(--lg-text-2); }
 .gp-menu .lgk-row.danger { font-weight: 600; }
 /* focused destructive row (as C1c's window-nav-menu.html): red .92 whole fill, dark label and glyph (CC §7), the outer
    glow for focus on a coloured fill (P-16), no white wash */

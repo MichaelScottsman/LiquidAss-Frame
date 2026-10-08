@@ -98,7 +98,7 @@
     const lens = key => (o.open === key ? '' : ' data-lens');
     const tipLabel = { playfrom: 'Play From', stop: 'Stop', manage: 'Manage', input: 'Configure Controller', vrbind: 'VR Controller Bindings' };
     const tip = key => o.tip === key ? `<div class="lgk-glass gp-tip" data-mat="thick" data-tier="P3 tooltip, data-lgs-tip=above; default profile: CSS shadow only">${tipLabel[key]}</div>` : '';
-    const slot = (key, inner) => `<span class="gp-slot" data-k="${key}">${inner}${tip(key)}</span>`;
+    const slot = (key, inner) => `<span class="gp-slot" data-k="${key}" data-id="${key}">${inner}${tip(key)}</span>`;
     const P = {
       installed: ['play', 'Play', 'play'], shortcut: ['play', 'Play', 'play'], disabled: ['play', 'Play', ''],
       notinstalled: ['download', 'Install', 'primary'], update: ['download', 'Update', 'primary'],
@@ -130,10 +130,10 @@
     const top = pinned ? 116 : 548;
     const left = o.left ?? 104;          // the same x at rest and pinned: the tab row never moves in x (§3.7)
     return `<div class="gp-tabrow" style="left:${left}px; top:${top}px">
-      <div class="lgk-glass gp-ctl ${pinned ? '' : 'gp-overart '}gp-tabs" data-mat="${mat}" data-lens style="--dz:${dz}" data-dz="${pinned ? '+10' : (o.pop ? '0→10' : '0')}" data-tier="${pinned ? 'T1 pin + T4 crop + T5 liquid slab (wearer +20)' : 'T1; pinned +10 (T4+T5)'}">
+      <div class="lgk-glass gp-ctl ${pinned ? '' : 'gp-overart '}gp-tabs" data-id="tabs" data-mat="${mat}" data-lens style="--dz:${dz}" data-dz="${pinned ? '+10' : (o.pop ? '0→10' : '0')}" data-tier="${pinned ? 'T1 pin + T4 crop + T5 liquid slab (wearer +20)' : 'T1; pinned +10 (T4+T5)'}">
         ${seg('activity', 'Activity')}${seg('yourstuff', 'Your Stuff')}${seg('community', 'Community')}${seg('gameinfo', 'Game Info <span class="ok"><i data-i="check" class="bold"></i></span>')}
       </div>
-      <div class="lgk-glass gp-ctl ${pinned ? '' : 'gp-overart '}gp-arrows" data-mat="${mat}" data-lens style="--dz:${dz}" data-tier="Steam's %{Arrows}: two 80 px hit halves (laser only)"><span><i data-i="chevron-left" class="bold"></i></span><span><i data-i="chevron-right" class="bold"></i></span></div>
+      <div class="lgk-glass gp-ctl ${pinned ? '' : 'gp-overart '}gp-arrows" data-id="arrows" data-mat="${mat}" data-lens style="--dz:${dz}" data-tier="Steam's %{Arrows}: two 80 px hit halves (laser only)"><span><i data-i="chevron-left" class="bold"></i></span><span><i data-i="chevron-right" class="bold"></i></span></div>
     </div>`;
   }
 
@@ -174,15 +174,15 @@
       ? `<img src="${d.logo.slice(4)}" alt="" style="max-width:560px; max-height:124px; object-fit:contain; object-position:left bottom">`
       : `<b>${(d.logo || 'Starfall<br>Drift')}</b>`;
     const stats = (d.stats || (o.state === 'running' ? 'Last Played|Today;Play Time|10.4 hours' : o.state === 'notinstalled' ? 'Space Required|42.1 GB' : 'Last Played|Oct 2;Play Time|10.2 hours'))
-      .split(';').map(p => p.split('|')).map(([a, b]) => `<div><span>${esc(a)}</span><b>${esc(b)}</b></div>`).join('');
+      .split(';').map(p => p.split('|')).map(([a, b], i) => `<div data-id="stat${i + 1}"><span>${esc(a)}</span><b>${esc(b)}</b></div>`).join('');
     const chip = d.chip || 'VR Required';
     const html = `
       <div class="lgk-glass gp-win" data-mat="window" data-dz="0" data-tier="window; hero = content (T1 layout, sticky art)" style="--dimL:${dl}; --dimB:${db ?? .45}; --dimT:${dt ?? .35}">
         <div class="gp-hero">${artLayer(d.hero, 'art')}<div class="dim"></div></div>
-        <div class="gp-logo" style="left:${L}px; top:108px; width:560px; height:124px" data-tier="logo box 560 x 124 (T1, GQ2)">${logo}</div>
-        <div class="gp-chips" style="left:${L}px; top:244px"><span class="gp-chip"><span class="disc" style="background:var(--lg-yellow); color:#16161a"><i data-i="vr"></i></span>${esc(chip)}</span></div>
+        <div class="gp-logo" data-id="logo" style="left:${L}px; top:108px; width:560px; height:124px" data-tier="logo box 560 x 124 (T1, GQ2)">${logo}</div>
+        <div class="gp-chips" style="left:${L}px; top:244px"><span class="gp-chip" data-id="chip"><span class="disc" style="background:var(--lg-yellow); color:#16161a"><i data-i="vr"></i></span>${esc(chip)}</span></div>
         <div class="gp-syn gp-onart" style="left:${L}px; top:294px">${esc(d.syn || 'Ride the last light of a dying star through a valley of drifting islands. A rhythm racer built for VR.')}</div>
-        <div class="gp-stats gp-onart" style="left:${L}px; top:358px">${stats}</div>
+        <div class="gp-stats gp-onart" data-id="stats" style="left:${L}px; top:358px">${stats}</div>
       </div>
       <div class="lgk-glass gp-ctl gp-overart gp-back" data-mat="clear" data-lens data-dz="0" data-tier="header T1 (window-nav)"><i data-i="chevron-left" class="bold"></i></div>
       <div class="lgk-glass gp-ctl gp-overart" data-mat="clear" data-lens style="left:1196px; top:24px; width:60px; height:60px; --r:30px" data-dz="0" data-tier="search circle 60 / 80 (PLAN §1.9, C1a)"><i data-i="search"></i></div>

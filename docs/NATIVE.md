@@ -184,14 +184,7 @@ The daemon calls `window.__LGS_NATIVE` (defined in `lgs_shell.py`) in SharedJSCo
   - adaptive tint from room luminance;
   - top-down sheen, a key light from above on the rim and a weaker fill on the opposite rim, inner shadow;
   - opaque inside the rounded rect, transparent outside (premultiplied).
-- **Materials:** the design bible's presets.
-
-| Material | Tint | Frost | Lensing | Rim |
-|---|---|---|---|---|
-| `window` | thick ≈0.55 | heavy | low | soft |
-| `panel` | 0.5 | heavy | low | — |
-| `liquid` | clear 0.18 | light | strong lensing at the bezel | bright rim |
-| `thick` (menus, sheets) | 0.45 | strong | — | — |
+- **Materials:** the GM v2 materials (`window`, `panel`, `liquid`, `thick`, plates, holes and their curves) are specified in `docs/phase2/glassd-material.md` and the interface in `docs/phase2/contracts/glassd.md`. The v1 preset table that stood here is retired; GM §7 notes what changed.
 
 - **Slabs:** the same shader, using the slab's own rounded rect and the `liquid` material. Their world point is approximated by the element's position on the surface plus `dz` toward the viewer.
 
@@ -275,7 +268,7 @@ In native mode the daemon:
 7. keeps the last layout while the reporter says the dashboard is hidden (`dash: false`): nodes, covers, `lgs-native` and `glassd.json` stay as they are, so reopening shows the glass at once instead of rebuilding it;
 8. themes every SteamVR page like `lgs-vr` did, unless `/tmp/lgs/vr-theme-paused` exists. A lab `--theme off` on a `vr:` page now writes that marker via `lgs_vr.stop()` instead of stopping a unit, and the next `lgs on` removes it.
 
-It stops on SIGTERM (`lgs off`, `lgs_shell.py stop`), when the Steam theme is seen off on 3 polls in a row (1 s apart; a lab `--theme off` step counts), or on an internal error. It first writes `mode: stopping` to `shell.json`, so an `lgs on` meanwhile waits for it and then starts a fresh unit. Teardown order:
+It stops on SIGTERM (`lgs off`, `lgs_shell.py stop`) or on an internal error. A theme off that did not come from `lgs off` (a lab `--stock` step, P1's selftests) makes it **dormant** (nodes and `lgs-native` cleared) and it resumes when the theme is back; it exits after `shellThemeGraceS` (default 600 s) dormant, at once after a Steam restart, or after 120 s without Steam. The authority is `docs/phase2/contracts/daemon.md` §1. It first writes `mode: stopping` to `shell.json`, so an `lgs on` meanwhile waits for it and then starts a fresh unit. Teardown order:
 
 1. `__LGS_SG.destroy()`;
 2. `__LGS_NATIVE.clear()`;
@@ -284,7 +277,7 @@ It stops on SIGTERM (`lgs off`, `lgs_shell.py stop`), when the Steam theme is se
 5. delete `glassd.json` and `glassd-out.json`;
 6. if the theme went off: strip the SteamVR pages.
 
-**If the daemon dies or stalls without tearing down** (crash, `kill -9`, a long freeze), the pages clean up after themselves: `__LGS_NATIVE` removes `lgs-native` 3 s after the last heartbeat, `lgs_sg.js` clears its nodes after 12 s, and the reporter stops itself 12 s after the last ping. systemd kills glassd with the unit. After a freeze the daemon rebuilds everything within about 1 s (verified on the Frame with a 15 s SIGSTOP: `lgs-native` off at 4 s, nodes off at 12 s, both back 1 s after SIGCONT).
+**If the daemon dies or stalls without tearing down** (crash, `kill -9`, a long freeze), the pages clean up after themselves: `__LGS_NATIVE` removes `lgs-native` 3 s after the last heartbeat, `lgs_sg.js` clears its nodes after 12 s, and the reporter stops itself 12 s after the last ping. systemd kills glassd with the unit. After a freeze the daemon rebuilds everything within about 0.4 s (DM-1; first verified on the Frame with a 15 s SIGSTOP: `lgs-native` off at 4 s, nodes off at 12 s).
 
 ### Build glassd, or the stand-in
 
@@ -309,7 +302,7 @@ python3 $D/lgs_shell.py start --css                    # CSS only (also the defa
 python glass.py shell start --native --stay            # the same from the PC (arguments are passed on)
 ```
 
-- `--stay` is for tests only. Other agents' lab steps toggle the Steam theme off and on all the time; with `--stay` the daemon goes dormant (nodes and `lgs-native` cleared) while the theme is off instead of exiting.
+- `--stay` is for tests only (`glass.py native-session` uses it). Other agents' lab steps toggle the Steam theme off and on all the time; with `--stay` the daemon goes dormant (nodes and `lgs-native` cleared) while the theme is off instead of exiting. It is bounded: dormant at most 2400 s, native at most 2400 s after start, and a Steam restart or 120 s without Steam end it too (`contracts/daemon.md` §1).
 - From this command line the real glassd gets `--no-feed` unless `--feed` or `--glassd-args "..."` is given. Users' `lgs on --native` runs it with the feed.
 - `start` keeps a running unit (`running (native)` / `running (css only)`). With `--native` or `--css` it restarts one that runs with other arguments. It waits for a unit that is stopping.
 - `native/spike/sg_timeline.py` refuses to run while `lgs-shell` is active, and it uses the shared reparent mode, a 5 s watchdog and try/finally.
@@ -342,7 +335,7 @@ python glass.py shell start --native --stay            # the same from the PC (a
    - A user resize of the main window is not visible from systemui (the frame node only gives the range, `frame-resize-scale-min` 0.25 … `max` 2). Steam's own pooled popups carry `frame-resize-scale-factor: 1` on their panel (Steam's popup component sets it, and reparents a popup that has a parent overlay key the same way we do), so ours carry it too. That is a no-op at the default size (checked in the headset view). Whether crops follow a resize is **unverified** (wearer test above).
 3. **Popups and the bar show a live sub-range of their texture.**
    - The parent panel shows only part of the texture: the panel's `uv_min`/`uv_max`, e.g. bar 0.208–0.792, floating footer 0.32–0.68, frame menu 0.82–1 × 0.19–0.81. Steam changes that range as the content changes.
-   - Anchors are relative to the displayed range. `lgs_sg.js` clips every item to it, remaps the anchors, and re-lays out within 0.5 s when it changes.
+   - Anchors are texture uv; SteamVR maps them onto the displayed range (clamped). Items on popup parents name the parent's curvature origin (`curvature-origin-id`, the bar's for a bar popup) and no `inherit-from-parent-panel`, or a bar-popup copy comes out flat. Verified on the bar, the frame menu and the "+" bar popup (`docs/phase2/contracts/sg.md` §0, SG-POPUP). `lgs_sg.js` clips every item to the displayed range and re-lays out within 0.5 s when it changes.
    - Verified: the bar and floating-footer covers line up with their capsules.
 4. **Changes reach the compositor within about 0.3 s.** That covers both adding nodes and removing them: DOM removal plus `retired_sgids` through the module's retire export (`Lx`), which is found by source text like the scheduler.
    - The scheduler export (`my`) is `T()`: it debounces with `setTimeout(0)`, then serializes the whole page and sends `update_scene_graph`. `Lx(sgid)` queues the sgid and calls `T()`, so a retire call made just before our push joins that same push.

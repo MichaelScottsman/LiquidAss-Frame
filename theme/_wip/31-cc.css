@@ -365,6 +365,19 @@
   color: var(--lgs-text-1);
   --lgs-ill: recessed;
 }
+/* R2 M1: the top row sits 18 px under the tile's edge, so the focused
+   coloured toggle's glow (P4's 22 px blur + 8 spread) lit the tile's top
+   rim over a transparent backdrop (OUTLINE ratio .357). Here the glow keeps
+   P4's spread and alpha but a 12 px blur, so P-16's band (8-16 px out) stays
+   lit while the light is spent before the edge, 18 px out; the Controls
+   content is clipped to the tile shape, so no light leaves the slab. */
+.lgs-cc-toggles .lgs-cc-tog-face {
+  --lgs-white-glow-blur: 12px;
+}
+.lgs-cc-ctl-main {
+  overflow: hidden;
+  border-radius: inherit;
+}
 .lgs-cc-tog-face svg {
   width: 30px;
   height: 30px;

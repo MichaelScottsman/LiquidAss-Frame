@@ -34,10 +34,6 @@
     background: radial-gradient(120% 70% at 38% 0%, rgb(255 255 255 / .22), rgb(255 255 255 / 0) 52%),
                 linear-gradient(180deg, rgb(0 0 0 / 0) 58%, rgb(0 0 0 / .22));
     box-shadow: inset 0 2px 2px rgb(255 255 255 / .40), inset 0 -10px 18px rgb(0 0 0 / .22); }
-  /* quiet legend (PLAN §1.10): only A and B, so no capsule material; 60 px items, Medium white .70, in the margin */
-  .c1b .wn-quiet { position: absolute; left: 50%; translate: -50% 0; top: 658px; height: 60px; display: flex; align-items: center; gap: 8px; z-index: 6; }
-  .c1b .wn-quiet .wn-leg { font-weight: 500; color: var(--lg-text-2); padding: 0 18px; text-shadow: 0 1px 3px rgb(0 0 0 / .55), 0 0 12px rgb(0 0 0 / .35); }
-  .c1b .wn-quiet .lgk-glyph { width: 30px; height: 30px; font-size: 15px; background: rgb(255 255 255 / .14); color: var(--lg-text-2); }
   /* laser mode: no controller glyph badges anywhere (PLAN §1.4, VP P-26) */
   .c1b.laser .lgk-glyph { display: none !important; }
 </style>
@@ -54,8 +50,8 @@
   .snapgrid { position: absolute; inset: 0; }
   .snapgrid .sx-art { width: 172px; height: 258px; border-radius: 20px; box-shadow: 0 6px 18px rgb(0 0 0 / .30); }
 
-  /* ---- the zero-state sheet: 880 x 500 at (200, 100), its top 14 px under the 640 px field (WN §4.4, §4.5) */
-  .sheet { left: 200px; top: 100px; width: 880px; height: 500px; }
+  /* ---- the zero-state sheet: 880 x 488 at (200, 108), under the toolbar row (PLAN §1.12 [R2-6]; WN §4.4, §4.5) */
+  .sheet { left: 200px; top: 108px; width: 880px; height: 488px; }
   /* Recently Played: the Home disc vocabulary (120 px circles, one-line Subheadline labels; PLAN §1.3, HA-5),
      five cells on a 160 px pitch; the whole cell (160 x 180) is the focusable */
   .rp { position: absolute; top: 76px; width: 160px; height: 180px; }
@@ -65,7 +61,7 @@
   /* Recent Searches: 60 px text capsules, 24 px Semibold, 24 px apart (PLAN §1.3 text button) */
   .chips { position: absolute; left: 40px; top: 310px; display: flex; gap: 24px; }
   .chips .lgk-btn .lgk-i { --is: 24px; color: var(--lg-text-2); }
-  .foot { position: absolute; left: 40px; right: 40px; top: 404px; height: 60px; display: flex; align-items: center; gap: 24px; }
+  .foot { position: absolute; left: 40px; right: 40px; top: 396px; height: 60px; display: flex; align-items: center; gap: 24px; }
   .foot .lgk-btn .lgk-i { --is: 24px; color: var(--lg-text-2); }
 </style>
 </head>
@@ -129,12 +125,10 @@
       </div>
     </div>
 
-    <!-- the bottom ornament (C1a contract, PLAN §1.10): our page's legends are only A and B, so it is a quiet legend in
-         the margin, not a capsule; laser mode shows labels without glyph badges. Steam's legend nodes are never hidden. -->
-    <div class="wn-quiet" data-id="legend" data-tier="#Footer[data-lgs-orn=quiet]: A and B only">
-      <span class="wn-leg nav">Open<span class="lgk-glyph">A</span></span>
-      <span class="wn-leg nav">Back<span class="lgk-glyph">B</span></span>
-    </div>
+    <!-- the bottom ornament (C1a contract, PLAN §1.10 [R2-1]): our page's legends are only A and B, so the shared
+         builder draws the quiet legend on its dim band in the margin, not a capsule; laser mode shows labels without
+         glyph badges. Steam's legend nodes are never hidden. -->
+    <div data-wn="ornament" data-mode="laser" data-legends="A:Open|B:Back"></div>
   </div>
 
   <div data-wn="winbar" data-cx="960" data-y="768" data-on="1" data-dim=".9"></div>
@@ -142,7 +136,7 @@
   <div data-wn="keyboard" data-cx="960" data-y="852" data-hot="h"></div>
   <div data-wn="laser" data-to="1024,994" data-from="1600,1100"></div>
 
-  <div class="wn-cap" style="left:1612px; top:110px; width:290px">Search is a sheet over the page you were on. B, the Back circle or a click on the dimmed page closes it, and focus is back on the poster you left.</div>
+  <div class="wn-cap" style="left:1612px; top:110px; width:290px">Search is a sheet over the page you were on: the page stays sharp under the .35 scrim, and only what lies behind the sheet is frosted. B, the Back circle or a click on the dimmed page closes it, and focus is back on the poster you left.</div>
   <div class="wn-cap" style="left:1612px; top:330px; width:290px">It opens on the field's real activation (DOM focus from a click or the D-pad), never on arrival.<br><span class="m">Field: Steam's input, 640 &times; 64, the only focus ring in the system. No microphone.</span></div>
   <div class="wn-cap" style="left:1612px; top:560px; width:290px">Before the first keystroke: your recent games and this session's searches (kept in memory only). See All shows Steam's own list for the empty query.</div>
 </div>
@@ -162,7 +156,7 @@
     });
     // name the shared chrome's nodes for glass.py cmp (data-id rects)
     const tag = (sel, id) => { const n = document.querySelector(sel); if (n) n.dataset.id = id; };
-    tag('.wn-toolbar .wn-search', 'field'); tag('.wn-toolbar .wn-back', 'back');
+    tag('.wn-toolbar .wn-search', 'field'); tag('.wn-toolbar .wn-back', 'back'); tag('.wn-orn', 'legend');
   })();
 </script>
 <script src="kit.js"></script>

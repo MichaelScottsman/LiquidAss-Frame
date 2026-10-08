@@ -58,26 +58,21 @@
     background: rgb(0 0 0 / .14); box-shadow: inset 0 2px 4px rgb(0 0 0 / .14);
     display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 10px 0;
     font: 600 20px/1 var(--lg-font); color: var(--lg-text-2); }
-  .lc-scrub > span { display: grid; place-items: center; width: 40px; height: 32px; }
+  .lc-scrub > span { display: grid; place-items: center; width: 40px; height: 20px; }
   .lc-scrub > .on { width: 40px; height: 40px; border-radius: 50%; background: #fff; color: var(--lg-text-on-selected); }
   .lc-scrub > .dot::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: rgb(255 255 255 / .42); }
-  .lc-scrub > .dot { height: 14px; }
+  .lc-scrub > .dot { height: 6px; }
+  .lc-scrub > .on { margin: -10px 0; }
 
-  /* the bottom ornament on library routes (PLAN §1.10): five fixed slots 300 · 130 · 156 · 134 · 120, gap 4,
-     padding 12 = 880 in both input modes. Members 60 tall. A and B are quiet trailing members in both modes.
-     Each slot's hit box also takes its 2 px share of the gaps, so hit boxes abut (P-07). */
-  .lc-orn { gap: 4px !important; padding: 0 12px !important; }
-  .lc-orn .wn-leg { box-sizing: border-box; justify-content: center; gap: 10px; padding: 0 12px; }
-  .lc-orn .s1 { width: 300px; } .lc-orn .s2 { width: 130px; } .lc-orn .s3 { width: 156px; } .lc-orn .s4 { width: 134px; } .lc-orn .s5 { width: 120px; }
-  .lc-orn .wn-leg.sf > .lgk-i { --is: 24px; color: var(--lg-text-2); }
-  .lc-orn .wn-leg .tgt { margin-left: -4px; }
-  .lc-orn .lgk-glyph { width: 30px; height: 30px; font: 700 16px/1 var(--lg-font); }   /* glyph badge: gamepad mode only (P-26) */
-  .lc-orn .wn-leg.is-off { opacity: .38; }                                             /* our Options while a modal is open */
+  /* the bottom ornament on library routes (PLAN §1.10, R2-2): it hugs Steam's legends like every other route
+     (WN §3.4.1, built by window-nav-shared.js); the five fixed 880 px slots are only the libFixedSlots variant (off).
+     In laser mode Steam's Sort & Filter pill is the toolbar row's trailing group (data-trail), not an ornament member. */
 
   /* the tile menu: Steam's capsule menu, 6 actions on this device (developer mode) -> WN's compact layout
-     (PLAN §1.12): 60 visible on a contiguous 64 pitch, label inline, 400 wide, Cancel a 56 quiet capsule.
+     (PLAN §1.12): 60 visible on a contiguous 64 pitch, label inline, 400 wide, Cancel a 60 quiet capsule (R2-5).
      Install is Steam's emphasis action: blue whole fill. */
   .lc-menu { width: 400px; z-index: 30; }
+  .lc-menu .cancel { --s: 60px; }
   .lc-menu .lgk-row.install { background: linear-gradient(180deg, rgb(255 255 255 / .16), rgb(255 255 255 / 0) 60%), var(--lg-tint-primary); }
   .lc-menu .lgk-row.is-hover::after { --lift: .08; --spot: .12; }
 
@@ -113,19 +108,13 @@
       <span class="lgk-btn circle lc-arrow" style="left:1196px" data-id="tab-next"><i data-i="chevron-right"></i></span>
       <div class="lgk-seg lc-seg lc-sub" data-id="subfilter" data-tier="Steam's VR sub-filter, stock position (T1)"><span class="is-selected">All</span><span>VR</span><span>Non-VR</span></div>
       <!-- gamepad mode: the scrubber is a passive position cue (the current letter follows the focused poster: "140" = #) -->
-      <div class="lc-scrub" data-id="scrubber" data-tier="T3 letter scrubber: passive in gamepad mode (Steam's fast-scroll is the pad path)"><span class="on">#</span><span class="dot"></span><span>A</span><span class="dot"></span><span>F</span><span class="dot"></span><span>L</span><span class="dot"></span><span>R</span><span class="dot"></span><span>W</span><span class="dot"></span><span>Z</span></div>
+      <div class="lc-scrub" data-id="scrubber" data-tier="T3 letter scrubber: passive in gamepad mode (Steam's fast-scroll is the pad path)"><span class="on">#</span><span class="dot"></span><span>C</span><span class="dot"></span><span>F</span><span class="dot"></span><span>I</span><span class="dot"></span><span>L</span><span class="dot"></span><span>O</span><span class="dot"></span><span>R</span><span class="dot"></span><span>U</span><span class="dot"></span><span>X</span><span class="dot"></span><span>Z</span></div>
     </div>
     <!-- the More circle on the attention target (gamepad focus), at rest; A/X/Y are untouched, menu = the poster's own -->
     <span class="wn-more" style="left:719px; top:274px" data-dz="15" data-id="more" data-tier="C1a 20-more.js on the gamepad focus (parity with the laser path, P-89)"><i data-i="more"></i></span>
-    <!-- gamepad mode: Steam's #Footer legends in the same five slots, label first and the glyph badge trailing (P-26),
-         plus our T2 state label (the current sort) in slot 1. A and B quiet. Same 880 px as laser mode (PLAN-2c-1). -->
-    <div class="lgk-glass lgk-toolbar wn-orn mode-pad lc-orn" data-mat="liquid" data-lens style="--dz:18" data-dz="0" data-id="ornament" data-tier="gamepad mode: Steam's #Footer legends + T2 current sort value">
-      <span class="wn-leg s1" data-id="slot-sort">Sort By <span class="tgt">&middot; Alphabetical</span><span class="lgk-glyph">Y</span></span>
-      <span class="wn-leg s2" data-id="slot-filter">Filter<span class="lgk-glyph">X</span></span>
-      <span class="wn-leg s3" data-id="slot-options">Options<span class="lgk-glyph wn-menu-glyph"></span></span>
-      <span class="wn-leg nav s4" data-id="slot-select">Select<span class="lgk-glyph">A</span></span>
-      <span class="wn-leg nav s5" data-id="slot-back">Back<span class="lgk-glyph">B</span></span>
-    </div>
+    <!-- gamepad mode (R2-2): Steam's #Footer legends in Steam's order, hugged by the capsule; label first and the
+         glyph badge trailing (P-26); our T2 state label (the current sort, thin spaces round the dot) on Y. A and B quiet. -->
+    <div data-wn="ornament" data-legends="X:Filter|Y:Sort By@Alphabetical|menu:Options|A:Select|B:Back"></div>
   </div>
   <!-- no window-bar row: SteamVR shows it only with the laser on the dashboard (WN §3.5.1) -->
   <div data-wn="bar" data-cx="960" data-y="904"></div>

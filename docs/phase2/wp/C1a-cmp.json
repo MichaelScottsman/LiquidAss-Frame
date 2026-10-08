@@ -1,5 +1,5 @@
 {
- "_doc": "C1a (PLAN-1a-3, G-MOCK): live selectors for the shell's mockups. Mockup member rects are the 60 px visible capsules; the live legends are the 84 px hit rows (light inset 12), so members read dy -12, dh +24 by design (WN §3.4.1). Back and the More circle: the mockup rect is the 60 px circle, the live rect its 80 px hit box (-10, -10, +20, +20). The tab bar is drawn at 10 items, p 58 (Console on); the device has 9 items today, so the live pitch is 66 (WN §3.3.2 rule 2). Run with --flags wp.p3,wp.c1a (T2 tags, Large Title, slots, the More circle). R2 (session 6): the library ornament hugs its members (R2-2), so the pre no longer registers ornamentSlots('library'); `trail` is Steam's laser Sort & Filter group (C2c's, the toolbar's trailing group). The window-bar row of window-nav-chrome lives in vr:systemui's atlas, whose coordinates are not the mockup's spatial layout: it is checked by AT-17 (shots, sizes) instead of cmp.",
+ "_doc": "C1a (PLAN-1a-3, G-MOCK): live selectors for the shell's mockups. Mockup member rects are the 60 px visible capsules; the live legends are the 84 px hit rows (light inset 12), so members read dy -12, dh +24 by design (WN §3.4.1). Back and the More circle: the mockup rect is the 60 px circle, the live rect its 80 px hit box (-10, -10, +20, +20). The tab bar is drawn at 10 items, p 58 (Console on); the device has 9 items today, so the live pitch is 66 (WN §3.3.2 rule 2). Run with --flags wp.p3,wp.c1a (T2 tags, Large Title, slots, the More circle). R2 (session 6): the library ornament hugs its members (R2-2), so the pre no longer registers ornamentSlots('library'); `trail` is Steam's laser Sort & Filter group (C2c's, the toolbar's trailing group). The window-bar row of window-nav-chrome lives in vr:systemui's atlas (its own entry, --name window-nav-chrome-row): an atlas position is not a place in the room, so each element's mockOrigin puts its top-left on the mockup's and only sizes are compared (dx, dy 0 by construction); its mockScale converts the mockup's mm (371.3 px = 283 mm of frame controls) to each panel's px (frame controls 488 px = 283 mm: 0.7609; grab bar 467 px = 140 mm per WN 3.5.2: 0.3918). Placement in the room is AT-17's (DumpLaserOverlays, hv).",
  "surface": "main",
  "mockScale": 1,
  "mockups": {
@@ -88,6 +88,29 @@
     "orn-menu": "#Footer [data-lgs-btn=\"MENU\"]",
     "orn-a": "#Footer [data-lgs-btn=\"OK\"]",
     "orn-b": "#Footer [data-lgs-btn=\"CANCEL\"]"
+   }
+  },
+  "window-nav-chrome-row": {
+   "surface": "vr:systemui",
+   "map": {
+    "framecap": {
+     "sel": "%{FrameControlsContainer}",
+     "surface": "vr:systemui",
+     "mockScale": 0.7609,
+     "mockOrigin": [
+      469.78,
+      285.06
+     ]
+    },
+    "winbar-pill": {
+     "sel": "%{GrabHandleBar}",
+     "surface": "vr:systemui",
+     "mockScale": 0.3918,
+     "mockOrigin": [
+      831.75,
+      440.51
+     ]
+    }
    }
   }
  }

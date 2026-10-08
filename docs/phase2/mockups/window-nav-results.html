@@ -34,10 +34,6 @@
     background: radial-gradient(120% 70% at 38% 0%, rgb(255 255 255 / .22), rgb(255 255 255 / 0) 52%),
                 linear-gradient(180deg, rgb(0 0 0 / 0) 58%, rgb(0 0 0 / .22));
     box-shadow: inset 0 2px 2px rgb(255 255 255 / .40), inset 0 -10px 18px rgb(0 0 0 / .22); }
-  /* quiet legend (PLAN §1.10): only A and B, so no capsule material; 60 px items, Medium white .70, in the margin */
-  .c1b .wn-quiet { position: absolute; left: 50%; translate: -50% 0; top: 658px; height: 60px; display: flex; align-items: center; gap: 8px; z-index: 6; }
-  .c1b .wn-quiet .wn-leg { font-weight: 500; color: var(--lg-text-2); padding: 0 18px; text-shadow: 0 1px 3px rgb(0 0 0 / .55), 0 0 12px rgb(0 0 0 / .35); }
-  .c1b .wn-quiet .lgk-glyph { width: 30px; height: 30px; font-size: 15px; background: rgb(255 255 255 / .14); color: var(--lg-text-2); }
   /* laser mode: no controller glyph badges anywhere (PLAN §1.4, VP P-26) */
   .c1b.laser .lgk-glyph { display: none !important; }
 </style>
@@ -54,13 +50,16 @@
   .snapgrid { position: absolute; inset: 0; }
   .snapgrid .sx-art { width: 172px; height: 258px; border-radius: 20px; box-shadow: 0 6px 18px rgb(0 0 0 / .30); }
 
-  /* ---- the results sheet: 960 x 500 at (160, 100) (PLAN §1.12: sheets <= 960; centred on the glass, VP P-35);
-     the width grows 880 -> 960 on snappy from the zero state, the height never jumps (WN §7) */
-  .sheet { left: 160px; top: 100px; width: 960px; height: 500px; overflow: hidden; }
-  /* the scope bar: Steam's search categories as one segmented control (64 px track, segments 56 tall and >= 120 wide,
-     E-SEG compact), Steam's counts; Steam's own paging arrows as 60 px plain circles at the ends */
+  /* ---- the results sheet: 960 x 488 at (160, 108) (PLAN §1.12 [R2-6]: sheets <= 960, from y 108, <= 488 tall on
+     `window` routes; centred on the glass, VP P-35); the width grows 880 -> 960 on snappy from the zero state (a
+     horizontal scale of the glass), the height never jumps (WN §7) */
+  .sheet { left: 160px; top: 108px; width: 960px; height: 488px; overflow: hidden; }
+  /* the scope bar: Steam's search categories as one segmented control (64 px track, compact segments 60 tall and
+     >= 120 wide with 20 px labels, E-SEG compact; six regular ones would not fit between the arrows), Steam's counts
+     8 px after their labels; Steam's own paging arrows as 60 px plain circles at the sheet's ends */
   .scope { position: absolute; left: 50%; translate: -50% 0; top: 16px; }
-  .scope > * { min-width: 120px; padding: 0 18px; box-sizing: border-box; }
+  .scope > * { min-width: 120px; padding: 0 16px; box-sizing: border-box; font-size: 20px; }
+  .scope .n { margin-left: 8px; }
   .scope .n { font-weight: 500; color: var(--lg-text-2); margin-left: 2px; }
   .scope .is-selected .n { color: rgb(13 14 18 / .55); }
   .arrow { position: absolute !important; top: 18px; background: transparent !important; color: var(--lg-text-2); }
@@ -90,7 +89,7 @@
   /* row 2: Steam's own section headers with counts; the Software cell (S-B, home-apps' provider) beside the Store
      row; Steam's first store results; See All opens Steam's Store tab, where "View more in the Store" stays */
   .row2h { top: 318px; }
-  .apps { position: absolute; left: 32px; top: 362px; width: 300px; height: 84px; border-radius: 20px; box-sizing: border-box; padding: 0 18px 0 16px;
+  .apps { position: absolute; left: 32px; top: 362px; width: 300px; height: 84px; border-radius: 42px; box-sizing: border-box; padding: 0 26px 0 14px;
           display: flex; align-items: center; gap: 14px; background: var(--lg-fill-regular); }
   .apps .chip { width: 56px; height: 56px; border-radius: 50%; flex: none; display: grid; place-items: center; background: rgb(255 255 255 / .11); }
   .apps .chip img { width: 48px; height: 48px; display: block; }
@@ -101,7 +100,7 @@
         --s: .646; background: #1b1e25 url("../../../shots/p2_audit_search_on.png") no-repeat;
         background-size: calc(1920px * var(--s)) calc(1080px * var(--s));
         background-position: calc(var(--x) * var(--s) * -1px) calc(var(--y) * var(--s) * -1px); }
-  .seeall { position: absolute !important; left: 752px; top: 374px; }
+  .seeall { position: absolute !important; left: 726px; top: 374px; }
   .seeall .lgk-i { --is: 22px; color: var(--lg-text-2); margin-left: -2px; }
 </style>
 </head>
@@ -172,9 +171,8 @@
           <span class="nm">Half SBS Toggle</span>
         </div>
         <span class="st" data-id="store-0" style="left:348px; --x:666; --y:368"></span>
-        <span class="st" data-id="store-1" style="left:544px; --x:971; --y:368"></span>
+        <span class="st" data-id="store-1" style="left:537px; --x:971; --y:368"></span>
         <span class="lgk-btn capsule seeall" data-id="seeall">See All<i data-i="chevron-right"></i></span>
-        <div class="sx-h" style="left:32px; top:476px" data-id="tools-h">Tools (3)</div>
       </div>
     </div>
 
@@ -188,7 +186,7 @@
 
   <div class="wn-cap" style="left:1612px; top:150px; width:290px">One scope bar for Steam's categories, with Steam's counts. All is a summary in Steam's order; every other category opens Steam's own grid in the sheet.</div>
   <div class="wn-cap" style="left:1612px; top:392px; width:290px">Gamepad: Down from the field lands on the Top Hit. A opens the game page, X plays, &#9776; or the More circle opens its menu, B closes search.</div>
-  <div class="wn-cap" style="left:1612px; top:600px; width:290px">Without Steam's search results (Q6), All shows Steam's All grid here instead.</div>
+  <div class="wn-cap" style="left:1612px; top:600px; width:290px">Below the fold: Steam's other library matches and friends, in Steam's own grid. Every store, friend and redirect tile is Steam's own, with its handler; categories host Steam's page.</div>
 </div>
 <script src="window-nav-shared.js"></script>
 <script>

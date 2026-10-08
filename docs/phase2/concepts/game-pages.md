@@ -194,19 +194,21 @@ In the details states the toolbar row also carries the **inline title** (§4.3).
 
 One row, in Steam's DOM order, which is also the D-pad order. GP §0.5: `%{Header>ActionRow}` has no explicit layout, so `GetLayout()` reads ROW from computed CSS, and the focusable order is DOM order. Geometry below is measured in the mockup with `?rects`, in window px.
 
+**Revision 3 (PLAN §1 conformance, VP P-29).** The hero column (logo, chip, stats, cluster, tab row) starts at **x 104**, not 40: Play's centre is then 244, within 400 px of the window centre (P-29, a must; at x 40 it was 180, 460 off). The mockups have drawn it there since revision 3 (`game-pages.js`, `data-left`); the live T1 has since R2 fix 1 (C5a-D9). Tab content keeps the 40 px inset (D2 §12).
+
 | Slot | Steam node | Visible | Rect x (y 448–528) | pt | Notes |
 |---|---|---|---|---|---|
-| Primary | `%{PlayButtonContainer>PlayButton}` | 280 × 80 capsule (radius 40) | 40–320 | 210 × 60 | 30 px glyph, 26 px Semibold label. The page's only tinted control. Steam's `min-width: 210px` is only exceeded |
-| Play from | `%{StreamingSelector}` | 80 px circle | 336–416 | 60 | **Display glyph** (a screen with a play mark, 34 px) painted by T1 as a CSS mask on the node's free `::before` (its `::after` is Steam's hidden shine, INV-A §3.1). Steam's own caret SVG is restyled, not replaced, into a 28 px dark **chevron badge** at the lower right. It is absent for non-Steam shortcuts |
-| Stop (running) | `%{ShutdownAppButton}` | 80 px circle | 336–416 | 60 | Stop glyph; red whole fill on focus or hover; `%{ForceShutdownButton}` red at rest. GP A.2 P3 reaches Stop with one Right from Resume, so Stop is drawn in Play-from's slot. If Steam also keeps the selector while running (source-only knowledge, INV-A §3.3), Stop follows it and the rest of the row shifts 96 px; Manage then ends at 1089, still inside the glass. AT-RUN measures which case applies |
-| Steam Input | `%{ControllerConfigButton}` | **Labelled capsule**, 194 × 80 | 432–626 | 146 × 60 | Steam's controller SVG (30 px), then the label "Steam Input" (24 px Semibold). The label comes from Steam's own localized `#AppControllerConfiguration_SteamInput`: T2 writes it to `data-lgs-label` on Steam's node and T1 draws it with `::after { content: attr(data-lgs-label) }`. No new DOM node, no new string |
-| Controller Bindings (new, T3, optional) | our `Focusable` inside `%{AppButtons}` | **Labelled capsule**, 255 × 80 | 642–897 | 191 × 60 | VR controller glyph (a wand, unlike Steam Input's gamepad), label SteamVR's localized `#Controller_Bindings`. Only for apps with VR support. §4.12 |
-| Manage | `%{Container>MenuButton}[aria-label="Manage"]` | 80 px circle | 913–993 (642–722 without Controller Bindings; 817–897 when not installed, i.e. without Play-from) | 60 | Steam's gear SVG; `%{PrivateAppActiveIndicator}` as a 30 px red disc overlapping the top-right by a third |
+| Primary | `%{PlayButtonContainer>PlayButton}` | 280 × 80 capsule (radius 40) | 104–384 | 210 × 60 | 30 px glyph, 26 px Semibold label. The page's only tinted control. Steam's `min-width: 210px` is only exceeded |
+| Play from | `%{StreamingSelector}` | 80 px circle | 400–480 | 60 | **Display glyph** (a screen with a play mark, 34 px) painted by T1 as a CSS mask on the node's free `::before` (its `::after` is Steam's hidden shine, INV-A §3.1). Steam's own caret SVG is restyled, not replaced, into a 28 px dark **chevron badge** at the lower right. It is absent for non-Steam shortcuts |
+| Stop (running) | `%{ShutdownAppButton}` | 80 px circle | 400–480 | 60 | Stop glyph; red whole fill on focus or hover; `%{ForceShutdownButton}` red at rest. GP A.2 P3 reaches Stop with one Right from Resume, so Stop is drawn in Play-from's slot. If Steam also keeps the selector while running (source-only knowledge, INV-A §3.3), Stop follows it and the rest of the row shifts 96 px; Manage then ends at 1188, still inside the glass. AT-RUN measures which case applies |
+| Steam Input | `%{ControllerConfigButton}` | **Labelled capsule**, label + 94 wide (229 × 80 live in English) | 496–725 | 172 × 60 | Steam's controller SVG (30 px), then the label "Steam Input" (24 px Semibold). The label comes from Steam's own localized `#AppControllerConfiguration_SteamInput`: T2 writes it to `data-lgs-label` on Steam's node and T1 draws it with `::after { content: attr(data-lgs-label) }`. No new DOM node, no new string |
+| Controller Bindings (new, T3, optional) | our `Focusable` inside `%{AppButtons}` | **Labelled capsule**, 255 × 80 | 741–996 | 191 × 60 | VR controller glyph (a wand, unlike Steam Input's gamepad), label SteamVR's localized `#Controller_Bindings`. Only for apps with VR support. §4.12 |
+| Manage | `%{Container>MenuButton}[aria-label="Manage"]` | 80 px circle | 1012–1092 (741–821 without Controller Bindings; 645–725 when not installed, i.e. without Play-from) | 60 | Steam's gear SVG. `%{PrivateAppActiveIndicator}` (focusable: false; its one function is a laser hover tooltip) is a 30 px red disc at the gear's top right (x 829–859, y 440–470 beside the 741 gear), drawn in the upper left of its own 80 px round hover target that starts 1 px clear of the gear's box: P-08 and P-80 hold for it and it never takes Manage's samples. It no longer overlaps the gear (an overlap made a dead zone in Manage's target) |
 
 - **Spacing.** Gaps are 16 px. Centres are ≥ 96 px apart and every hit box is ≥ 80 × 80, so D2 §17 #1 holds by size.
-- **Angles.** Control centres run from −14.1° (Play) to +9.6° (Manage); the row spans −18.4° to +10.9°. The row centre is 3.9° below the window centre (the bible's "slightly below eye line").
+- **Angles.** Control centres run from −12.2° (Play) to +4.3° (Manage, without Controller Bindings); the row spans −16.5° to +5.5°. The row centre is 3.9° below the window centre (the bible's "slightly below eye line").
 - **The grey container.** `%{PlayButtonContainer}` loses its grey (`rgba(220,222,223,.17)`), and its children get `margin-left: 16px`, so Play and Play-from read as separate shapes in one node.
-- **The stats block.** `%{StatusAndStats}` is not reached by the D-pad (GP §0.4). It leaves the row with `position: absolute` and becomes the stats line (§4.1). No focusable sibling is reordered.
+- **The stats block.** `%{StatusAndStats}` is not reached by the D-pad (GP §0.4). It leaves the row with `position: absolute` and becomes the stats line (§4.1). No focusable sibling is reordered. Steam caps it at 46 px with `overflow: hidden`; T1 lifts the cap to its 80 px block (R2 M1: a label-over-value stack in the 46 px box cut the values).
 - **Materials.** Circles and capsules over art are **clear** glass (D2 §6.4), over the measured dimming layer (§4.1). The Play capsule is tinted Liquid Glass: green `--lgs-tint-play` for Play, Stream, Launching and Resume; blue `--lgs-tint-primary` for Install, Update, Pre-load and Download.
 - **Lensing.** The SVG displacement `backdrop-filter` (D2 §6.2 E2) is spent on two controls per page: the Play capsule and the tab capsule. The others get frost and edge cues only.
 - **Tooltips** for the icon-only controls (Play from, Stop, Manage) use Steam's own `aria-label`s ("Play from", "Stop", "Manage"):
@@ -224,13 +226,13 @@ One row, in Steam's DOM order, which is also the D-pad order. GP §0.5: `%{Heade
 |---|---|
 | Node | `%{TabHeaderRowWrapper}` > `%{TabRow}` > `%{TabRowTabs}`; tabs `%{GamepadTabbedPage>Tab}` |
 | Shape | One capsule 64 px tall (48 pt), padding 4; segments 56 px tall, ≥ 140 px wide, 4 px apart; hit height 80 px from the wrapper's padding |
-| Geometry | Capsule 40–718 (678 wide) |
+| Geometry | Capsule 104–763 (659 wide live) |
 | Labels | 22 px Semibold, title case (`text-transform: none; letter-spacing: 0`). The Game Info compatibility icon stays in its segment as a 26 px green disc with a white check |
 | Selected | White .94 fill, dark label (the one place white is right, D2 §8.2) |
-| Focus | + white .14 and the light spot; no lift of the segment, no ring |
-| Arrows | Steam's `%{Arrows}` (laser only, not D-pad focusable) become **one paired capsule** 160 × 64 at x 734–894. Its two chevron children are 80 px wide each, with an 80 px hit height from padding, so the two halves are adjacent 80 × 80 targets. They stay because they are a laser path (GP A.5 T1) |
+| Focus | + white .14 and the light spot; no lift of the segment, no ring. The selected segment's focus glow (P4's white hook) stays inside the track: the capsule clips it (`overflow: clip`), since Steam's tab scroller otherwise cut it into a square frame |
+| Arrows | Steam's `%{Arrows}` (laser only, not D-pad focusable) become **two 64 px circles**, each in its own 80 × 80 target, at x 771–931 (8 px after the capsule). Revision 2 drew one paired capsule; an icon-only half capsule fails P-83 (roundness), so each arrow is a circle (C5a session 2). They stay because they are a laser path (GP A.5 T1) |
 | Material | Over art (rest): clear glass at +10 mm (after GQ8b; 0 before). Pinned over content: Liquid Glass at +20 mm |
-| Position | At rest: y 548–612 (just above the ornament). Pinned: y 116–180, under the toolbar row |
+| Position | At rest: y 548–612 (just above the ornament). Pinned: y 116–180, under the toolbar row. The same x in both (the row never moves in x) |
 | Steam Cloud | `%{CloudStatusRow}` (positioned) becomes a 36 px chip at the trailing end of the tab row at rest: x 974–1240, y 562–598, like the TV app's trailing metadata (ref 5). It scrolls away with the hero. It is far from the cluster, so the running cluster cannot reach it |
 
 The tab strip keeps its explicit `onMoveLeft/onMoveRight` handlers, so it stays horizontal (GP §0.5). A vertical tab ornament was rejected (GP C.3), because the leading-edge vertical slot belongs to the main navigation.
@@ -369,13 +371,13 @@ Route `/library/app/:appid`, outer scroller at 0. Coordinates are in the 1280 ×
 |---|---|---|---|---|---|
 | Hero art | `%{TopCapsule}` > `%{HeaderBackgroundImage}` > `%{ImgContainer}` img | Layout height 656; image `object-fit: cover`, `object-position: 62% 40%`. **Sticky** (§4.3) | 960 × 492 | Content. The 1920 × 620 hero is scaled to 2031 × 656 CSS px (3047 × 984 texture px, ×1.6) and cropped to the window's 1280 px, 63 % of its width. That still leaves 31 source px per degree, above the Frame's 19.6 ppd | T1 |
 | Dimming | `%{HeaderBackgroundImage}::before` (free, INV-A §9; positioned above the imgs, so it rides the sticky art). Steam's `%{TopCapsule>TopGradient}` is made transparent: the toolbar layer below replaces it | Three layers. **Toolbar:** black `--dimT` → 0 over 150 px. **Text column:** black `--dimL`, flat over 0–46 % of the width (x 0–589, the whole text column), .45 × `--dimL` at 58 %, 0 at 72 %. **Controls band:** black `--dimB`, flat over the bottom 34 % (y 433–656: the cluster and the tab row), .4 × `--dimB` at 46 %, 0 at 58 % | — | The dimming layer that clear glass needs (D2 §6.4), sized by measurement | T1 + T2 |
-| Logo | `%{BoxSizerContainer}` (never the inline `%{BoxSizer}`) | Box x 40–600, y 108–232 (560 × 124). Steam's anchors (CenterCenter, BottomLeft, UpperLeft) land inside it | 420 × 93 | Content | T1 (GQ2) |
-| VR chip | `%{TopCapsule>TitleSection}` (positioned) > `%{PurchaseNoticeContainer}` | (40, 244), 36 tall: a 28 px yellow disc with Steam's VR glyph in dark; 18 px Semibold label | 27 tall | White .16 + 10 px blur | T1 |
-| Synopsis (optional) | New decorative node (T2), `aria-hidden` | (40, 294), width 580, 2 lines, Callout 22/29 px Medium, white .90 | 16.5 pt | Text on art with the on-art shadow | T2 (GQ12 source); without it the stats line moves up 64 px |
-| Stats | `%{StatusAndStats}` (positioned) | (40, 358), ends at y 384: "Last Played Oct 2", "Play Time 10.2 hours" (not installed: "Space Required 42.1 GB"). Labels Subheadline 20 px Medium **white .80** (on art, not glass); values 20 px Semibold white .96, 22 px apart; `text-transform: none` | 15 pt | — | T1 |
+| Logo | `%{BoxSizerContainer}` (never the inline `%{BoxSizer}`) | Box x 104–664, y 108–232 (560 × 124). Steam's anchors (CenterCenter, BottomLeft, UpperLeft) land inside it | 420 × 93 | Content | T1 (GQ2) |
+| VR chip | `%{TopCapsule>TitleSection}` (positioned) > `%{PurchaseNoticeContainer}` | (104, 244), 36 tall: a 28 px yellow disc with Steam's VR glyph in dark, leading (Steam lays it out row-reversed; T1 sets `row`), then the label; Steam's 12 px gap under the last notice is dropped so the chip's top is 244 | 27 tall | White .16 + 10 px blur | T1 |
+| Synopsis (optional) | New decorative node (T2), `aria-hidden` | (104, 294), width 580, 2 lines, Callout 22/29 px Medium, white .90 | 16.5 pt | Text on art with the on-art shadow | T2 (GQ12 source); without it the stats line moves up 64 px |
+| Stats | `%{StatusAndStats}` (positioned) | Text (104, 358), ends at y 384, one line: "Last Played Oct 2", "Play Time 10.2 hours" (not installed: "Space Required 42.1 GB"), label then value on one baseline, 6 px apart; stats 22 px apart. Labels Subheadline 20 px Medium **white .80** (on art, not glass); values 20 px Semibold white .96; `text-transform: none`. Each stat's tooltip source is an 80 px tall hover target, y 314–394 (P-08), with the text at its foot | 15 pt | — | T1 |
 | Tooltip lane | — | y 388–436 is kept free for the cluster's tooltips | — | — | — |
 | Play cluster | §3.2 | y 448–528 | 60 pt | §3.2 | T1 (+T2 label, +T3 capsule) |
-| Tab capsule + arrows | §3.3 | Capsule (40, 548) 678 × 64; arrows (734, 548) 160 × 64 | 48 pt | Clear glass | T1 |
+| Tab capsule + arrows | §3.3 | Capsule (104, 548) 659 × 64; arrows: two 80 px targets at (771, 540) and (851, 540), 64 px circles | 48 pt | Clear glass | T1 |
 | Steam Cloud chip | `%{CloudStatusRow}` (positioned) | (974, 562) 266 × 36, right edge 1240 | 27 tall | White .16 + blur | T1 |
 | Content start | `%{TabContents}` | Below the ornament, faded; the tab capsule is the "more below" cue | — | — | — |
 
@@ -466,7 +468,7 @@ Route `/library/app/:appid`, outer scroller at 0. Coordinates are in the 1280 ×
 
 | Element | Value |
 |---|---|
-| Tab row | Capsule at (40, 116) and paired arrows at (734, 116); Liquid Glass at +20 mm |
+| Tab row | Capsule at (104, 116) and the two arrow circles after it (targets at x 771 and 851); Liquid Glass at +10 mm (default profile; +20 was revision 2's) |
 | **Inline title** (T2, `aria-hidden`) | Title 3, 28 px Bold, centred in the toolbar row (y 24–84), max x 118–1162 (it never enters the 80 px boxes of Back and the magnifier), one line with ellipsis. Text: `appStore.GetAppOverviewByAppID(appid).display_name` (SR §3.7, a [PROVEN] data source), else the logo img's `alt`. It materializes (250) with the pin and dematerializes (350) on unpin. It lives in the route's own non-scrolling container, so it unmounts with the page |
 | Scroll edge | Steam's band `%{TabHeaderRowWrapper}::before` (black .5 + 100 px blur today) becomes the **one** scroll-edge effect for the top of the page: `inset: -116px 0 -16px` (y 0–196), black .30 → 0 with a masked 12 px blur. Steam's `AnimateDownwardExpansion` keyframe on it is replaced by a named `lgs-edge-in` (`fade` 441) that repeats Steam's functional entries (R3). WN's toolbar band is switched off while it shows (`:has(%{GamepadTabbedPage>Pinned})`), so the two never stack (MO §4.13) |
 | Art backdrop | As above: blurred art .40 behind the glass |
@@ -598,11 +600,18 @@ Route `/library/app/:appid/achievements/my/individual` (also `/global` and `/fri
 | My / Global | `%{AchievementTabs}` tab strip | Recessed 64 px segmented track at (440, 116), selected segment white; it becomes Liquid Glass at +20 mm only if it pins |
 | Search | `%{Portrait>SearchField}` | 800 × 64 recessed capsule at (440, 204) (stock 220 × 40) |
 | List | `%{*ListTitle>AchievementList}` | Platter at (440, 292), 800 wide, black .14, radius 30, padding 8 |
-| Rows | `%{*AchievementList>AchievementListItemBase}`, global `…GlobalAchievementListItem` | Min-height 96 (72 pt; the list is not virtualised, INV-A §6), radius 24. Icon 64, radius 14. Title Headline 24 px Semibold; description 20 px white .70 (wraps to two lines, never clipped); trailing unlock date 20 px Semibold and rarity 18 px white .70. 2 px separators, white .08, inset 100 px. Global rows: Steam's `%{*AchievementList>ProgressFill}` (inline width = global %) becomes a black .14 tint from the row's leading edge |
+| Rows | `%{*AchievementList>AchievementListItemBase}`, global `…GlobalAchievementListItem` | Steam's own slots: Steam places every row absolutely with an inline height, 80 px at an 88 px pitch (My), 68 px at a 76 px pitch (Global), and windows the list to its viewport (measured live on build 11094443; revision 2's "min-height 96, not virtualised" made each row overlap the next), radius 24. Icon 64, radius 14. Title Headline 24 px Semibold; description 20 px white .70 (wraps to two lines, never clipped); trailing unlock date 20 px Semibold and rarity 18 px white .70. 2 px separators, white .08, inset 100 px. Global rows: Steam's `%{*AchievementList>ProgressFill}` (inline width = global %) becomes a black .14 tint from the row's leading edge |
 | Locked header | `%{*AchievementList>ListTitle}` | "Locked Achievements" 22 px Semibold white .70, title case, opacity 1 (Steam's .5 raised) |
 | Focus | `.gpfocus` on a row | + white .14 and the light spot; rows do not lift |
 
 Fallback if the grid fails the D-pad test (GQ13): the single-column layout of SOC §3.11 with the same tokens.
+
+**Built (the fallback, revision 3, C5a R2 fix 1; `p2_c5a` shots `r2fx_c5a_ach_*`):**
+
+- **Column.** SM-D17's 1136 px column, x 72–1208, for the header, the My / Global row, the search and both lists (VP P-81: no row ≥ 90 % of the glass width; Steam's rows were 1240 wide). Steam's #0e141b slab under the Global list goes.
+- **Pinned row.** The tab page is `calc(100vh − 96px)` tall (Steam's: − 40), so at the page's full scroll its top is y 96 and the track pins at **y 116** under the toolbar row, as on the game page; Steam pinned it at y 40, under Back and the search capsule. The list inside keeps Steam's 680 px viewport (same windowed rows as stock, so AUD sees every row); the page clips the 56 px below it, and the list's end padding and `scroll-padding-bottom` (168) keep a focused row at or above y 612 (P-23; a pad walk through all 26 rows measured 533–613 before the last 4 px were added).
+- **Rows (My).** 80 px slots, 8 px apart: the icon 64, the title (24 / 28) and the description (20 / 24) in the text column; the unlock date at the top right and the rarity line under it at the bottom right (out of the text column, so it holds two lines). "Locked Achievements" fills Steam's 25 px slot between two rows (22 px Semibold, line 25).
+- **Rows (Global).** Steam's 68 px slots at a 76 px pitch, in the same column: title 24 / 28, description 20 / 24 (white: white .70 on the rarity fill measured 3.9:1 over a bright room), the share in Footnote Semibold; Steam's rarity fill (`%{*AchievementList>ProgressFill}`, inline width) stays the row's tint. G-SIZE passes on them (gates 19:30, both modes).
 
 ### 4.11 Properties (`p2_game-pages_properties.png`)
 
@@ -620,6 +629,8 @@ Route `/app/:appid/properties/<page>`. The same system as SET §3; the differenc
 | Betas | `%{BetasTable}` | Radio rows in a platter, 80 px, with a 32 px radio circle (blue fill + white check when selected) |
 | DLC, Privacy DLC, Workshop lists | `%{DlcGrid}`, `%{PrivacyDLCList}`, `%{WorkshopItemRowsScroll}` | Rows 80 in a platter; checkboxes as 40 px check circles (SET); their own scrollers kept |
 | Search | `%{SearchAndTitleContainer}` | 560 × 64, centred over the detail pane, x 560–1120 (SET §3.4) |
+
+**Built (C5a R2 fix 1, every page gated in both modes):** the pane's descriptions are Callout 22 (P-38 body text); a page's own paragraphs (Steam's classless text blocks: Controller's Steam Input note, Betas' access-code note) Callout white. **Betas:** a header row and one 80 px row per beta, 8 px apart, each its own rounded fill (no 1 px rules, P-43); Steam's radio input drawn as an 80 px round target, a 28 px white disc with a dark check when selected (Steam's blue cell mark removed: the check is the mark). **DLC:** one platter holding Steam's grid; header and rows ≥ 80 px, cells round and clear (P-83), the name link fills its cell, no underline. **Privacy:** DLC rows 80 px, rounded, 8 px apart. **Compatibility:** the ARM checkbox block an 80 px capsule row. **Controller:** the Steam Input note and status grid at Callout / Subheadline, white. **Updates:** build lines Subheadline; the two rich pop-ups are C4a's (P-83, top edge: REQ C5a->C4a). The coloured page circles (T2 `data-lgs-page`) and the hero circle are not built.
 
 ### 4.12 Controller entry and VR bindings (`p2_game-pages_controls.png`, `p2_game-pages_vrbind_confirm.png`)
 
@@ -811,7 +822,7 @@ The surface is `vr:controllerbindingui`, its own 2400 × 1350 overlay (page 2 of
 | Id | Question | How an agent answers it | Blocks |
 |---|---|---|---|
 | GQ1 | With the hero at 656 px, the play row overlaid **and the art sticky**, do Steam's tab pinning, gamepad scroll-into-view and laser tab clicks still work? | AT-NAV, AT-PIN, AT-FADE on 620980, 546560, 751630, 2258399336 | §4.1, §4.3 (fallbacks ready) |
-| GQ2 | Does the constrained `%{BoxSizerContainer}` keep every logo anchor inside x 40–600, y 108–232? | AT-GEO logo rect on the four test apps | §4.1 |
+| GQ2 | Does the constrained `%{BoxSizerContainer}` keep every logo anchor inside x 104–664, y 108–232? | AT-GEO logo rect on the four test apps | §4.1 |
 | GQ3 | *(Withdrawn.)* The scroll-driven hero fade is replaced by a state-driven cross-fade (§4.3) | — | — |
 | GQ4 | Do LB/RB switch the game page's and the achievements page's tabs? | `L.pad` cannot send bumpers; read the tab strip's handlers from its fiber (`onButtonDown` for 5/6) | Ornament legend wording only |
 | GQ5 | Does the toggle at `scale: 1.75` keep Steam's knob and grow the hit area (Properties)? | SET's CS1 probe | §4.11 |
@@ -845,13 +856,13 @@ Every function in GP §A, plus the two Play-from rows that GP §A.4 lists withou
 
 | # | Function | New place | Laser | Gamepad | Tier |
 |---|---|---|---|---|---|
-| G1 | See the art, logo, "VR required" badge | Title view: the art fills the window (sticky); logo box (40, 108); VR chip (40, 244); fallback art for shortcuts; in details states, the art backdrop and inline title | Passive | Passive | T1 (+T2) |
+| G1 | See the art, logo, "VR required" badge | Title view: the art fills the window (sticky); logo box (104, 108); VR chip (104, 244); fallback art for shortcuts; in details states, the art backdrop and inline title | Passive | Passive | T1 (+T2) |
 | G2 | Go back | Toolbar Back circle (24, 24) (WN) | Click | B | T1 |
-| P1 | [x] Play / Install / Update / Stream / Resume | Play capsule 280 × 80 at (40, 448) | Click | Default focus + A | T1 |
+| P1 | [x] Play / Install / Update / Stream / Resume | Play capsule 280 × 80 at (104, 448) | Click | Default focus + A | T1 |
 | P2 | Play from (choose target) | 80 px display circle at (336, 448) → Play-from menu above it | Click (tooltip after 0.8 s) | Right from Play (tooltip at once), A | T1 (+T2 anchor) |
 | P3 | [x] Stop / force stop (running) | 80 px circle at (336, 448), red on focus; tooltip above; "Exit game?" alert | Click | Right from Resume, A | T1 |
 | P4 | See launching progress | "Launching" + Steam's throbber in the capsule; Steam's launching-details view unchanged | Read | Read | T1 |
-| P5 | Read Last Played / Play Time / Space Required | Stats line (40, 358); the Last Played tooltip still shows on hover | Read; hover | Read (not D-pad focusable, as today) | T1 |
+| P5 | Read Last Played / Play Time / Space Required | Stats line (104, 358); the Last Played tooltip still shows on hover (an 80 px tall target) | Read; hover | Read (not D-pad focusable, as today) | T1 |
 | P6 | Configure Controller | **"Steam Input" capsule** at (432, 448) → Steam Input | Click | Right ×2 (×1 without Play-from), A | T1 + T2 label |
 | P7 | Open the Manage menu | Gear circle at (913, 448) (642 without Controller Bindings) → menu beside it (rule 2 or 3) | Click | Right ×4 (×3 without Controller Bindings), A | T1 (+T2 anchor) |
 | P8 | See that the game is private | 30 px red disc on the gear | Passive | Passive | T1 |
@@ -870,7 +881,7 @@ Every function in GP §A, plus the two Play-from rows that GP §A.4 lists withou
 
 | # | Function | New place | Laser | Gamepad | Tier |
 |---|---|---|---|---|---|
-| T1 | Switch tab | Segmented capsule (rest (40, 548), pinned (40, 116)); the **paired arrow capsule** at x 734–894 (two 80 px halves); routes `/tab/<Name>` unchanged | Click a segment or an arrow half | Down from Play, then Left/Right (focus selects); LB/RB as today (GQ4) | T1 |
+| T1 | Switch tab | Segmented capsule (rest (104, 548), pinned (104, 116)); the two **arrow circles** in 80 px targets at x 771–931; routes `/tab/<Name>` unchanged | Click a segment or an arrow half | Down from Play, then Left/Right (focus selects); LB/RB as today (GQ4) | T1 |
 | T2 | See the compatibility verdict at a glance | Green disc with a check in the Game Info segment | Passive | Passive | T1 |
 | T3 | Scroll the content | The same two scrollers; the art stays still and cross-fades on pin | Wheel / thumbstick | D-pad moves focus; Steam scrolls | T1 (+T2 arrival) |
 | AC1 | [x] Post to friends | 64 px recessed field; **Post as its own 60 px capsule** to its right | Click the field → keyboard; click Post | Focus + A → keyboard; Right to Post | T1 |
@@ -981,7 +992,7 @@ Count: the 67 function ids in GP §A plus PF1 and PF2 = **69 mapped, none droppe
 |---|---|---|---|
 | AT-MOCK | Mockups render | The loop in the header (25 mockups) and `python docs/phase2/mockups/legibility-check.py` | Every PNG written, `data-lgk-ready` reached; the legibility check prints PASS for `_title`, `_title_bright` and `_title_bright_t1` and FAIL for `_title_bright_r1` |
 | AT-AUDIT | Function regressions | `python glass.py audit main --route /library/app/<id>` for the six apps; `/library/app/620980/tab/{Activity,YourStuff,Community,GameInfo}`; `/library/app/620980/achievements/my/individual`; `/app/620980/properties/<page>` for all 12 pages (and `shortcut` on 2258399336); `/app/620980/controllerconfigurator/main`; `audit vr:systemui` (NP, with the showcase), `audit vr:controllerbindingui` | GONE / HIDDEN / UNCLICKABLE / CONTRAST = 0; SHRUNK = 0 except WN's documented search box and Q-B |
-| AT-GEO | Layout | pre returning the rects of `%{PlayButtonContainer>PlayButton}`, `%{StreamingSelector}`, `%{ControllerConfigButton}`, `[data-lgs-vrbind]`, `%{Container>MenuButton}[aria-label="Manage"]`, `%{TabHeaderRowWrapper} %{TabRow}`, `%{Arrows}`, `%{CloudStatusRow}`, `%{BoxSizerContainer}`, `%{StatusAndStats}` | ± 2 px of: Play (40, 448, 280, 80); Play-from (336, 448, 80, 80); Steam Input (432, 448, w, 80) with w = label + 104 ± 8; Controller Bindings 16 px after it; Manage 16 px after the last capsule, x + 80 ≤ 1010; tabs top 548; arrows 160 × 64, 16 px after the tabs; cloud chip right edge 1240; logo box inside (40, 108, 560, 124); stats bottom ≤ 386 |
+| AT-GEO | Layout | pre returning the rects of `%{PlayButtonContainer>PlayButton}`, `%{StreamingSelector}`, `%{ControllerConfigButton}`, `[data-lgs-vrbind]`, `%{Container>MenuButton}[aria-label="Manage"]`, `%{TabHeaderRowWrapper} %{TabRow}`, `%{Arrows}`, `%{CloudStatusRow}`, `%{BoxSizerContainer}`, `%{StatusAndStats}` | ± 2 px of: Play (104, 448, 280, 80) (centre 244: VP P-29); Play-from (400, 448, 80, 80); Steam Input (496, 448, w, 80) with w = label + 94 ± 8; Controller Bindings 16 px after it; Manage 16 px after the last capsule, x + 80 ≤ 1100; tabs (104, 548), 64 tall; arrows two 80 × 80 targets, the first 8 px after the tabs; cloud chip right edge 1240; logo box (104, 108, 560, 124); chip top 244; stats text one line, bottom ≤ 386 (its hover targets may reach 394); the private badge's target 80 × 80, ≥ 1 px clear of Manage's box (revision 3) |
 | **AT-SIZE** | Targets, exactly DESIGN2 §17 #1, per surface | Script over every focusable or clickable box: `.Focusable`, `[role=button\|link\|tab\|menuitem]`, `button`, `a`, `input`, `textarea`, `[tabindex]`, T2/T3 nodes. Box = border box (it includes our transparent hit padding). Thresholds: **main** T = 80, G = 21; **vr:systemui** (NP and its sheets) T = 115, G = 30; **vr:controllerbindingui** T = 150, G = 40 | Each box has width and height ≥ T, **or** its centre is ≥ T from every other box's centre **and** its clear gap to every other box is ≥ G. Run on main (the game-page routes above), `vr:systemui` (NP with the showcase; the sheet layout on GQ15's synthetic host) and `vr:controllerbindingui` (`bind_list.js`, `bind_view.js`). No exceptions on these routes except the menu rows of GQ20, which are reported separately under WN's rule |
 | AT-TYPE | Type | Text runs' computed `font-size`, `text-transform`, `font-style`, `letter-spacing` | No size < 18 px (main; × m on other surfaces); no uppercase, italic or positive tracking in chrome |
 | **AT-TIP** | Cluster tooltips | For Play-from, Stop (GQ10 host) and Manage: (a) gamepad: `BTakeFocus(3)`, wait 0.35 s; (b) laser: CDP `Input.dispatchMouseEvent` `mouseMoved` to the control's centre, wait 0.9 s; then read the tooltip rect and every focusable rect | Tooltip bottom = control top − 12 ± 2; horizontally centred ± 2; inside the glass (0–1280 × 0–656); intersects no other focusable rect and not the tab row; (a) visible within 350 ms of focus, (b) not before 0.8 s |

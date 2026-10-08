@@ -1,0 +1,25 @@
+{
+ "_doc": "C5a G-MOCK (glass.py cmp, contracts/lab.md section 3): live selectors for the game-page mockups. The mockup builder (docs/phase2/mockups/game-pages.js) tags the cluster slots, tab capsule, logo box, chip and stats line with data-id. Run with --flags wp.c5a,wp.c1a,wp.p3 (T2 labels the Steam Input capsule) and --mode pad (Play focused, as the mockup). Known, explained differences: the mockup's title is 'Starfall Drift'; the stats map one stat each (stat1, stat2: label and value on one line); 'input' is the labelled capsule, whose width follows its label; the mockup's tab capsule holds 'Your Stuff' and its own font metrics (dw); the arrows are two circles live (P-83), one paired capsule in the mockup, so they are not mapped.",
+ "surface": "main",
+ "mockScale": 1,
+ "mockups": {
+  "game-pages-title": {
+   "route": "/library/app/620980",
+   "mockOrigin": [
+    320,
+    66
+   ],
+   "map": {
+    "play": "%{PlayButtonContainer>PlayButton}",
+    "playfrom": "%{StreamingSelector}",
+    "input": "%{ControllerConfigButton}",
+    "manage": "%{AppButtons} %{MenuButtonContainer} %{Container>MenuButton}",
+    "tabs": "%{AppDetailsContainer} %{TabRowTabs}",
+    "logo": "%{BoxSizerContainer}",
+    "chip": "%{PurchaseNoticeContainer}",
+    "stat1": "%{StatusAndStats} %{GameStatRight}",
+    "stat2": "%{StatusAndStats} %{GameStatRight}@last"
+   }
+  }
+ }
+}

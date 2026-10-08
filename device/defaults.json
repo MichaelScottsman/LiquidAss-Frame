@@ -1,0 +1,14 @@
+{
+ "_note": "Shipped defaults (user decision 2026-10-07): native glass on, all phase 2 areas on, real launches on.",
+ "native": "on",
+ "actionsLive": true,
+ "wp.p3": true,
+ "wp.p6": true,
+ "wp.c1a": true, "wp.c1b": true, "wp.c1c": true,
+ "wp.c2a": true, "wp.c2b": true, "wp.c2c": true,
+ "wp.c3a": true, "wp.c3b": true,
+ "wp.c4a": true, "wp.c4b": true,
+ "wp.c5a": true, "wp.c5b": true,
+ "wp.c6a": true, "wp.c6b": true,
+ "wp.c7": true
+}

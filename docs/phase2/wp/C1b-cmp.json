@@ -1,0 +1,71 @@
+{
+ "_doc": "C1b (PLAN-1b-1, G-MOCK): live selectors for window-nav-search.html (zero state, laser mode) and window-nav-results.html (All summary for 'half', gamepad mode, focus on the Top Hit). Run with --flags wp.c1b,wp.p3,wp.c1a (results: and wp.c2a for the Software cell; its provider lists programs only after Home has rendered once, so the pre visits Home). Unmapped by design: the results mockup's 'scope' (the 64 px track is P4's ::after of Steam's tab row, not an element; its segments are measured by the gates' E-SEG criterion), the zero state's 'window' (C1a's, PLAN-1a-3). The live Recent Games cell is the whole 160 x 180 target, as in the mockup. Store tiles are Steam's own (177 x 82 art on a 189 px pitch), the mockup's are crops of them (180 x 84). Measured on purpose against the live hit boxes, as C1a-cmp.json does: Back (80 box vs the 60 circle: -10, -10, +20, +20), the field (80 vs 64: -8, -8, +16, +16), Steam's arrows (80 vs 60) and the More circle (80 vs 60); the ornament members are C1a's 84 px rows (dy -12, dh +24, C1a-cmp.json). The snapshot and the scrim cover the whole 720 px surface (the glass clips them at 656), the mockup draws them inside the 656 glass: dh +64.",
+ "surface": "main",
+ "mockScale": 1,
+ "mockups": {
+  "window-nav-search": {
+   "route": "/library/tab/AllGames",
+   "pre": "(async()=>{const W=L.surface('main');const kb=()=>{try{W.SteamClient.OpenVR.Keyboard.Hide()}catch(e){}};L.nav('/library/tab/AllGames');await L.sleep(1200);L.click('main','#header %{SearchBox}');await L.sleep(1300);kb();for(const q of ['dolphin','tomb raider','half']){__LGS_RT.search.setQuery(q);await L.sleep(1700);kb();}__LGS_RT.search.setQuery('');await L.sleep(1500);kb();return L.route()+' '+__LGS_RT.search.recent().slice(0,3).join('|')})()",
+   "mockOrigin": [
+    320,
+    30
+   ],
+   "map": {
+    "snapshot": ".lgs-snap",
+    "scrim": ".lgs-search-scrim",
+    "sheet": ".lgs-search-zero",
+    "recent-h": ".lgs-search-zero .lgs-search-h",
+    "recent-0": ".lgs-search-zero [data-lgs-search=\"recent\"] .lgs-search-game@nth=0",
+    "recent-1": ".lgs-search-zero [data-lgs-search=\"recent\"] .lgs-search-game@nth=1",
+    "recent-2": ".lgs-search-zero [data-lgs-search=\"recent\"] .lgs-search-game@nth=2",
+    "recent-3": ".lgs-search-zero [data-lgs-search=\"recent\"] .lgs-search-game@nth=3",
+    "recent-4": ".lgs-search-zero [data-lgs-search=\"recent\"] .lgs-search-game@nth=4",
+    "searches-h": ".lgs-search-zero .lgs-search-h@nth=1",
+    "searches": ".lgs-search-zero [data-lgs-search=\"recent-search\"]",
+    "search-0": ".lgs-search-zero [data-lgs-search=\"recent-search\"] .lgs-search-cap@nth=0",
+    "search-1": ".lgs-search-zero [data-lgs-search=\"recent-search\"] .lgs-search-cap@nth=1",
+    "search-2": ".lgs-search-zero [data-lgs-search=\"recent-search\"] .lgs-search-cap@nth=2",
+    "show-all": ".lgs-search-zero [data-lgs-search=\"seeall\"]",
+    "hint": ".lgs-search-zero .lgs-search-hint",
+    "field": "#header %{SearchAndTitleContainer}",
+    "back": "#header %{BackContainer}",
+    "orn-a": "#Footer [data-lgs-btn=\"OK\"]",
+    "orn-b": "#Footer [data-lgs-btn=\"CANCEL\"]"
+   }
+  },
+  "window-nav-results": {
+   "route": "/library/tab/AllGames",
+   "pre": "(async()=>{const W=L.surface('main');const kb=()=>{try{W.SteamClient.OpenVR.Keyboard.Hide()}catch(e){}};L.nav('/library/home');await L.sleep(1200);L.nav('/library/tab/AllGames');await L.sleep(1200);L.click('main','#header %{SearchBox}');await L.sleep(1300);kb();__LGS_RT.search.setQuery('half');await L.sleep(2000);kb();L.root();await L.sleep(300);FocusNavController.DispatchVirtualButtonClick(10);await L.sleep(600);FocusNavController.DispatchVirtualButtonClick(10);await L.sleep(1200);return L.route()+' '+((W.document.querySelector('.lgs-all .gpfocus')||{}).className||'').slice(0,20)})()",
+   "mockOrigin": [
+    320,
+    66
+   ],
+   "map": {
+    "snapshot": ".lgs-snap",
+    "scrim": ".lgs-search-scrim",
+    "sheet": "%{GamepadSearch} > %{GamepadTabbedPage}",
+    "scope-prev": "%{GamepadSearch} %{TabHeaderRowWrapper} %{Arrows}@nth=0",
+    "scope-next": "%{GamepadSearch} %{TabHeaderRowWrapper} %{Arrows}@last",
+    "tophit": ".lgs-all .lgs-all-hit",
+    "more": ".lgs-more",
+    "open": ".lgs-all .lgs-all-open",
+    "poster-0": ".lgs-all .lgs-all-poster@nth=0",
+    "poster-1": ".lgs-all .lgs-all-poster@nth=1",
+    "poster-2": ".lgs-all .lgs-all-poster@nth=2",
+    "poster-3": ".lgs-all .lgs-all-poster@nth=3",
+    "apps-h": ".lgs-all .lgs-all-block-soft .lgs-all-h",
+    "apps": ".lgs-all .lgs-all-soft",
+    "store-h": ".lgs-all .lgs-all-block-store .lgs-all-h",
+    "store-0": ".lgs-all .lgs-all-run-store %{ResultTemplateImage}@nth=0",
+    "store-1": ".lgs-all .lgs-all-run-store %{ResultTemplateImage}@nth=1",
+    "seeall": ".lgs-all .lgs-all-seeall",
+    "field": "#header %{SearchAndTitleContainer}",
+    "back": "#header %{BackContainer}",
+    "orn-x": "#Footer [data-lgs-btn=\"SECONDARY\"]",
+    "orn-menu": "#Footer [data-lgs-btn=\"MENU\"]",
+    "orn-a": "#Footer [data-lgs-btn=\"OK\"]",
+    "orn-b": "#Footer [data-lgs-btn=\"CANCEL\"]"
+   }
+  }
+ }
+}

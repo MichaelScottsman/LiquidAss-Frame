@@ -14,9 +14,8 @@
       carousels and inline geometry are untouched. Hit boxes grow with a
       transparent border so the visible control stays at its visionOS size
       (60) while the target is 80 (PLAN §1.3).
-   B. The window-full tint behind Steam's Home on a route the shell marks
-      windowless while our override is absent (HA §13 fallback for REQ
-      C2a->C1a #1).
+   B. (retired in round R2: C1a's map keeps Steam's Home in window glass
+      unless our glassMode('home') hook answers.)
    C. Our Home (T3 nodes built by device/rt/41-home.js behind wp.c2a). Inert
       until those nodes exist. CSS-only plates (HA §10.5): black .58 under a
       white .16 -> .04 gradient (--lgs-mat-plate-bg) plus the liquid edge
@@ -37,20 +36,24 @@
        .lgs-home-wn (Focusable, 80 tall hit)          What's New (home) / Show in Library (folder)
          .lgs-home-wn-glass [data-lgs-plate] > svg.lgs-home-ic + .lgs-home-wn-label
        .lgs-home-title                                folder name (folder routes)
-     .lgs-home-grid[.is-entering|.is-leaving]          one honeycomb page
+     .lgs-home-grid[.is-entering|.is-leaving]          one honeycomb page (.is-leaving: a non-focusable
+                                                      copy of the old page during page-out)
        .lgs-home-cell[data-kind=game|program|folder|window|all|empty] (Focusable, 200 x 180,
                      style="--x:<disc centre x>px; --y:<disc centre y>px; --lgs-home-ring:<0-3>")
-                     [.is-running .is-notinstalled .is-downloading .is-update .is-under .is-hidden-label]
+                     [data-row=0|1|2] [.is-running .is-notinstalled .is-downloading .is-update .is-under
+                      .is-hidden-label .has-card] (discs and labels under the open card get an inline
+                      clip-path hole)
          .lgs-home-disc [data-lgs-dwell][data-lgs-plate]   120 disc
            .lgs-home-art > img.lgs-home-hero, img.lgs-home-port, img.lgs-home-logo, .lgs-home-mono
            | .lgs-home-prog > img | svg.lgs-home-glyph-ic
            | .lgs-home-folder > i.lgs-home-mini (x 9)
            .lgs-home-cloud | .lgs-home-update | .lgs-home-ring-progress
          .lgs-home-label > i.lgs-home-run? + text
-     .lgs-home-peek[data-side="next"|"prev"] > .lgs-home-art   laser page targets
+     .lgs-home-peek[data-side="next"|"prev"][data-kind][data-lgs-dwell][role=button] > .lgs-home-art | .lgs-home-prog | .lgs-home-folder
      .lgs-home-dots > i[.is-on]
      .lgs-home-plate[.two] [data-lgs-plate] > .lgs-home-plate-name + .lgs-home-plate-sub
-     .lgs-home-card[data-state="open"|"closing"][data-lgs-plate]  style="left;top;--sx;--sy;--sw;--sh;--sr"
+     .lgs-home-card[data-state="open"|"closing"][.is-mirror][.is-menu-source][data-lgs-plate][data-lgs-mosaic]
+                     style="left;top;--sx;--sy;--sw;--sh;--sr"
        .lgs-home-card-art > img…
        .lgs-home-play (80 tall hit) > .lgs-home-play-fill > svg + label + .lgs-home-badge
        .lgs-home-more (80 x 80 hit) > .lgs-home-more-fill > svg + .lgs-home-badge
@@ -530,17 +533,12 @@
 }
 
 /* ==================================================================== */
-/* B. Steam's Home with no window glass (HA §13, REQ C2a->C1a #1)         */
+/* B. (retired) Steam's Home with no window glass                        */
 /* ==================================================================== */
-/* If the shell's route map marks Home windowless but our override is not
-   on the page, Steam's feed would float over the room: give it the
-   window-full tint until the shell's glassMode('home') hook decides. */
-%{BasicUiRoot}[data-lgs-route="home"][data-lgs-glass="windowless"]:not(:has(.lgs-home)) %{BasicHome} {
-  background: var(--lgs-mat-window-bg);
-  box-shadow: var(--lgs-mat-window-shade);
-  border-radius: var(--lgs-r-window);
-  --lgs-edge: window;
-}
+/* C1a's route map makes Home window-full unless our glassMode('home')
+   hook answers (REQ C2a->C1a #1), and the hook answers null when our
+   Home is not rendering, so Steam's Home always has its window glass;
+   the interim tint that stood here is gone (review R2 m11). */
 
 /* ==================================================================== */
 /* C. Our Home (T3 nodes, 41-home.js behind wp.c2a)                      */
@@ -818,12 +816,16 @@
    back as the card closes into it (M1) */
 .lgs-home-cell.has-card > .lgs-home-disc {
   opacity: 0;
-  transition: opacity var(--lgs-d-mat-in) linear, scale var(--lgs-motion-hover-in);
+  transition: opacity var(--lgs-motion-mat-in), scale var(--lgs-motion-hover-in);
 }
 /* low layout: row 1 lifts from its top edge, so the x1.10 disc stays below
-   the section segments' 80 px hits (y 94-174; M11) */
+   the section segments' 80 px hits (y 94-174; M11), and its update badge
+   does not reach above the disc */
 .lgs-home.lgs-home-low .lgs-home-cell[data-row="0"] > .lgs-home-disc {
   transform-origin: 50% 0;
+}
+.lgs-home.lgs-home-low .lgs-home-cell[data-row="0"] .lgs-home-update {
+  top: 0;
 }
 /* route entry: plates materialize, staggered 30 ms per ring from the
    focused cell, at most 3 rings (HA §11) */
@@ -1031,11 +1033,6 @@
 .lgs-home-cell.is-under .lgs-home-label {
   opacity: .22;
 }
-/* under the open card a label goes: the card's native crop carries only
-   the card */
-.lgs-home-cell.is-under-card .lgs-home-label {
-  opacity: 0;
-}
 /* the attended cell's own label is replaced by its name plate */
 .lgs-home-cell.is-hidden-label .lgs-home-label {
   opacity: 0;
@@ -1048,11 +1045,10 @@
    No :hover here shows a card or a name plate (AT-8d): those are mounted
    by 41-home.js from rt.attend's steps. */
 &:not(.lgs-input-laser) .lgs-home-cell.gpfocus > .lgs-home-disc,
-&.lgs-input-laser .lgs-home-disc:is(.lgs-dwell:hover, .lgs-attend-80),
-.lgs-home-cell.is-attended > .lgs-home-disc {
+&.lgs-input-laser .lgs-home-disc:is(.lgs-dwell:hover, .lgs-attend-80) {
   scale: var(--lgs-disc-lift);
   box-shadow: var(--lgs-mat-liquid-shade), 0 6px 18px rgb(0 0 0 / .40), 0 0 26px 2px rgb(255 255 255 / .22);
-  transition: scale var(--lgs-motion-hover-in), box-shadow var(--lgs-motion-hover-in);
+  transition: scale var(--lgs-motion-hover-in), box-shadow var(--lgs-motion-hover-in), opacity var(--lgs-motion-mat-in);
 }
 /* gamepad focus on a disc also lights its sheen (the disc is the visible
    part of the focused cell) */
@@ -1179,21 +1175,28 @@
   --lgs-morph-r: 36px;
   --lgs-maxside: 320;
   box-shadow: var(--lgs-mat-liquid-shade), var(--lgs-shadow-15mm);
-  animation: lgs-morph var(--lgs-motion-morph-open) backwards;
+  /* at rest the clip is 48 px larger than the card on every side (room
+     for its 15 mm shadow), so the close can morph it back into the disc */
+  clip-path: inset(-48px round 84px);
+  /* morph-open, 607 ms: the clip rides the bounce-0 curve (MO §6.4, P5's
+     lgs-morph; a negative inset overshoot is not dependable in CSS), and
+     glassd draws the b .20 overshoot of the glass in native mode */
+  animation: lgs-morph var(--lgs-d-morph-open) var(--lgs-ease-b0) backwards;
 }
 .lgs-home-card > * {
   animation: lgs-morph-content var(--lgs-d-morph-open) linear backwards;
 }
-/* closing: the content leaves first, then the glass returns into the
-   disc's rect (morph-close 441 ms) while the disc fades back in */
-@keyframes lgs-c2a-morph-back {
-  from { clip-path: inset(0 0 0 0 round var(--lgs-morph-r, 36px)); }
-  to   { clip-path: inset(var(--sy, 0px) calc(100% - var(--sx, 0px) - var(--sw, 120px))
-                          calc(100% - var(--sy, 0px) - var(--sh, 120px)) var(--sx, 0px) round var(--sr, 60px));
-         opacity: 0; }
-}
+/* closing (HA §3.4, MO §4.6): the content leaves first (gone by 55 %),
+   the glass returns into the disc's rect on morph-close (441 ms, b0) and
+   dissolves on materialize-out while the disc fades back in under it. A
+   transition from the rest clip, so no keyframe of our own (P5 owns
+   every lgs-* keyframe) */
 .lgs-home-card[data-state="closing"] {
-  animation: lgs-c2a-morph-back var(--lgs-motion-morph-close) forwards;
+  animation: none;
+  clip-path: inset(var(--sy, 0px) calc(100% - var(--sx, 0px) - var(--sw, 120px))
+                   calc(100% - var(--sy, 0px) - var(--sh, 120px)) var(--sx, 0px) round var(--sr, 60px));
+  opacity: 0;
+  transition: clip-path var(--lgs-motion-morph-close), opacity var(--lgs-motion-mat-out);
   pointer-events: none;
 }
 .lgs-home-card[data-state="closing"] > * {
@@ -1203,10 +1206,10 @@
    400 px of the centre line (P-29, M9) */
 .lgs-home-card.is-mirror .lgs-home-play {
   left: auto;
-  right: 14px;
+  right: 20px;
 }
 .lgs-home-card.is-mirror .lgs-home-more {
-  left: 14px;
+  left: 6px;
 }
 /* while its menu is open the card stays flat and keeps a CSS glow (rule 6) */
 .lgs-home-card.is-menu-source {
@@ -1249,16 +1252,18 @@
   pointer-events: none;
   background: linear-gradient(180deg, rgb(0 0 0 / 0) 40%, rgb(0 0 0 / .42));
 }
-/* Play: a 60 visible capsule at (24, 80), at most 190 wide, inside an 80
-   tall hit 10 px wider on each side (HA-15). Green whole fill; Install and
+/* Play: a 60 visible capsule at (24, 80), at most 190 wide, inside a 96
+   tall hit 4 px wider on each side (HA-15; 96, not 80, so the card's +15 mm
+   stays click-safe down to a window scale r of .81: PLAN §1.7 rule 2 needs
+   s >= 15 / (369 r) / .000521, review R2 m4). Green whole fill; Install and
    Update blue (data-kind on the hit element). */
 .lgs-home-play {
   position: absolute;
   z-index: 3;
-  left: 14px;
-  top: 70px;
-  height: 80px;
-  padding: 0 10px;
+  left: 20px;
+  top: 62px;
+  height: 96px;
+  padding: 0 4px;
   display: flex;
   align-items: center;
   cursor: pointer;
@@ -1297,15 +1302,16 @@
 .lgs-home-play[data-kind="update"] .lgs-home-play-fill {
   background: var(--lgs-tint-primary);
 }
-/* More: the shell helper's look (PLAN §1.3): 60 visible, black .38 + 10 px
-   blur, inside an 80 x 80 hit; white while its menu is open */
+/* More: the shell helper's look (PLAN §1.3): 60 visible at (236, 80), black
+   .38 + 10 px blur, inside a 96 x 96 hit that abuts Play's widest hit;
+   white while its menu is open */
 .lgs-home-more {
   position: absolute;
   z-index: 3;
-  left: 226px;
-  top: 70px;
-  width: 80px;
-  height: 80px;
+  left: 218px;
+  top: 62px;
+  width: 96px;
+  height: 96px;
   display: grid;
   place-items: center;
   cursor: pointer;
@@ -1382,6 +1388,7 @@
   width: 20px;
   height: 20px;
   flex: none;
+  fill: currentColor;
 }
 
 /* gamepad glyph badges (X on Play, menu on More): gamepad mode only (P-26) */
@@ -1450,10 +1457,31 @@
     animation: lgs-fade-in var(--lgs-d-reduce) linear backwards;
   }
   .lgs-home-card[data-state="closing"] {
+    clip-path: inset(-48px round 84px);
+    opacity: 1;
+    transition: none;
     animation: lgs-fade-out var(--lgs-d-reduce) linear forwards;
   }
   .lgs-home-seg-pill {
     transition: translate var(--lgs-d-reduce) linear, width var(--lgs-d-reduce) linear;
+  }
+  /* fades only (VP P-56): the lift's glow, the focus light and the label's
+     colour change at once; the disc and its label only cross-fade */
+  .lgs-home .lgs-home-cell > .lgs-home-disc,
+  .lgs-home .lgs-home-cell > .lgs-home-label {
+    transition: opacity var(--lgs-d-reduce) linear !important;
+  }
+  /* P4's illumination layer and edge on the disc fade their focus light on
+     a custom property: at once here (REQ C2a->P4 #18 asks for it globally) */
+  .lgs-home .lgs-home-cell > .lgs-home-disc::before,
+  .lgs-home .lgs-home-cell > .lgs-home-disc::after {
+    transition: none !important;
+  }
+  /* the segment's focus light (P4's --lgs-focus) also at once (P-56) */
+  .lgs-home-seg-fill,
+  .lgs-home-seg-fill::before,
+  .lgs-home-seg-fill::after {
+    transition: none !important;
   }
 }
 @media (prefers-contrast: more) {

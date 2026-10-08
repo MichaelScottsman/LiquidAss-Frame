@@ -12,7 +12,11 @@
   const walk = (rules, nest) => { for (const r of rules) {
     if (r.selectorText && r.cssRules && r.cssRules.length) { walk(r.cssRules, (nest || []).concat(r.selectorText)); }
     if (r.selectorText && r.selectorText.includes(':hover')) {
-      let txt = conv(r.selectorText) + '{' + r.style.cssText + '}';
+      // the clone carries no transition: the hover state shows at once, and the lab's MOTION gate (which
+      // counts any lgs-* sheet as ours) never reads SteamVR's own 0.04 s button timing as the theme's
+      const decl = Array.from(r.style).filter((p) => !p.startsWith('transition'))
+        .map((p) => p + ':' + r.style.getPropertyValue(p) + (r.style.getPropertyPriority(p) ? ' !important' : '')).join(';');
+      let txt = conv(r.selectorText) + '{' + decl + '}';
       for (const p of (nest || []).slice().reverse()) txt = p + '{' + txt + '}';
       out.push(txt);
     } } };

@@ -1,7 +1,10 @@
 {
-  "_doc": "C2b PLAN-2b-2 / G-MOCK: data-ids of the two '+' popup mockups -> live selectors on the barpopup surface. The mockups draw the popup host at --pop-scale 1.2 (mockScale) and anchor the card's bottom on the 300 x 1024 surface's bottom, so the surface origin is (panel x, panel bottom - 1024 x 1.2) = (637.2, -333.2) mockup px in both. Each pre opens '+', activates the popup's nav tree and moves gamepad focus into the mockup's plate cell with one D-pad press (Steam paints .gpfocus in the popup only for gamepad moves): T3 (run with --flags wp.c2b,c2bToggle --mode pad) cell 8 'Frametop Display Settings' by Right from cell 7; T1 (--flags wp.c2b=false,c2bToggle=false --mode pad) cell 21 by Left from cell 22. Nothing is pressed.",
+  "_doc": "C2b PLAN-2b-2 / G-MOCK: data-ids of the two '+' popup mockups -> live selectors on the barpopup surface. The mockups draw the popup host at --pop-scale 1.2 (mockScale) and anchor the card's bottom on the 300 x 1024 surface's bottom, so the surface origin is (panel x, panel bottom - 1024 x 1.2) = (637.2, -333.2) mockup px in both. Each pre opens '+', activates the popup's nav tree and moves gamepad focus into the mockup's plate cell with one D-pad press (Steam paints .gpfocus in the popup only for gamepad moves): T3 (run with --flags wp.c2b,c2bToggle,wp.p3 --mode pad; the toggle row is Steam's own Liquid Glass row pinned in .lgs-c2b-pin) cell 8 'Frametop Display Settings' by Right from cell 7; T1 (--flags wp.c2b=false,c2bToggle=false,wp.p3 --mode pad) cell 21 by Left from cell 22. Nothing is pressed.",
   "surface": "barpopup",
-  "mockOrigin": [637.2, -333.2],
+  "mockOrigin": [
+    637.2,
+    -333.2
+  ],
   "mockScale": 1.2,
   "mockups": {
     "home-apps-plus-t1": {
@@ -33,7 +36,7 @@
         "cell-23": "%{DashboardBarPopupListItem}:nth-child(23)",
         "label-7": "%{DashboardBarPopupListItem}:nth-child(7) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon})",
         "plate": "%{DashboardBarPopupListItem}:nth-child(8) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon})",
-        "toggle": ".lgs-c2b-toggle"
+        "toggle": ".lgs-c2b-pin > %{DashboardBarPopupListItem}"
       }
     }
   }

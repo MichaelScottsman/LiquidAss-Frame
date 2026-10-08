@@ -4,6 +4,10 @@ Package card: `docs/phase2/PLAN.md` §2.4 "C4b Keyboard". Concept: `docs/phase2/
 
 ## Status
 
+**2026-10-07 20:45, R2 fix pass 1.** M1 (Enter label contrast 3.6:1) fixed in `theme/36-keyboard.css`: `--key-enter-background-color` is now opaque `rgb(0 110 220)` (white label 4.9:1), `--c4b-sheen-enter: none`, and the lit Enter state drops its white .20 overlay (lip + glow only). check-theme PASS, synced. Live gates with `wp.c4b`, native off: **AUD PASS in laser and pad** (20:29, 0 findings; stock AUD also PASS). SIZE PASS (0, 66 exempt), TYPE PASS (0, 40 exempt) in both modes, MOTION PASS (pad). **OUTLINE not re-measured**: `Page.captureScreenshot` timed out (30 s) in every run that needed a shot, in both modes, so there are no new shots or mockup comparison this pass. The change only alters the Enter fill colour and removes a gradient, so it adds no edges, but the gate result is still open. Device left in CSS-only mode with no flags on.
+
+**READY: wp.c4b** still stands on AUD/SIZE/TYPE/MOTION; it needs one OUTLINE + shot re-run once screenshots work again. `wp.c4b.native` still not ready (unchanged).
+
 **2026-10-07 11:50, session 1 (final; no review round follows).** Milestones: **M0, M2, M3 reached; M4 partly** (fragment in, reported in a native session; ack, C15b, C17, C24 not measured).
 
 **READY: wp.c4b** (the keyboard's CSS, echo row, masking, Enter label). Evidence below: gates AUD / SIZE / TYPE / OUTLINE / MOTION PASS in laser and pad with `wp.c4b` on (AUD 66 controls, 0 GONE / HIDDEN / UNCLICKABLE), D-pad traversal across the keys OK, C11 58/58 hit areas under their keys with the move, C11c, removal clean, no runtime errors or warnings from the module. **Not ready: `wp.c4b.native`** (the native `thick` platter, below): leave it off until V1's native gate measures K-G1/K-G5 (cover acked, `coverDz` −0.027 in `glassd.json`, C17 ramp), C15b (glassd median ≤ 2.5 ms with the keyboard up) and C24 (no key pixels in the room map). Until then the keyboard is T1 glass in native mode too (CTL §12.8).

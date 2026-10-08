@@ -36,6 +36,11 @@ CC-M and the pill patch; T1 CC-C deltas live; native plates declared (M4 code), 
   (flag off), no `data-lgs-cc*` attributes or `.lgs-cc` nodes in any window, `c3b.pill` patch gone
   (`react.status().patches` = []), no menus open.
 - **Known issues (not blocking READY):** see "Known issues" below.
+- **R2 fix pass 1 (2026-10-07 20:3x):** review M1 fixed (see "R2 fix pass 1" under Evidence). `31-cc.css`: the top
+  toggle row's focus glow keeps P4's spread and alpha with a 12 px blur, and `.lgs-cc-ctl-main` is clipped to the
+  tile shape. CC-M gates PASS (all five) in pad mode on `/settings/controller`, `/settings/display` and
+  `/library/home`, and in laser mode on `/settings/controller`; P-16 band of the focused Wi-Fi toggle still +27.8 L.
+  READY: wp.c3b still holds. Device left clean (no CC nodes or attributes, `/library/home`, module off).
 
 ## M0 note: conflicts with PLAN §1 settled (PLAN §1 wins)
 
@@ -110,6 +115,10 @@ Incoming (answered here; the requesters' files are theirs to tick):
   focused control).
 - REQ C3a->C3b (mockup files): (1) `control-center-build.js` avatar slot 60 → **64** px: done. (2) `--cc-glow`
   follows P4's `--lgs-white-glow`: noted for the next mockup render. (3) FYI noted.
+- REQ Coordinator->C3b (R2-4, R2-5): **accepted.** CC-A is not built (CS10 not run); when it is, native mode uses
+  `window {dim: 0.6}` alone with no surface `dim`, and its dim is the CSS scrim, not `t1` (CC §3's Power-alert
+  `t1` row is superseded by PLAN §1.8). `control-center-power*.html` get Cancel 60 on the next render (they are
+  superseded by C1c's `window-nav-power.html` anyway). Same answer for REQ P7->C3b.
 - REQ C4a->C3b (slider glyph zone): **adopted** (Steam's slider components with C4a's T1/T2, CTL C-D13).
 
 ## Known issues
@@ -122,6 +131,7 @@ Incoming (answered here; the requesters' files are theirs to tick):
   circle, whose Up returns to the Controls column; More Controls → Off). The four "unreached" nodes are the inner
   `%{*SliderControlPanelGroup>SliderControlAndNotches}` of Steam's own slider components (focus lands on the outer
   slider group, which is reached).
+- CC-M OUTLINE, Controls top side: .341 in pad mode against the .35 limit (the E3 rim alone is .321); thin margin.
 - Bar SIZE failures (small buttons 94 %, 18 px status icons) are identical with the flag off (C3a's bar).
 
 ## Evidence
@@ -137,6 +147,11 @@ Incoming (answered here; the requesters' files are theirs to tick):
 | Laser path | `js --flags wp.c3b --mode laser` (spy on): pill click, every toggle, Off/On, Recenter, Performance → More, Back, Notifications → list, Back, Battery → More, Back, backdrop | **PASS**: pill opens CC-M (bar `data-lgs-cc=open`); wifi, bt, air, motion, recenter, roomview logged by the spy (nothing executed); pages switch; backdrop closes; 0 fade attributes left | scratch `t7.out` | 2026-10-07 | 11094443 |
 | Pad path | `js --flags wp.c3b --mode pad` | first focus **Wi-Fi**; Right → Bluetooth; Down → Performance; Left → Battery (explicit neighbour) | — | 2026-10-07 | 11094443 |
 | G-PAD | `pad-bfs --flags wp.c3b --mode pad --pre <open>` | 19 nodes, not truncated, B closes the layer; 3 one-way edges = CC §4.8 joins; 4 inner Steam slider nodes listed unreached (see Known issues) | scratch `bfs.json` | 2026-10-07 | 11094443 |
+| R2 fix 1: M1, pad, settings | `gates main --route /settings/controller` (and `/settings/display`) `--flags wp.c3b --mode pad --pre <open; L.gpTake(Wi-Fi)>` | **PASS** all five; Controls tile top ratio **.341** (was .357 FAIL), segments 119 130 116 100 83 66 49 36; Wi-Fi glow visible and inside the tile in the shot. Note: without the explicit `gpTake` in the pre, the settings-route capture sometimes has no focus at all (ratio .321 = the laser value), so that run proves nothing; the pre now takes focus explicitly | `shots/p2_c3b_f1_pad_settings_controller.png`, `_settings_display.png`; scratch `c3bfix/g_*.out` | 2026-10-07 | 11094443 |
+| R2 fix 1: M1, pad, home | same, `--route /library/home` | **PASS** all five, top ratio .341 | `shots/p2_c3b_f1_pad_library_home.png` | 2026-10-07 | 11094443 |
+| R2 fix 1: laser | same, `--mode laser`, `/settings/controller` | **PASS** all five, top ratio .321 (the E3 rim alone) | `shots/p2_c3b_f1_laser_settings.png` | 2026-10-07 | 11094443 |
+| R2 fix 1: P-16 | ring 8-16 px outside the Wi-Fi face (offline, 601 luma) in the pad vs laser shots | focused 60.7 L vs rest 32.9 L: **+27.8** (≥ 20). A first try with no spread gave +7 (FAIL) and was dropped | — | 2026-10-07 | 11094443 |
+| R2 fix 1: mockup | pad shot vs `control-center-overview` | three tiles and close circle as before; focus halo now ends inside the tile (no lit band on the rim) | `shots/p2_c3b_f1_pad_settings_controller.png` | 2026-10-07 | 11094443 |
 | More Controls (CC12) | `js --flags wp.c3b` `page('more', k)` for each tab | Steam's panels render inside CC: Notifications 1, Quick Settings 27, Performance 37, Battery Info 3, Help 9 focusables | — | 2026-10-07 | 11094443 |
 | Cmp by eye | `shot main c3b_ccm_main` vs `p2_control-center_gamepad.png` | same three-tile layout, positions and sizes; Wi-Fi focus glow; differences = the recorded deviations | `shots/c3b_ccm_main.png`, `_more.png`, `_notif.png` | 2026-10-07 | 11094443 |
 | G-REMOVE | flag off after the steps | no `data-lgs-cc*` / `.lgs-cc` in any window, `react.status().patches` [], module `off`, no `cc` errors in the runtime log | — | 2026-10-07 | 11094443 |

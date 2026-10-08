@@ -5,23 +5,48 @@
    "Add Desktop Window" list when SteamVR reports windows) becomes a grid of
    4 columns of 72 x 96 popup px with no flow-children, so Steam infers grid
    navigation from the computed style (D2 12). Steam's scan order is kept
-   (T1 cannot reorder focusable siblings). Each cell: a 52 px disc (white .11)
-   with the program icon at 34 px, a 15 px Medium label of at most two lines.
-   The full name shows as a plate over the label on gamepad focus and on laser
-   dwell. Steam's own Liquid Glass row stays a normal cell with a 14 px green
-   "on" pip (T2 tags it data-lgs-row="liquid-glass"; the icon match is the
-   CSS-only fallback).
+   (T1 cannot reorder focusable siblings). Each cell: a 52 px disc (white .11
+   and a top sheen) with the program icon at 34 px, and a 15 px Medium label.
+   The whole cell is the control: it carries the laser hover (::before) and the
+   gamepad focus (::after), never a scale (P-05). The full name shows as a plate
+   over the label on gamepad focus and on laser attention. Steam's own Liquid
+   Glass row stays a normal cell with a 14 px green "on" pip.
+
+   Labels (HA 4, PLAN 1.16 E-GRID (labels)): never a cut glyph. CSS alone cannot
+   tell a single word that is wider than the label from a name that needs a
+   third line, and Chromium draws no ellipsis across inside a line clamp, so the
+   CSS-only floor draws every label on one line ending in "...". With the
+   runtime (32-launcher.js, flag wp.c2b) each cell carries data-lgs-c2b-fit:
+   "whole" names wrap to two lines; T3 draws a longer name as two explicit
+   lines (the second in its own box), the second ending in "..." ("split");
+   "word" and "lines" stay one line. No -webkit-line-clamp: its own "..." overflows the label
+   when the last word and the "..." do not fit.
 
    The "+" popup is the only list card with a header: Playspace has none, Quick
    Access and tab menus use other components. So every rule is scoped with
    LIST = %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}).
 
    T3 (device/rt/32-launcher.js, flag wp.c2b): .lgs-c2b-panel wraps Steam's
-   list (sorted A-Z, the switch removed from the grid) and adds the pinned
-   Liquid Glass toggle row .lgs-c2b-toggle below it.
+   list (sorted A-Z; while the toggle row is on, the switch taken out of the
+   grid) and pins Steam's own Liquid Glass row below it, in .lgs-c2b-pin,
+   drawn as the toggle row.
+
+   ATT, the attended cell whose name plate shows (keyed on the input mode,
+   P-01, P-02): .gpfocus in gamepad mode; under the laser :hover after P3's
+   0.4 s attention step (.lgs-attend-400, cells tagged data-lgs-c2b-step) or,
+   without that, P3's 80 ms dwell; plain :hover without the runtime. Never on
+   a cell whose name shows whole (data-lgs-c2b-fit="whole"). Written out as
+   :is(:root:not(.lgs-input-laser) .gpfocus,
+       :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover,
+       :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"])
 
    Material: panel (PLAN 1.6), E3 edge from P4's hook, no border, no ring.
    Sizes are popup px (m .83): 72 x 96 cells = 87 x 116 main px. */
+
+/* the label's type, shared by the labels and the runtime's measuring probe */
+& {
+  --lgs-c2b-label-font: 500 15px/18px var(--lgs-font);
+}
 
 
 /* ---------------------------------------------------------------------- */
@@ -46,8 +71,10 @@
   --lgs-light: 305deg;
   color: var(--lgs-text-1);
   /* materialize in place from the bar (HA 4): large glass (> 600 px), scale
-     from 1 + 12 / 300 at the bottom centre, 250 ms */
-  --lgs-maxside: 300;
+     from 1 + 12 / long side at the bottom centre, 250 ms. The long side is
+     the card's height (652-760), so its top edge starts 12 px out (P5's
+     swell, P-54 <= 16 px); HA's 1 + 12/300 moved the header 24.6 px */
+  --lgs-maxside: 680;
   transform-origin: 50% 100%;
   animation: lgs-mat-large-in var(--lgs-motion-mat-in, 250ms linear) backwards;
 }
@@ -110,66 +137,107 @@
   --field-negative-horizontal-margin: 0px;
 }
 
-/* the cell: the whole 72 x 96 is the hit region */
+/* the cell: the whole 72 x 96 is the hit region and the control. Disc at
+   3-55, label from 60 (two 18 px lines end at 96, inside the cell) */
 %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem} {
   width: 72px;
   height: 96px;
   min-width: 0;
   box-sizing: border-box;
   margin: 0 !important;
-  padding: 4px 1px 0 !important;
+  padding: 3px 1px 0 !important;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  border-radius: var(--lgs-r-row);
+  border-radius: 22px;
   background: transparent !important;
   color: var(--lgs-text-1) !important;
   animation: none !important;
-  /* the cell's light layer (::after, z -1) paints above the glass, under
-     the disc and label */
+  /* the cell's light layers (z -1) paint above the glass, under the disc
+     and the label */
   isolation: isolate;
+  /* the first frame of focus (P5's lgs-focus-in on the cell's light, the
+     disc's arc and the plate) starts at 75 %, not P4's 60 %: the focus look
+     here also moves the label into the plate, whose text lags; at 60 % the
+     whole cell measured 50-60 % of its final contrast (P-18 needs >= 60) */
+  --lgs-focus-first: .75;
 }
-/* Steam's active dot: unused in a grid */
-%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}::before {
-  background: transparent !important;
-  box-shadow: none !important;
-  /* Steam's dot sits at left -6px: it must not take the neighbour's hits */
-  pointer-events: none;
+/* the attended cell's own label is legible at once (no fade back from .22
+   when it was under the previous plate) */
+&:not(.lgs-input-laser) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}.gpfocus %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
+&:not(.lgs-input-pad) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:hover %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}) {
+  transition-duration: 0s;
 }
-/* Steam's separator becomes the cell's light layer (HA 4, the mockup's
-   .hp-cell.is-hover / .is-focus): the whole 72 x 96 cell lights, white .14
-   on focus and .08 under the laser, never a scale (rows and cells do not
-   scale, P-05). Inside the cell, so the last row does not scroll by 1 px. */
+/* Steam's active dot (::before, at left -6 px) and separator (::after, .5 px
+   under the row) become the cell's two light layers (HA 4, the mockup's
+   .hp-cell.is-hover / .is-focus; PLAN 1.4). Both lie inside the cell (the
+   dot no longer takes the neighbour's hits, the separator no longer makes the
+   last row scroll by 1 px) and take no pointer. */
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}::before,
 %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}::after {
   content: "" !important;
+  /* Steam hides its separator on the focused row (display: none) */
+  display: block !important;
   position: absolute !important;
   inset: 0 !important;
   width: auto !important;
   height: auto !important;
-  border-radius: var(--lgs-r-row);
-  background: rgb(255 255 255 / var(--lgs-c2b-cell-focus, .14)) !important;
-  box-shadow: none !important;
-  opacity: 0;
+  margin: 0 !important;
+  transform: none !important;
+  border: 0 !important;
+  border-radius: 22px !important;
   z-index: -1;
-  pointer-events: none;
-  /* out on fade (441 ms) */
-  transition: opacity var(--lgs-d-fade, 441ms) var(--lgs-ease-b0, ease);
+  opacity: 0;
+  pointer-events: none !important;
 }
-&:not(.lgs-input-pad) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:hover::after {
-  opacity: calc(.08 / .14);
+/* ::before, laser hover: P4's hover tokens, + white .08 and P3's light
+   spot at the pointer (.12; High Contrast zeroes it). Measured settled on
+   the cells that never show a plate, P-03 +10..+25 L (the plate after
+   0.4 s is attention, not the hover look). In on hover-in, out on fade */
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}::before {
+  background:
+    radial-gradient(circle at var(--hx, 50%) var(--hy, 30%), rgb(255 255 255 / var(--lgs-hover-spot, .12)), transparent 60%),
+    rgb(255 255 255 / var(--lgs-hover-add, .08)) !important;
+  box-shadow: none !important;
+  transition: opacity var(--lgs-motion-fade, 441ms ease);
+}
+&:not(.lgs-input-pad) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:hover::before {
+  opacity: 1;
   transition-duration: var(--lgs-d-hover-in, 294ms);
 }
-/* gamepad focus: on at once, entering through P5's lgs-focus-in, so the
-   first frame already shows --lgs-focus-first (60 %) of the look (P-18) */
-&:not(.lgs-input-laser) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}.gpfocus::after,
-%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:is(:active, .lgs-pressed)::after {
-  opacity: 1;
-  transition-duration: 0s;
+/* ::after, gamepad focus (PLAN 1.4): + white .32 uniform, a spot of .16 in
+   the upper third and the arc; on at once, entering through P5's
+   lgs-focus-in so the first frame shows --lgs-focus-first (60 %, P-18); out
+   on fade */
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}::after {
+  background:
+    radial-gradient(ellipse 70% 45% at 50% 30%, rgb(255 255 255 / var(--lgs-focus-spot, .16)), transparent),
+    rgb(255 255 255 / var(--lgs-focus-add, .32)) !important;
+  box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / var(--lgs-focus-arc, .55)) !important;
+  transition: opacity var(--lgs-motion-fade, 441ms ease);
 }
 &:not(.lgs-input-laser) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}.gpfocus::after {
-  animation: lgs-focus-in var(--lgs-d-hover-in, 294ms) var(--lgs-ease-b0, ease) backwards;
+  opacity: 1;
+  transition-duration: 0s;
+  animation: lgs-focus-in var(--lgs-motion-hover-in, 294ms ease) backwards;
 }
+/* press: the laser's :active brightens the hover layer and spreads its spot;
+   the gamepad's A (P3's .lgs-pressed) adds .06 to the focus layer */
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:active::before {
+  opacity: 1;
+  background:
+    radial-gradient(circle at var(--hx, 50%) var(--hy, 30%), rgb(255 255 255 / var(--lgs-press-spot, .22)), transparent 85%),
+    rgb(255 255 255 / calc(var(--lgs-hover-add, .08) + var(--lgs-press-add, .06))) !important;
+  transition-duration: var(--lgs-d-interactive, 210ms);
+}
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}.lgs-pressed::after {
+  opacity: 1;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 40%, rgb(255 255 255 / var(--lgs-press-spot, .22)), transparent),
+    rgb(255 255 255 / calc(var(--lgs-focus-add, .32) + var(--lgs-press-add, .06))) !important;
+}
+
 %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem} %{*GamepadDialogContent>FieldLeftColumn},
 %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem} %{*GamepadDialogContent>FieldLabelRow} {
   width: 100%;
@@ -190,7 +258,8 @@
   text-shadow: none;
 }
 
-/* the disc (Steam's icon column) */
+/* the disc (Steam's icon column): raised rest look, white .11 and a top
+   sheen (PLAN 1.4 rest, the mockup's .hp-disc) */
 %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem} %{*GamepadDialogContent>FieldIcon} {
   position: relative;
   flex: none;
@@ -203,29 +272,32 @@
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: rgb(255 255 255 / .11);
+  background:
+    radial-gradient(90% 60% at 40% 0%, rgb(255 255 255 / .16), transparent 60%),
+    rgb(255 255 255 / .11);
   box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / .22);
   color: var(--lgs-text-1);
   isolation: isolate;
-  /* laser hover out on fade (441 ms), in on hover-in (3.) */
-  transition: background-color var(--lgs-d-fade, 441ms) var(--lgs-ease-b0, ease);
 }
-/* the disc's focus layer (3.): + white .32, a spot in the upper third, the
-   arc x 1.5 and a blurred glow; under the icon, above the disc's fill */
+/* the disc's share of the focus (3.): its arc x 1.5 and a blurred glow, no
+   fill of its own (the cell carries the +.32); under the icon */
 %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem} %{*GamepadDialogContent>FieldIcon}::before {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: 50%;
   z-index: -1;
-  background:
-    radial-gradient(circle at 50% 30%, rgb(255 255 255 / var(--lgs-focus-spot, .16)), transparent 70%),
-    rgb(255 255 255 / var(--lgs-focus-add, .32));
+  background: transparent;
   box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / var(--lgs-focus-arc, .55)),
-              0 0 calc(var(--lgs-white-glow-blur, 22px) * .5) 0 rgb(255 255 255 / .18);
+              0 0 calc(var(--lgs-white-glow-blur, 22px) * .6) 0 rgb(255 255 255 / .22);
   opacity: 0;
   pointer-events: none;
-  transition: opacity var(--lgs-d-fade, 441ms) var(--lgs-ease-b0, ease);
+  transition: opacity var(--lgs-motion-fade, 441ms ease);
+}
+&:not(.lgs-input-laser) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}.gpfocus %{*GamepadDialogContent>FieldIcon}::before {
+  opacity: 1;
+  transition-duration: 0s;
+  animation: lgs-focus-in var(--lgs-motion-hover-in, 294ms ease) backwards;
 }
 %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem} %{PopupBody>Icon} {
   width: 34px;
@@ -244,7 +316,9 @@
   width: 28px;
   height: 28px;
 }
-/* a program without an icon: a generic window glyph (decorative) */
+/* a program without an icon: a glyph (decorative; the label names it). The
+   runtime's data-lgs-c2b-glyph picks one by the name (HA 0.3); the CSS-only floor
+   draws a window */
 %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem} %{PopupBody>Icon}:empty::before {
   content: "";
   width: 26px;
@@ -253,19 +327,39 @@
   -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 26'><path fill='black' d='M5 4h16a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3zm0 2.4a.6.6 0 0 0-.6.6v2h17.2V7a.6.6 0 0 0-.6-.6zm-.6 5v7.6c0 .33.27.6.6.6h16a.6.6 0 0 0 .6-.6v-7.6z'/></svg>") center / contain no-repeat;
   pointer-events: none;
 }
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}[data-lgs-c2b-glyph="terminal"] %{PopupBody>Icon}:empty::before {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 26'><path fill='black' fill-rule='evenodd' d='M5 3h16a3 3 0 0 1 3 3v14a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3zm0 2.4a.6.6 0 0 0-.6.6v14c0 .33.27.6.6.6h16a.6.6 0 0 0 .6-.6V6a.6.6 0 0 0-.6-.6zm2.2 4.1 1.6-1.6 4.6 4.6-4.6 4.6-1.6-1.6 3-3zm6 6.1h5.6v2.2h-5.6z'/></svg>");
+}
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}[data-lgs-c2b-glyph="gear"] %{PopupBody>Icon}:empty::before {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 26'><path fill='black' fill-rule='evenodd' d='M11.3 2h3.4l.6 2.9 1.9.8 2.5-1.6 2.4 2.4-1.6 2.5.8 1.9 2.9.6v3.4l-2.9.6-.8 1.9 1.6 2.5-2.4 2.4-2.5-1.6-1.9.8-.6 2.9h-3.4l-.6-2.9-1.9-.8-2.5 1.6-2.4-2.4 1.6-2.5-.8-1.9L2 14.7v-3.4l2.9-.6.8-1.9-1.6-2.5 2.4-2.4 2.5 1.6 1.9-.8zM13 9a4 4 0 1 0 0 8 4 4 0 0 0 0-8z'/></svg>");
+}
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}[data-lgs-c2b-glyph="remote"] %{PopupBody>Icon}:empty::before {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 26'><path fill='black' fill-rule='evenodd' d='M4 4h13a2.5 2.5 0 0 1 2.5 2.5V9h-2.2V6.5a.3.3 0 0 0-.3-.3H4a.3.3 0 0 0-.3.3v9c0 .17.13.3.3.3h8.5V18H9.6v1.8H12V22H5.8v-2.2h1.6V18H4a2.5 2.5 0 0 1-2.5-2.5v-9A2.5 2.5 0 0 1 4 4zm12.6 9.6a1.3 1.3 0 1 1 0 2.6 1.3 1.3 0 0 1 0-2.6zm0-3.6a4.9 4.9 0 0 1 4.9 4.9h-2.1a2.8 2.8 0 0 0-2.8-2.8zm0-3.6a8.5 8.5 0 0 1 8.5 8.5h-2.1a6.4 6.4 0 0 0-6.4-6.4z'/></svg>");
+}
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}[data-lgs-c2b-glyph="screens"] %{PopupBody>Icon}:empty::before {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 26'><path fill='black' fill-rule='evenodd' d='M3.5 3h12A2.5 2.5 0 0 1 18 5.5V7h-2.2V5.5a.3.3 0 0 0-.3-.3h-12a.3.3 0 0 0-.3.3v7c0 .17.13.3.3.3H6V15H3.5A2.5 2.5 0 0 1 1 12.5v-7A2.5 2.5 0 0 1 3.5 3zm7 6h12a2.5 2.5 0 0 1 2.5 2.5v7a2.5 2.5 0 0 1-2.5 2.5h-12A2.5 2.5 0 0 1 8 18.5v-7A2.5 2.5 0 0 1 10.5 9zm0 2.2a.3.3 0 0 0-.3.3v7c0 .17.13.3.3.3h12a.3.3 0 0 0 .3-.3v-7a.3.3 0 0 0-.3-.3z'/></svg>");
+}
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}[data-lgs-c2b-glyph="display"] %{PopupBody>Icon}:empty::before {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 26'><path fill='black' fill-rule='evenodd' d='M4.5 3h17A2.5 2.5 0 0 1 24 5.5v11a2.5 2.5 0 0 1-2.5 2.5H14.2v2h3.3v2.2h-9V21h3.3v-2H4.5A2.5 2.5 0 0 1 2 16.5v-11A2.5 2.5 0 0 1 4.5 3zm0 2.2a.3.3 0 0 0-.3.3v11c0 .17.13.3.3.3h17a.3.3 0 0 0 .3-.3v-11a.3.3 0 0 0-.3-.3z'/></svg>");
+}
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}[data-lgs-c2b-glyph="camera"] %{PopupBody>Icon}:empty::before {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 26'><path fill='black' fill-rule='evenodd' d='M9.6 4h6.8l1.6 2.4h3.5A2.5 2.5 0 0 1 24 8.9v10.6a2.5 2.5 0 0 1-2.5 2.5h-17A2.5 2.5 0 0 1 2 19.5V8.9a2.5 2.5 0 0 1 2.5-2.5H8zM13 9.4a4.6 4.6 0 1 0 0 9.2 4.6 4.6 0 0 0 0-9.2zm0 2.2a2.4 2.4 0 1 1 0 4.8 2.4 2.4 0 0 1 0-4.8z'/></svg>");
+}
 
-/* the label: one or two lines in 70 px, 15 px Medium; never a marquee */
+/* the label: 15 px Medium in 70 px, never a marquee, never a cut glyph.
+   It fades to .22 while a neighbour's plate lies over it (below), on fade */
 %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem} %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}) {
   width: 70px;
   max-width: 70px;
   min-width: 0;
-  max-height: 34px;
+  max-height: 36px;
   overflow: hidden;
-  font: 500 15px/17px var(--lgs-font);
+  font: var(--lgs-c2b-label-font);
   letter-spacing: -.01em;
   text-align: center;
   color: var(--lgs-text-1);
   text-shadow: none;
+  transition: opacity var(--lgs-motion-fade, 441ms ease);
 }
 %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem} %{Marquee>Container} {
   width: 100%;
@@ -274,80 +368,101 @@
   -webkit-mask-image: none;
   mask-image: none;
 }
+/* the CSS-only floor (and data-lgs-c2b-fit="word"): one line, "..." at its end */
 %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem} %{Marquee>Content} {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  display: block;
+  -webkit-line-clamp: none;
   width: 100%;
+  max-height: 36px;
   overflow: hidden;
-  white-space: normal;
+  white-space: nowrap;
   overflow-wrap: normal;
   word-break: normal;
+  hyphens: manual;
   text-overflow: ellipsis;
   text-align: center;
   padding: 0;
   animation: none !important;
 }
+/* measured by the runtime (32-launcher.js): a name that fits two lines by
+   wrapping wraps (breaking only between words). T3's two explicit lines: the
+   first line's words, then the second line in its own one-line box, which
+   wraps below them and ends in "..." when it does not fit; T3 narrows that
+   box where Chromium's cut would land just after a space */
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}[data-lgs-c2b-fit="whole"] %{Marquee>Content},
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem} %{Marquee>Content}:has(> .lgs-c2b-l2) {
+  white-space: normal;
+}
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem} %{Marquee>Content} > .lgs-c2b-l2 {
+  display: inline-block;
+  max-width: var(--lgs-c2b-l2w, 70px);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  vertical-align: top;
+}
+/* the runtime's measuring probe (32-launcher.js): the label's font and
+   width, off screen, present only while it measures */
+.lgs-c2b-probe {
+  position: fixed;
+  left: -4000px;
+  top: 0;
+  width: 70px;
+  box-sizing: content-box;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font: var(--lgs-c2b-label-font);
+  letter-spacing: -.01em;
+  text-transform: none;
+  white-space: normal;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: manual;
+  overflow: visible;
+  visibility: hidden;
+  pointer-events: none;
+}
+.lgs-c2b-probe.lgs-c2b-probe-w {
+  width: auto;
+  white-space: nowrap;
+}
+.lgs-c2b-probe.lgs-c2b-probe-plate {
+  font-weight: 600;
+}
 
 /* ---------------------------------------------------------------------- */
-/* 3. States: the light lives on the disc (rows never scale, VP P-05)     */
+/* 3. High Contrast: focus is white .30 + the one allowed 2 px stroke      */
+/*    (tokens.md); no spot, no glow                                       */
 /* ---------------------------------------------------------------------- */
 
-/* laser hover (keys on :hover, never on .gpfocus under the laser): in on
-   hover-in (294 ms), out on fade */
-&:not(.lgs-input-pad) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:hover %{*GamepadDialogContent>FieldIcon} {
-  background:
-    radial-gradient(circle at 50% 30%, rgb(255 255 255 / var(--lgs-hover-spot, .12)), transparent 70%),
-    rgb(255 255 255 / calc(.11 + var(--lgs-hover-add, .08)));
-  transition-duration: var(--lgs-d-hover-in, 294ms);
-}
-/* gamepad focus: the disc's focus layer on at once, entering through P5's
-   lgs-focus-in (first frame = --lgs-focus-first, 60 %, P-18), out on fade */
-&:not(.lgs-input-laser) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}.gpfocus %{*GamepadDialogContent>FieldIcon}::before,
-%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:is(:active, .lgs-pressed) %{*GamepadDialogContent>FieldIcon}::before {
-  opacity: 1;
-  transition-duration: 0s;
-}
-&:not(.lgs-input-laser) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}.gpfocus %{*GamepadDialogContent>FieldIcon}::before {
-  animation: lgs-focus-in var(--lgs-d-hover-in, 294ms) var(--lgs-ease-b0, ease) backwards;
-}
-/* press: + .06 and the spot spreads (laser :active, gamepad .lgs-pressed),
-   over the focus layer */
-%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:is(:active, .lgs-pressed) %{*GamepadDialogContent>FieldIcon} {
-  background:
-    radial-gradient(circle at 50% 50%, rgb(255 255 255 / var(--lgs-press-spot, .22)), transparent 85%),
-    rgb(255 255 255 / calc(.11 + var(--lgs-press-add, .06)));
-  transition-duration: var(--lgs-d-interactive, 210ms);
-}
-/* High Contrast (tokens.md): focus = white .30 + the allowed 2 px stroke,
-   no spot, no glow */
 @media (prefers-contrast: more) {
-  &:not(.lgs-input-laser) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}.gpfocus::after {
+  %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}::after {
     background: rgb(255 255 255 / .30) !important;
     box-shadow: inset 0 0 0 2px rgb(255 255 255 / .70) !important;
   }
   %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem} %{*GamepadDialogContent>FieldIcon}::before {
-    background: rgb(255 255 255 / .30);
     box-shadow: none;
   }
 }
-/* Steam's gamepad FocusRing: the disc carries the focus (one focused look) */
+/* Steam's gamepad FocusRing: the cell carries the focus (one focused look) */
 %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{FocusRingHint} {
   opacity: 0;
 }
 
-/* the full-name plate: on gamepad focus, and on laser dwell (P3's
-   .lgs-dwell; :hover alone when the runtime is off). It is the label itself,
-   lifted over the label row; it takes no pointer (the laser passes through
-   to the cell under it), and stays inside the 288 px grid: left-aligned in
-   column 1, right-aligned in column 4, centred elsewhere. */
-&:not(.lgs-input-laser) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}.gpfocus %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
-&.lgs-input-laser %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}.lgs-dwell:hover %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
-&:not(.lgs-input-laser):not(.lgs-input-pad) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:hover %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}) {
+/* ---------------------------------------------------------------------- */
+/* 4. The full-name plate (HA 4): the attended cell's own label, lifted    */
+/*    over its label row. It takes no pointer (the laser passes through to */
+/*    the cell under it), materializes in 250 ms, and stays inside the     */
+/*    popup: left-aligned in column 1, right-aligned in column 4, centred  */
+/*    in columns 2 and 3 unless that would cross x 6 or x 294              */
+/* ---------------------------------------------------------------------- */
+
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"]) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}) {
   position: absolute;
   z-index: 3;
-  top: 59px;
-  left: 50%;
+  top: 60px;
+  left: 36px;
   translate: -50% 0;
   width: max-content;
   max-width: 288px;
@@ -356,17 +471,30 @@
   box-sizing: border-box;
   padding: 0 14px;
   border-radius: 17px;
-  background: rgb(58 58 64 / .92);
-  box-shadow: var(--lgs-shadow-5mm, 0 2px 6px rgb(0 0 0 / .30));
+  /* mid grey, not HA's 66/68/76: the plate lies over a third of the
+     attended cell, and P-14 (focus >= +40 L) and P-03 (hover +10..+25 L)
+     are judged on the whole cell; white on it stays 4.8:1 */
+  background: rgb(112 114 122 / .94);
+  box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / .22), 0 6px 16px rgb(0 0 0 / .32);
   font: 600 15px/34px var(--lgs-font);
   white-space: nowrap;
   pointer-events: none;
+  opacity: 1;
+  transition: none;
+  --lgs-maxside: 200;
+  /* under the laser it appears after 0.4 s of attention and materializes
+     (HA 11, materialize-in 250 ms) */
+  animation: lgs-mat-glass-in var(--lgs-motion-mat-in, 250ms linear) backwards;
 }
-/* the plate's text: the whole name on one line (keyed on the input mode
-   like the plate, P-01: a stale .gpfocus under the laser changes nothing) */
-&:not(.lgs-input-laser) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}.gpfocus %{Marquee>Content},
-&.lgs-input-laser %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}.lgs-dwell:hover %{Marquee>Content},
-&:not(.lgs-input-laser):not(.lgs-input-pad) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:hover %{Marquee>Content} {
+/* on gamepad focus it is part of the focus look: on at once, entering
+   through lgs-focus-in like the cell's light, so the first frame shows 60 %
+   (P-18) */
+&:not(.lgs-input-laser) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}.gpfocus:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"]) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}) {
+  /* (the plate selector's :is() repeated, so this rule outranks it) */
+  animation: lgs-focus-in var(--lgs-motion-hover-in, 294ms ease) backwards;
+}
+/* the plate's text: the whole name on one line */
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"]) %{Marquee>Content} {
   display: block !important;
   max-height: none;
   white-space: nowrap;
@@ -374,38 +502,62 @@
   text-overflow: ellipsis;
   animation: none !important;
 }
-/* the labels the plate lies over fade to .22 (HA 4, PLAN-2b-4): the plate
-   sits in the label band of its own row, so its row-mates' labels fade
-   (left of it, right of it), on fade (441 ms) both ways. ATT is the
-   attended cell, keyed on the input mode as the plate. */
-%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser .lgs-dwell:hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not(:nth-child(4n)) + %{DashboardBarPopupListItem} %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
-%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser .lgs-dwell:hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):is(:nth-child(4n+1), :nth-child(4n+2)) + %{DashboardBarPopupListItem} + %{DashboardBarPopupListItem} %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
-%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser .lgs-dwell:hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):nth-child(4n+1) + %{DashboardBarPopupListItem} + %{DashboardBarPopupListItem} + %{DashboardBarPopupListItem} %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
-%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:has(+ %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser .lgs-dwell:hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not(:nth-child(4n+1))) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
-%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:has(+ %{DashboardBarPopupListItem} + %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser .lgs-dwell:hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):is(:nth-child(4n+3), :nth-child(4n))) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
-%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:has(+ %{DashboardBarPopupListItem} + %{DashboardBarPopupListItem} + %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser .lgs-dwell:hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):nth-child(4n)) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}) {
-  opacity: .22;
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"]) %{Marquee>Content} > .lgs-c2b-l2 {
+  display: inline;
+  max-width: none;
+  overflow: visible;
 }
-&:not(.lgs-input-laser) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}.gpfocus:nth-child(4n+1) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
-&.lgs-input-laser %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}.lgs-dwell:hover:nth-child(4n+1) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
-&:not(.lgs-input-laser):not(.lgs-input-pad) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:hover:nth-child(4n+1) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}) {
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:nth-child(4n+1):is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"]) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}) {
   left: 0;
   translate: none;
+  transform-origin: 0 50%;
 }
-&:not(.lgs-input-laser) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}.gpfocus:nth-child(4n) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
-&.lgs-input-laser %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}.lgs-dwell:hover:nth-child(4n) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
-&:not(.lgs-input-laser):not(.lgs-input-pad) %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:hover:nth-child(4n) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}) {
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:nth-child(4n+2):is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"]) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}) {
+  /* centred, but its left edge never before the grid's x 6 (the cell starts
+     at 78: 36 + 78 - 108 = 6) */
+  translate: max(-50%, -108px) 0;
+}
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:nth-child(4n+3):is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"]) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}) {
+  /* centred, but its right edge never past the grid's x 294 (the cell starts
+     at 150: 150 + 36 + 108 = 294) */
+  translate: min(-50%, calc(108px - 100%)) 0;
+}
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:nth-child(4n):is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"]) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}) {
   left: auto;
   right: 0;
   translate: none;
+  transform-origin: 100% 50%;
 }
-/* the cell whose plate shows paints above its neighbours */
-%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:is(.gpfocus, :hover) {
+/* the cell whose plate shows paints above its neighbours (z-index works on
+   grid items) */
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"]) {
   z-index: 2;
+}
+/* the labels the plate lies over fade to .22 (HA 4, PLAN-2b-4; the
+   mockup's .is-under), on fade both ways. The runtime measures each
+   plate and tags the row-mates it covers (data-lgs-c2b-under: l1-l3 to its
+   left, r1-r3 to its right). Without the tag (CSS only) every row-mate
+   fades: the plate may reach any column of its row, never another row */
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"]):not([data-lgs-c2b-under]):not(:nth-child(4n)) + %{DashboardBarPopupListItem} %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"]):not([data-lgs-c2b-under]):is(:nth-child(4n+1), :nth-child(4n+2)) + %{DashboardBarPopupListItem} + %{DashboardBarPopupListItem} %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"]):not([data-lgs-c2b-under]):nth-child(4n+1) + %{DashboardBarPopupListItem} + %{DashboardBarPopupListItem} + %{DashboardBarPopupListItem} %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:has(+ %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"]):not([data-lgs-c2b-under]):not(:nth-child(4n+1))) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:has(+ %{DashboardBarPopupListItem} + %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"]):not([data-lgs-c2b-under]):is(:nth-child(4n+3), :nth-child(4n))) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:has(+ %{DashboardBarPopupListItem} + %{DashboardBarPopupListItem} + %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"]):not([data-lgs-c2b-under]):nth-child(4n)) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"])[data-lgs-c2b-under~="r1"] + %{DashboardBarPopupListItem} %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"])[data-lgs-c2b-under~="r2"] + %{DashboardBarPopupListItem} + %{DashboardBarPopupListItem} %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"])[data-lgs-c2b-under~="r3"] + %{DashboardBarPopupListItem} + %{DashboardBarPopupListItem} + %{DashboardBarPopupListItem} %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:has(+ %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"])[data-lgs-c2b-under~="l1"]) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:has(+ %{DashboardBarPopupListItem} + %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"])[data-lgs-c2b-under~="l2"]) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}),
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:has(+ %{DashboardBarPopupListItem} + %{DashboardBarPopupListItem} + %{DashboardBarPopupListItem}:is(:root:not(.lgs-input-laser) .gpfocus, :root.lgs-input-laser :is(.lgs-dwell:not([data-lgs-c2b-step]), .lgs-attend-400[data-lgs-c2b-step]):hover, :root:not(.lgs-input-laser):not(.lgs-input-pad) :hover):not([data-lgs-c2b-fit="whole"])[data-lgs-c2b-under~="l3"]) %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}) {
+  opacity: .22;
+  /* in with the plate's materialize (250 ms, done by 650 ms under the
+     laser: PLAN-2b-4's 800 ms), back on fade (441 ms, the label's own rule) */
+  transition: opacity var(--lgs-motion-mat-in, 250ms linear);
 }
 
 /* ---------------------------------------------------------------------- */
-/* 4. Liquid Glass: Steam's own row, a normal cell with a green "on" pip   */
+/* 5. Liquid Glass: Steam's own row, a normal cell with a green "on" pip   */
 /* ---------------------------------------------------------------------- */
 
 %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:is([data-lgs-row="liquid-glass"], :has(img[src*="zP9VZWZ7917z2Fx78vM6qqe7pHEinkTt9+rzKys9"])) %{*GamepadDialogContent>FieldIcon}::after {
@@ -422,7 +574,7 @@
 
 
 /* ---------------------------------------------------------------------- */
-/* 5. T3 (flag wp.c2b): the panel and the pinned Liquid Glass toggle row  */
+/* 6. T3 (flag wp.c2b): the panel and the pinned Liquid Glass toggle row  */
 /* ---------------------------------------------------------------------- */
 
 /* the panel wraps Steam's list: it carries the glass; the list inside is
@@ -445,12 +597,16 @@ div.lgs-c2b-panel[data-lgs-c2b] {
   --lgs-edge: panel;
   --lgs-light: 305deg;
   color: var(--lgs-text-1);
-  --lgs-maxside: 300;
+  --lgs-maxside: 726;
   transform-origin: 50% 100%;
   animation: lgs-mat-large-in var(--lgs-motion-mat-in, 250ms linear) backwards;
 }
 .lgs-c2b-panel %{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) {
   flex: 0 1 auto;
+  /* the panel's 288 px content box, not the T1 card's 300 (the header was
+     300 wide, clipped by the panel: PLAN-2b-2, 20:24) */
+  width: auto;
+  max-width: none;
   min-height: 0;
   max-height: 760px;
   padding: 0;
@@ -476,142 +632,192 @@ div.lgs-c2b-panel[data-lgs-c2b] > %{DashboardBarPopupList}:has(> %{DashboardBarP
   animation: none;
 }
 
-/* the toggle row: 64 tall recessed platter, outside the grid's focus group */
-.lgs-c2b-toggle {
+/* the pinned Liquid Glass row (HA 4): Steam's own row, in .lgs-c2b-pin, drawn
+   as a 64 tall recessed platter outside the grid's focus group: its 44 disc
+   with the real icon, "Liquid Glass" 19 Semibold, "Glass Shell is on" 15
+   (the wrapper's data-lgs-sub, English only, PLAN 1.15) and a switch shown
+   on (decorative: the whole row is the control). A single-control row, so
+   the row carries the light. Radius 32: P-83's capsule (>= .45 x 64) over
+   HA's 28 */
+div.lgs-c2b-panel[data-lgs-c2b] > .lgs-c2b-pin {
   position: relative;
   flex: none;
+  margin-top: 10px;
+}
+.lgs-c2b-pin > %{DashboardBarPopupListItem} {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
-  height: 64px;
-  margin: 10px 6px 0;
-  padding: 0 12px 0 10px;
+  width: auto;
+  height: 64px !important;
+  min-height: 0 !important;
+  max-height: 64px;
   box-sizing: border-box;
-  /* HA 4: radius 28 */
-  border-radius: 28px;
-  background: rgb(0 0 0 / .22);
-  box-shadow: inset 0 2px 5px rgb(0 0 0 / .22);
-  color: var(--lgs-text-1);
+  margin: 0 !important;
+  padding: 0 82px 0 10px !important;
+  border-radius: 32px;
+  background: rgb(0 0 0 / .22) !important;
+  box-shadow: inset 0 2px 5px rgb(0 0 0 / .22) !important;
+  color: var(--lgs-text-1) !important;
   cursor: pointer;
   isolation: isolate;
-  transition: background-color var(--lgs-d-fade, 441ms) var(--lgs-ease-b0, ease);
+  animation: none !important;
+  transition: background-color var(--lgs-motion-fade, 441ms ease), box-shadow var(--lgs-motion-fade, 441ms ease);
 }
-/* its focus layer: + white .32, the spot and the arc; on at once through
-   lgs-focus-in (first frame 60 %, P-18), out on fade */
-.lgs-c2b-toggle::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  z-index: -1;
-  background:
-    radial-gradient(ellipse at 50% 30%, rgb(255 255 255 / var(--lgs-focus-spot, .16)), transparent 70%),
-    rgb(255 255 255 / var(--lgs-focus-add, .32));
-  box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / var(--lgs-focus-arc, .55));
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity var(--lgs-d-fade, 441ms) var(--lgs-ease-b0, ease);
+.lgs-c2b-pin > %{DashboardBarPopupListItem} :is(%{*GamepadDialogContent>FieldLabelRow}, %{*GamepadDialogContent>FieldLeftColumn}) {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
 }
-.lgs-c2b-toggle-disc {
+.lgs-c2b-pin > %{DashboardBarPopupListItem} %{*GamepadDialogContent>FieldLabel} {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  color: var(--lgs-text-1);
+  text-shadow: none;
+}
+.lgs-c2b-pin > %{DashboardBarPopupListItem} %{*GamepadDialogContent>FieldIcon} {
   flex: none;
   width: 44px;
   height: 44px;
-  border-radius: 50%;
-  background: rgb(255 255 255 / .11);
+  margin: 0;
+  padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  border-radius: 50%;
+  background: rgb(255 255 255 / .11);
 }
-.lgs-c2b-toggle-disc {
-  overflow: hidden;
-}
-.lgs-c2b-toggle-disc > *,
-.lgs-c2b-toggle-disc :is(img, svg) {
+.lgs-c2b-pin > %{DashboardBarPopupListItem} %{PopupBody>Icon},
+.lgs-c2b-pin > %{DashboardBarPopupListItem} %{PopupBody>Icon} > :is(img, svg) {
   width: 30px;
   height: 30px;
-  max-width: 30px;
-  max-height: 30px;
   margin: 0;
-  padding: 0;
   object-fit: contain;
 }
-.lgs-c2b-toggle-text {
+/* the title: Steam's own label, lifted to the upper half of the row */
+.lgs-c2b-pin > %{DashboardBarPopupListItem} %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}) {
   flex: 1 1 auto;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-.lgs-c2b-toggle-title {
+  overflow: hidden;
   font: 600 19px/22px var(--lgs-font);
   color: var(--lgs-text-1);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  text-align: start;
 }
-.lgs-c2b-toggle-sub {
+.lgs-c2b-pin[data-lgs-sub] > %{DashboardBarPopupListItem} %{*GamepadDialogContent>FieldLabel} > :not(%{*GamepadDialogContent>FieldIcon}) {
+  translate: 0 -10px;
+}
+.lgs-c2b-pin > %{DashboardBarPopupListItem} %{Marquee>Container} {
+  overflow: hidden;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+.lgs-c2b-pin > %{DashboardBarPopupListItem} %{Marquee>Content} {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  animation: none !important;
+}
+/* the subtitle, drawn by the wrapper under the title (no text in Steam's row) */
+.lgs-c2b-pin[data-lgs-sub]::after {
+  content: attr(data-lgs-sub);
+  position: absolute;
+  left: 66px;
+  right: 82px;
+  top: 34px;
   font: 500 15px/18px var(--lgs-font);
   color: var(--lgs-text-2);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  pointer-events: none;
 }
-/* the switch, shown on (decorative: the whole row is the control) */
-.lgs-c2b-switch {
-  position: relative;
-  flex: none;
+/* the switch, shown on: a 55 x 33 green capsule and its white knob, one
+   decorative layer over the row's right end; after a live press runs the
+   switch (data-lgs-busy) it shows off */
+.lgs-c2b-pin::before {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  right: 14px;
+  top: 15.5px;
   width: 55px;
   height: 33px;
   border-radius: 999px;
-  background: var(--lgs-toggle-on, rgb(48 209 88));
+  background:
+    radial-gradient(circle at 38.5px 50%, #fff 13.5px, rgb(0 0 0 / .18) 14px, transparent 16px),
+    var(--lgs-toggle-on, rgb(48 209 88));
   pointer-events: none;
+  transition: background-color var(--lgs-motion-fade, 441ms ease);
 }
-.lgs-c2b-switch::after {
-  content: "";
-  position: absolute;
-  top: 3px;
-  right: 3px;
-  width: 27px;
-  height: 27px;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 1px 3px rgb(0 0 0 / .30);
-  pointer-events: none;
+.lgs-c2b-pin[data-lgs-busy]::before {
+  background:
+    radial-gradient(circle at 16.5px 50%, #fff 13.5px, rgb(0 0 0 / .18) 14px, transparent 16px),
+    rgb(255 255 255 / .22);
 }
-.lgs-c2b-toggle[aria-busy="true"] .lgs-c2b-switch {
-  background: rgb(255 255 255 / .22);
+/* Steam's separator and active dot are not drawn on the pinned row; its
+   ::before is the row's focus layer: + white .32, the spot and the arc, on at
+   once through lgs-focus-in (first frame 60 %, P-18), out on fade */
+.lgs-c2b-pin > %{DashboardBarPopupListItem}::after {
+  content: none !important;
 }
-.lgs-c2b-toggle[aria-busy="true"] .lgs-c2b-switch::after {
-  right: auto;
-  left: 3px;
+.lgs-c2b-pin > %{DashboardBarPopupListItem}::before {
+  content: "" !important;
+  display: block !important;
+  position: absolute !important;
+  inset: 0 !important;
+  width: auto !important;
+  height: auto !important;
+  margin: 0 !important;
+  transform: none !important;
+  border: 0 !important;
+  border-radius: inherit !important;
+  z-index: -1;
+  background:
+    radial-gradient(ellipse 60% 70% at 50% 30%, rgb(255 255 255 / var(--lgs-focus-spot, .16)), transparent),
+    rgb(255 255 255 / var(--lgs-focus-add, .32)) !important;
+  box-shadow: inset 0 1.5px 1.5px -1px rgb(255 255 255 / var(--lgs-focus-arc, .55)) !important;
+  opacity: 0;
+  pointer-events: none !important;
+  transition: opacity var(--lgs-motion-fade, 441ms ease);
 }
-/* row states: laser hover warms it, gamepad focus lights it (+ .32 and the
-   arc, through the focus layer above; the recess clears at once) */
-&:not(.lgs-input-pad) .lgs-c2b-toggle:hover {
-  background: rgb(255 255 255 / var(--lgs-hover-add, .08));
+.lgs-c2b-pin %{FocusRingHint} {
+  opacity: 0;
+}
+/* row states: laser hover warms it, gamepad focus lights it (the recess
+   clears at once), press adds .06 */
+&:not(.lgs-input-pad) .lgs-c2b-pin > %{DashboardBarPopupListItem}:hover {
+  background: rgb(255 255 255 / var(--lgs-hover-add, .08)) !important;
+  box-shadow: none !important;
   transition-duration: var(--lgs-d-hover-in, 294ms);
 }
-&:not(.lgs-input-laser) .lgs-c2b-toggle.gpfocus {
-  background: transparent;
-  box-shadow: none;
+&:not(.lgs-input-laser) .lgs-c2b-pin > %{DashboardBarPopupListItem}.gpfocus {
+  background: transparent !important;
+  box-shadow: none !important;
   transition-duration: 0s;
 }
-&:not(.lgs-input-laser) .lgs-c2b-toggle.gpfocus::before,
-.lgs-c2b-toggle:is(:active, .lgs-pressed)::before {
+&:not(.lgs-input-laser) .lgs-c2b-pin > %{DashboardBarPopupListItem}.gpfocus::before,
+.lgs-c2b-pin > %{DashboardBarPopupListItem}.lgs-pressed::before {
   opacity: 1;
   transition-duration: 0s;
 }
-&:not(.lgs-input-laser) .lgs-c2b-toggle.gpfocus::before {
-  animation: lgs-focus-in var(--lgs-d-hover-in, 294ms) var(--lgs-ease-b0, ease) backwards;
+&:not(.lgs-input-laser) .lgs-c2b-pin > %{DashboardBarPopupListItem}.gpfocus::before {
+  animation: lgs-focus-in var(--lgs-motion-hover-in, 294ms ease) backwards;
 }
-.lgs-c2b-toggle:is(:active, .lgs-pressed) {
-  background: rgb(255 255 255 / var(--lgs-press-add, .06));
-  box-shadow: none;
+.lgs-c2b-pin > %{DashboardBarPopupListItem}:active {
+  background: rgb(255 255 255 / calc(var(--lgs-hover-add, .08) + var(--lgs-press-add, .06))) !important;
+  box-shadow: none !important;
   transition-duration: var(--lgs-d-interactive, 210ms);
 }
 @media (prefers-contrast: more) {
-  .lgs-c2b-toggle::before {
-    background: rgb(255 255 255 / .30);
-    box-shadow: inset 0 0 0 2px rgb(255 255 255 / .70);
+  .lgs-c2b-pin > %{DashboardBarPopupListItem}::before {
+    background: rgb(255 255 255 / .30) !important;
+    box-shadow: inset 0 0 0 2px rgb(255 255 255 / .70) !important;
   }
 }

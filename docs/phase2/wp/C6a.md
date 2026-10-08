@@ -2,9 +2,17 @@
 
 ## Status
 
-**R2 fix pass 1 in progress** (started about 17:00): B1, M1, m1, m2, m7, m8 edited (files promoted, `check-theme`
-PASS); live re-check pending: the Frame stopped resolving (`getaddrinfo failed` from `sync` and the ssh helper)
-right after the first probe. Until the live re-check lands, the READY line below is **suspended**.
+**READY: wp.c6a** (R2 fix pass 1 complete, 2026-10-07 20:35, build 11094443). B1 and M1 fixed and rechecked live:
+- B1: with `wp.c6a,wp.c1c` the Hostname dialog's "Change & Restart" and Audio Reset's "Confirm" carry
+  `data-lgs-destructive` and their card `data-lgs-plate="thick"` (CSS probe); native `sgcheck` with each dialog open
+  (pad, `--flags wp.c6a,wp.c1a,wp.p3,wp.c1c`): `/settings/system` + Hostname **main 0 pops**, `/settings/audio` +
+  Reset confirm **main 0 pops**, PASS (dialogs closed by Cancel / the lab; nothing confirmed). Network "Forget" is
+  covered by the same label scan of the top card (not opened: needs a network-details sheet).
+- M1: native `sgcheck /settings/system` with content `scrollTop` 24 (`data-lgs-scrolled` set): **0 pops** in pad and
+  laser (at rest, same session, earlier run: 1 pop +10 mm = the hero).
+- Gates `/settings/system` CSS-only, pad and laser: PASS (all five). Mockup look unchanged (attribute-only fixes).
+- Unrelated: `/library/home` native sgcheck FAIL R2 `tab-arrow` dz 4.43 mm (not C6a's).
+- Device left: CSS only, no flags, lab closed every dialog it opened, no frames taken.
 
 Previous status (session 1): **READY: wp.c6a** (2026-10-07 11:40, session 1, build 11094443). With `wp.c6a` (and `wp.c1a`, `wp.p3`) on, no
 GONE, HIDDEN, SHRUNK or UNCLICKABLE on `/settings/system`, `/notifications`, `/audio`, `/display`, `/storage`;
