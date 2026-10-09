@@ -895,7 +895,7 @@
     const [b0, b1, b2, b3] = g.backdrop.map(Number);
     let popped = false;
     for (const [pk, ps] of st.pops) if (ps.surface === key && c.seen.has(pk)) { popped = true; break; }
-    const behind = COVER_BEHIND && !popped;
+    const behind = COVER_BEHIND && !popped && W.__LGS_SG_FRONT !== true;   // __LGS_SG_FRONT: lab A/B, the layout with crops
     add('cover', {
       kind: 'cover', id: null, px: [R.x1 - R.x0, R.y1 - R.y0], u: au((R.x0 + R.x1) / 2), v: av((R.y0 + R.y1) / 2), z: behind ? COVER_BEHIND_DZ : coverDz,
       key: g.key, uv: [b0 + (b2 - b0) * R.x0 / Wd, b1 + (b3 - b1) * R.y0 / Ht, b0 + (b2 - b0) * R.x1 / Wd, b1 + (b3 - b1) * R.y1 / Ht],
