@@ -1066,9 +1066,15 @@ def _st_js(expr, timeout=30):
     return _jsonish(run_js("SharedJSContext", expr, timeout))
 
 
-def _st_eval_cli(expr, timeout=30, surfaces=("main", "bar", "barpopup")):
+RT1_SURFACES = ("main", "bar", "barpopup", "frame.menu", "tooltip", "volumelevel", "floatingfooter",
+                "notifications", "keyboard")
+
+
+def _st_eval_cli(expr, timeout=30, surfaces=RT1_SURFACES):
     """DOM listener counts per surface, evaluated in each popup's own target with
-    the DevTools command-line API (getEventListeners)."""
+    the DevTools command-line API (getEventListeners). Every Steam window, not only the three RT-1 once
+    sampled: Steam's own window handlers (focus, key and mouse) come and go in all of them, and the leak check
+    takes the ones it saw change out of the renderer-wide count."""
     async def one(t):
         async with Session(t["webSocketDebuggerUrl"]) as s:
             r = await s.send("Runtime.evaluate", {"expression": expr, "returnByValue": True,
