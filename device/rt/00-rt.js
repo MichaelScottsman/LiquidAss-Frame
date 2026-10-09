@@ -96,7 +96,7 @@
   // ------------------------------------------------------------------ flags
   // Layers, lowest first: builtin (lgs.py's table), defaults (device/defaults.json),
   // session (/tmp/lgs/flags.json), cli (`lgs on --flags`), then test overlays.
-  const FALLBACK_BUILTIN = { rt: true, native: 'auto', interactivePops: false, pointerProxy: 'native', haptics: false };
+  const FALLBACK_BUILTIN = { rt: true, native: 'auto', interactivePops: false, pointerProxy: 'off', haptics: false };
   const layers = {
     builtin: Object.assign({}, FALLBACK_BUILTIN, CONFIG.builtin || {}),
     defaults: Object.assign({}, CONFIG.defaults || {}),

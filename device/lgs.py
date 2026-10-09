@@ -79,7 +79,7 @@ BUILTIN_FLAGS = {
     "winbarMove": False,        # S10 (gated)
     "vrBindings": False,        # S13
     "ccPopup": False,           # S15
-    "pointerProxy": "native",   # S16: native | on | off
+    "pointerProxy": "off",      # S16: native | on | off (off: the glass sits behind Steam's panel, SteamVR's laser dot shows)
     "haptics": False,           # S17
     "hudPlacement": False,      # S21
     "storeOrnament": False,     # S22 (gated)
