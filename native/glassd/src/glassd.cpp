@@ -2833,6 +2833,18 @@ class Glassd {
                           jsonEscape(s->spec.name).c_str(), jsonEscape(s->key).c_str(), s->gw, s->gh, s->bw / gw, s->bh / gh,
                           double(s->scale), cover);
             o += b;
+            // where the surface is from the head: the angle off the view direction and the distance (lab:
+            // `glass.py hv` waits for the wearer to face the dashboard before it grabs)
+            if (haveLastHead && s->spec.texW > 0) {
+                const Geometry &g = s->geo;
+                const v3 mid = g.O + g.U * (s->spec.texW * 0.5f) + g.V * (s->spec.texH * 0.5f);
+                const v3 to = mid - lastHead.t;
+                const float dist = length(to);
+                const v3 fwd = lastHead.rotate({0, 0, -1});
+                const float off = dist > 1e-4f ? std::acos(std::clamp(dot(to * (1.f / dist), fwd), -1.f, 1.f)) * 57.2958f : 180.f;
+                std::snprintf(b, sizeof b, ", \"view\": {\"offDeg\": %.1f, \"distM\": %.2f}", double(off), double(dist));
+                o += b;
+            }
             o += ", \"geometry\": " + jsonEscape(s->geoNote) + ", \"slabs\": {";
             for (size_t i = 0; i < s->slots.size(); i++) {
                 const SlabSlot &sl = s->slots[i];
