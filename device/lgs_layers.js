@@ -789,7 +789,8 @@
       scrolling: new Map(), anims: new Map(), panims: new Map(),
       tailUntil: 0, full: null, cur: null, sig: null, lastIds: null,
       attrPop: S.attrPrefix + '-pop', attrCover: S.attrPrefix + '-cover', attrPlate: S.attrPrefix + '-plate-ack',
-      attrNoslab: S.attrPrefix + '-noslab',
+      attrNoslab: S.attrPrefix + '-noslab', attrPlateCss: S.attrPrefix + '-plate-css', attrPlates: S.attrPrefix + '-plates',
+      plateMiss: new Map(), plateCss: new Set(),
       applied: new Map(), hold: new Map(), keyAcked: false, nativeSince: 0,
       wakes: {}, computes: 0, computeMs: 0, lights: 0, changes: 0, queries: 0, hitTests: 0,
     };
@@ -959,6 +960,32 @@
     ent.imgc = null;
     ent.holes = null;
     applyAttrs(ent, new Map());
+    plateCss(ent, null);
+  }
+
+  // Native windows: a [data-lgs-plate] element is glassd's glass from the moment it exists. The window's
+  // <html data-lgs-plates> tells theme/05-native.css that this reporter manages its plates, so the CSS
+  // plate glass never paints there (not first painted and then taken away when an ack arrives: that was
+  // a visible handoff, and a fill/shadow transition on every plate of every route change). The CSS glass
+  // comes back only on a plate glassd has not drawn for GLASS_WAIT_MS (data-lgs-plate-css): never
+  // reported, skipped, or reported and never acknowledged. list: the plates that need it; null: none and
+  // the window's opt-in goes (reporter stopped, window left native mode).
+  function plateCss(ent, list) {
+    const A = ent.attrPlateCss;
+    const want = new Set(list || []);
+    for (const el of ent.plateCss) {
+      if (want.has(el)) continue;
+      try { el.removeAttribute(A); } catch (_) { /* gone */ }
+    }
+    for (const el of want) {
+      try { if (!el.hasAttribute(A)) el.setAttribute(A, ''); } catch (_) { /* gone */ }
+    }
+    ent.plateCss = want;
+    try {
+      const root = ent.doc.documentElement;
+      if (list) { if (!root.hasAttribute(ent.attrPlates)) root.setAttribute(ent.attrPlates, ''); }
+      else if (root.hasAttribute(ent.attrPlates)) root.removeAttribute(ent.attrPlates);
+    } catch (_) { /* gone */ }
   }
 
   function syncWindows() {
@@ -2440,6 +2467,27 @@
         }
       }
       applyAttrs(ent, plan);
+      // plates not glassd's (see plateCss): kept while the surface is hidden (the window is not shown)
+      let nat = false;
+      try { nat = S.ackMode && ent.doc.documentElement.classList.contains('lgs-native'); } catch (_) { nat = false; }
+      if (!nat) { ent.plateMiss.clear(); plateCss(ent, null); }
+      else if (cur && cur.surface.visible) {
+        const css = [];
+        const seen = new Set();
+        let all = [];
+        try { all = ent.doc.querySelectorAll('[data-lgs-plate]'); } catch (_) { all = []; }
+        for (const el of all) {
+          seen.add(el);
+          const pl = plan.get(el);
+          if (pl && pl.plate) { ent.plateMiss.delete(el); continue; }
+          let t = ent.plateMiss.get(el);
+          if (t === undefined) ent.plateMiss.set(el, t = now);
+          if (now - t >= GLASS_WAIT_MS) css.push(el);
+          else due = Math.min(due, t + GLASS_WAIT_MS);
+        }
+        for (const el of ent.plateMiss.keys()) if (!seen.has(el)) ent.plateMiss.delete(el);
+        plateCss(ent, css);
+      } else plateCss(ent, Array.from(ent.plateCss));   // hidden (a pooled popup): opted in ahead of its first open
     }
     if (S.attrTimer) { clearTimeout(S.attrTimer); S.attrTimer = 0; }
     if (due < Infinity) {

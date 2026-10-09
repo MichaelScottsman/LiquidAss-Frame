@@ -12,7 +12,11 @@
                        glassd slab ("self", or "before"/"after" when the
                        capsule is that pseudo-element),
      [data-lgs-plate-ack] a [data-lgs-plate] element glassd draws as a plate
-                       (Phase 2), and
+                       (Phase 2); in a window the reporter manages
+                       (<html data-lgs-plates>) every plate is glassd's from
+                       its first frame, and only [data-lgs-plate-css] (glassd
+                       has not drawn it within 1.5 s) paints CSS plate glass,
+                       and
      [data-lgs-noslab]  the popped parts whose slab is "none" (glass in-page),
    only while the daemon acknowledges that the compositor shows that cover
    or slab (__LGS_LAYERS.ack), and removes the mark as soon as it does not.
@@ -219,7 +223,7 @@
      labels and focus (areas mark focus glows !important, as Steam's focus
      animations already require) stay. --lgs-plate-bg is the variable areas
      paint a plate through. */
-  &.lgs-native [data-lgs-plate][data-lgs-plate-ack] {
+  &.lgs-native [data-lgs-plate]:is([data-lgs-plate-ack], :root[data-lgs-plates] [data-lgs-plate]:not([data-lgs-plate-css])) {
     background: transparent;
     box-shadow: none;
     backdrop-filter: none;
@@ -285,7 +289,7 @@
      are taken back from the root (`inherit`), so the dial still applies.
      Only until the runtime cuts the page out under it (html.lgs-page-hole,
      rt/22-menus.js): then the slab is transparent glass over glassd's. */
-  &.lgs-native:not(.lgs-page-hole) :is(%{*BasicContextMenuModal>contextMenuContents}, %{*GamepadDialogContent>ModalPosition} > :not(%{*GamepadDialogContent>ModalClickToDismiss}), %{DialogWrapper>CompatFilterDialog}):is([data-lgs-pop], [data-lgs-plate-ack]) {
+  &.lgs-native:not(.lgs-page-hole) :is(%{*BasicContextMenuModal>contextMenuContents}, %{*GamepadDialogContent>ModalPosition} > :not(%{*GamepadDialogContent>ModalClickToDismiss}), %{DialogWrapper>CompatFilterDialog}):is([data-lgs-pop], :is([data-lgs-plate-ack], :root[data-lgs-plates] [data-lgs-plate]:not([data-lgs-plate-css]))) {
     --lgs-mat-thick-bg: inherit;
     --lgs-mat-thick-blur: inherit;
     --lgs-thick-bg: inherit;

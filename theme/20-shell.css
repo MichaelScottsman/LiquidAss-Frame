@@ -889,11 +889,11 @@
    half at the edge, so the capsule keeps one even scrim (white labels
    stay legible), no drop shadow of its own (the plate's contact shadow)
    and no in-page frost (nothing runs under it any more). */
-&.lgs-native %{BasicUiRoot} #Footer%{BasicFooter}[data-lgs-orn="capsule"]:has(> .lgs-orn-plate[data-lgs-plate-ack]):not(%{FloatingVRFooter}, %{QuickAccessFooter}) {
+&.lgs-native %{BasicUiRoot} #Footer%{BasicFooter}[data-lgs-orn="capsule"]:has(> .lgs-orn-plate:is([data-lgs-plate-ack], :root[data-lgs-plates] [data-lgs-plate]:not([data-lgs-plate-css]))):not(%{FloatingVRFooter}, %{QuickAccessFooter}) {
   --lgs-c1a-orn-bg: linear-gradient(var(--lgs-scrim), var(--lgs-scrim));
   --lgs-c1a-orn-shade: 0 0 0 0 transparent;
 }
-&.lgs-native %{BasicUiRoot} #Footer%{BasicFooter}[data-lgs-orn="capsule"]:has(> .lgs-orn-plate[data-lgs-plate-ack]):not(%{FloatingVRFooter}, %{QuickAccessFooter})::after {
+&.lgs-native %{BasicUiRoot} #Footer%{BasicFooter}[data-lgs-orn="capsule"]:has(> .lgs-orn-plate:is([data-lgs-plate-ack], :root[data-lgs-plates] [data-lgs-plate]:not([data-lgs-plate-css]))):not(%{FloatingVRFooter}, %{QuickAccessFooter})::after {
   backdrop-filter: none;
 }
 
@@ -1261,10 +1261,10 @@
 /* the ornament: glassd's liquid plate is the capsule (tint, frost and
    crescent), so the CSS capsule and its E3 hook go; labels, badges and
    the members' hover and focus light stay */
-&.lgs-native %{BasicUiRoot} #Footer%{BasicFooter}:has(> .lgs-orn-plate[data-lgs-plate-ack]) {
+&.lgs-native %{BasicUiRoot} #Footer%{BasicFooter}:has(> .lgs-orn-plate:is([data-lgs-plate-ack], :root[data-lgs-plates] [data-lgs-plate]:not([data-lgs-plate-css]))) {
   --lgs-edge: none;
 }
-&.lgs-native %{BasicUiRoot} #Footer%{BasicFooter}:has(> .lgs-orn-plate[data-lgs-plate-ack])::after {
+&.lgs-native %{BasicUiRoot} #Footer%{BasicFooter}:has(> .lgs-orn-plate:is([data-lgs-plate-ack], :root[data-lgs-plates] [data-lgs-plate]:not([data-lgs-plate-css])))::after {
   background: none;
   backdrop-filter: none;
   box-shadow: none;
@@ -1273,7 +1273,7 @@
    P6's ack rule clears --lgs-mat-plate-bg, so the CSS plate fill goes in
    every state and only the hover and press adds (and the field's focus
    ring) stay over glassd's plate (review R2 m6); the edge and shadow go */
-&.lgs-native %{BasicUiRoot} #header [data-lgs-plate-ack] {
+&.lgs-native %{BasicUiRoot} #header :is([data-lgs-plate-ack], :root[data-lgs-plates] [data-lgs-plate]:not([data-lgs-plate-css])) {
   --lgs-c1a-plate-shade: 0 0 0 0 transparent;
 }
 /* the tab bar: glassd's liquid cover is the two capsules; the rows'

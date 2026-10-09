@@ -247,6 +247,7 @@ function setOnScroll(S, e) {
     var root = t.closest(S.sel.dialog);
     if (!root) return;
     var on = t.scrollTop > 0.5;
+    S.scrolled = on ? t : null;   // the tick keeps the mark from this (it reads no layout itself)
     if (on === root.hasAttribute('data-lgs-scrolled')) return;
     if (on) {
       root.setAttribute('data-lgs-scrolled', '');
@@ -308,15 +309,23 @@ function setTick(S) {
     if (hdr && root.style.getPropertyValue('--lgs-set-glyph')) {
       // measured when the title changes, not on every 300 ms tick (each measure forced a layout)
       var htext = hdr.textContent || '';
+      // and in the frame's own pass (rAF), where the new page is laid out once anyway, not in this timer
       if (S.heroEl === hdr && S.heroText === htext && S.heroTw > 0) {
         tw = S.heroTw;
-      } else {
-        try {
-          var rg = doc.createRange();
-          rg.selectNodeContents(hdr);
-          tw = Math.round(rg.getBoundingClientRect().width);
-        } catch (_) { tw = 0; }
-        S.heroEl = hdr; S.heroText = htext; S.heroTw = tw;
+      } else if (S.heroWant !== hdr || S.heroWantText !== htext) {
+        S.heroWant = hdr; S.heroWantText = htext;
+        var win = doc.defaultView;
+        win.requestAnimationFrame(function () {
+          if (SETS !== S || S.heroWant !== hdr || !hdr.isConnected) return;
+          var w = 0;
+          try {
+            var rg = doc.createRange();
+            rg.selectNodeContents(hdr);
+            w = Math.round(rg.getBoundingClientRect().width);
+          } catch (_) { w = 0; }
+          S.heroEl = hdr; S.heroText = htext; S.heroTw = w; S.heroWant = null;
+          if (w > 0) setTick(S);
+        });
       }
     }
     if (tw > 0) {
@@ -336,7 +345,8 @@ function setTick(S) {
     }
     var content = root.querySelector(S.sel.content);
     // scrolled content: the hero's pop drops (60-settings.json excludes [data-lgs-scrolled])
-    if (content && content.scrollTop > 0.5) setMark(S, want, root, 'data-lgs-scrolled', '');
+    // (from the scroll listener: a scrollTop read here forced the page's layout every 300 ms, mid-transition)
+    if (content && S.scrolled === content) setMark(S, want, root, 'data-lgs-scrolled', '');
     // destructive buttons (by Steam's own localised labels), on the page and in its open dialog
     var labels = setDestructiveLabels(S);
     var safe = page ? setSafeLabels(S, page) : null;

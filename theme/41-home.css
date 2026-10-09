@@ -595,7 +595,7 @@
 }
 /* glassd draws an acknowledged plate: the CSS edge goes too (05-native.css
    already drops the fill, shade and blur) */
-.lgs-home [data-lgs-plate][data-lgs-plate-ack] {
+.lgs-home [data-lgs-plate]:is([data-lgs-plate-ack], :root[data-lgs-plates] [data-lgs-plate]:not([data-lgs-plate-css])) {
   --lgs-edge: none;
 }
 
