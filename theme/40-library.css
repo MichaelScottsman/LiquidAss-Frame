@@ -406,9 +406,10 @@
   scale: var(--lgs-card-lift);
 }
 /* Steam's compatibility badge (shown on hover and focus): a dark chip */
+/* (a denser tint, no backdrop blur: on 30 capsules at once the blur was 30
+   backdrop layers in every library frame, ~2 fps of route changes) */
 %{GamepadLibrary} %{LibraryItemBox} %{SteamDeckCompatInfo} {
-  background: rgb(0 0 0 / .46);
-  backdrop-filter: blur(10px);
+  background: rgb(0 0 0 / .6);
   box-shadow: none;
   border: 0;
   border-radius: var(--lgs-r-capsule);
