@@ -297,6 +297,7 @@ Version **3**. Phase 1 fields are unchanged (NATIVE.md "Steam → daemon"). New 
 | `layers[].modal` | layer | `true` for modal rules |
 | `layers[].from`, `sink` | layer | Passed to P7 (`contracts/sg.md` §2) when the rule sets them |
 | `coverDz` | surface | From the surface's `coverMm` (units at live S, r) or `coverDz`; absent = P7's default 0.001 |
+| `morph` | surface | `{token, at}` while a cover with `cover.morph` (§3.1) is animating: `shapes` are already where the motion ends, `at` is when the motion starts (epoch ms) and `token` the spring (`grow` or `shrink` of the config). Absent at rest. P8 passes it to glassd with its `morph` cap |
 | `scaleFrom` | surface | The fragment's `scaleFrom` (`"main"` / `"overlay"`), absent when not set; P8 passes it to glassd with its `scaleFrom` cap |
 | `window` | top | `{dim, recede}` asked for from Steam's side: `data-lgs-window-dim` (0..1, the window's brightness, CC-A) and `data-lgs-window-recede` (mm, the sheet-recede variant S7) on main's `<html>` or `%{BasicUiRoot}`; recede reported in units. Absent when neither is set |
 
@@ -335,6 +336,7 @@ Two call forms are accepted: P8's `ack(popMap, {plates: plateMap})` (`contracts/
 | Attribute (set by the reporter only while acked) | On | Meaning for CSS |
 |---|---|---|
 | `data-lgs-cover` | each cover element | glassd draws this surface's glass: drop the CSS glass |
+| `data-lgs-cover="pending"` | main's mode element, from the moment a glass mode with a cover starts on a native window until the ack (at most 2 s) | glassd is materializing it: the CSS glass stays off (same CSS as `data-lgs-cover`), so a route change never flashes the opaque CSS window first |
 | `data-lgs-pop` = `self`, `before` or `after` | each popped element | glassd draws its slab: drop the CSS tint of that part |
 | `data-lgs-plate-ack` | each plate element | glassd draws this plate: drop the plate's CSS fill, keep content |
 | `data-lgs-noslab` = the parts (`self`, `before`, `after`) | a popped element whose rule says `slab: "none"` | glassd draws only the hole under it: **keep** the CSS glass (05-native.css skips it) |
@@ -395,4 +397,5 @@ Filed in `docs/phase2/wp/P6.md` § Requests:
 - 2026-10-07 (review R1): `hole.fill: "auto"` and literal `hole.edges` (§3.2, §3.4; REQ P9->P6); duplicate ids may be fallbacks of conditional rules, and rule-level `admission: false` is ignored with an error (§3.1); rule 2 counts every focusable that intersects the crop, rule 7 counts legacy layers too, marked `(legacy)` (§4); the popup wrapper follows entry flags and `geom` while popups are shown, its API is `__LGS_RT.popups` / `rt.use('popups')`, the global `__LGS_POPUPS_API` is gone (§5); `05-native.css` turns off the E3 hook of hosts of popped pseudo-elements and the literal glass of the legacy footer, Back and window-sheen paints (§8); legacy retirement table (§3.5). The token index comes through P1's `lgsIndexShared()` when it is in scope (else `__LGS_INDEX`; a fresh build is cached only when good) and the webpack probe record is spliced out of `webpackChunksteamui` at once (REQ P1->P6).
 - 2026-10-07 (M3): surface field `flag` (§3.1; C3a's `notifications`, `volumelevel`, `tooltip` behind `wp.c3a`); attribute `data-lgs-noslab` for `slab: "none"` pops and the Phase 2 `05-native.css` rules (§7, §8); globals after `stop()` (§9); popup wrapper `apply(list)` (§5.3). RP-1 to RP-8 pass on the Frame (`wp/P6.md`).
 - 2026-10-07 (maintenance): `main.modal` also matches `.lgs-cc` (CC-M's root), so no other main rule pops while Control Center is open (§4 rule 6; REQ C3b->P6).
+- 2026-10-08 (motion): `cover.morph` `{grow, shrink}` (motion tokens) on a surface: an animating cover reports its end shape at once, with `morph: {token, at}` (§6), and glassd moves the glass with the page; the frame menu uses it. A glass mode change on main is reported from the mutation callback itself and marks the mode element `data-lgs-cover="pending"` until the ack (§7).
 - 2026-10-07 (maintenance, session 4): mosaic bands only on a surface without a cover shape (§2.3; REQ C2a->P8 #17); surface field `scaleFrom` passed through to the report (§3.1, §6; REQ C4b->P6). RP-MO (new), RP-1, RP-2 and RP-X pass on the Frame (`wp/P6.md`).

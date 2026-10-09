@@ -913,7 +913,7 @@
 /* Steam's frame menu, restyled as two glass capsules of circles: the six
    sections, then the system (Console, Settings, [Help], VR Settings, a
    10 px gap, Power). Built from Steam's component variables and the
-   rows' backgrounds; never width (Steam animates it). Specific to
+   rows' backgrounds; the width only as below (measured, so it animates). Specific to
    %{Variant_FrameMenu}, so the bar's tab menus (C3a) are untouched. */
 %{DashboardMenu}%{Variant_FrameMenu} {
   --lgs-c1a-tab-d: calc(var(--lgs-c1a-tab-p) - 8px);
@@ -935,13 +935,27 @@
   padding-bottom: var(--lgs-tab-place, 0px);
 }
 /* collapsed, the capsule is the circle plus 12 px at each side (WN
-   §3.3.1): only the value of Steam's collapsed width (54) changes; the
-   expanded width stays Steam's. Steam's width transition (300 ms ease) is
-   retimed, timing properties only (WN §7): out to the labels on `snappy`,
-   back to the circles on `fade` */
+   §3.3.1): only the value of Steam's collapsed width (54) changes. Steam's
+   width transition (300 ms ease) is retimed, timing properties only (WN
+   §7): out to the labels on `snappy`, back to the circles on `fade`.
+   Expanded, Steam leaves the width `auto`, which Chromium 126 cannot
+   interpolate: the menu jumped open in one frame (and the native glass
+   followed a report later). The runtime measures the expanded width the
+   labels need (--lgs-c1a-tab-wx on the frame-menu root, device/rt/
+   20-shell.js) and it is set here, so the width really animates; the
+   content is the same as at `auto` (overflow stays Steam's hidden). */
 %{DashboardMenu}%{Variant_FrameMenu} {
+  width: var(--lgs-c1a-tab-wx, auto);
   transition-duration: var(--lgs-d-snappy, 488ms);
   transition-timing-function: var(--lgs-ease-snappy, ease);
+}
+/* native: the motion starts a moment after Steam's toggle, so glassd (told
+   the end shape and the start time by the reporter, cover.morph in
+   theme/layers/20-shell.json) moves the capsules' glass on the same spring
+   from the first frame instead of catching up. Invisible next to Steam's
+   own 500 ms hover delay */
+&.lgs-native %{DashboardMenu}%{Variant_FrameMenu} {
+  transition-delay: var(--lgs-native-lead, 70ms);
 }
 %{DashboardMenu}%{Variant_FrameMenu}%{DashboardMenu>Collapsed} {
   --lgs-c1a-tab-r: calc(var(--lgs-c1a-tab-d) / 2 + 12px);

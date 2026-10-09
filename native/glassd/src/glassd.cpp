@@ -513,6 +513,11 @@ struct SurfSpec {
     v3 qO, qU, qV;
     std::vector<SlabSpec> slabs;
     PhaseSpec ph;
+    // "morph" (optional): the reporter's cover.morph. The shapes shown move toward `shapes` on the
+    // named spring (motion_tokens.h), starting at epoch ms `morphAtMs`: with the page's own motion
+    bool hasMorph = false;
+    std::string morphToken;
+    double morphAtMs = 0;
     // v3
     std::vector<PlateSpec> plates;          // at most kMaxPlates
     std::vector<std::string> droppedPlates;  // beyond kMaxPlates or empty after clipping (the first kMaxListedDrops)
@@ -702,6 +707,11 @@ bool parseSpec(const std::string &text, Spec &out, std::string &err) {
         ss.material = s.str("material", "window");
         ss.visible = s.boolean("visible", true);
         readPhase(s, ss.ph);
+        if (const JVal *m = s.get("morph"); m && m->type == JVal::Obj) {
+            ss.morphToken = m->str("token", "");
+            ss.morphAtMs = m->num("at", 0);
+            ss.hasMorph = !ss.morphToken.empty() && std::isfinite(ss.morphAtMs) && ss.morphAtMs > 0;
+        }
         if (ss.name.empty() || ss.name.size() > 128 || ss.texW <= 0 || ss.texH <= 0 || ss.texW > 8192 || ss.texH > 8192) continue;
         if (const JVal *sh = s.get("shapes"); sh && sh->type == JVal::Arr) {
             ss.hasShapes = true;
@@ -862,7 +872,12 @@ struct Surface {
     uint64_t geoOkNs = 0, findNs = 0;
     std::string geoNote = "none", geoLogged;
     bool rendered = false, announced = false, warnedShapes = false, atlasOn = false, warnedHoles = false;
-    PhaseAnim anim;                  // the cover's materialize progress
+    PhaseAnim anim;                  // the cover's materialize progress (0 while it has no cover)
+    // cover morph: the shapes shown move from morphFrom toward the spec's on morphTok's spring from
+    // morphT0 (monotonic ns); fadeShapes: the shapes a cover that went away dematerializes with
+    std::vector<ShapeSpec> morphFrom, fadeShapes;
+    const lgs_motion::Token *morphTok = nullptr;
+    uint64_t morphT0 = 0;
     Target lowTex;                   // the cover at 1/4 resolution, mipmapped (glass.frag pass 1): its flat
                                      // interior for pass 2, and what slabs see behind them
     Target coverTex;                 // R1: a copy of lowTex with the cover only (no plates), mipmapped:
@@ -1495,8 +1510,65 @@ class Glassd {
     void setSlabPhase(SlabSlot &sl, uint64_t now) {
         sl.anim.set(sl.s.ph.phase, sl.s.material == "thick" || sl.s.dim(), sl.s.ph.ms, sl.s.ph.materialize ? 0.f : -1.f, now);
     }
-    void setCoverPhase(Surface &s, uint64_t now) {
-        s.anim.set(s.spec.ph.phase, true, s.spec.ph.ms, s.spec.ph.materialize ? 0.f : -1.f, now);
+    // Does this spec draw a cover (README, *Input*: shapes, or a window surface without shapes)?
+    static bool specCover(const SurfSpec &sp) { return sp.hasShapes ? !sp.shapes.empty() : sp.material == "window"; }
+    static bool sameShapes(const std::vector<ShapeSpec> &a, const std::vector<ShapeSpec> &b) {
+        if (a.size() != b.size()) return false;
+        for (size_t i = 0; i < a.size(); i++)
+            if (std::fabs(a[i].x - b[i].x) > .5f || std::fabs(a[i].y - b[i].y) > .5f || std::fabs(a[i].w - b[i].w) > .5f ||
+                std::fabs(a[i].h - b[i].h) > .5f || std::fabs(a[i].r - b[i].r) > .5f)
+                return false;
+        return true;
+    }
+    static const lgs_motion::Token *motionToken(const std::string &name) {
+        for (const lgs_motion::Token &k : lgs_motion::kTokens)
+            if (name == k.name) return &k;
+        return nullptr;
+    }
+    // An epoch time (ms, the reporter's Date.now()) on the monotonic clock; within 2 s of now, else now.
+    static uint64_t epochToMono(double ms, uint64_t now) {
+        timespec rt;
+        clock_gettime(CLOCK_REALTIME, &rt);
+        const double d = ms - (double(rt.tv_sec) * 1e3 + double(rt.tv_nsec) / 1e6);
+        if (!(std::fabs(d) < 2000.0)) return now;
+        return uint64_t(int64_t(now) + int64_t(d * 1e6));
+    }
+    // Morph progress (0 -> 1, with the spring's overshoot) at `now`.
+    float morphProgress(const Surface &s, uint64_t now) const {
+        const float ms = now > s.morphT0 ? float(double(now - s.morphT0) / 1e6) : 0.f;
+        if (spec.reduceMotion) return std::clamp(ms / lgs_motion::kReduceMs, 0.f, 1.f);
+        return lgs_motion::sample(*s.morphTok, ms);
+    }
+    // The cover's materialize target follows whether it has a cover: on a surface that stays on screen
+    // (main between a windowless route and a window route) the window glass materializes in on sheet-in
+    // and dematerializes out on sheet-out with the shapes it had, instead of popping. A surface that
+    // appears or goes as a whole is at its target at once (a phaseMs of 0 makes any change instant).
+    // A spec with "morph" moves the shapes from what is shown toward the new ones (morphProgress).
+    void setCoverPhase(Surface &s, const SurfSpec &ns, uint64_t now) {
+        const bool init = s.anim.init;
+        const bool wasShown = init && s.spec.visible && specCover(s.spec);
+        const bool shown = ns.visible && specCover(ns);
+        const bool kept = init && s.spec.visible && ns.visible;
+        std::vector<ShapeSpec> before;
+        if (init && wasShown) before = coverShapes(s);
+        const std::vector<ShapeSpec> oldTarget = s.spec.shapes;
+        s.spec = ns;
+        if (kept && wasShown && !shown) s.fadeShapes = before;
+        else if (shown || !kept) s.fadeShapes.clear();
+        if (!kept) s.anim.init = false;
+        s.anim.set(shown ? ns.ph.phase : 0.f, true, ns.ph.ms, ns.ph.materialize ? 0.f : -1.f, now);
+        if (!(kept && wasShown && shown) || sameShapes(oldTarget, ns.shapes)) {
+            if (!(kept && wasShown && shown)) s.morphTok = nullptr;
+            return;  // nothing moved: a running morph goes on
+        }
+        const lgs_motion::Token *tok = ns.hasMorph ? motionToken(ns.morphToken) : nullptr;
+        if (tok && before.size() == ns.shapes.size() && !before.empty()) {
+            s.morphFrom = before;
+            s.morphTok = tok;
+            s.morphT0 = epochToMono(ns.morphAtMs, now);
+        } else {
+            s.morphTok = nullptr;  // the shapes jump
+        }
     }
     // Plates: window and thick plates ride the sheet springs like covers,
     // the others (liquid discs, panel tiles, dim) the linear ramps like slabs.
@@ -1523,6 +1595,15 @@ class Glassd {
         bool moving = false;
         for (auto &s : surfaces) {
             moving |= s->anim.step(now, spec.reduceMotion);
+            if (s->morphTok) {
+                const float ms = now > s->morphT0 ? float(double(now - s->morphT0) / 1e6) : 0.f;
+                if (ms >= (spec.reduceMotion ? lgs_motion::kReduceMs : s->morphTok->settleMs)) {
+                    s->morphTok = nullptr;
+                    s->morphFrom.clear();
+                } else {
+                    moving = true;
+                }
+            }
             for (auto &sl : s->slots) moving |= sl.anim.step(now, spec.reduceMotion);
             for (auto &sl : s->ghosts) moving |= sl.anim.step(now, spec.reduceMotion);
             for (auto &p : s->plates) moving |= p.anim.step(now, spec.reduceMotion);
@@ -1613,8 +1694,7 @@ class Glassd {
             if (!ss.droppedPlates.empty() && ss.droppedPlates != s->spec.droppedPlates)
                 std::printf("surface %s: %zu plates not drawn (more than %d, or outside the texture)\n", ss.name.c_str(),
                             ss.droppedPlatesN, kMaxPlates);
-            s->spec = ss;
-            setCoverPhase(*s, now);
+            setCoverPhase(*s, ss, now);  // sets s->spec
             syncPlates(*s, now);
             syncSlots(*s, now);
             ensureOverlay(*s);
@@ -2054,6 +2134,20 @@ class Glassd {
             std::printf("surface %s (material %s) came without cover shapes; drawing no cover\n", s.spec.name.c_str(),
                         s.spec.material.c_str());
             s.warnedShapes = true;
+        }
+        // a cover that went away dematerializes with the shapes it had
+        if (v.empty() && !s.fadeShapes.empty()) {
+            if (phaseOf(s.anim) > 0.002f) return s.fadeShapes;
+            s.fadeShapes.clear();
+        }
+        // a morph: from the shapes shown when it began toward the spec's
+        if (s.morphTok && s.morphFrom.size() == v.size()) {
+            const float t = morphProgress(s, monoNowNs());
+            for (size_t i = 0; i < v.size(); i++) {
+                const ShapeSpec &a = s.morphFrom[i], &b = v[i];
+                v[i] = {a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, std::max(1.f, a.w + (b.w - a.w) * t),
+                        std::max(1.f, a.h + (b.h - a.h) * t), std::max(0.f, a.r + (b.r - a.r) * t)};
+            }
         }
         return v;
     }
@@ -2687,7 +2781,7 @@ class Glassd {
                       spec.seq, int(getpid()), double(rt.tv_sec) + double(rt.tv_nsec) / 1e9, !exiting && healthy() ? "true" : "false",
                       exiting ? 0.0 : double(fpsNow), double(gpuMs()), (unsigned long long)frames, lastDash ? "true" : "false");
         o += b;
-        o += ", \"version\": 3, \"caps\": [\"plates\", \"holes\", \"tint\", \"masks\", \"coverDz\", \"none\", \"offset\", \"dim\", \"scaleFrom\", \"unitM\", \"roomDim\", \"dimSlab\", \"holeEdges\"]";
+        o += ", \"version\": 3, \"caps\": [\"plates\", \"holes\", \"tint\", \"masks\", \"coverDz\", \"none\", \"offset\", \"dim\", \"scaleFrom\", \"unitM\", \"roomDim\", \"dimSlab\", \"holeEdges\", \"morph\"]";
         std::snprintf(b, sizeof b, ", \"last_submit_s\": %.1f, \"room_ms\": %.2f, \"room_updates\": %llu, \"feed\": %s%s",
                       lastSubmitNs ? double(now - lastSubmitNs) / 1e9 : -1.0, double(roomTimer.have ? roomTimer.ms : roomCpuMs),
                       (unsigned long long)room.updates, jsonEscape(feedState()).c_str(), exiting ? ", \"exiting\": true" : "");
@@ -2698,7 +2792,8 @@ class Glassd {
             if (!first) o += ", ";
             first = false;
             const float gw = float(std::max(1, s->gw)), gh = float(std::max(1, s->gh));
-            const size_t cover = coverShapes(*s).size();
+            const size_t cover = !specCover(s->spec) ? 0
+                                 : s->spec.hasShapes ? std::min(s->spec.shapes.size(), size_t(kMaxShapes)) : size_t(1);
             std::snprintf(b, sizeof b,
                           "%s: {\"key\": %s, \"texW\": %d, \"texH\": %d, \"backdrop\": [0, 0, %.6f, %.6f], \"backdropScale\": %.6f, \"cover\": %zu",
                           jsonEscape(s->spec.name).c_str(), jsonEscape(s->key).c_str(), s->gw, s->gh, s->bw / gw, s->bh / gh,

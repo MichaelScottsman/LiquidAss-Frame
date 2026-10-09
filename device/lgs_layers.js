@@ -142,6 +142,9 @@
   const COVER_FOLLOW_MS = 150;  // an animating cover's shape is updated at most this often
   const ACK_DELAY_MS = 350;     // an element must hold its id this long before an ack applies to it (scene-graph latency)
   const COVER_FALLBACK_MS = 3000; // ack mode, key never acked but window lgs-native: tag the cover
+  const COVER_PENDING_MS = 2000; // ack mode, native window: a glass mode's cover is "pending" this long after the mode starts
+  // spring tokens a morphing cover may name (native/shared/motion_tokens.h; glassd evaluates them)
+  const MORPH_TOKENS = ['interactive', 'hover-in', 'fade', 'snappy', 'morph-open', 'morph-close', 'sheet-in', 'sheet-out', 'page', 'depth'];
   const PING_TTL_MS = 12000;    // no ping for this long (once pinged): stop
   const NATIVE_STALE_MS = 15000; // no lgs-native heartbeat for this long (never pinged): stop
   const THEME_OFF_POLLS = 60;   // never pinged: stop after the theme has been off this long (30 s)
@@ -398,6 +401,14 @@
       const csel = resolveSel(c.sel, index, errs, name + '.cover');
       if (!csel) { errs.push(name + ': no usable cover, surface skipped'); continue; }
       s.cover = { sel: csel, pseudo: pseudoOf(c.pseudo), r: c.r, inset: insetOf(c.inset, c.outset), all: !!c.all };
+      // "morph": {"grow": token, "shrink": token}: while the cover's box animates, report its end shape
+      // at once with the motion's start time and spring, and glassd morphs the glass along with it
+      if (c.morph && typeof c.morph === 'object') {
+        const g = MORPH_TOKENS.includes(c.morph.grow) ? c.morph.grow : null;
+        const k = MORPH_TOKENS.includes(c.morph.shrink) ? c.morph.shrink : null;
+        if (g && k) s.cover.morph = { grow: g, shrink: k };
+        else errs.push(name + '.cover.morph: "grow" and "shrink" must be motion tokens (' + MORPH_TOKENS.join(', ') + ')');
+      }
       if (sc.modes && typeof sc.modes === 'object') {
         const m = sc.modes;
         const msel = m.sel ? resolveSel(m.sel, index, errs, name + '.modes.sel') : null;
@@ -782,6 +793,20 @@
     };
     const bump = (t) => { ent.wakes[t] = (ent.wakes[t] || 0) + 1; };
     const wakeUp = () => { if (S && S.dash && !S.paused) schedule(0); };
+    // glassd should follow at once (a glass mode, a morphing cover): the next tick runs on a timer,
+    // without waiting out MIN_TICK_MS or a frame of a busy window
+    const tickNow = () => {
+      if (!S || !S.dash || S.paused || S.dashPending) { wakeUrgent(); return; }
+      S.urgent = true;
+      cancelFrame();
+      tick();
+    };
+    const wakeUrgent = () => {
+      if (!S || !S.dash || S.paused) return;
+      S.urgent = true;
+      cancelFrame();
+      schedule(0, true);
+    };
     const handler = (ev) => {
       if (!S) return;
       const t = ev.type;
@@ -833,6 +858,8 @@
         bump('scrolled-anim');
         return;
       }
+      // a morphing cover starts to move: report its end shape before the motion shows
+      if (start && !pseudo && ent.s.cover && ent.s.cover.morph && ent.q && ent.q.cover.some((el) => T.contains(el))) ent.urgent = true;
       if (start) {
         const r = rec || { n: 0, until: 0, el: T, part: pseudo };
         r.n++;
@@ -846,7 +873,7 @@
       }
       bump(t);
       ent.dirty = true;
-      wakeUp();
+      if (ent.urgent) { ent.urgent = false; wakeUrgent(); } else wakeUp();
     };
     ent.handler = handler;
     try {
@@ -868,6 +895,9 @@
         bump('mutation');
         ent.domGen++;
         ent.dirty = true;
+        // a glass mode change is measured and reported right here, before Steam renders the new route
+        // (a tick would wait for that render), so glassd starts materializing the window at once
+        if (s.modes && records.some((r) => r.attributeName === s.modes.attr)) { modePending(ent); tickNow(); return; }
         wakeUp();
       });
       ent.mo.observe(doc.documentElement, {
@@ -1400,7 +1430,7 @@
         if (b.skip) { if (why) why.push({ cover: describe(el), skip: b.skip }); continue; }
         let t = toTex(b, ctx);
         if (!t) { if (why) why.push({ cover: describe(el), skip: 'too small' }); continue; }
-        t = settleShape(ctx, el, t, 'cover');
+        t = s.cover.morph ? morphShape(ctx, el, t, s.cover) : settleShape(ctx, el, t, 'cover');
         if (!t) { if (why) why.push({ cover: describe(el), skip: 'animating (new)' }); continue; }
         shapes.push(t);
         out.covers.push(el);
@@ -1428,6 +1458,7 @@
     if (shapes.length) surface.radius = shapes[0].r;
     else if (mode && s.modes.shapes.window && s.modes.shapes.window.r !== null) surface.radius = Math.round(s.modes.shapes.window.r * dpr);
     surface.shapes = shapes;
+    if (ctx.morph) surface.morph = ctx.morph;
     if (mode) surface.mode = mode;
     if (s.coverDz) surface.coverDz = r4(unitsOf(s.coverDz, ctx));
     if (s.scaleFrom) surface.scaleFrom = s.scaleFrom;
@@ -1604,6 +1635,67 @@
     if (ctx.now - prev.at >= COVER_FOLLOW_MS) m[key] = Object.assign({ at: ctx.now }, t);
     const c = m[key];
     return { x: c.x, y: c.y, w: c.w, h: c.h, r: c.r };
+  }
+
+  // A morphing cover (cover.morph): while its box (or an ancestor's) runs a geometric transition or
+  // animation, the shape reported is where that motion ends, measured by seeking the running
+  // animations to their end and back within this task (nothing is painted in between), together with
+  // when the motion starts (epoch ms) and its spring (grow or shrink). glassd morphs the glass from
+  // what it shows toward that shape on the same spring, so the glass moves with the page instead of
+  // trailing it a report at a time. A motion that cannot be measured falls back to settleShape.
+  function morphShape(ctx, el, t, cover) {
+    const ent = ctx.ent;
+    let m = ent.settled.get(el);
+    if (!m) ent.settled.set(el, m = {});
+    if (!animating(ent, el, ctx.now, 'cover')) {
+      m.cover = Object.assign({ at: ctx.now }, t);
+      return t;
+    }
+    const end = seekEnd(ctx, el, cover);
+    if (!end) return settleShape(ctx, el, t, 'cover');
+    const prev = m.cover || t;
+    const grow = end.t.w * end.t.h >= prev.w * prev.h;
+    ctx.morph = { token: grow ? cover.morph.grow : cover.morph.shrink, at: Math.round(end.at) };
+    return end.t;
+  }
+
+  // The running geometric animations on el and its ancestors, seeked to their end for one measure.
+  // Returns {t: the end shape in texture px, at: epoch ms when the motion starts} or null.
+  function seekEnd(ctx, el, cover) {
+    const list = [];
+    for (let n = el; n && n.nodeType === 1; n = n.parentElement) {
+      let as = [];
+      try { as = n.getAnimations(); } catch (_) { /* detached */ }
+      for (const a of as) {
+        if (a.playState !== 'running') continue;
+        const geo = a.transitionProperty !== undefined ? !isPaintProp(a.transitionProperty)
+          : a.animationName !== undefined ? animGeometric(n, a.animationName) : true;
+        if (geo) list.push(a);
+      }
+    }
+    if (!list.length) return null;
+    const saved = list.map((a) => a.currentTime);
+    if (saved.some((c) => c === null || !Number.isFinite(+c))) return null;
+    let at = -Infinity, b = null;
+    try {
+      const pnow = ctx.win.performance.now(), enow = Date.now();
+      for (const a of list) {
+        const ct = a.effect.getComputedTiming();
+        const delay = +(ct.delay || 0);
+        // the motion starts after the delay: from the start time, or (not started yet) a frame from now
+        const startPerf = a.startTime !== null ? a.startTime + delay : pnow + 16 + delay - (+a.currentTime || 0);
+        at = Math.max(at, enow + (startPerf - pnow));
+        a.currentTime = Math.max(0, +ct.endTime - 0.5);
+      }
+      b = measure(ctx, el, cover, false, true);
+    } catch (_) {
+      b = null;
+    } finally {
+      list.forEach((a, i) => { try { a.currentTime = saved[i]; } catch (_) { /* finished meanwhile */ } });
+    }
+    if (!b || b.skip) return null;
+    const t = toTex(b, ctx);
+    return t ? { t, at } : null;
   }
 
   function blank(ent, texW, texH) {
@@ -2164,8 +2256,9 @@
         };
         const add = (el, part, noslab) => {
           let p = plan.get(el);
-          if (!p) plan.set(el, p = { cover: false, pop: [], plate: false, noslab: [] });
+          if (!p) plan.set(el, p = { cover: false, pending: false, pop: [], plate: false, noslab: [] });
           if (part === 'cover') p.cover = true;
+          else if (part === 'pending') p.pending = true;
           else if (part === 'plate') p.plate = true;
           else if (!p.pop.includes(part)) {
             p.pop.push(part);
@@ -2173,6 +2266,13 @@
           }
         };
         for (const el of cur.covers) if (ok(el, 'cover')) add(el, 'cover');
+        // a glass mode that just began (modePending): its cover stays pending until the ack, at most
+        // COVER_PENDING_MS, so its CSS glass never paints over the glass glassd is materializing
+        const pe = ent.pendingEl;
+        if (pe && S.ackMode && ent.nativeSince && now < ent.pendingUntil && modeCovered(ent, pe)) {
+          if (!(plan.get(pe) || {}).cover) add(pe, 'pending');
+          due = Math.min(due, ent.pendingUntil);
+        }
         // slab "none": glassd draws only the hole, the glass stays in-page
         for (const k of cur.kept) if (ok(k.el, k.part)) add(k.el, k.part, k.layer.material === 'none');
         for (const pe of cur.plateEls || []) if (ok(pe.el, 'plate')) add(pe.el, 'plate');
@@ -2205,11 +2305,44 @@
         if (pop) { if (el.getAttribute(AP) !== pop) el.setAttribute(AP, pop); } else if (el.hasAttribute(AP)) el.removeAttribute(AP);
         const ns = (at.noslab || []).join(' ');
         if (ns) { if (el.getAttribute(ANS) !== ns) el.setAttribute(ANS, ns); } else if (el.hasAttribute(ANS)) el.removeAttribute(ANS);
-        if (at.cover) { if (!el.hasAttribute(AC)) el.setAttribute(AC, ''); } else if (el.hasAttribute(AC)) el.removeAttribute(AC);
+        const cv = at.cover ? '' : at.pending ? 'pending' : null;
+        if (cv !== null) { if (el.getAttribute(AC) !== cv) el.setAttribute(AC, cv); } else if (el.hasAttribute(AC)) el.removeAttribute(AC);
         if (at.plate) { if (!el.hasAttribute(APL)) el.setAttribute(APL, ''); } else if (el.hasAttribute(APL)) el.removeAttribute(APL);
       } catch (_) { /* window gone */ }
     }
     ent.applied = plan;
+  }
+
+  // Is el's glass mode one with a cover (main: window, window-full, hero)?
+  function modeCovered(ent, el) {
+    const md = ent.s.modes;
+    if (!md) return false;
+    let v = null;
+    try { v = el.isConnected ? el.getAttribute(md.attr) : null; } catch (_) { return false; }
+    const sh = v && md.shapes[v];
+    return !!(sh && !sh.none);
+  }
+
+  // The glass mode changed (main: windowless -> window). On a native window in ack mode, a mode with
+  // a cover marks its element data-lgs-cover="pending" at once, from the mutation callback, before
+  // the first paint of the new mode: theme/05-native.css then never paints the CSS window glass,
+  // and glassd materializes the native glass instead (it springs a cover in when one appears).
+  function modePending(ent) {
+    if (!S || !S.ackMode) return;
+    const md = ent.s.modes;
+    let el = null, native = false;
+    try {
+      native = ent.doc.documentElement.classList.contains('lgs-native');
+      el = ent.q && ent.q.modeEl && ent.q.modeEl.isConnected ? ent.q.modeEl : (md.sel ? ent.doc.querySelector(md.sel) : null);
+    } catch (_) { return; }
+    if (!el) return;
+    if (!native || !modeCovered(ent, el)) { ent.pendingEl = null; return; }
+    ent.pendingEl = el;
+    ent.pendingUntil = performance.now() + COVER_PENDING_MS;
+    const at = ent.applied.get(el);
+    if (at && at.cover) return;
+    try { if (el.getAttribute(ent.attrCover) !== 'pending') el.setAttribute(ent.attrCover, 'pending'); } catch (_) { return; }
+    ent.applied.set(el, Object.assign({ cover: false, pop: [], plate: false, noslab: [] }, at || {}, { pending: true }));
   }
 
   function popCount() {
@@ -2304,8 +2437,9 @@
     if (S.paused || !S.dash) return;
     const t0 = performance.now();
     const since = t0 - S.lastTickAt;
-    if (since < MIN_TICK_MS) { schedule(MIN_TICK_MS - since); return; }
+    if (since < MIN_TICK_MS && !S.urgent) { schedule(MIN_TICK_MS - since); return; }
     if (S.dashPending) { schedule(16); return; } // a dashboard check is in flight
+    S.urgent = false;
     S.lastTickAt = t0;
     let again = false;
     let changed = false;

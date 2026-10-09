@@ -461,7 +461,7 @@
 /*    in columns 2 and 3 unless that would cross x 6 or x 294              */
 /* ---------------------------------------------------------------------- */
 
-%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}[data-lgs-c2b-att] [data-lgs-c2b-lbl] {
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:is([data-lgs-c2b-att], [data-lgs-c2b-out]) [data-lgs-c2b-lbl] {
   position: absolute;
   z-index: 3;
   top: 60px;
@@ -496,7 +496,7 @@
   animation: lgs-focus-in var(--lgs-motion-hover-in, 294ms ease) backwards;
 }
 /* the plate's text: the whole name on one line */
-%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}[data-lgs-c2b-att] %{Marquee>Content} {
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:is([data-lgs-c2b-att], [data-lgs-c2b-out]) %{Marquee>Content} {
   display: block !important;
   max-height: none;
   white-space: nowrap;
@@ -504,27 +504,27 @@
   text-overflow: ellipsis;
   animation: none !important;
 }
-%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}[data-lgs-c2b-att] %{Marquee>Content} > .lgs-c2b-l2 {
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:is([data-lgs-c2b-att], [data-lgs-c2b-out]) %{Marquee>Content} > .lgs-c2b-l2 {
   display: inline;
   max-width: none;
   overflow: visible;
 }
-%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}[data-lgs-c2b-att][data-lgs-c2b-col="0"] [data-lgs-c2b-lbl] {
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:is([data-lgs-c2b-att], [data-lgs-c2b-out])[data-lgs-c2b-col="0"] [data-lgs-c2b-lbl] {
   left: 0;
   translate: none;
   transform-origin: 0 50%;
 }
-%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}[data-lgs-c2b-att][data-lgs-c2b-col="1"] [data-lgs-c2b-lbl] {
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:is([data-lgs-c2b-att], [data-lgs-c2b-out])[data-lgs-c2b-col="1"] [data-lgs-c2b-lbl] {
   /* centred, but its left edge never before the grid's x 6 (the cell starts
      at 78: 36 + 78 - 108 = 6) */
   translate: max(-50%, -108px) 0;
 }
-%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}[data-lgs-c2b-att][data-lgs-c2b-col="2"] [data-lgs-c2b-lbl] {
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:is([data-lgs-c2b-att], [data-lgs-c2b-out])[data-lgs-c2b-col="2"] [data-lgs-c2b-lbl] {
   /* centred, but its right edge never past the grid's x 294 (the cell starts
      at 150: 150 + 36 + 108 = 294) */
   translate: min(-50%, calc(108px - 100%)) 0;
 }
-%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}[data-lgs-c2b-att][data-lgs-c2b-col="3"] [data-lgs-c2b-lbl] {
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:is([data-lgs-c2b-att], [data-lgs-c2b-out])[data-lgs-c2b-col="3"] [data-lgs-c2b-lbl] {
   left: auto;
   right: 0;
   translate: none;
@@ -532,8 +532,19 @@
 }
 /* the cell whose plate shows paints above its neighbours (z-index works on
    grid items) */
-%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}[data-lgs-c2b-att] {
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}:is([data-lgs-c2b-att], [data-lgs-c2b-out]) {
   z-index: 2;
+}
+/* leaving (data-lgs-c2b-out, the runtime's OUT_MS after attention moves
+   on): the plate keeps its place and dissolves (opacity and its swell back,
+   on fade's curve) while the labels under it fade back in, instead of
+   vanishing in one frame. Then the cell's own label returns in place
+   (data-lgs-c2b-back, BACK_MS) with a short fade, so it never pops in */
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}[data-lgs-c2b-out]:not([data-lgs-c2b-att]) [data-lgs-c2b-lbl] {
+  animation: lgs-plate-out var(--lgs-d-mat-in, 250ms) var(--lgs-ease-fade, ease) forwards;
+}
+%{DashboardBarPopupList}:has(> %{DashboardBarPopupListHeader}) %{DashboardBarPopupListItem}[data-lgs-c2b-back]:not([data-lgs-c2b-att], [data-lgs-c2b-out]) [data-lgs-c2b-lbl] {
+  animation: lgs-fade-in var(--lgs-d-mat-in, 250ms) var(--lgs-ease-fade, ease) backwards;
 }
 /* the labels the plate lies over fade to .22 (HA 4, PLAN-2b-4; the
    mockup's .is-under), on fade both ways. The runtime measures each plate

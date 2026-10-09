@@ -36,7 +36,8 @@ Units, unless a row says otherwise:
 | `name`, `overlayKey`, `texW`, `texH`, `radius`, `material`, `visible` | | | As NATIVE.md | live |
 | `shapes` | `[{x, y, w, h, r}]` | absent | The **cover**: the union of ≤ 8 rounded rects. `[]` = no cover. Absent = whole texture for `material: window`, else no cover | live |
 | `quad` | `{O, U, V}` | — | World placement (Steam px (0,0) and steps per Steam px right and down) | live |
-| `phase`, `appear`, `phaseMs` | | 1, —, by size | The cover's materialize (GM §5) | live |
+| `phase`, `appear`, `phaseMs` | | 1, —, by size | The cover's materialize (GM §5). The target is 0 while the surface has no cover: on a surface that stays visible, a cover that appears materializes on `sheet-in` and one that goes dematerializes on `sheet-out` with the shapes it had (main between windowless and window routes). A surface that appears or hides as a whole is at its target at once; `phaseMs: 0` makes any change instant | live |
+| **`morph`** | `{token, at}` | — | The cover's shapes move from what is shown toward `shapes` on the spring `token` (a name in `motion_tokens.h`), from `at` (epoch ms; within 2 s of now, else now), so the glass follows a page that animates its box (the frame menu opening). Only when the shape count is unchanged and the surface stays shown; a new spec with the same `shapes` lets a running morph go on. Cap `morph` | live |
 | `slabs` | `[slab]` | [] | §1.4 | live (+ v3 fields) |
 | **`plates`** | `[plate]` | [] | §1.3. **≤ 32**; extra plates are dropped and listed (§3) | live |
 | **`coverDz`** | units | 0.001 | Where the cover and its plates sit relative to the surface plane, for glassd's optics only (the scene graph places the panel; P7 must use the same value as its spec `coverDz`). K-G6: `-0.027` (−10 mm at r = 1) puts the keyboard platter behind the keys | live |

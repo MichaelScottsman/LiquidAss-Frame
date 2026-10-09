@@ -139,6 +139,9 @@ NATIVE_TTL_MS = 3000               # lgs-native clears itself without a heartbea
 NATIVE_BEAT_S = 1.0                # lgs-native / ack heartbeat
 SHOWN_MS = 350                     # a pushed scene-graph change is on screen after this (fact 4: ~0.3 s)
 SG_BEAT_FRESH_S = 2.5              # lgs-native needs a systemui heartbeat this recent
+NATIVE_GRACE_S = 1.5               # a window keeps lgs-native this long after glassd last drew glass for it
+MORPH_TOKENS = ("interactive", "hover-in", "fade", "snappy", "morph-open", "morph-close", "sheet-in", "sheet-out",
+                "page", "depth")   # native/shared/motion_tokens.h: the springs a cover morph may ride
 STILL_S = 0.15                     # a layer pops once its rect has been still this long
 STILL_PX = 2.0                     # ... within this many texture px
 OVERLAP_CLIP_PX = 2.5              # overlaps this thin are trimmed off, wider ones skip the layer
@@ -1039,6 +1042,7 @@ class Shell:
         self.vr_http = None                   # aiohttp session for 8090's /json/list (keep-alive)
         # glassd.json v3 and the materialize policy
         self.items_first = {}                 # (surface, kind, id) -> time first written
+        self.native_seen = {}                 # overlay key -> when glassd last drew glass for it (NATIVE_GRACE_S)
         self.items_last = {}                  # (surface, kind, id) -> last item written (for its fade-out)
         self.fading = {}                      # (surface, kind, id) -> (item with phase 0, until)
         self.plate_acks = {}
@@ -1334,10 +1338,12 @@ class Shell:
                 # Steam's page is not shown: glassd keeps the surface (its quad stays masked out of the
                 # room map, where SteamVR's own panel now is) but draws nothing on it; the spec leaves it
                 # out. No fades (nothing shows them); the items materialize again when the page is back.
+                # phaseMs 0: the cover goes at once with Steam's page (glassd would dematerialize it
+                # over SteamVR's own panel), and comes back materializing when the page returns
                 surfaces.append({"name": name, "overlayKey": s["overlayKey"][:128], "texW": round(texW),
                                  "texH": round(texH), "radius": round(radius),
                                  "material": str(material_for(s))[:16], "visible": bool(s.get("visible", True)),
-                                 "slabs": [], "shapes": [], "plates": []})
+                                 "slabs": [], "shapes": [], "plates": [], "phaseMs": 0})
                 continue
             slabs = []
             for L in s.get("layers") if isinstance(s.get("layers"), list) else []:
@@ -1388,6 +1394,12 @@ class Shell:
                         shapes.append({k: round(v) for k, v in vals.items()})
                 surf["shapes"] = shapes
             clean_phase_fields(s, surf)            # the cover's own phase: passed through, never set by P8
+            # a morphing cover (the reporter's cover.morph): glassd moves the shapes it shows toward these
+            # on the named spring from `at` (epoch ms), with the page's own motion
+            m = s.get("morph")
+            if "morph" in caps and isinstance(m, dict) and m.get("token") in MORPH_TOKENS \
+                    and _num(m.get("at"), 0, 1e15) is not None:
+                surf["morph"] = {"token": m["token"], "at": int(_num(m["at"], 0, 1e15))}
             q = clean_quad(s.get("quad")) if s.get("quad") is not None else None
             if q:
                 surf["quad"] = q
@@ -1708,8 +1720,14 @@ class Shell:
                 if now - max(first, at / 1000) >= (self.ramp_ms(item.get("material"), False, "plate") + SHOWN_MS) / 1000:
                     pl.append(str(pid))
             has_cover = g.get("cover") != 0
-            if not has_cover and not pl:     # glassd draws no glass for it
-                continue
+            if not has_cover and not pl:
+                # glassd draws no glass for it right now: between two glass modes (main: window ->
+                # windowless, its plates still materializing) the window stays native a moment, so its
+                # CSS glass never flashes back in between
+                if now - self.native_seen.get(key, 0) > NATIVE_GRACE_S:
+                    continue
+            else:
+                self.native_seen[key] = now
             keys.append(key)
             if has_cover:
                 covers.append(key)

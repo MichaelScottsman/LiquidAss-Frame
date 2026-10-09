@@ -704,11 +704,45 @@
     // rule 3: the floor; overhangs the panel by (H - P) / 2 at each end
     return Object.assign(base, { p: 52, rule: 3, place: 0, H: H(52) });
   }
+  // Expanded, Steam leaves the tab bar's width `auto`, which Chromium 126 does not interpolate: it jumped
+  // open in one frame. The width its labels need is measured on a hidden copy (expanded, at auto, never
+  // Steam's own element) and written as --lgs-c1a-tab-wx on the frame-menu root (20-shell.css §4), so
+  // Steam's width transition runs. Measured when the items or the pitch change, and once the font is in
+  // (while the bar is collapsed: applyTabWidth).
+  function tabWidth(e) {
+    const menu = q(e.doc, S.tabMenuSel);
+    if (!menu || !menu.parentElement) return 0;
+    const ghost = menu.cloneNode(true);
+    for (const c of S.tabCollapsedSel.split('.').filter(Boolean)) ghost.classList.remove(c);
+    ghost.removeAttribute('id');
+    ghost.setAttribute('aria-hidden', 'true');
+    ghost.style.cssText = 'position:absolute;left:0;top:0;width:auto;visibility:hidden;pointer-events:none;transition:none;';
+    let w = 0;
+    try {
+      menu.parentElement.appendChild(ghost);
+      w = ghost.getBoundingClientRect().width;
+    } finally {
+      ghost.remove();
+    }
+    return w > 0 ? Math.ceil(w) : 0;
+  }
+  function applyTabWidth(e) {
+    const st = e.html.style;
+    // measured while collapsed: open, Steam's label marquees add content and the copy comes out wider
+    // than the labels' own width, so the open bar would creep wider after it opened
+    const menu = q(e.doc, S.tabMenuSel);
+    if (menu && !menu.matches(S.tabCollapsedSel) && st.getPropertyValue('--lgs-c1a-tab-wx')) return;
+    let w = 0;
+    try { w = tabWidth(e); } catch (_) { /* closed */ }
+    if (w > 0) { if (st.getPropertyValue('--lgs-c1a-tab-wx') !== w + 'px') st.setProperty('--lgs-c1a-tab-wx', w + 'px'); }
+    else st.removeProperty('--lgs-c1a-tab-wx');
+  }
   function applyTabBar() {
     if (!S) return;
     const geom = S.rt.bridge && S.rt.bridge.get('geom');
     for (const e of S.menus) {
       try { ensureTabCaps(e.doc); } catch (_) { /* closed */ }
+      applyTabWidth(e);
       const n = e.doc.querySelectorAll(S.tabItemSel).length;
       const t = tabRule(geom, n);
       const st = e.html.style;
@@ -731,6 +765,8 @@
     if (menu) mo.observe(menu, { childList: true });
     applyTabBar();
     mirrorModal();
+    // the label font may load after the first measure
+    S.rt.setTimeout(() => { if (S && S.menus.has(entry)) applyTabWidth(entry); }, 1500);
     return () => {
       mo.disconnect();
       if (!S) return;
@@ -742,6 +778,7 @@
       try {
         e.html.style.removeProperty('--lgs-tab-pitch');
         e.html.style.removeProperty('--lgs-tab-place');
+        e.html.style.removeProperty('--lgs-c1a-tab-wx');
         e.html.classList.remove('lgs-modal');
         for (const n of e.doc.querySelectorAll('.lgs-tabcap')) n.remove();
       } catch (_) { /* closed */ }
@@ -850,6 +887,7 @@
         labelSel: sel(rt, '%{ActionButtonLabel}'),
         tabMenuSel: sel(rt, '%{DashboardMenu}%{Variant_FrameMenu}'),
         tabItemSel: sel(rt, '%{DashboardMenu}%{Variant_FrameMenu} %{DashboardMenu>Item}'),
+        tabCollapsedSel: sel(rt, '%{DashboardMenu>Collapsed}'),
         menus: new Set(), tab: null, opt: null, optText: null, revealReg: null, stack: [], hdrSaved: null, hdrRewrites: 0,
       };
       rt.windows.track((entry) => {

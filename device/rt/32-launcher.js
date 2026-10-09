@@ -62,6 +62,10 @@ const LG_NAME = 'Liquid Glass';
 const LG_ICON_MARK = 'zP9VZWZ7917z2Fx78vM6qqe7pHEinkTt9+rzKys9';
 // HA 4 / 11: the laser's name plate after 0.4 s of attention
 const PLATE_STEP_MS = 400;
+// a plate that loses attention dissolves in place for PLATE_OUT_MS (data-lgs-c2b-out), then the cell's own
+// label fades back in over PLATE_BACK_MS (data-lgs-c2b-back): 32-launcher.css 4. (mat-in's 250 ms, + a frame)
+const PLATE_OUT_MS = 270;
+const PLATE_BACK_MS = 270;
 // HA 0.3: distinct glyphs for programs without an icon (decorative; the label names the program)
 const GLYPHS = [
   [/terminal|konsole|console|\bshell\b/i, 'terminal'],
@@ -72,7 +76,7 @@ const GLYPHS = [
   [/desktop|display|monitor/i, 'display'],
 ];
 const ATTRS = ['data-lgs-row', 'data-lgs-c2b-fit', 'data-lgs-c2b-glyph', 'data-lgs-c2b-step', 'data-lgs-c2b-under',
-  'data-lgs-c2b-col', 'data-lgs-c2b-lbl', 'data-lgs-c2b-att', 'data-lgs-c2b-dim'];
+  'data-lgs-c2b-col', 'data-lgs-c2b-lbl', 'data-lgs-c2b-att', 'data-lgs-c2b-dim', 'data-lgs-c2b-out', 'data-lgs-c2b-back'];
 
 __LGS_RT.define({
   name: 'launcher',
@@ -330,9 +334,34 @@ function attendTags(doc) {
   }
   for (const c of cells) {
     const a = att.has(c), d = !a && dim.has(c);
-    if (a !== c.hasAttribute('data-lgs-c2b-att')) { if (a) c.setAttribute('data-lgs-c2b-att', ''); else c.removeAttribute('data-lgs-c2b-att'); }
+    if (a !== c.hasAttribute('data-lgs-c2b-att')) {
+      if (a) { plateLeaveEnd(c); c.setAttribute('data-lgs-c2b-att', ''); } else { c.removeAttribute('data-lgs-c2b-att'); plateLeave(c); }
+    }
     if (d !== c.hasAttribute('data-lgs-c2b-dim')) { if (d) c.setAttribute('data-lgs-c2b-dim', ''); else c.removeAttribute('data-lgs-c2b-dim'); }
   }
+}
+
+// A plate that loses attention leaves in place (PLATE_OUT_MS), then its label fades back into the cell
+// (PLATE_BACK_MS). Attention coming back cuts both short. Timers per cell; nothing after the runtime is gone.
+const PLATE_LEAVE = new WeakMap();
+function plateLeaveEnd(c) {
+  const t = PLATE_LEAVE.get(c);
+  if (t) { try { t.win.clearTimeout(t.id); } catch (_) { /* gone */ } PLATE_LEAVE.delete(c); }
+  c.removeAttribute('data-lgs-c2b-out');
+  c.removeAttribute('data-lgs-c2b-back');
+}
+function plateLeave(c) {
+  plateLeaveEnd(c);
+  const win = c.ownerDocument && c.ownerDocument.defaultView;
+  if (!win || !LAUNCHER_STATE.cur) return;
+  c.setAttribute('data-lgs-c2b-out', '');
+  const back = () => {
+    if (!LAUNCHER_STATE.cur || c.hasAttribute('data-lgs-c2b-att')) { PLATE_LEAVE.delete(c); return; }
+    c.removeAttribute('data-lgs-c2b-out');
+    c.setAttribute('data-lgs-c2b-back', '');
+    PLATE_LEAVE.set(c, { win, id: win.setTimeout(() => { PLATE_LEAVE.delete(c); c.removeAttribute('data-lgs-c2b-back'); }, PLATE_BACK_MS) });
+  };
+  PLATE_LEAVE.set(c, { win, id: win.setTimeout(back, PLATE_OUT_MS) });
 }
 
 // Which row-mates' labels a name plate covers, in grid px (the grid is 4 x 72 = 288 wide; a label

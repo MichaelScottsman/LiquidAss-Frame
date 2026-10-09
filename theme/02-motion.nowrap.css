@@ -179,6 +179,11 @@ html.lgs-on {
 @keyframes lgs-fade-out {
   to { opacity: 0; }
 }
+/* A small plate that leaves in place (the "+" grid's name plate): it
+   dissolves and its swell settles back. Call: duration + easing, forwards. */
+@keyframes lgs-plate-out {
+  to { opacity: 0; scale: .96; }
+}
 /* Scroll edge effect, scroll-driven (MO 4.13). */
 @keyframes lgs-edge-in {
   from { opacity: 0; }
@@ -210,6 +215,7 @@ html.lgs-on {
   @keyframes lgs-shift-in { }
   @keyframes lgs-fade-in { from { opacity: 0; } }
   @keyframes lgs-fade-out { to { opacity: 0; } }
+  @keyframes lgs-plate-out { to { opacity: 0; } }
   @keyframes lgs-edge-in { from { opacity: 0; } }
 }
 
