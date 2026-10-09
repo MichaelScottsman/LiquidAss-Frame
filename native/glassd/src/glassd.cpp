@@ -112,7 +112,7 @@ struct Options {
     float roomDepth = 2.2f;   // radius of the room sphere
     float predictMs = 20.f;   // head pose prediction for rendering
     float timeout = 0.f;      // exit after N seconds (0 = run until stopped)
-    int feedDownsample = 8;   // 1920x1080 -> 240x135: the room map samples the feed about that coarse anyway (uFeedLod)
+    int feedDownsample = 4;
     // Verification without a wearer (README "Verifying without the headset"):
     // a procedural room instead of the feed, a fixed head, composite views.
     int testPattern = -1;     // --test-backdrop: 0 room, 1 stripes; -1 off
@@ -1107,11 +1107,6 @@ class Glassd {
     bool lastDash = false;
     Pose lastRenderHead;
     bool roomDirty = true, layoutDirty = true, outPending = false;
-    // The room map's fill (push-pull, row fill, mips) runs only before a render that samples it, at most
-    // kFillHz: integrating every feed frame is cheap, filling every one was ~20 ms of GPU a second
-    bool roomFillPending = false;
-    uint64_t lastFillNs = 0;
-    static constexpr uint64_t kFillPeriodNs = 66000000ull;  // ~15 Hz
     uint64_t outPendingSinceNs = 0;
     Pose lastHead;
     bool haveLastHead = false;
@@ -2125,7 +2120,7 @@ class Glassd {
         room.ema = dash ? 0.22f : 0.6f;
         room.uploadFeed(frame);
         room.integrate(hmd * eyeToHead, cal, masks);
-        roomFillPending = true;
+        room.fill();
         roomTimer.end();
         roomCpuMs = float(double(monoNowNs() - t0) / 1e6);
         roomDirty = true;
@@ -3234,15 +3229,6 @@ class Glassd {
                 // priming renders while hidden don't ask SteamVR for quads
                 const bool fetchGeo = dash || opt.force || opt.once || dumpDue;
                 const uint64_t before = frames;
-                // the room map's fill, lazily: before this render, at most ~15 Hz (a forced or first
-                // render always gets a filled map)
-                if (roomFillPending && (forced || !lastFillNs || now - lastFillNs >= kFillPeriodNs)) {
-                    roomTimer.begin();
-                    room.fill();
-                    roomTimer.end();
-                    roomFillPending = false;
-                    lastFillNs = now;
-                }
                 if (renderAll(head, forced, fetchGeo, now) > 0) {
                     lastRenderHead = head;
                     lastRenderNs = now;
