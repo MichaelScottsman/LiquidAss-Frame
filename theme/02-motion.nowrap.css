@@ -80,10 +80,13 @@ html.lgs-on {
 
 /* Small glass (<= 600 x 600 px, MO R8): the glass channel is resolved by 92 %
    and the swell rides it (C1-C3); coverage opacity follows glassd's
-   smoothstep(0, .3, m). Call: var(--lgs-motion-mat-in) backwards. */
+   smoothstep(0, .3, m). Call: var(--lgs-motion-mat-in) backwards.
+   Scale and opacity only, both composited: glassd materializes the glass
+   itself (native-only glass), and a fill, blur or shadow ramp here repainted
+   and re-blurred every animating element each frame, on Steam's GPU, at
+   every route change (Home's discs: 13 at once). */
 @keyframes lgs-mat-glass-in {
   0% { scale: calc(1 + clamp(.01, 12 / var(--lgs-maxside, 80), .15));
-       background-color: transparent; backdrop-filter: blur(0px) saturate(1); box-shadow: none;
        animation-timing-function: linear(0, 1 92%, 1); }
   0% { opacity: 0; animation-timing-function: linear(0, .008 1.4%, .031 2.9%, .071 4.5%, .128 6.2%, .196 7.8%, .287 9.8%, .672 17.0%, .819 20.1%, .885 21.8%, .936 23.4%, .972 24.9%, .993 26.3%, 1.000 27.6%, 1); }
 }
@@ -93,8 +96,7 @@ html.lgs-on {
 @keyframes lgs-mat-glass-out {
   0% { opacity: 1; }
   86.5% { opacity: 1; animation-timing-function: linear(0, .007 4.9%, .028 10.1%, .064 15.4%, .115 21.1%, .184 27.4%, .272 34.3%, .685 62.6%, .774 69.2%, .844 75.1%, .914 81.9%, .962 88.2%, .990 94.2%, 1); }
-  100% { scale: calc(1 + clamp(.01, 12 / var(--lgs-maxside, 80), .15));
-         background-color: transparent; backdrop-filter: blur(0px) saturate(1); box-shadow: none; opacity: 0; }
+  100% { scale: calc(1 + clamp(.01, 12 / var(--lgs-maxside, 80), .15)); opacity: 0; }
 }
 /* Large glass (> 600 px: alerts): no blur ramp (R8), so opacity carries the
    whole glass channel, min(1, g / .8); the swell rides the glass (C2). */
@@ -113,7 +115,6 @@ html.lgs-on {
    first 250 ms; the small drop from the anchor's side rides the b15 easing. */
 @keyframes lgs-toast-in {
   0% { scale: calc(1 + clamp(.01, 12 / var(--lgs-maxside, 80), .15));
-       background-color: transparent; backdrop-filter: blur(0px) saturate(1); box-shadow: none;
        animation-timing-function: linear(0, 1 47.1%, 1); }
   0% { opacity: 0; animation-timing-function: linear(0, .008 0.8%, .031 1.5%, .068 2.3%, .122 3.1%, .188 3.9%, .279 4.9%, .676 8.8%, .829 10.4%, .898 11.3%, .948 12.2%, .982 13.0%, 1.000 13.8%, 1); }
   0% { translate: 0 var(--lgs-toast-dy, -8px); }

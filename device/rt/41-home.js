@@ -1032,6 +1032,8 @@ function homeComponents(R, rt) {
     const [closing, setClosing] = React.useState({ card: null, plate: null });
     const committed = React.useRef({ card: null, plate: null }); // what the last commit showed open
     const lastGrid = React.useRef(null);
+    const firstGrid = React.useRef(null);   // the grid this view mounted with (it arrives with the route)
+    if (firstGrid.current === null) firstGrid.current = gridKey;
     const [leaving, setLeaving] = React.useState(null);
     const cur = {
       card: showCard ? { key: attItem.key, item: attItem, index: attIndex, grid: gridKey } : null,
@@ -1257,7 +1259,9 @@ function homeComponents(R, rt) {
           onAnimationEnd: (e) => { if (e.target === e.currentTarget) { const g = leaving; setLeaving((l) => (l === g ? null : l)); } },
           children: leaving.items.map((it, i) => jsx(GhostCell, { item: it, index: i, low: leaving.low }, it.key)) }, 'leave-' + leaving.key) : null,
         jsx(c.Focusable, {
-          className: 'lgs-home-grid is-entering', style: { '--lgs-page-dx': (dir * 16) + 'px' },
+          // the first grid comes in with the route (Steam's route fade): a fade of its own inside that one
+          // doubled the full-page layers every route change composites
+          className: gridKey === firstGrid.current ? 'lgs-home-grid' : 'lgs-home-grid is-entering', style: { '--lgs-page-dx': (dir * 16) + 'px' },
           children: items.map((it, i) => jsx(Cell, { item: it, index: i, low, focusMe: i === memIdx, under: covered.has(i),
             hidden: (showCard || showPlate) && i === attIndex, move: moveFrom, cardOn: showCard, clip: clips.disc[i] || null, labelClip: clips.label[i] || null, ring: ringOf(i),
             card: cardFor(i), cardOpen: showCard && i === attIndex }, it.key)),

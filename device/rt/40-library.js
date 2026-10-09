@@ -446,12 +446,13 @@ function libScrubMeasure(S, lib, grid, scroller, data) {
 }
 
 // a grid split into sort sections ("Over 10 hours" ...) has a visible header with text; Steam keeps one
-// empty header node on Alphabetical
+// empty header node on Alphabetical. Shown or not from the style alone (a rect read forced the new
+// route's whole layout at each scan, inside the route change)
 function libHasSections(S, lib) {
   var hs = lib.querySelectorAll(S.sel.sectionHeader);
   for (var i = 0; i < hs.length; i++) {
-    var r = hs[i].getBoundingClientRect();
-    if (r.height > 8 && (hs[i].textContent || '').trim()) return true;
+    if (!(hs[i].textContent || '').trim()) continue;
+    if (typeof hs[i].checkVisibility !== 'function' || hs[i].checkVisibility()) return true;
   }
   return false;
 }

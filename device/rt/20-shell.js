@@ -157,7 +157,9 @@
       }, 300);
     }
     applyTitle();
-    applyOrnament();
+    // the ornament measures its legends: in the frame's own pass (schedule), after Steam's commit and our
+    // attributes above, so the new route is laid out once, not first here, inside the route change's task
+    schedule();
     applyToolbarPlates();
     holdHeader();
     const back = q(m.doc, S.backSel);
@@ -460,7 +462,14 @@
     const quiet = legends.length > 0 && legends.every((el) => !el.hasAttribute('data-lgs-t2') && QUIET.has(el.getAttribute('data-lgs-btn')));
     setAttr(footer, 'data-lgs-orn', legends.length ? (quiet ? 'quiet' : 'capsule') : null);
     applyOrnPlate(footer, legends.length ? (quiet ? 'quiet' : 'capsule') : null);
-    morphOrnament(footer, legends.length ? (quiet ? 'quiet' : 'capsule') : null);
+    // measuring (the capsule's rect for the morph, its width for compact) forces a layout: only when what
+    // the capsule holds changed, not on every mutation batch the observer passes on
+    const key0 = S.route && S.route.key;
+    const sig = (legends.length ? (quiet ? 'quiet' : 'capsule') : '') + '|' + (key0 && S.slots.has(key0) ? key0 : '') + '|'
+      + legends.map((el) => (el.getAttribute('data-lgs-btn') || '') + ':' + el.textContent).join(',');
+    const remeasure = S.ornFooter !== footer || S.ornSig !== sig;
+    S.ornSig = sig;
+    if (remeasure) morphOrnament(footer, legends.length ? (quiet ? 'quiet' : 'capsule') : null);
     // flag quietBacking: "off" shows PLAN §1.10's bare quiet labels in the margin
     const qb = S.rt.flags.get('quietBacking');
     setAttr(footer, 'data-lgs-band', (qb === 'off' || qb === false) ? 'off' : null);
@@ -480,6 +489,7 @@
     }
     // compact members instead of passing 960 px (PLAN §1.10); measured in the regular style
     if (legends.length && !slots) {
+      if (!remeasure) return;
       const had = footer.hasAttribute('data-lgs-orn-compact');
       if (had) footer.removeAttribute('data-lgs-orn-compact');
       const a = legends[0].getBoundingClientRect(), b = legends[legends.length - 1].getBoundingClientRect();
