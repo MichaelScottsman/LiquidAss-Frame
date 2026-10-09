@@ -663,7 +663,11 @@ function homeComponents(R, rt) {
           // a circle (Steam's 50 % radius would be read as 50 px); a neighbour the open card overlaps keeps its
           // full glass (only the card's own cell reads as its shadow; native check 09:23 had row-3 discs dimmed)
           'data-lgs-plate-r': 'capsule',
-          'data-lgs-plate-occluder': (under || clip || (cardOn && !card)) ? 'false' : undefined,
+          // Never an occluder: the reporter makes a plate under a pop its shadow (glassd: x.55, no light),
+          // switched in one frame, so the attended disc and the neighbours its name plate or card overlaps
+          // snapped to a dark tone on every hover (and the popped disc's glass, which sees the plate under
+          // it, went dark with them). The pop casts its own contact shadow.
+          'data-lgs-plate-occluder': 'false',
           style: discStyle,
           children: [
             jsx(Art, { item }, 'a'),

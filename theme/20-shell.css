@@ -37,6 +37,11 @@
   /* the tab bar's pitch (popup px) until the daemon writes the live one
      (WN §3.3.2): 52 is the floor and fits the panel at every r >= 0.863 */
   --lgs-c1a-tab-p: var(--lgs-tab-pitch, 52px);
+  /* a new frame page (VR Settings: a shorter panel) takes another pitch: the bar resizes on the spring
+     the reporter morphs its glass on (cover.morph: grow snappy, shrink fade; 20-shell.js picks it), not
+     in one frame with the glass following a report later (a flash of mismatched glass) */
+  transition: --lgs-tab-pitch var(--lgs-c1a-pitch-motion, var(--lgs-motion-fade)),
+    --lgs-tab-place var(--lgs-c1a-pitch-motion, var(--lgs-motion-fade));
 }
 &.lgs-hdr-108 {
   --lgs-hdr-pad: 0px;

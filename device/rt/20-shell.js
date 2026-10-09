@@ -757,7 +757,12 @@
       const t = tabRule(geom, n);
       const st = e.html.style;
       if (!t) { st.removeProperty('--lgs-tab-pitch'); st.removeProperty('--lgs-tab-place'); S.tab = { n, rule: null }; continue; }
-      if (st.getPropertyValue('--lgs-tab-pitch') !== t.p + 'px') st.setProperty('--lgs-tab-pitch', t.p + 'px');
+      if (st.getPropertyValue('--lgs-tab-pitch') !== t.p + 'px') {
+        // the resize's spring is the one the reporter morphs the glass on (grow snappy, shrink fade)
+        const was = parseFloat(st.getPropertyValue('--lgs-tab-pitch')) || 0;
+        st.setProperty('--lgs-c1a-pitch-motion', t.p > was ? 'var(--lgs-motion-snappy)' : 'var(--lgs-motion-fade)');
+        st.setProperty('--lgs-tab-pitch', t.p + 'px');
+      }
       if (st.getPropertyValue('--lgs-tab-place') !== t.place + 'px') st.setProperty('--lgs-tab-place', t.place + 'px');
       S.tab = t;
     }

@@ -15,6 +15,10 @@
 @property --lgs-within { syntax: "<number>"; inherits: false; initial-value: 0; }
 @property --lgs-press { syntax: "<number>"; inherits: false; initial-value: 0; }
 @property --lgs-lift { syntax: "<number>"; inherits: false; initial-value: 0; }
+/* the frame menu's tab pitch and its place (device/rt/20-shell.js, per frame page): registered so a
+   change animates (20-shell.css) and the reporter morphs the tab bar's glass along with it */
+@property --lgs-tab-pitch { syntax: "<length>"; inherits: true; initial-value: 52px; }
+@property --lgs-tab-place { syntax: "<length>"; inherits: true; initial-value: 0px; }
 @property --lgs-dis { syntax: "<number>"; inherits: false; initial-value: 0; }
 /* the page hole under an open menu, alert or sheet in native mode (22-presentations.css, rt/22-menus.js) */
 @property --lgs-hole-k { syntax: "<number>"; inherits: false; initial-value: 0; }
