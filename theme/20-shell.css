@@ -949,6 +949,15 @@
   transition-duration: var(--lgs-d-snappy, 488ms);
   transition-timing-function: var(--lgs-ease-snappy, ease);
 }
+/* A label keeps its own width while the bar slides open (the bar's edge
+   clips it meanwhile): squeezed by the animating width, Steam's marquee
+   started on "Steam Settings" and "Friends & Chat" mid-open and stayed on,
+   their ends scrolling and faded out in the open bar. Steam's 160 px cap
+   goes too; the open bar is as wide as its labels need (the measure above) */
+%{DashboardMenu}%{Variant_FrameMenu} %{DashboardMenu>ItemLabel} {
+  max-width: none;
+  flex-shrink: 0;
+}
 /* native: the motion starts a moment after Steam's toggle, so glassd (told
    the end shape and the start time by the reporter, cover.morph in
    theme/layers/20-shell.json) moves the capsules' glass on the same spring
