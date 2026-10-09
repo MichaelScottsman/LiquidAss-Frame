@@ -501,7 +501,17 @@ def _hook_block(name, hosts):
     if pseudo.startswith("where"):
         # one :where() list, for a rule that needs a prefix (a few hosts only: it is matched everywhere)
         return ":where(%s)%s" % (", ".join([ph] + hosts), pseudo[len("where"):])
-    return ",\n".join("  :where(%s)%s" % (h, pseudo) for h in [ph] + hosts)
+    # The light layer (ill ::after) paints nothing at rest (every term is a state number), but computing it was a
+    # third of the style work of a route change (46-93 hosts, ~25 custom properties and six gradients each, at
+    # every recalc). Its hosts get the pseudo-element only while lit, or fading out (.lgs-lit, rt/06-states.js),
+    # gated with :where() so the specificity stays (0,1,2).
+    gate = ":where(%s)" % ILL_LIT if lst.split(":")[0] == "ill" and pseudo == "::after" else ""
+    return ",\n".join("  :where(%s)%s%s" % (h, gate, pseudo) for h in [ph] + hosts)
+
+
+# The states in which an ill host's light layer exists (any of its state numbers can be non-zero), plus the
+# fade-out hold the states runtime sets after the last of them ends
+ILL_LIT = ":hover, :active, .gpfocus, .gpfocuswithin, .lgs-pressed, .lgs-focus-in, .lgs-lit"
 
 
 def hooks(check_only=False, as_json=False, root=ROOT):

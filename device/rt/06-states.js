@@ -6,6 +6,8 @@
 //   .lgs-focus-in         entry class on the new gamepad focus and on the FocusRing (400 ms)
 //   .lgs-ring-check       on the FocusRing while focus is on a .DialogCheckbox
 //   .lgs-focus-disabled   on the gamepad-focused element while it is disabled
+//   .lgs-lit              for LIT_HOLD_MS after an element stops being hovered, focused (or focus-within) or
+//                         pressed: its light layer (04-states.css, created only while lit) stays for the fade-out
 //
 // Every listener is passive and capture phase. Nothing here calls preventDefault, stopPropagation
 // or re-dispatches a Steam event.
@@ -21,7 +23,8 @@
   const DEFAULT_SPOT = '[data-lgs-spot], .DialogButton, button, [role="button"], [role="tab"], a[href], .Panel';
   const DEFAULT_PRESS = '[data-lgs-press], .DialogButton, button, [role="button"], [role="tab"], a[href], .Panel';
   const DISABLED = '.Disabled, [disabled], [aria-disabled="true"], %{*GamepadDialogContent>Disabled}, %{*Button>Disabled}';
-  const OUR_CLASSES = ['lgs-pressed', 'lgs-focus-in', 'lgs-ring-check', 'lgs-focus-disabled'];
+  const LIT_HOLD_MS = 600;  // the light's fade-out (--lgs-ill-d-out, 441 ms) and a margin
+  const OUR_CLASSES = ['lgs-pressed', 'lgs-focus-in', 'lgs-ring-check', 'lgs-focus-disabled', 'lgs-lit'];
 
   let R = null;
   let live = null;
@@ -84,7 +87,7 @@
         // Belt and braces: nothing of ours left in any live popup (classes and the inline spot).
         for (const w of hub.windows()) {
           try {
-            for (const el of w.document.querySelectorAll('.lgs-pressed, .lgs-focus-in, .lgs-ring-check, .lgs-focus-disabled')) {
+            for (const el of w.document.querySelectorAll('.lgs-pressed, .lgs-focus-in, .lgs-ring-check, .lgs-focus-disabled, .lgs-lit')) {
               for (const c of OUR_CLASSES) marks.remove(el, c);
             }
             for (const el of w.document.querySelectorAll('[style*="--hx"], [style*="--hy"]')) {
@@ -163,6 +166,7 @@
         H.clearTimeout(t);
         rec.pressed.delete(el);
         try { marks.remove(el, 'lgs-pressed'); } catch (_) { /* gone */ }
+        holdLit(rec, el);
         if (why === 'safety') st.stats.safetyClears++; else st.stats.released++;
       }
       function onButtonDown(rec, e) {
@@ -258,11 +262,39 @@
         if (rec.disEl && rec.disEl === t) { try { marks.remove(t, 'lgs-focus-disabled'); } catch (_) { /* gone */ } rec.disEl = null; }
       }
 
+      // ---------------------------------------------- light fade-out hold
+      // An element and its ancestors up to the body: what :hover, :active and .gpfocuswithin cover.
+      function chainOf(el) {
+        const out = [];
+        for (let n = el; n && n.nodeType === 1 && n.tagName !== 'BODY' && n.tagName !== 'HTML'; n = n.parentElement) out.push(n);
+        return out;
+      }
+      function holdLit(rec, el) {
+        if (!el || el.nodeType !== 1 || !el.isConnected) return;
+        H.clearTimeout(rec.litTimers.get(el));
+        if (!el.classList.contains('lgs-lit')) { try { marks.add(el, 'lgs-lit'); } catch (_) { return; } }
+        rec.litTimers.set(el, H.setTimeout(() => {
+          rec.litTimers.delete(el);
+          try { marks.remove(el, 'lgs-lit'); } catch (_) { /* gone */ }
+        }, LIT_HOLD_MS));
+      }
+      // what was lit by the old chain and is not by the new one fades out
+      function leaveChain(rec, key, el) {
+        const prev = rec[key] || [];
+        const next = el ? chainOf(el) : [];
+        if (prev.length) {
+          const keep = new Set(next);
+          for (const n of prev) if (!keep.has(n)) holdLit(rec, n);
+        }
+        rec[key] = next;
+      }
+
       // ---------------------------------------------- per document
       st.offs.push(onDoc((w, doc, surface) => {
         const rec = {
           win: w, doc, surface, ptr: null, raf: 0, spotEl: null, spotX: null, spotY: null,
           pressed: new Map(), focusInTimers: new Map(), disEl: null, ringCheck: false, focusToken: null,
+          litTimers: new Map(), hoverChain: null, focusChain: null, activeChain: null, hoverEl: null,
         };
         st.docs.set(doc, rec);
         const move = (e) => {
@@ -270,11 +302,16 @@
           // the laser; write only in laser mode, at most once per frame.
           rec.ptr = { target: weak(e.target), x: e.clientX, y: e.clientY };
           if (input.mode === 'laser') schedule(rec);
+          if (e.target !== rec.hoverEl) { rec.hoverEl = e.target; leaveChain(rec, 'hoverChain', e.target); }
         };
-        const out = (e) => { if (!e.relatedTarget) { rec.ptr = null; clearSpot(rec); } };
+        const out = (e) => {
+          if (!e.relatedTarget) { rec.ptr = null; clearSpot(rec); rec.hoverEl = null; leaveChain(rec, 'hoverChain', null); }
+        };
         const down = (e) => onButtonDown(rec, e);
         const up = (e) => onButtonUp(rec, e);
-        const focus = (e) => onFocus(rec, e);
+        const pdown = (e) => { rec.activeChain = e.target && e.target.nodeType === 1 ? chainOf(e.target) : null; };
+        const pup = () => leaveChain(rec, 'activeChain', null);
+        const focus = (e) => { leaveChain(rec, 'focusChain', e.target && e.target.nodeType === 1 ? e.target : null); onFocus(rec, e); };
         const blur = (e) => onBlur(rec, e);
         const opt = { capture: true, passive: true };
         doc.addEventListener('pointermove', move, opt);
@@ -283,6 +320,9 @@
         doc.addEventListener('vgp_onbuttonup', up, opt);
         doc.addEventListener('vgp_onfocus', focus, opt);
         doc.addEventListener('vgp_onblur', blur, opt);
+        doc.addEventListener('pointerdown', pdown, opt);
+        doc.addEventListener('pointerup', pup, opt);
+        doc.addEventListener('pointercancel', pup, opt);
         rec.handlers = { down, up, focus, blur };
         return () => {
           doc.removeEventListener('pointermove', move, opt);
@@ -291,6 +331,11 @@
           doc.removeEventListener('vgp_onbuttonup', up, opt);
           doc.removeEventListener('vgp_onfocus', focus, opt);
           doc.removeEventListener('vgp_onblur', blur, opt);
+          doc.removeEventListener('pointerdown', pdown, opt);
+          doc.removeEventListener('pointerup', pup, opt);
+          doc.removeEventListener('pointercancel', pup, opt);
+          for (const [el, t] of rec.litTimers) { H.clearTimeout(t); try { marks.remove(el, 'lgs-lit'); } catch (_) { /* gone */ } }
+          rec.litTimers.clear();
           try { if (rec.raf) w.cancelAnimationFrame(rec.raf); } catch (_) { /* gone */ }
           rec.raf = 0;
           clearSpot(rec);

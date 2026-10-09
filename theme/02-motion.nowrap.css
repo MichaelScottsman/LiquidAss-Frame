@@ -228,3 +228,18 @@ html.lgs-on .lgs-mat > * { animation: lgs-mat-content-in var(--lgs-motion-mat-in
 html.lgs-on .lgs-mat-out { animation: lgs-mat-glass-out var(--lgs-motion-mat-out) forwards; }
 html.lgs-on .lgs-mat-out > * { animation: lgs-mat-content-out var(--lgs-d-mat-out) linear forwards; }
 html.lgs-on .lgs-arrive { animation: lgs-arrive var(--lgs-motion-page) backwards; }
+
+/* ------------------------------------------------- the light layer's ramp in
+   An illumination host's ::after exists only while the host is lit (04-states.css, the hook blocks' gate),
+   so it is created already lit: it starts from dark, and the in-transitions (04-states.css §2) ramp hover,
+   within and press up as they did when the layer was always there. Top level: Chromium 126 ignores
+   @starting-style nested in a style rule (the wrapped files). Focus jumps in (0s) through lgs-focus-in. */
+@starting-style {
+  html.lgs-on:not(.lgs-input-pad) :hover::after,
+  html.lgs-on:not(.lgs-input-laser) :is(.gpfocus, .gpfocuswithin)::after,
+  html.lgs-on :is(:active, .lgs-pressed)::after {
+    --lgs-hover: 0;
+    --lgs-within: 0;
+    --lgs-press: 0;
+  }
+}
