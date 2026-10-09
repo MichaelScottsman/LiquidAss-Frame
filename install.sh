@@ -74,6 +74,11 @@ install_app() {
         mkdir -p "$tmp/new/native/glassd"
         cp -p "$DEST/native/glassd/glassd" "$tmp/new/native/glassd/glassd"
     fi
+    # Native glass out of the box: the release's shipped glassd (built for the Frame) when none was kept
+    if [ ! -e "$tmp/new/native/glassd/glassd" ] && [ -f "$tmp/new/native/glassd/prebuilt/glassd" ]; then
+        cp "$tmp/new/native/glassd/prebuilt/glassd" "$tmp/new/native/glassd/glassd"
+        chmod 755 "$tmp/new/native/glassd/glassd"
+    fi
     rm -rf "$DEST.old"
     [ -d "$DEST" ] && mv "$DEST" "$DEST.old"
     mv "$tmp/new" "$DEST"
