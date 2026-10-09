@@ -678,7 +678,26 @@
   //    height, 1.5 for 1080 px = 0.001389 /px). A user resize scales it on
   //    top of that; our panels follow it (frame-resize-scale-factor 1).
   //  - src 'none': the parent panel is not on this page; not built.
+  // Is Steam's page (the one Steam's main window is summoned into) not the frame's active page right now
+  // (SteamVR Settings or the binding UI shows in its place)? Read from SteamVR's FrameStore on this page,
+  // every frame (frameWatch), so main's nodes go and come back in the same scene-graph update as the page.
+  function mainAway(key) {
+    if (key !== 'valve.steam.gamepadui.main') return false;
+    try {
+      const FS = window.FrameStore;
+      if (!FS || !FS.frames) return false;
+      for (const f of FS.frames) {
+        const pages = f.m_mapPages ? [...f.m_mapPages.values()] : [];
+        if (!pages.some((p) => p && p.m_sSummonOverlayKey === key)) continue;
+        const ap = f.activePage;
+        return !!ap && ap.m_sSummonOverlayKey !== key;
+      }
+    } catch (_) { /* no store */ }
+    return false;
+  }
+
   function parentInfo(key, texH) {
+    if (mainAway(key)) return { src: 'away', uv: [0, 0, 1, 1], mpp: 0 };
     const el = document.getElementById('PooledPopup-' + key);
     if (el && typeof el.buildNode === 'function') {
       try {
@@ -942,14 +961,88 @@
     });
   }
 
+  // ------------------------------------------------------------ SteamVR Settings glass
+  // SteamVR Settings (frame page system.settings) is a panel of this page (#vrsettingspanel), not a Steam
+  // window. Its window glass was CSS only (no room behind it): with the spec's `vr` entry (glassd's
+  // "vrsettings" surface, drawn ahead while the page is away) a cover panel goes right behind the
+  // settings panel, in its own transform, the moment the page mounts (frameWatch), and html.lgs-native-vr
+  // drops the CSS window fill (theme/vr/30-settings.css). Without the entry, or glassd, the CSS glass stays.
+  const VRP = { el: null, xf: null, panel: null };
+  function vrPanelEl() { return document.querySelector('#vrsettingspanel'); }
+  // the panel's size and its glass rect (the page container), in its own px (for glassd's shapes)
+  function vrPanelInfo() {
+    const p = vrPanelEl();
+    if (!p) return null;
+    const pr = p.getBoundingClientRect();
+    if (!(pr.width > 1 && pr.height > 1)) return null;
+    const out = { w: Math.round(pr.width), h: Math.round(pr.height), glass: null };
+    const c = p.querySelector('.SettingsSidebarPageContainer');
+    if (c) {
+      const r = c.getBoundingClientRect();
+      if (r.width > 1 && r.height > 1) {
+        out.glass = { x: Math.round(r.left - pr.left), y: Math.round(r.top - pr.top), w: Math.round(r.width), h: Math.round(r.height),
+          r: Math.round(parseFloat(getComputedStyle(c).borderTopLeftRadius) || 0) };
+      }
+    }
+    return out;
+  }
+  function vrSig() {
+    const p = vrPanelEl();
+    return p ? 'vr' + (p === VRP.el && VRP.xf && VRP.xf.isConnected ? 1 : 0) : '';
+  }
+  function setVrClass(on) {
+    try { document.documentElement.classList.toggle('lgs-native-vr', !!on); } catch (_) { /* gone */ }
+  }
+  function vrCoverDrop() {
+    if (VRP.xf) {
+      try { VRP.xf.remove(); } catch (_) { /* gone */ }
+      retire([VRP.xf, VRP.panel]);
+    }
+    VRP.el = null; VRP.xf = null; VRP.panel = null;
+    setVrClass(false);
+  }
+  function vrCoverSync(v) {
+    const p = vrPanelEl();
+    const g = v && v.glassd;
+    if (!p || !p.parentElement || !g || !g.key || !Array.isArray(g.backdrop) || g.backdrop.length !== 4) { if (VRP.xf) { vrCoverDrop(); return true; } setVrClass(false); return false; }
+    let sp = null;
+    try { sp = p.buildNode({}, p)[1].properties; } catch (_) { sp = null; }
+    if (!sp || !(num(sp.width, 0) > 0)) { if (VRP.xf) { vrCoverDrop(); return true; } return false; }
+    const [b0, b1, b2, b3] = g.backdrop.map(Number);
+    const props = {
+      key: g.key, uv_min: [r6(b0), r6(b1)], uv_max: [r6(b2), r6(b3)], width: sp.width,
+      origin: Array.isArray(sp.origin) ? sp.origin : [0, -1],
+      'scale-index': sp['scale-index'] || 0, 'frame-resize-scale-factor': num(sp['frame-resize-scale-factor'], 1),
+      interactive: false, visibility: 0, reflect: 0, debug_name: 'lgs:vrsettings:cover',
+    };
+    if (sp['curvature-origin-id']) props['curvature-origin-id'] = sp['curvature-origin-id'];
+    else props.curvature = 'inherit-from-parent-panel';
+    let changed = false;
+    if (VRP.el !== p || !VRP.xf || !VRP.xf.isConnected) {
+      if (VRP.xf) vrCoverDrop();
+      const xf = vtransform(-0.0004);
+      const panel = vnode('panel', props);
+      xf.appendChild(panel);
+      p.parentElement.insertBefore(xf, p);
+      VRP.el = p; VRP.xf = xf; VRP.panel = panel;
+      changed = true;
+    } else if (JSON.stringify(VRP.panel.__lgsProps) !== JSON.stringify(props)) {
+      VRP.panel.__lgsProps = props;
+      changed = true;
+    }
+    setVrClass(true);
+    return changed;
+  }
+
   // Parent geometry of every surface in a spec (the tick re-lays out on change).
   function parentSig(spec) {
     const out = [];
     for (const s of (spec && Array.isArray(spec.surfaces)) ? spec.surfaces : []) {
-      if (!s || !s.steamKey || s.visible === false) continue;
+      if (!s || !s.steamKey || (s.visible === false && s.standby !== true)) continue;
       const P = parentInfo(String(s.steamKey), Math.round(num(s.texH, 0)));
       out.push(s.steamKey + ':' + P.src + ':' + P.uv.map(r6).join(',') + ':' + P.mpp + ':' + (P.curv || ''));
     }
+    if (spec && spec.vr) out.push(vrSig());
     return out.join('|');
   }
 
@@ -987,6 +1080,7 @@
       pending: !!st.pushTimer || !!st.anim.timer || st.unpushed.size > 0,
       pushIn: st.pushTimer ? Math.max(0, st.pushDue - Date.now()) : (st.anim.timer ? 0 : null),
       specSeq: st.specSeq, now: Date.now(), anim: animCount(), surf: surfSummary(),
+      vr: (() => { try { return vrPanelInfo(); } catch (_) { return null; } })(),
     };
   }
 
@@ -1053,10 +1147,12 @@
       st.dims.clear();
     }
     st.parents = c.info;
+    let vrChanged = false;
+    try { vrChanged = vrCoverSync(spec.vr); } catch (e) { note('vr cover: ' + e.message); }
     st.parentSig = parentSig(spec);
     const M = Mspec || st.M;
     const attached = ensureAttached();
-    let dirty = false;
+    let dirty = vrChanged;
     for (const [k, it] of st.items) {
       if (!c.want.has(k)) { removeItem(it); st.items.delete(k); dirty = true; }
     }
@@ -1564,7 +1660,7 @@
       scheduler: { module: sched.module, push: !!sched.push, retire: !!sched.retire, error: sched.error },
       attached: isAttached(),
       M: st.M, MSource: st.MSource,
-      parents: st.parents, relayouts: st.relayouts, panelBuilds: st.panelBuilds || 0, surfaces,
+      parents: st.parents, relayouts: st.relayouts, panelBuilds: st.panelBuilds || 0, frameRelayouts: st.frameRelayouts || 0, surfaces,
       items: st.items.size, panels: counts, surf: surfSummary(),
       nodes: st.root ? st.root.querySelectorAll('*').length : 0,
       pushes: st.pushes,
@@ -1621,6 +1717,8 @@
       } catch (_) { /* best effort */ }
       st.destroyed = true;
       clearInterval(st.tick);
+      if (st.frameReq) { try { cancelAnimationFrame(st.frameReq); } catch (_) { /* gone */ } st.frameReq = 0; }
+      try { vrCoverDrop(); } catch (_) { /* gone */ }
       try { if (st.panelWatch) st.panelWatch.disconnect(); } catch (_) { /* gone */ }
       clearTimeout(yawTimer);
       if (st.pushTimer) { clearTimeout(st.pushTimer); st.pushTimer = 0; }
@@ -1670,6 +1768,27 @@
     });
     st.panelWatch.observe(document.body || document.documentElement, { childList: true, subtree: true });
   } catch (e) { note('panel watch: ' + e.message); }
+
+  // Frame watch of the parents' crops. Steam re-crops a popup's panel to its content every frame while
+  // that content animates (the tab bar opening: uv_min x 0.75 -> 0.07 over the motion). Read only every
+  // 0.5 s, the base pieces stayed where the old crop ended and the rest of the opening bar hid behind
+  // its opaque cover ("half cut off"). Read every frame here; a change relays out and pushes at once.
+  function frameWatch() {
+    st.frameReq = 0;
+    if (st.destroyed) return;
+    try {
+      const sp = st.lastSpec;
+      if (sp && !st.expired && st.items.size && Array.isArray(sp.surfaces) && sp.surfaces.length && parentSig(sp) !== st.parentSig) {
+        st.relayouts++;
+        st.frameRelayouts = (st.frameRelayouts || 0) + 1;
+        build(sp);
+        if (st.pushTimer) { clearTimeout(st.pushTimer); st.pushTimer = 0; }
+        pushNow();
+      }
+    } catch (e) { note('frame relayout: ' + e.message); }
+    st.frameReq = requestAnimationFrame(frameWatch);
+  }
+  st.frameReq = requestAnimationFrame(frameWatch);
 
   // Housekeeping: re-attach after React re-renders, re-layout when Steam
   // re-crops a parent, re-find override targets, heartbeat watchdog.

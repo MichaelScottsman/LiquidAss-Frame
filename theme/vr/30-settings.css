@@ -450,6 +450,12 @@
     radial-gradient(20% 20px at 26% 0, rgb(255 255 255 / .18), rgb(255 255 255 / 0)),
     var(--lgs-mat-window-bg);
 }
+/* native: glassd's window glass is right behind the panel (html.lgs-native-vr,
+   set by lgs_sg.js with the cover node, device/lgs_sg.js "SteamVR Settings
+   glass"): the CSS window fill and its lobe go, the sidebar's black .14 stays */
+html.lgs-native-vr .DashboardPanel.Settings .SettingsSidebarPageContainer {
+  background: linear-gradient(90deg, var(--lgs-fill-regular) 0 var(--c6b-side-w), rgb(0 0 0 / 0) var(--c6b-side-w));
+}
 
 /* ------------------------------------------------------------------ */
 /* 2. Sidebar: the "SteamVR" title, a scrolling column of 104 px rows  */

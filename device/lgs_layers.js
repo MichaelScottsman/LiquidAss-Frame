@@ -1439,7 +1439,14 @@
       if (!out.hiddenCovers || !out.hiddenCovers.length) return off('window hidden');
       armed = true;
     }
-    if (s.frameKey && !frameVisible(s.frameKey)) return off('dashboard frame hidden');
+    // The dashboard frame shows another page (SteamVR Settings, the binding UI): the last layout and the
+    // glass marks stay as they were, so glassd keeps the glass ready and no CSS glass is painted for the
+    // return. lgs_sg.js takes main's nodes off the scene graph while the page is away and puts them back
+    // in the update the page returns in; the frame menu, which stays with the frame, keeps its glass.
+    if (s.frameKey && !frameVisible(s.frameKey)) {
+      if (ent.full && ent.full.surface && ent.full.surface.visible) { ent.full.frameAway = true; return ent.full; }
+      return off('dashboard frame hidden');
+    }
     if (s.laserOnly) {
       const g = gamepadNav();
       if (g !== false) return off(g === null ? 'input mode unknown yet (laser-only surface)' : 'controller navigation (laser-only surface)');

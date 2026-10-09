@@ -1051,6 +1051,8 @@ class Shell:
         # glassd.json v3 and the materialize policy
         self.items_first = {}                 # (surface, kind, id) -> time first written
         self.native_seen = {}                 # overlay key -> when glassd last drew glass for it (NATIVE_GRACE_S)
+        self.vr_panel = None                  # SteamVR Settings' panel {w, h, glass: {x, y, w, h, r}} (lgs_sg.js beat)
+        self.vr_shown = False
         self.items_last = {}                  # (surface, kind, id) -> last item written (for its fade-out)
         self.fading = {}                      # (surface, kind, id) -> (item with phase 0, until)
         self.plate_acks = {}
@@ -1342,17 +1344,10 @@ class Shell:
                 _num(s.get("radius") or 0, 0, 8192)
             if texW is None or texH is None or radius is None or not isinstance(s["overlayKey"], str):
                 continue
-            if self.page_away(s["overlayKey"]):
-                # Steam's page is not shown: glassd keeps the surface (its quad stays masked out of the
-                # room map, where SteamVR's own panel now is) but draws nothing on it; the spec leaves it
-                # out. No fades (nothing shows them); the items materialize again when the page is back.
-                # phaseMs 0: the cover goes at once with Steam's page (glassd would dematerialize it
-                # over SteamVR's own panel), and comes back materializing when the page returns
-                surfaces.append({"name": name, "overlayKey": s["overlayKey"][:128], "texW": round(texW),
-                                 "texH": round(texH), "radius": round(radius),
-                                 "material": str(material_for(s))[:16], "visible": bool(s.get("visible", True)),
-                                 "slabs": [], "shapes": [], "plates": [], "phaseMs": 0})
-                continue
+            # Steam's page away (SteamVR Settings or the binding UI in its frame): glassd keeps drawing
+            # main's glass, ready for its return, and lgs_sg.js takes main's nodes off the scene graph
+            # itself in the same update the page goes in, and back in the one it returns in (it reads
+            # SteamVR's active page every frame); this 1 s poll only follows it for status
             slabs = []
             for L in s.get("layers") if isinstance(s.get("layers"), list) else []:
                 if not isinstance(L, dict) or L.get("id") is None:
@@ -1461,6 +1456,20 @@ class Shell:
         self.items_last = current
         for key in [k for k in self.items_first if k not in current and k not in self.fading]:
             del self.items_first[key]
+        # SteamVR Settings' window glass (a SteamVR panel, not a Steam window): placed by main's overlay
+        # (the page takes main's place in the frame), drawn ahead ("armed") while the page is away, so the
+        # glass is there in the update the page mounts in (lgs_sg.js adds the cover node then)
+        vp = self.vr_panel
+        if isinstance(vp, dict) and "armed" in caps:
+            g = vp.get("glass") or {}
+            vals = [_num(vp.get("w"), 2, 8192), _num(vp.get("h"), 2, 8192)] + \
+                   [_num(g.get(k), 0, 8192) for k in ("x", "y", "w", "h", "r")]
+            if None not in vals:
+                w, h, gx, gy, gw, gh, gr = (round(v) for v in vals)
+                surfaces.append({"name": "vrsettings", "overlayKey": STEAM_MAIN_KEY, "texW": w, "texH": h,
+                                 "radius": gr, "material": "window", "visible": bool(self.vr_shown),
+                                 "armed": not self.vr_shown, "slabs": [],
+                                 "shapes": [{"x": gx, "y": gy, "w": gw, "h": gh, "r": gr}]})
         cfg = {"dial": read_dial(), "reduceMotion": bool(self.reduce_motion), "surfaces": surfaces}
         if "unitM" in caps and self.geom and _num(self.geom.get("unitM"), 0.01, 10) is not None:
             cfg["unitM"] = self.geom["unitM"]
@@ -1567,7 +1576,7 @@ class Shell:
             if not isinstance(s, dict) or not isinstance(s.get("name"), str) or not isinstance(s.get("overlayKey"), str):
                 continue
             g = gsurf.get(s["name"])
-            if not isinstance(g, dict) or self.page_away(s["overlayKey"]):
+            if not isinstance(g, dict):
                 continue
             if not s.get("visible", True):
                 # a hidden pooled popup: its nodes wait in lgs_sg.js (standby) and are built the moment
@@ -1696,6 +1705,9 @@ class Shell:
         self.wake_at = wake
         self.pop_clips = clips
         spec = dict({"M": None, "surfaces": out}, **self.spec_top())
+        gv = gsurf.get("vrsettings")
+        if isinstance(gv, dict) and _nums(gv.get("backdrop"), 4) is not None:
+            spec["vr"] = {"glassd": {"key": gv.get("key") or "glassd.vrsettings", "backdrop": _nums(gv.get("backdrop"), 4)}}
         flags = self.read_flags()
         if flags and out:
             spec["flags"] = flags
@@ -2289,6 +2301,15 @@ class Shell:
     def set_beat(self, b):
         if isinstance(b, dict) and "surf" in b:
             self.sg_beat, self.sg_beat_at = b, time.time()
+            # SteamVR Settings' panel (lgs_sg.js measures it while the page shows): its size and glass rect
+            # are kept, so glassd's "vrsettings" glass stays drawn ahead for the next time the page shows
+            v = b.get("vr")
+            if isinstance(v, dict) and isinstance(v.get("glass"), dict):
+                prev = self.vr_panel
+                self.vr_panel = v
+                if prev != v:
+                    self.changed.set()
+            self.vr_shown = isinstance(v, dict)
 
     async def send_spec(self, spec, js):
         self.spec_seq += 1
