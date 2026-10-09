@@ -69,7 +69,7 @@
   }
 
   // ---------------------------------------------------------------- toast
-  // The one thing this file shows users (lgs on/off, "+ > Liquid Glass", dial).
+  // The one thing this file shows users (lgs on/off, "+ > LiquidAss", dial).
   // Panel glass card at the toast size (D2 §3.7: 320 x 76, radius 30), no
   // outline: the edge is the material's (class lgs-glass panel, E3 arcs while the
   // theme is on). Self-styled with theme tokens and literal fallbacks, because it
@@ -112,7 +112,7 @@
     let reduce = false;
     try { reduce = win.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (_) { /* old engine */ }
 
-    const parts = String(text || 'Liquid Glass').split(/\s+·\s+/);
+    const parts = String(text || 'LiquidAss').split(/\s+·\s+/);
     const t = doc.createElement('div');
     t.id = IDS.toast;
     t.className = 'lgs-glass';
@@ -364,7 +364,7 @@
       try { strip(win.document); if (lens) lens.strip(win.document); } catch (_) { /* closing */ }
     }
     if (W.__LGS === api) delete W.__LGS;
-    if (!quiet) toast('Liquid Glass  ·  Off');
+    if (!quiet) toast('LiquidAss  ·  Off');
   }
 
   function status() {
@@ -410,6 +410,6 @@
   try { state.createdHandle = g_PopupManager.AddPopupCreatedCallback(state.created); } catch (_) { /* sweep covers it */ }
   sweep();
   state.timer = setInterval(sweep, SWEEP_MS);
-  if (!payload.quiet) toast('Liquid Glass  ·  On');
+  if (!payload.quiet) toast('LiquidAss  ·  On');
   return JSON.stringify(status());
 });

@@ -1363,7 +1363,7 @@ class Glassd {
         const uint64_t now = monoNowNs();
         if (s.createTries && now - s.createNs < 5000000000ull) return false;  // retry every 5 s
         s.createNs = now;
-        std::string friendly = "Glass Shell glass (" + s.spec.name + ")";
+        std::string friendly = "LiquidAss glass (" + s.spec.name + ")";
         auto e = vr::VROverlay()->CreateOverlay(s.key.c_str(), friendly.c_str(), &s.ov);
         if (e != vr::VROverlayError_None) {
             if (s.createTries++ == 0)

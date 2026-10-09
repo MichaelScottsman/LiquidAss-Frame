@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""PC-side driver for Glass Shell (Liquid Glass theme for the Steam Frame UI).
+"""PC-side driver for LiquidAss (Liquid Glass theme for the Steam Frame UI).
 
 Talks to the headset through the steam-frame-ssh skill's helper (pinned host
 key, STEAMFRAME_SSH_PASSWORD), the same way the run-liquid-glass-frame driver
@@ -15,7 +15,7 @@ does.
                                             the lgs-shell unit (native layer daemon);
                                             start passes ARGS (--native, --glassd PATH,
                                             --glassd-args "...", --feed, --stay) on
-  python glass.py install                   sync + add "Liquid Glass" to + > Launch Program
+  python glass.py install                   sync + add "LiquidAss" to + > Launch Program
   python glass.py uninstall                 theme off, remove launcher and files
   python glass.py on|off|toggle|reload|status
   python glass.py toast "text"

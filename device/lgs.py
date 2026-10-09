@@ -844,7 +844,7 @@ def op(name, quiet=False, text=None, vr=False, native=None, flags=None, rt=None,
             out["sweep"] = _jsonish(await s.eval(SWEEP_JS, 30))
             if not quiet:
                 try:
-                    await s.eval(core_call({"op": "toast", "text": "Liquid Glass  ·  Off"}), 15)
+                    await s.eval(core_call({"op": "toast", "text": "LiquidAss  ·  Off"}), 15)
                 except Exception:  # noqa: BLE001 - cosmetic
                     pass
         elif name == "status":
@@ -1690,7 +1690,7 @@ PERSIST_KNOWN = [  # not written by Glass Shell: classified, listed, not failure
 PERSIST_CONTENT_CHECKED = re.compile(
     r"^~/\.local/share/Steam/(config/htmlcache/Default/(Local Storage|Session Storage|IndexedDB|WebStorage|"
     r"File System|databases|Service Worker)/|(config|userdata/\d+/config)/[^/]+\.vdf$)")
-GS_MARKER = re.compile(rb"__LGS|lgs[-_][a-z]|glass-shell|Liquid Glass|lgsAction|data-lgs")
+GS_MARKER = re.compile(rb"__LGS|lgs[-_][a-z]|glass-shell|Liquid Glass|LiquidAss|lgsAction|data-lgs")
 PERSIST_AFTER_S = 61    # the after-window outlasts any once-a-minute writer (vrserver's chaperone file, review R1 m8)
 
 
@@ -2106,7 +2106,7 @@ TOAST_PROBE_JS = r"""(async () => {
   const W = (ms) => new Promise((r) => setTimeout(r, ms));
   const doc = SteamUIStore.WindowStore.VRGamepadUIMainWindowInstance.BrowserWindow.document, win = doc.defaultView;
   // theme on: show it here (animations sampled at 40 ms); theme off: lgs.py showed the "Off" toast just before
-  if (window.__LGS) window.__LGS.toast('Liquid Glass  ·  On');
+  if (window.__LGS) window.__LGS.toast('LiquidAss  ·  On');
   else for (let i = 0; i < 20 && !doc.getElementById('lgs-toast'); i++) await W(50);
   await W(40);
   const t = doc.getElementById('lgs-toast');
@@ -2158,7 +2158,7 @@ def st_rtt(lab, ctx):
                     hold.stop()
         # theme off: the "Off" toast with the literal fallbacks (no theme tokens, no E3 edge)
         op("off", quiet=True)
-        op("toast", text="Liquid Glass  ·  Off")
+        op("toast", text="LiquidAss  ·  Off")
         out["themeOff"] = _jsonish(_st_js(TOAST_PROBE_JS, 30))
         out["restore"] = _st_restore(lab)
     n, rd, to = out.get("normal") or {}, out.get("reduce") or {}, out.get("themeOff") or {}
@@ -2375,7 +2375,7 @@ def main(argv):
             if isinstance(res, dict) and res.get("enabled"):
                 op("toast", text=f"Glass  ·  {round((1 - v) * 100)}% clear")
         elif cmd == "toast":
-            res = op("toast", text=" ".join(args[1:]) or "Liquid Glass")
+            res = op("toast", text=" ".join(args[1:]) or "LiquidAss")
         elif cmd == "flags":
             res = flags_cmd(argv[2:])
         elif cmd == "on":

@@ -552,7 +552,7 @@ function searchCandidates(query, slot, steamBest) {
     if (ms > SEARCH_RANK_MS) { rec.skipped++; SS.rt.log('search provider slow; skipped for this query', { id: rec.spec.id, ms }); continue; }
     for (const c of Array.isArray(list) ? list : []) {
       if (!c || !c.name) continue;
-      if (/liquid glass/i.test(String(c.name)) || (c.data && c.data.isLiquidGlass)) continue;
+      if (/liquid ?glass|liquidass/i.test(String(c.name)) || (c.data && c.data.isLiquidGlass)) continue;
       out.push({ rec, c });
     }
   }

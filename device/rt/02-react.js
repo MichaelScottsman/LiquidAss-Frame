@@ -1075,7 +1075,7 @@
     try { return window.appStore.GetAppOverviewByAppID(Number(x)) || null; } catch (_) { return null; }
   }
   function isLiquidGlass(a) {
-    return !!a && ((typeof a.strExePath === 'string' && /\/glass-shell\/device\/lgs$/.test(a.strExePath)) || a.strAppName === 'Liquid Glass');
+    return !!a && ((typeof a.strExePath === 'string' && /\/glass-shell\/device\/lgs$/.test(a.strExePath)) || (a.strAppName === 'LiquidAss' || a.strAppName === 'Liquid Glass'));
   }
   function filterPrograms(list, devMode, opts) {
     if (!Array.isArray(list)) return [];

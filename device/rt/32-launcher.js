@@ -53,11 +53,11 @@
 //     grid, which calls Steam's LaunchNonSteamApp with the switch's strCmdline), gated by P2's
 //     test reasons: run live, logged as "c2b.steamRow" in test mode. The row is never inert.
 //
-// Strings: the toggle title is the program's own name; "Glass Shell is on" is drawn only when
+// Strings: the toggle title is the program's own name; "LiquidAss is on" is drawn only when
 // Steam's UI language starts with "en" (PLAN 1.15). Nothing persists; remove() restores all.
 
 const LAUNCHER_STATE = { cur: null };
-const LG_NAME = 'Liquid Glass';
+const LG_NAME = 'LiquidAss';
 // a fragment of the switch's own icon as Steam encodes it (the T1 CSS match uses the same one)
 const LG_ICON_MARK = 'zP9VZWZ7917z2Fx78vM6qqe7pHEinkTt9+rzKys9';
 // HA 4 / 11: the laser's name plate after 0.4 s of attention
@@ -568,7 +568,7 @@ function installT3(S) {
     const lg = props.lg;
     let lang = 'english';
     try { lang = String(R.ui.lang() || 'english'); } catch (_) { /* default */ }
-    const sub = /^en/i.test(lang) ? 'Glass Shell is on' : undefined;
+    const sub = /^en/i.test(lang) ? 'LiquidAss is on' : undefined;
     const onActivate = (e) => {
       const p = runToggle(S, S.test.noScan ? null : S.lgEntry, e, lg);
       if (p && typeof p.then === 'function') {

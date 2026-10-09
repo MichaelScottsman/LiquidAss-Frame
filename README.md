@@ -1,6 +1,8 @@
-# Glass Shell: Liquid Glass for the Steam Frame's VR interface
+<p align="center"><img src="assets/icon.png" alt="LiquidAss icon" width="160"></p>
 
-Glass Shell re-skins the Steam Frame's whole VR interface in Apple's glass design language: visionOS window glass for the dashboard window, Liquid Glass for everything that floats. That covers:
+# LiquidAss: Liquid Glass for the Steam Frame's VR interface
+
+LiquidAss re-skins the Steam Frame's whole VR interface in Apple's glass design language: visionOS window glass for the dashboard window, Liquid Glass for everything that floats. That covers:
 
 - the library, game pages and settings
 - friends, the dashboard bar and every bar popup
@@ -11,9 +13,9 @@ It is a **look only**. Every button, menu, route and controller-focus path is St
 ## Turn it on and off (in the headset)
 
 1. On the dashboard bar, press **+**.
-2. Under **Launch Program**, pick **Liquid Glass**.
+2. Under **Launch Program**, pick **LiquidAss**.
 
-A glass toast confirms "Liquid Glass · On". Do the same again to turn it off.
+A glass toast confirms "LiquidAss · On". Do the same again to turn it off.
 
 ## Nothing persists
 
@@ -21,7 +23,7 @@ A glass toast confirms "Liquid Glass · On". Do the same again to turn it off.
 
 - reboot the headset
 - restart Steam
-- launch **Liquid Glass** again from **+**
+- launch **LiquidAss** again from **+**
 
 Nothing starts at boot. There are no systemd units, autostart entries or Steam file patches.
 
@@ -29,11 +31,11 @@ Only two things stay installed, so the toggle is there after a reboot, plus one 
 
 | Path | What it is |
 |---|---|
-| `~/.local/share/applications/glass-shell.desktop` | The "Liquid Glass" entry in + › Launch Program |
+| `~/.local/share/applications/glass-shell.desktop` | The "LiquidAss" entry in + › Launch Program |
 | `~/.local/share/glass-shell/` | The toggle script and the theme files it reads |
 | `~/.config/glass-shell/tune.json` | Your glass settings from the paintbrush button on the bar (colour, intensity, refraction, frost, highlights). Written only when you change them; **Reset to default** in that panel deletes it. The one exception to "nothing persists", by request |
 
-`python glass.py uninstall` removes all three.
+`python glass.py uninstall` removes all three. (The install paths keep the project's original `glass-shell` name, so existing installs carry over.)
 
 ## From the PC
 
