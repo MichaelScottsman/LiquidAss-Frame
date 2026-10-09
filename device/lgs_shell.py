@@ -931,7 +931,7 @@ class Shell:
             self.native_enabled, self.css_reason = False, css_reason_for(self.native_req, self.native_src)
         elif not self.glassd_path:
             self.native_enabled, self.css_reason = False, "glassd disabled"
-        elif not os.access(self.glassd_path, os.X_OK):
+        elif not os.access(self.glassd_path, os.X_OK) and not ensure_glassd(self.glassd_path):
             self.native_enabled, self.css_reason = False, "no glassd binary at start; python glass.py native-build"
         else:
             self.native_enabled, self.css_reason = True, None
@@ -2700,8 +2700,18 @@ class Shell:
             if self.gseq and not self.g_files_removed:   # native mode ended mid-session
                 self.g_files_removed = True
                 remove_glassd_files()
+            # only the binary was missing (an install swapping the folder under us, a toggle run before the
+            # install finished): native comes back as soon as a glassd is in place again
+            if self.native_requested and self.glassd_path and str(self.css_reason or "").startswith(
+                    ("glassd binary removed", "no glassd binary at start")) and ensure_glassd(self.glassd_path):
+                log("glassd: binary in place again; native layer back on")
+                self.native_enabled, self.css_reason = True, None
+                self.g_files_removed = False
+                self.g_given_up = False
+                self.tasks.append(asyncio.create_task(self.glassd_loop()))
+                self.changed.set()
             return
-        if not os.access(self.glassd_path, os.X_OK):
+        if not os.access(self.glassd_path, os.X_OK) and not ensure_glassd(self.glassd_path):
             self.disable_native("glassd binary removed")
             await self.kill_glassd()
             return
@@ -2749,7 +2759,7 @@ class Shell:
             return
         temp_streak = 0
         while not self.stopping and self.native_possible():
-            if not os.access(self.glassd_path, os.X_OK):
+            if not os.access(self.glassd_path, os.X_OK) and not ensure_glassd(self.glassd_path):
                 self.disable_native("glassd binary removed")
                 return
             # glassd needs SteamVR and something to cover (and the theme on: not dormant)

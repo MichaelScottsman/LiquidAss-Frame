@@ -68,6 +68,15 @@ install_app() {
     tar -xzf "$tmp/$ASSET" -C "$tmp/new"
     [ -f "$tmp/new/device/lgs.py" ] || die "the archive is not a LiquidAss release"
 
+    # A running LiquidAss is stopped for the swap (its files, glassd's binary included, vanish for a moment)
+    # and started again after it, on the new version.
+    was_on=0
+    if command -v systemctl >/dev/null 2>&1 && systemctl --user is-active --quiet lgs-shell 2>/dev/null             && [ -f "$DEST/device/lgs.py" ]; then
+        was_on=1
+        say "turning LiquidAss off for the update"
+        py "$DEST/device/lgs.py" off --quiet >/dev/null 2>&1 || true
+    fi
+
     # Swap the whole folder so files a release dropped do not linger; keep a glassd built on this headset.
     mkdir -p "$(dirname "$DEST")"
     if [ -f "$DEST/native/glassd/glassd" ] && [ ! -e "$tmp/new/native/glassd/glassd" ]; then
@@ -93,8 +102,11 @@ install_app() {
 
     v=$(cat "$DEST/VERSION" 2>/dev/null || echo "")
     say "installed ${v:+$v }in $DEST"
-    say "turn it on: dashboard bar > + > Launch Program > LiquidAss"
-    say "(already on? launch LiquidAss twice to load the new version)"
+    if [ "$was_on" = 1 ]; then
+        py "$DEST/device/lgs.py" on --quiet >/dev/null 2>&1 && say "LiquidAss is back on (the new version)"             || say "could not turn LiquidAss back on: launch it from + > Launch Program > LiquidAss"
+    else
+        say "turn it on: dashboard bar > + > Launch Program > LiquidAss"
+    fi
 }
 
 uninstall_app() {
