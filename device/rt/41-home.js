@@ -639,6 +639,7 @@ function homeComponents(R, rt) {
       onMenuButton: isGame && HS.appMenu ? (e) => homeTileMenu(R, item, e && e.currentTarget) : undefined,
       onMenuActionDescription: isGame && HS.appMenu ? (homeStr(R, 'options') || undefined) : undefined,
       onGamepadFocus: (e) => {
+        if (!HS) return; // module torn down (lgs off) while Steam still moves focus on the leaving page
         const sk = HS.sectionKey || 'x';
         HS.focusKey[sk] = item.key;
         // focus that Steam moved into row 1 from outside our page (C1a's search capsule above a folder's
@@ -651,7 +652,8 @@ function homeComponents(R, rt) {
         if (d && HS.P.attention && homePad()) HS.P.attention.feed(d, 'enter', 'pad');
       },
       onGamepadBlur: (e) => {
-        const d = e && e.currentTarget && e.currentTarget.querySelector ? e.currentTarget.querySelector('.lgs-home-disc') : null;
+        if (!HS) return;
+        const d =e && e.currentTarget && e.currentTarget.querySelector ? e.currentTarget.querySelector('.lgs-home-disc') : null;
         if (d && HS.P.attention) HS.P.attention.feed(d, 'leave', 'pad');
         // gamepad: the card starts closing at the move, not after the 0.3 s grace (HA-17); a bounce back
         // within the grace restores it through onReenter

@@ -231,15 +231,12 @@ html.lgs-on .lgs-arrive { animation: lgs-arrive var(--lgs-motion-page) backwards
 
 /* ------------------------------------------------- the light layer's ramp in
    An illumination host's ::after exists only while the host is lit (04-states.css, the hook blocks' gate),
-   so it is created already lit: it starts from dark, and the in-transitions (04-states.css §2) ramp hover,
-   within and press up as they did when the layer was always there. Top level: Chromium 126 ignores
-   @starting-style nested in a style rule (the wrapped files). Focus jumps in (0s) through lgs-focus-in. */
-@starting-style {
-  html.lgs-on:not(.lgs-input-pad) :hover::after,
-  html.lgs-on:not(.lgs-input-laser) :is(.gpfocus, .gpfocuswithin)::after,
-  html.lgs-on :is(:active, .lgs-pressed)::after {
-    --lgs-hover: 0;
-    --lgs-within: 0;
-    --lgs-press: 0;
-  }
+   so it is created already lit: lgs-ill-in starts it from dark (04-states.css §2, the in-rule), and the
+   in-transitions take over after. Focus jumps in (0s) through lgs-focus-in.
+   Never @starting-style here: on Steam's Chromium 126, a top-level @starting-style on these ::after
+   (registered properties, under the @container style() gate) SEGVs the whole renderer when the theme is
+   injected while the pointer rests on a lit host, e.g. the LiquidAss row of "+" > Launch Program
+   (2026-10-09, reproduced 3/3; gone without the rule). */
+@keyframes lgs-ill-in {
+  from { --lgs-hover: 0; --lgs-within: 0; --lgs-press: 0; }
 }

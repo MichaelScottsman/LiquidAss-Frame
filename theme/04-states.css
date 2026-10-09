@@ -243,11 +243,13 @@
       --lgs-focus 0s,
       --lgs-within var(--lgs-ill-d-in) var(--lgs-ill-ease),
       --lgs-press var(--lgs-ill-d-press) var(--lgs-ill-ease-press);
-    /* created lit (the hook blocks' gate): its ramp in starts from dark, @starting-style in
-       02-motion.nowrap.css (Chromium 126 ignores it nested in this wrapped file) */
+    /* created lit (the hook blocks' gate): its ramp in starts from dark (lgs-ill-in,
+       02-motion.nowrap.css; never @starting-style, which crashes Steam's renderer) */
+    animation: lgs-ill-in var(--lgs-ill-d-in) var(--lgs-ill-ease) backwards;
   }
   &:not(.lgs-input-laser) .gpfocus::after {
-    animation: lgs-focus-in var(--lgs-ill-d-in) var(--lgs-ill-ease) backwards;
+    animation: lgs-ill-in var(--lgs-ill-d-in) var(--lgs-ill-ease) backwards,
+               lgs-focus-in var(--lgs-ill-d-in) var(--lgs-ill-ease) backwards;
   }
 }
 
