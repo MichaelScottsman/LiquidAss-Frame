@@ -822,11 +822,15 @@ function homeComponents(R, rt) {
 
   function TopRow({ kind, section, sections, onSection, title, libPath, toGrid }) {
     const [pill, setPill] = React.useState(null);
+    // the selection pill's place: measured when what it depends on changes (the section, the row's kind,
+    // its labels), not on every render. Without dependencies this read the layout in every commit of Home
+    // (about 450 ms of forced layout over six route changes on the device)
+    const pillKey = kind + '|' + section + '|' + (sections || HOME_SECTIONS).map((s) => s + ':' + (homeStr(R, s) || '')).join(',');
     React.useLayoutEffect(() => {
       let el = null;
       try { el = R.nav.win().document.querySelector('.lgs-home .lgs-home-seg-item.is-selected'); } catch (_) { el = null; }
       if (el && (!pill || pill.x !== el.offsetLeft || pill.w !== el.offsetWidth)) setPill({ x: el.offsetLeft, w: el.offsetWidth });
-    });
+    }, [pillKey]);
     // Down from the top row returns to the remembered cell (HA §3.5); Up is Steam's (its search)
     const down = (sel) => () => toGrid(sel);
     const WN_SEL = '.lgs-home .lgs-home-top .lgs-home-wn';

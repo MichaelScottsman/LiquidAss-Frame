@@ -290,7 +290,8 @@ function libScan(S) {
 
   // the current sort: the pill's own text when Steam shows it (laser mode), else Steam's string for the
   // grid's eSortBy
-  var pillOn = !!(pill && pill.getClientRects().length);
+  // (shown or not: from the style alone; getClientRects forced the new route's whole layout at each scan)
+  var pillOn = !!(pill && (typeof pill.checkVisibility === 'function' ? pill.checkVisibility() : pill.getClientRects().length));
   var grid = lib.querySelector(S.sel.grid);
   var eSort = grid ? libFiberProp(grid, 'eSortBy', 12) : undefined;
   var name = null;

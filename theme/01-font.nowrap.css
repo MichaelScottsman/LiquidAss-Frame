@@ -19,7 +19,18 @@ html.lgs-on body {
   -webkit-font-smoothing: antialiased;
 }
 /* (0,3,2): beats Steam's module rules, the strongest measured being
-   ".BasicUI .A .B" (0,3,0); areas never set another family */
-html.lgs-on.lgs-on.lgs-on body :where(:not(code, pre, kbd, samp, tt, code *, pre *, kbd *, samp *)) {
+   ".BasicUI .A .B" (0,3,0); areas never set another family.
+   Two plain rules instead of one :where(:not(code, ..., code *, pre *, ...)):
+   that one was matched against every element of every window on every
+   style recalc, and each :not(X *) walked the element's ancestors (no
+   ancestor-filter shortcut inside :not), on every route change's new page.
+   Code keeps a monospace face (the UA's), its content inherits it. */
+html.lgs-on.lgs-on.lgs-on body * {
   font-family: var(--lgs-font);
+}
+html.lgs-on.lgs-on.lgs-on body :is(code, pre, kbd, samp, tt) {
+  font-family: revert;
+}
+html.lgs-on.lgs-on.lgs-on body :is(code, pre, kbd, samp) * {
+  font-family: inherit;
 }

@@ -846,6 +846,10 @@
       // transitions and animations
       const T = ev.target;
       if (!T || T.nodeType !== 1) return;
+      // only a measured element or one of its ancestors can move or fade what is measured: others (a row's
+      // glow, a poster settling elsewhere in the page) no longer recompute the window at 15 Hz, nor throw
+      // away every cached style fact
+      if (!nearMeasured(ent, T)) { bump('far-anim'); return; }
       ent.animGen++; // cached style facts may be stale now
       const pseudo = ev.pseudoElement ? String(ev.pseudoElement).replace(/^:+/, '') : '';
       const geo = t.startsWith('transition') ? !isPaintProp(ev.propertyName) : animGeometric(T, ev.animationName, pseudo);
@@ -889,13 +893,19 @@
         // plates inserted (a route's discs and cards, tagged in their markup): report them before they
         // paint, so they are glassd's from the first frame (updateAttrs marks them optimistically). Ahead
         // of the scroll deferral below: a route change resets the page's scroll as its content mounts.
-        if (!s.keyPrefix && records.some((r) => r.type === 'childList' && [...r.addedNodes].some((n) => n.nodeType === 1
-          && (n.hasAttribute('data-lgs-plate') || n.querySelector('[data-lgs-plate]'))))) {
-          bump('plates');
-          ent.domGen++;
-          ent.dirty = true;
-          tickNow();
-          return;
+        // Marked here without measuring (a measure would force the half-built page's layout): measured on
+        // the tick after the paint, and glassd still starts them with their own animation (appearAt).
+        if (!s.keyPrefix && S.ackMode) {
+          let added = 0;
+          for (const r of records) {
+            if (r.type !== 'childList') continue;
+            for (const n of r.addedNodes) {
+              if (n.nodeType !== 1) continue;
+              if (n.hasAttribute('data-lgs-plate')) { platePending(ent, n); added++; }
+              for (const e of n.querySelectorAll('[data-lgs-plate]')) { platePending(ent, e); added++; }
+            }
+          }
+          if (added) bump('plates');
         }
         // mutations inside a scrolling scroller (virtualized rows) wait for it
         if (ent.scrolling.size) {
@@ -911,7 +921,7 @@
         ent.dirty = true;
         // a glass mode change is measured and reported right here, before Steam renders the new route
         // (a tick would wait for that render), so glassd starts materializing the window at once
-        if (s.modes && records.some((r) => r.attributeName === s.modes.attr)) { modePending(ent); tickNow(); return; }
+        if (s.modes && records.some((r) => r.attributeName === s.modes.attr)) { modePending(ent); wakeUp(); return; }
         // a pooled popup mounting its content while still hidden: Steam's main thread is busy with that
         // mount, so a frame-driven tick would only come after the popup shows. Measure and report (armed)
         // here, so glassd draws the glass before Steam's panel appears.
@@ -1215,6 +1225,18 @@
   }
 
   // is T one of the measured elements (a cover or a rule match) or inside one?
+  // Is T a measured element (a cover, a rule match, a plate) or an ancestor of one? Unknown (not queried
+  // yet): yes.
+  function nearMeasured(ent, T) {
+    const q = ent.q;
+    if (!q || q.gen !== ent.domGen) return true;
+    const hit = (el) => el === T || T.contains(el);
+    for (const el of q.cover) if (hit(el)) return true;
+    for (const els of q.rules.values()) for (const el of els) if (hit(el)) return true;
+    for (const el of q.plates) if (hit(el)) return true;
+    return false;
+  }
+
   function insideMeasured(ent, T) {
     const q = ent.q;
     if (!q) return false;
@@ -2394,6 +2416,15 @@
         // slab "none": glassd draws only the hole, the glass stays in-page
         for (const k of cur.kept) if (ok(k.el, k.part)) add(k.el, k.part, k.layer.material === 'none');
         for (const pe of cur.plateEls || []) if (ok(pe.el, 'plate')) add(pe.el, 'plate');
+        // plates marked on insertion and not measured yet
+        if (ent.platesPending && ent.platesPending.size) {
+          const measured = new Set((cur.plateEls || []).map((pe) => pe.el));
+          for (const [el, until] of ent.platesPending) {
+            if (!el.isConnected || measured.has(el) || now >= until) { ent.platesPending.delete(el); continue; }
+            add(el, 'plate');
+            due = Math.min(due, until);
+          }
+        }
       }
       applyAttrs(ent, plan);
     }
@@ -2429,6 +2460,20 @@
       } catch (_) { /* window gone */ }
     }
     ent.applied = plan;
+  }
+
+  // A plate a route just inserted, in a native window: glassd's at once (data-lgs-plate-ack, so its CSS
+  // plate never paints), until it is measured and acked, or GLASS_WAIT_MS pass without that.
+  function platePending(ent, el) {
+    let native = false;
+    try { native = ent.doc.documentElement.classList.contains('lgs-native'); } catch (_) { return; }
+    if (!native) return;
+    if (!ent.platesPending) ent.platesPending = new Map();
+    if (!ent.platesPending.has(el)) ent.platesPending.set(el, performance.now() + GLASS_WAIT_MS);
+    const at = ent.applied.get(el);
+    if (at && at.plate) return;
+    try { if (!el.hasAttribute(ent.attrPlate)) el.setAttribute(ent.attrPlate, ''); } catch (_) { return; }
+    ent.applied.set(el, Object.assign({ cover: false, pending: false, pop: [], plate: false, noslab: [] }, at || {}, { plate: true }));
   }
 
   // Is el's glass mode one with a cover (main: window, window-full, hero)?
@@ -2507,7 +2552,15 @@
     const w = timerOnly ? null : clockWindow();
     if (w) {
       try {
-        S.raf = w.requestAnimationFrame(tick);
+        // measured after the frame, not in its animation-frame callback: there the reads forced the
+        // frame's own style and layout early, and the attribute writes after them made it run again;
+        // in a task right after the paint, style and layout are clean and the reads cost little
+        S.raf = w.requestAnimationFrame(() => {
+          if (!S) return;
+          S.rafWin = null;
+          S.rafTimer = true;
+          S.raf = setTimeout(tick, 0);
+        });
         S.rafWin = w;
         S.rafTimer = false;
         return;

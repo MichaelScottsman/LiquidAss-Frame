@@ -306,11 +306,18 @@ function setTick(S) {
     var hdr = root.querySelector(S.sel.content + ' > .DialogContent_InnerWidth > .DialogHeader');
     var tw = 0;
     if (hdr && root.style.getPropertyValue('--lgs-set-glyph')) {
-      try {
-        var rg = doc.createRange();
-        rg.selectNodeContents(hdr);
-        tw = Math.round(rg.getBoundingClientRect().width);
-      } catch (_) { tw = 0; }
+      // measured when the title changes, not on every 300 ms tick (each measure forced a layout)
+      var htext = hdr.textContent || '';
+      if (S.heroEl === hdr && S.heroText === htext && S.heroTw > 0) {
+        tw = S.heroTw;
+      } else {
+        try {
+          var rg = doc.createRange();
+          rg.selectNodeContents(hdr);
+          tw = Math.round(rg.getBoundingClientRect().width);
+        } catch (_) { tw = 0; }
+        S.heroEl = hdr; S.heroText = htext; S.heroTw = tw;
+      }
     }
     if (tw > 0) {
       var twv = tw + 'px';
