@@ -10,6 +10,24 @@ LiquidAss re-skins the Steam Frame's whole VR interface in Apple's glass design 
 
 It is a **look only**. Every button, menu, route and controller-focus path is Steam's own, untouched.
 
+## Install
+
+Run this in a terminal on the headset (Desktop Mode's terminal, or over SSH). It downloads the latest release and adds **LiquidAss** to **+ › Launch Program**:
+
+```bash
+curl -fsSL https://github.com/MichaelScottsman/LiquidAss-Frame/releases/latest/download/install.sh | sh
+```
+
+Run the same command again to update. To install a specific release, put `LIQUIDASS_VERSION=v0.1` before `sh`.
+
+## Uninstall
+
+This turns the theme off and removes the launcher entry, the files and your saved glass settings:
+
+```bash
+curl -fsSL https://github.com/MichaelScottsman/LiquidAss-Frame/releases/latest/download/install.sh | sh -s -- uninstall
+```
+
 ## Turn it on and off (in the headset)
 
 1. On the dashboard bar, press **+**.
@@ -35,12 +53,12 @@ Only two things stay installed, so the toggle is there after a reboot, plus one 
 | `~/.local/share/glass-shell/` | The toggle script and the theme files it reads |
 | `~/.config/glass-shell/tune.json` | Your glass settings from the paintbrush button on the bar (colour, intensity, refraction, frost, highlights). Written only when you change them; **Reset to default** in that panel deletes it. The one exception to "nothing persists", by request |
 
-`python glass.py uninstall` removes all three. (The install paths keep the project's original `glass-shell` name, so existing installs carry over.)
+The [uninstall](#uninstall) command (or `python glass.py uninstall`) removes all three. (The install paths keep the project's original `glass-shell` name, so existing installs carry over.)
 
 ## From the PC
 
 ```bash
-python glass.py install        # copy to the headset and add the launcher
+python glass.py install        # copy this checkout to the headset and add the launcher (for development)
 python glass.py on | off | toggle | status
 python glass.py dial 0.7       # glass intensity: 0 = clearest, 1 = most opaque (saved with your glass settings)
 python glass.py uninstall
@@ -56,6 +74,16 @@ On the headset itself, `~/.local/share/glass-shell/device/lgs on|off|toggle|stat
 | `device/lgs_index.js` | Steam's class names are hashed. The theme is written against readable names (`%{BarSurface}`, `%{*GamepadDialogContent>Field}`) that are resolved at injection time from Steam's own webpack CSS modules, so the theme survives client updates |
 | `theme/*.css` | The look, split by area. `00-tokens.nowrap.css` holds the materials (window glass, panel glass, Liquid Glass, thick glass), states, radii and motion. See `docs/DESIGN.md` |
 | `lab/` + `glass.py` | Development tools: navigate, open menus, screenshot any surface (it renders even when nobody wears the headset) and **audit** stock against themed for hidden, shrunk or unclickable controls and lost contrast. See `docs/LAB.md` |
+
+## Releases
+
+`sh tools/make_release.sh v0.2` builds `dist/LiquidAss-Frame.tar.gz` from the committed tree. Publish it with the installer:
+
+```bash
+gh release create v0.2 dist/LiquidAss-Frame.tar.gz install.sh --title "LiquidAss v0.2"
+```
+
+`install.sh` always fetches the asset named `LiquidAss-Frame.tar.gz` from the latest release, so keep that name.
 
 ## Docs
 
