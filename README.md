@@ -2,13 +2,7 @@
 
 # LiquidAss: Liquid Glass for the Steam Frame's VR interface
 
-LiquidAss re-skins the Steam Frame's whole VR interface in Apple's glass design language: visionOS window glass for the dashboard window, Liquid Glass for everything that floats. That covers:
-
-- the library, game pages and settings
-- friends, the dashboard bar and every bar popup
-- frame menus, tooltips, the volume HUD, toasts and the keyboard
-
-It is a **look only**. Every button, menu, route and controller-focus path is Steam's own, untouched.
+LiquidAss re-skins the Steam Frame's VR UI in Apple's glass design language. AI assisted.
 
 ## Install
 
