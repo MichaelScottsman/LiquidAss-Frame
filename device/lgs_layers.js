@@ -142,6 +142,7 @@
   const COVER_FOLLOW_MS = 150;  // an animating cover's shape is updated at most this often
   const ACK_DELAY_MS = 350;     // an element must hold its id this long before an ack applies to it (scene-graph latency)
   const COVER_FALLBACK_MS = 3000; // ack mode, key never acked but window lgs-native: tag the cover
+  const MOSAIC_PAD = 48;         // CSS px a windowless base band reaches past its plates (glows, shadows)
   const GLASS_WAIT_MS = 1500;   // native window: a cover or plate is glassd's at once; CSS glass back if never acked by then
   const COVER_PENDING_MS = 2000; // ack mode, native window: a glass mode's cover is "pending" this long after the mode starts
   // spring tokens a morphing cover may name (native/shared/motion_tokens.h; glassd evaluates them)
@@ -1703,13 +1704,22 @@
   // DOM while main was window / window-full (C2a's hook not answering, a
   // route change, the module going at a step's end) drew the window glass
   // with only the disc rows on it (REQ C2a->P8 #17).
+  // Base bands reach MOSAIC_PAD past their plates: a plate's own light (the selected segment's white glow on
+  // hover and focus, a lift's shadow) spills 40-50 px past it. Cut at the plate's edge, the part inside was
+  // drawn in front of the glass and the rest only on Steam's panel behind the neighbouring plates: a halo
+  // cut off at hard edges, at two depths. Overlapping bands merge.
   function mosaicOf(ctx, q, mode, plates, shapes) {
     if (shapes && shapes.length) return null;
+    const pad = Math.round(MOSAIC_PAD * ctx.dpr);
+    let list;
     if (q.mosaic.length) {
-      return boxes(ctx, q.mosaic).map((t) => ({ x: t.x, y: t.y, w: t.w, h: t.h }));
+      list = boxes(ctx, q.mosaic).map((t) => ({ x0: t.x, y0: t.y, x1: t.x + t.w, y1: t.y + t.h }));
+    } else {
+      if (mode !== 'windowless' || !plates.length) return null;
+      list = plates.map((p) => ({ x0: p.x, y0: p.y, x1: p.x + p.w, y1: p.y + p.h }));
     }
-    if (mode !== 'windowless' || !plates.length) return null;
-    const list = plates.map((p) => ({ x0: p.x, y0: p.y, x1: p.x + p.w, y1: p.y + p.h })).sort((a, b) => a.y0 - b.y0);
+    list = list.map((b) => ({ x0: Math.max(0, b.x0 - pad), y0: Math.max(0, b.y0 - pad),
+      x1: Math.min(ctx.texW, b.x1 + pad), y1: Math.min(ctx.texH, b.y1 + pad) })).sort((a, b) => a.y0 - b.y0);
     const bands = [];
     for (const p of list) {
       const last = bands[bands.length - 1];
@@ -1719,11 +1729,7 @@
         last.y1 = Math.max(last.y1, p.y1);
       } else bands.push(Object.assign({}, p));
     }
-    return bands.map((b) => {
-      const x = Math.max(0, b.x0 - 2);
-      const y = Math.max(0, b.y0 - 2);
-      return { x, y, w: Math.min(ctx.texW, b.x1 + 2) - x, h: Math.min(ctx.texH, b.y1 + 2) - y };
-    });
+    return bands.map((b) => ({ x: b.x0, y: b.y0, w: b.x1 - b.x0, h: b.y1 - b.y0 }));
   }
 
   // An animating cover or plate keeps its last settled shape, updated at most
