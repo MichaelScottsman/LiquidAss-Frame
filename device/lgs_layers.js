@@ -3129,7 +3129,28 @@
     return n;
   }
 
-  API = { version: VERSION, start, stop, ping, ack, resend, snapshot, status, debug, rules, overlay, forceDash };
+  // Lab: the size of everything the reporter holds per window (Maps, Sets and arrays), for leak soaks
+  function sizes() {
+    if (!S) return null;
+    const out = {};
+    for (const [k, ent] of S.ents) {
+      const o = {};
+      for (const [f, v] of Object.entries(ent)) {
+        if (v instanceof Map || v instanceof Set) o[f] = v.size;
+        else if (Array.isArray(v)) o[f] = v.length;
+      }
+      out[k] = o;
+    }
+    const top = {};
+    for (const [f, v] of Object.entries(S)) {
+      if (v instanceof Map || v instanceof Set) top[f] = v.size;
+      else if (Array.isArray(v)) top[f] = v.length;
+    }
+    out.$S = top;
+    return out;
+  }
+
+  API = { version: VERSION, start, stop, ping, ack, resend, snapshot, status, debug, rules, overlay, forceDash, sizes };
   W[GLOBAL] = API;
 
   // The daemon sets window.__LGS_LAYERS_OPTS = {layers, binding, ackMode}
