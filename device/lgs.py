@@ -1133,7 +1133,8 @@ ITEM_RX = re.compile(r"^([a-z0-9-]+)(#[\w-]+)?((?:\.[\w-]+)*)((?:\[[\w-]+\])*)$"
 # Marks the lgs-shell daemon (P8, P6's reporter) sets on Steam's windows from its own process: a native
 # session of another agent turns them on or off while a lab-locked step runs, and the lab's "off" path
 # (no vr) never touches the daemon. Reported apart, never P1's leftovers (re-run of review R1).
-DAEMON_MARKS = re.compile(r"\.lgs-native$|\[data-lgs-(cover|pop)\]$")
+# the native session's reporter (lgs_layers.js): its marks come and go with the theme on its own poll
+DAEMON_MARKS = re.compile(r"\.lgs-native$|\[data-lgs-(cover|pop|plate-ack|plate-css|plates|noslab)\]$")
 
 
 def _item_marks(item):
@@ -1263,6 +1264,27 @@ def _st_release(f):
         f.close()
 
 
+def _st_reporter_settled(paused, wait_s=4.0):
+    """The native session's reporter (lgs_layers.js, injected by the daemon) detaches its document listeners
+    (visibilitychange among them, a type P1's core uses too) on its own poll after the theme goes off and
+    attaches them again after it comes on. RT-1 samples listener counts only once it has settled, so a phase
+    is not counted with the reporter half way (seen: off phase 1 with its visibilitychange still on main).
+    No reporter: settled at once."""
+    js = ("(()=>{const L=window.__LGS_LAYERS;if(!L||typeof L.status!=='function')return 'none';"
+          "const s=L.status();return s.running?(s.paused?'paused':'on'):'none'})()")
+    t0 = time.time()
+    while True:
+        try:
+            st = _st_js(js)
+        except Exception:
+            return
+        if st == "none" or (st == "paused") == paused:
+            return
+        if time.time() - t0 >= wait_s:
+            return
+        time.sleep(0.25)
+
+
 def st_rt1(lab, ctx):
     """lgs on / off three times with the three stub modules; DOM counters (forced
     GC) before and after the cycles (review R1 M1 item 5). Holds native.lock so no
@@ -1274,16 +1296,25 @@ def st_rt1(lab, ctx):
             ctx["route"] = lab.lab_js("L.route()")
             op("on", quiet=True)     # warm-up: the current core and runtime replaced by this build
             base = op("off", quiet=True).get("leftovers")   # marked elements not ours (another agent's probe)
+            _st_reporter_settled(True)
             mem0 = _st_dom_counters()
             offs.append({"counts": _st_js(COUNTS_JS), "listeners": _st_eval_cli(LISTENERS_JS)})
-            for _ in range(3):
+            # four cycles; the leak check compares the off after cycle 2 with the off after cycle 4: something of
+            # Steam's flips with every on/off (~40 renderer listeners, -41 and +41 in consecutive 3-cycle runs),
+            # so only phases of the same parity are comparable
+            mem_mid = None
+            for i in range(4):
                 r = op("on", quiet=True, flags={"rt.stubs": True})
+                _st_reporter_settled(False)
                 st = _st_status(counts=True)
                 ons.append({"sig": _st_sig(st), "counts": _st_js(COUNTS_JS), "listeners": _st_eval_cli(LISTENERS_JS),
                             "installed": (r.get("runtime") or {}).get("installed")})
                 off = op("off", quiet=True)
+                _st_reporter_settled(True)
                 reports.append(off)
                 offs.append({"counts": _st_js(COUNTS_JS), "listeners": _st_eval_cli(LISTENERS_JS)})
+                if i == 1:
+                    mem_mid = _st_dom_counters()
             mem1 = _st_dom_counters()
             restore = _st_restore(lab)
     finally:
@@ -1352,10 +1383,22 @@ def st_rt1(lab, ctx):
     delta = {k: (ons[0]["counts"].get(k) or 0) - (offs[0]["counts"].get(k) or 0) for k in ons[0]["counts"]}
     mem = {"before": mem0, "after": mem1}
     if "error" not in mem0 and "error" not in mem1:
-        mem["perCycle"] = {k: round((mem1.get(k, 0) - mem0.get(k, 0)) / 3, 1) for k in ("documents", "nodes", "jsEventListeners")}
-        mem_ok = mem["perCycle"]["nodes"] <= MEM_NODES_PER_CYCLE and mem["perCycle"]["jsEventListeners"] <= MEM_LISTENERS_PER_CYCLE
+        mm = mem_mid if isinstance(mem_mid, dict) and "error" not in mem_mid else mem0
+        mem["mid"] = mm
+        mem["perCycle"] = {k: round((mem1.get(k, 0) - mm.get(k, 0)) / 2, 1) for k in ("documents", "nodes", "jsEventListeners")}
+        # The renderer-wide listener count includes Steam's own window handlers (focus, key and mouse on the bar
+        # windows), which come and go as Steam shows them: seen -13 and +13 per cycle in consecutive runs. Their
+        # net change between the first and the last off phase, on the windows counted above, is Steam's.
+        def foreign_total(L):
+            return sum(v for m in (L or {}).values() if isinstance(m, dict)
+                       for k, v in m.items() if k not in RT1_OWN_LISTENER_TYPES and isinstance(v, (int, float)))
+        steam_delta = foreign_total(offs[-1].get("listeners")) - foreign_total(offs[2].get("listeners"))
+        mem["steamListenerDelta"] = steam_delta
+        own_listeners = round((mem1.get("jsEventListeners", 0) - mm.get("jsEventListeners", 0) - steam_delta) / 2, 1)
+        mem["perCycle"]["ownListeners"] = own_listeners
+        mem_ok = mem["perCycle"]["nodes"] <= MEM_NODES_PER_CYCLE and own_listeners <= MEM_LISTENERS_PER_CYCLE
         if "jsHeapUsedMB" in mem0 and "jsHeapUsedMB" in mem1:
-            mem["perCycle"]["jsHeapMB"] = round((mem1["jsHeapUsedMB"] - mem0["jsHeapUsedMB"]) / 3, 2)
+            mem["perCycle"]["jsHeapMB"] = round((mem1["jsHeapUsedMB"] - mm.get("jsHeapUsedMB", mem0["jsHeapUsedMB"])) / 2, 2)
             mem_ok = mem_ok and mem["perCycle"]["jsHeapMB"] <= MEM_HEAP_MB_PER_CYCLE
     else:
         mem_ok = True        # counters unavailable: recorded, not a failure
