@@ -105,7 +105,7 @@ struct Options {
     int dashOverride = -1;  // --dash on|off (tests): -1 = ask SteamVR
     float scale = 0.75f;      // backdropScale
     float fps = 72.f;         // max render rate while visible
-    float feedHz = 36.f;      // room map updates while visible (the feed streams)
+    float feedHz = 60.f;      // room map updates while visible (the feed streams): what is behind the glass moves at this rate
     float idleHz = 0.2f;      // one-frame feed shots per second otherwise (0 = none)
     float warmup = 3.f;       // seconds of feed before --once / --dump output
     float margin = 0.06f;     // metres around Steam surfaces in the feed mask
@@ -2132,7 +2132,9 @@ class Glassd {
         // While streaming, frames come 30 times a second: blend slowly. While
         // the dashboard is hidden they are sparse shots: each one counts more,
         // so a changed room (lights on) is caught within a few shots.
-        room.ema = dash ? 0.22f : 0.6f;
+        // while the glass shows, a new frame carries most of the texel: at 0.22 a moving hand or a change behind
+        // the glass took ~200 ms to come through, smeared (the background lagged); 0.45 still averages sensor noise
+        room.ema = dash ? 0.45f : 0.6f;
         room.uploadFeed(frame);
         room.integrate(hmd * eyeToHead, cal, masks);
         room.fill();
@@ -3231,9 +3233,9 @@ class Glassd {
             const bool due = now >= nextRenderNs;
             const bool animating = stepPhases(now);  // materialize ramps render at full rate
             lastPhaseNs = now;
-            // Room-only changes are slow (EMA, and the area behind the window is
-            // masked while it shows): re-render for them at most ~6 Hz.
-            const bool roomDue = roomDirty && now - lastRenderNs >= 160000000ull;
+            // What is behind the glass moves (hands, people, the room's light): every room update is shown, at the
+            // feed's rate (within the fps cap), so the background behind the glass moves fluidly. At ~6 Hz it stepped.
+            const bool roomDue = roomDirty;
             // Continuous rendering only while the dashboard is visible; one priming
             // frame after a layout change so new buffers never sit empty.
             const bool renderNow = !surfaces.empty() &&
