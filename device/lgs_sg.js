@@ -961,76 +961,115 @@
     });
   }
 
-  // ------------------------------------------------------------ SteamVR Settings glass
-  // SteamVR Settings (frame page system.settings) is a panel of this page (#vrsettingspanel), not a Steam
-  // window. Its window glass was CSS only (no room behind it): with the spec's `vr` entry (glassd's
-  // "vrsettings" surface, drawn ahead while the page is away) a cover panel goes right behind the
-  // settings panel, in its own transform, the moment the page mounts (frameWatch), and html.lgs-native-vr
-  // drops the CSS window fill (theme/vr/30-settings.css). Without the entry, or glassd, the CSS glass stays.
-  const VRP = { el: null, xf: null, panel: null };
-  function vrPanelEl() { return document.querySelector('#vrsettingspanel'); }
-  // the panel's size and its glass rect (the page container), in its own px (for glassd's shapes)
-  function vrPanelInfo() {
-    const p = vrPanelEl();
-    if (!p) return null;
-    const pr = p.getBoundingClientRect();
-    if (!(pr.width > 1 && pr.height > 1)) return null;
-    const out = { w: Math.round(pr.width), h: Math.round(pr.height), glass: null };
-    const c = p.querySelector('.SettingsSidebarPageContainer');
-    if (c) {
-      const r = c.getBoundingClientRect();
-      if (r.width > 1 && r.height > 1) {
-        out.glass = { x: Math.round(r.left - pr.left), y: Math.round(r.top - pr.top), w: Math.round(r.width), h: Math.round(r.height),
-          r: Math.round(parseFloat(getComputedStyle(c).borderTopLeftRadius) || 0) };
-      }
+  // ------------------------------------------------------------ SteamVR panels' glass
+  // SteamVR's own panels on this page (the Settings page, the frame-control row under the window, its
+  // More Options popout) are not Steam windows: their glass was CSS only, so what lies behind them in the
+  // world (Steam's window, the room) showed through a tint, and Steam's window text collided with theirs.
+  // For each, glassd draws a surface ("vr.<name>", drawn ahead while the panel is away), and a cover panel
+  // goes right behind the panel, in the panel's own transform and with its own placement (size, origin,
+  // curvature, laser-only visibility), the frame the panel mounts (frameWatch); html.lgs-native-vr-<name>
+  // then drops that panel's CSS fill (theme/vr/*.css). Without the spec's `vr` entry, the CSS glass stays.
+  const VR_PANELS = [
+    { name: 'settings', material: 'window', find: () => document.querySelector('#vrsettingspanel'),
+      glass: (p) => p.querySelector('.SettingsSidebarPageContainer') },
+    { name: 'ctl', material: 'panel', find: () => panelOf('[class*="FrameControlsContainer"]'),
+      glass: (p) => p.querySelector('[class*="FrameControlsContainer"]') },
+    { name: 'more', material: 'thick', find: () => panelOf('[class*="AdditionalOptions_"]:not([class*="Row"]):not([class*="Label"])'),
+      glass: (p) => p.querySelector('[class*="AdditionalOptions_"]:not([class*="Row"]):not([class*="Label"])') },
+  ];
+  // the nearest shown panel node holding an element that matches sel
+  function panelOf(sel) {
+    for (const el of document.querySelectorAll(sel)) {
+      const p = el.closest('vsg-node[vsg-type="panel"]');
+      // hidden panels carry an inline display:none (no style read every frame)
+      if (p && p.style.display !== 'none') return p;
+    }
+    return null;
+  }
+  const VRC = new Map();   // name -> { el, xf, panel }
+  // each shown panel's size and glass rect, in its own px (glassd's shapes)
+  function vrPanelsInfo() {
+    const out = [];
+    for (const d of VR_PANELS) {
+      let p = null;
+      try { p = d.find(); } catch (_) { p = null; }
+      if (!p) continue;
+      const pr = p.getBoundingClientRect();
+      if (!(pr.width > 1 && pr.height > 1)) continue;
+      const g = d.glass(p);
+      if (!g) continue;
+      const r = g.getBoundingClientRect();
+      if (!(r.width > 1 && r.height > 1)) continue;
+      const rad = Math.min(parseFloat(getComputedStyle(g).borderTopLeftRadius) || 0, r.width / 2, r.height / 2);
+      out.push({ name: d.name, material: d.material, w: Math.round(pr.width), h: Math.round(pr.height),
+        glass: { x: Math.round(r.left - pr.left), y: Math.round(r.top - pr.top), w: Math.round(r.width), h: Math.round(r.height), r: Math.round(rad) } });
     }
     return out;
   }
   function vrSig() {
-    const p = vrPanelEl();
-    return p ? 'vr' + (p === VRP.el && VRP.xf && VRP.xf.isConnected ? 1 : 0) : '';
-  }
-  function setVrClass(on) {
-    try { document.documentElement.classList.toggle('lgs-native-vr', !!on); } catch (_) { /* gone */ }
-  }
-  function vrCoverDrop() {
-    if (VRP.xf) {
-      try { VRP.xf.remove(); } catch (_) { /* gone */ }
-      retire([VRP.xf, VRP.panel]);
+    const parts = [];
+    for (const d of VR_PANELS) {
+      let p = null;
+      try { p = d.find(); } catch (_) { p = null; }
+      const c = VRC.get(d.name);
+      parts.push(p ? d.name + (c && c.el === p && c.xf && c.xf.isConnected ? 1 : 0) : '');
     }
-    VRP.el = null; VRP.xf = null; VRP.panel = null;
-    setVrClass(false);
+    return parts.join(',');
   }
-  function vrCoverSync(v) {
-    const p = vrPanelEl();
-    const g = v && v.glassd;
-    if (!p || !p.parentElement || !g || !g.key || !Array.isArray(g.backdrop) || g.backdrop.length !== 4) { if (VRP.xf) { vrCoverDrop(); return true; } setVrClass(false); return false; }
-    let sp = null;
-    try { sp = p.buildNode({}, p)[1].properties; } catch (_) { sp = null; }
-    if (!sp || !(num(sp.width, 0) > 0)) { if (VRP.xf) { vrCoverDrop(); return true; } return false; }
-    const [b0, b1, b2, b3] = g.backdrop.map(Number);
-    const props = {
-      key: g.key, uv_min: [r6(b0), r6(b1)], uv_max: [r6(b2), r6(b3)], width: sp.width,
-      origin: Array.isArray(sp.origin) ? sp.origin : [0, -1],
-      'scale-index': sp['scale-index'] || 0, 'frame-resize-scale-factor': num(sp['frame-resize-scale-factor'], 1),
-      interactive: false, visibility: 0, reflect: 0, debug_name: 'lgs:vrsettings:cover',
-    };
-    if (sp['curvature-origin-id']) props['curvature-origin-id'] = sp['curvature-origin-id'];
-    else props.curvature = 'inherit-from-parent-panel';
+  function setVrClass(name, on) {
+    try { document.documentElement.classList.toggle('lgs-native-vr-' + name, !!on); } catch (_) { /* gone */ }
+  }
+  function vrCoverDrop(name) {
+    const c = VRC.get(name);
+    if (c && c.xf) {
+      try { c.xf.remove(); } catch (_) { /* gone */ }
+      retire([c.xf, c.panel]);
+    }
+    VRC.delete(name);
+    setVrClass(name, false);
+  }
+  const VR_SKIP = ['id', 'sgid', 'key', 'uv_min', 'uv_max', 'embedded-uv-index', 'interactive', 'scrollable', 'focus-outline',
+    'can-take-keyboard-focus', 'main-panel-for-frame-page', 'debug_name', 'texture-id', 'steam-input-appid'];
+  // returns true when a node was added, removed or changed
+  function vrCoverSync(list) {
+    const want = new Map();
+    for (const v of Array.isArray(list) ? list : []) if (v && v.name) want.set(String(v.name), v);
     let changed = false;
-    if (VRP.el !== p || !VRP.xf || !VRP.xf.isConnected) {
-      if (VRP.xf) vrCoverDrop();
-      const xf = vtransform(-0.0004);
-      const panel = vnode('panel', props);
-      xf.appendChild(panel);
-      p.parentElement.insertBefore(xf, p);
-      VRP.el = p; VRP.xf = xf; VRP.panel = panel;
-      changed = true;
-    } else if (JSON.stringify(VRP.panel.__lgsProps) !== JSON.stringify(props)) {
-      VRP.panel.__lgsProps = props;
-      changed = true;
+    for (const d of VR_PANELS) {
+      const v = want.get(d.name);
+      let p = null;
+      try { p = d.find(); } catch (_) { p = null; }
+      const g = v && v.glassd;
+      if (!p || !p.parentElement || !g || !g.key || !Array.isArray(g.backdrop) || g.backdrop.length !== 4) {
+        if (VRC.has(d.name)) { vrCoverDrop(d.name); changed = true; }
+        continue;
+      }
+      let sp = null;
+      try { sp = p.buildNode({}, p)[1].properties; } catch (_) { sp = null; }
+      if (!sp) continue;
+      const [b0, b1, b2, b3] = g.backdrop.map(Number);
+      const scale = num(g.scale, 0.75) || 0.75;
+      const props = {};
+      for (const k of Object.keys(sp)) if (!VR_SKIP.includes(k)) props[k] = sp[k];
+      // a panel sized by metres per pixel: our texture has `scale` px per panel px
+      if (num(sp['meters-per-pixel'], 0) > 0) props['meters-per-pixel'] = num(sp['meters-per-pixel'], 0) / scale;
+      Object.assign(props, { key: g.key, uv_min: [r6(b0), r6(b1)], uv_max: [r6(b2), r6(b3)], interactive: false, reflect: 0,
+        debug_name: 'lgs:vr:' + d.name });
+      let c = VRC.get(d.name);
+      if (!c || c.el !== p || !c.xf || !c.xf.isConnected) {
+        if (c) vrCoverDrop(d.name);
+        const xf = vtransform(-0.0004);
+        const panel = vnode('panel', props);
+        xf.appendChild(panel);
+        p.parentElement.insertBefore(xf, p);
+        VRC.set(d.name, c = { el: p, xf, panel });
+        changed = true;
+      } else if (JSON.stringify(c.panel.__lgsProps) !== JSON.stringify(props)) {
+        c.panel.__lgsProps = props;
+        changed = true;
+      }
+      setVrClass(d.name, true);
     }
-    setVrClass(true);
     return changed;
   }
 
@@ -1080,7 +1119,7 @@
       pending: !!st.pushTimer || !!st.anim.timer || st.unpushed.size > 0,
       pushIn: st.pushTimer ? Math.max(0, st.pushDue - Date.now()) : (st.anim.timer ? 0 : null),
       specSeq: st.specSeq, now: Date.now(), anim: animCount(), surf: surfSummary(),
-      vr: (() => { try { return vrPanelInfo(); } catch (_) { return null; } })(),
+      vr: (() => { try { return vrPanelsInfo(); } catch (_) { return null; } })(),
     };
   }
 
@@ -1718,7 +1757,7 @@
       st.destroyed = true;
       clearInterval(st.tick);
       if (st.frameReq) { try { cancelAnimationFrame(st.frameReq); } catch (_) { /* gone */ } st.frameReq = 0; }
-      try { vrCoverDrop(); } catch (_) { /* gone */ }
+      try { for (const d of VR_PANELS) vrCoverDrop(d.name); } catch (_) { /* gone */ }
       try { if (st.panelWatch) st.panelWatch.disconnect(); } catch (_) { /* gone */ }
       clearTimeout(yawTimer);
       if (st.pushTimer) { clearTimeout(st.pushTimer); st.pushTimer = 0; }

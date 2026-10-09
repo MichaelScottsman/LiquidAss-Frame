@@ -1051,8 +1051,8 @@ class Shell:
         # glassd.json v3 and the materialize policy
         self.items_first = {}                 # (surface, kind, id) -> time first written
         self.native_seen = {}                 # overlay key -> when glassd last drew glass for it (NATIVE_GRACE_S)
-        self.vr_panel = None                  # SteamVR Settings' panel {w, h, glass: {x, y, w, h, r}} (lgs_sg.js beat)
-        self.vr_shown = False
+        self.vr_panels = {}                   # SteamVR panels: name -> {w, h, material, glass: {x, y, w, h, r}} (lgs_sg.js beat)
+        self.vr_shown = set()                 # ... the ones on the page now
         self.items_last = {}                  # (surface, kind, id) -> last item written (for its fade-out)
         self.fading = {}                      # (surface, kind, id) -> (item with phase 0, until)
         self.plate_acks = {}
@@ -1459,17 +1459,17 @@ class Shell:
         # SteamVR Settings' window glass (a SteamVR panel, not a Steam window): placed by main's overlay
         # (the page takes main's place in the frame), drawn ahead ("armed") while the page is away, so the
         # glass is there in the update the page mounts in (lgs_sg.js adds the cover node then)
-        vp = self.vr_panel
-        if isinstance(vp, dict) and "armed" in caps:
+        for vn, vp in self.vr_panels.items() if "armed" in caps else []:
             g = vp.get("glass") or {}
             vals = [_num(vp.get("w"), 2, 8192), _num(vp.get("h"), 2, 8192)] + \
                    [_num(g.get(k), 0, 8192) for k in ("x", "y", "w", "h", "r")]
-            if None not in vals:
-                w, h, gx, gy, gw, gh, gr = (round(v) for v in vals)
-                surfaces.append({"name": "vrsettings", "overlayKey": STEAM_MAIN_KEY, "texW": w, "texH": h,
-                                 "radius": gr, "material": "window", "visible": bool(self.vr_shown),
-                                 "armed": not self.vr_shown, "slabs": [],
-                                 "shapes": [{"x": gx, "y": gy, "w": gw, "h": gh, "r": gr}]})
+            if None in vals:
+                continue
+            w, h, gx, gy, gw, gh, gr = (round(v) for v in vals)
+            on = vn in self.vr_shown
+            surfaces.append({"name": "vr." + vn, "overlayKey": STEAM_MAIN_KEY, "texW": w, "texH": h,
+                             "radius": gr, "material": vp["material"], "visible": on, "armed": not on, "slabs": [],
+                             "shapes": [{"x": gx, "y": gy, "w": gw, "h": gh, "r": gr}]})
         cfg = {"dial": read_dial(), "reduceMotion": bool(self.reduce_motion), "surfaces": surfaces}
         if "unitM" in caps and self.geom and _num(self.geom.get("unitM"), 0.01, 10) is not None:
             cfg["unitM"] = self.geom["unitM"]
@@ -1705,9 +1705,15 @@ class Shell:
         self.wake_at = wake
         self.pop_clips = clips
         spec = dict({"M": None, "surfaces": out}, **self.spec_top())
-        gv = gsurf.get("vrsettings")
-        if isinstance(gv, dict) and _nums(gv.get("backdrop"), 4) is not None:
-            spec["vr"] = {"glassd": {"key": gv.get("key") or "glassd.vrsettings", "backdrop": _nums(gv.get("backdrop"), 4)}}
+        vr = []
+        for vn in self.vr_panels:
+            gv = gsurf.get("vr." + vn)
+            if isinstance(gv, dict) and _nums(gv.get("backdrop"), 4) is not None:
+                vr.append({"name": vn, "glassd": {"key": gv.get("key") or "glassd.vr." + vn,
+                                                  "backdrop": _nums(gv.get("backdrop"), 4),
+                                                  "scale": _num(gv.get("backdropScale") or 0.75, 0.05, 4)}})
+        if vr:
+            spec["vr"] = vr
         flags = self.read_flags()
         if flags and out:
             spec["flags"] = flags
@@ -2304,12 +2310,18 @@ class Shell:
             # SteamVR Settings' panel (lgs_sg.js measures it while the page shows): its size and glass rect
             # are kept, so glassd's "vrsettings" glass stays drawn ahead for the next time the page shows
             v = b.get("vr")
-            if isinstance(v, dict) and isinstance(v.get("glass"), dict):
-                prev = self.vr_panel
-                self.vr_panel = v
-                if prev != v:
-                    self.changed.set()
-            self.vr_shown = isinstance(v, dict)
+            shown = set()
+            for it in v if isinstance(v, list) else []:
+                if isinstance(it, dict) and isinstance(it.get("name"), str) and isinstance(it.get("glass"), dict) \
+                        and it.get("material") in ("window", "panel", "thick", "liquid"):
+                    name = it["name"][:24]
+                    shown.add(name)
+                    if self.vr_panels.get(name) != it:
+                        self.vr_panels[name] = it
+                        self.changed.set()
+            if shown != self.vr_shown:
+                self.vr_shown = shown
+                self.changed.set()
 
     async def send_spec(self, spec, js):
         self.spec_seq += 1
