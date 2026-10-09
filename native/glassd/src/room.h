@@ -3,7 +3,10 @@
 // mipmapped copy that the glass shader samples.
 #pragma once
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
+#include <cstring>
+#include <string>
 #include <vector>
 
 #include "feed.h"
@@ -244,6 +247,44 @@ class Room {
         }
         glActiveTexture(GL_TEXTURE0);
         filled.mipmap();
+    }
+
+    // The map kept across restarts (glassd restarts with SteamVR, on a watchdog or an update): a fresh map
+    // knows nothing, so every glass showed the flat unknown-room fill until the wearer looked around again.
+    // Raw map texels (sRGB, alpha = known) and the sphere's centre; a mismatched or short file is ignored.
+    bool save(const std::string &path) const {
+        std::vector<uint8_t> px = readPixels(map[cur].fbo, W, H);
+        const std::string tmp = path + ".tmp";
+        FILE *f = std::fopen(tmp.c_str(), "wb");
+        if (!f) return false;
+        const int32_t hdr[3] = {W, H, centerSet ? 1 : 0};
+        const float c[3] = {center.x, center.y, center.z};
+        bool ok = std::fwrite("LGSROOM1", 1, 8, f) == 8 && std::fwrite(hdr, sizeof hdr, 1, f) == 1 &&
+                  std::fwrite(c, sizeof c, 1, f) == 1 && std::fwrite(px.data(), 1, px.size(), f) == px.size();
+        ok = std::fclose(f) == 0 && ok;
+        return ok && std::rename(tmp.c_str(), path.c_str()) == 0;
+    }
+    bool load(const std::string &path) {
+        FILE *f = std::fopen(path.c_str(), "rb");
+        if (!f) return false;
+        char magic[8];
+        int32_t hdr[3];
+        float c[3];
+        std::vector<uint8_t> px(size_t(W) * H * 4);
+        bool ok = std::fread(magic, 1, 8, f) == 8 && std::memcmp(magic, "LGSROOM1", 8) == 0 &&
+                  std::fread(hdr, sizeof hdr, 1, f) == 1 && hdr[0] == W && hdr[1] == H &&
+                  std::fread(c, sizeof c, 1, f) == 1 && std::fread(px.data(), 1, px.size(), f) == px.size();
+        std::fclose(f);
+        if (!ok) return false;
+        glBindTexture(GL_TEXTURE_2D, map[cur].tex);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, W, H, GL_RGBA, GL_UNSIGNED_BYTE, px.data());
+        if (hdr[2]) {
+            center = v3{c[0], c[1], c[2]};
+            centerSet = true;
+        }
+        fill();
+        return true;
     }
 
     // Mean known fraction and mean room luma (perceptual), from the 1x1 level.

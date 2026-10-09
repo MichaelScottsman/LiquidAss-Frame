@@ -1107,6 +1107,8 @@ class Glassd {
     bool lastDash = false;
     Pose lastRenderHead;
     bool roomDirty = true, layoutDirty = true, outPending = false;
+    static constexpr const char *kRoomKeep = "/dev/shm/lgs/glassd-room.bin";  // the room map across restarts
+    uint64_t roomKeptAt = 0, lastKeepNs = 0;
     uint64_t outPendingSinceNs = 0;
     Pose lastHead;
     bool haveLastHead = false;
@@ -1198,6 +1200,12 @@ class Glassd {
         if (!loadPrograms()) return false;
         room.radius = opt.roomDepth;
         if (!room.init(gfx, progUpdate, progPush, progPull, progRow, progHfill, vao)) return false;
+        // the room this glassd's predecessor knew (Room::save): glass refracts the room from the first frame
+        if (opt.testPattern < 0 && room.load(kRoomKeep)) {
+            float known = 0, lum = 0;
+            room.stats(known, lum);
+            std::printf("room map restored from %s (%.0f%% known)\n", kRoomKeep, double(known) * 100.0);
+        }
         renderTimer.init(gfx);
         roomTimer.init(gfx);
         renderTimer.keep = opt.bench;
@@ -1221,8 +1229,15 @@ class Glassd {
         return true;
     }
 
+    void keepRoom() {
+        if (opt.testPattern >= 0 || room.updates == roomKeptAt) return;
+        mkdirs(dirname(kRoomKeep));
+        if (room.save(kRoomKeep)) roomKeptAt = room.updates;
+    }
+
     void teardown() {
         benchSummary();
+        keepRoom();
         feed.stop();
         if (vr::VRSystem()) writeOut(true);  // fps 0, "exiting": the layout stays readable
         if (vr::VROverlay()) {
@@ -3266,7 +3281,10 @@ class Glassd {
                 fpsWindowNs = now;
             }
             if (now - lastOutNs >= 2000000000ull) writeOut(false);
-            if (now - lastStatusNs >= 5000000000ull) status(now, dash);
+            if (now - lastStatusNs >= 5000000000ull) {
+                status(now, dash);
+                if (now - lastKeepNs >= 10000000000ull) { keepRoom(); lastKeepNs = now; }
+            }
 
             // ~250 Hz while active (pose history + frame pacing), ~100 Hz idle;
             // a spec change wakes the loop at once
