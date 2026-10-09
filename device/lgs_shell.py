@@ -1308,6 +1308,10 @@ class Shell:
         self.set_tune(lgs.clean_tune(t), save=True)
         return {"tune": self.tune}
 
+    def stereo_on(self):
+        """Per-eye glass unless the flag glassStereo is false."""
+        return (self.rt_flags or {}).get("glassStereo") is not False
+
     def set_tune(self, t, save):
         """A new tune (the panel's, or tune.json changed by `lgs dial`): glassd.json, the bridge, and
         (save) tune.json plus the dial file a moment later."""
@@ -1505,6 +1509,10 @@ class Shell:
                 surf["masks"] = clean_masks(s.get("masks"))
             if "scaleFrom" in caps and s.get("scaleFrom") in ("main", "overlay"):
                 surf["scaleFrom"] = s["scaleFrom"]
+            # per-eye glass where the scene graph shows the surface whole (Steam's window; the bar, the frame
+            # menu and the popups show crops of theirs, which a stereo panel cannot split per eye)
+            if "stereo" in caps and name == "main" and self.stereo_on():
+                surf["stereo"] = True
             # materialize: a new slab or plate id appears with materialize (GM §5.4)
             for kind, items in (("slab", surf["slabs"]), ("plate", surf.get("plates") or [])):
                 for it in items:
@@ -1564,8 +1572,13 @@ class Shell:
             on = vn in self.vr_shown
             surfaces.append({"name": "vr." + vn, "overlayKey": STEAM_MAIN_KEY, "texW": w, "texH": h,
                              "radius": gr, "material": vp["material"], "visible": on, "armed": not on, "slabs": [],
+                             **({"stereo": True} if "stereo" in caps and self.stereo_on() else {}),
                              "shapes": [{"x": gx, "y": gy, "w": gw, "h": gh, "r": gr}]})
         cfg = {"dial": self.dial_v, "reduceMotion": bool(self.reduce_motion), "surfaces": surfaces}
+        # per-eye glass (glassd renders each eye's view side by side; the scene graph shows each eye its half):
+        # on unless the flag glassStereo is false (contracts/glassd.md §1.1)
+        if "stereo" in caps:
+            cfg["stereo"] = self.stereo_on()
         if "tune" in caps:          # the wearer's tune (glassd eases to it; contracts/glassd.md §1.1)
             t = self.tune
             cfg["tune"] = {"refract": t["refract"], "frost": t["frost"], "light": t["light"]}
@@ -1774,7 +1787,8 @@ class Shell:
                     p["sink"] = L["sink"]
                 popped.append(p)
             sp = {"steamKey": s["overlayKey"], "texW": texW, "texH": texH, "visible": True,
-                  "glassd": {"key": g.get("key") or "glassd." + s["name"], "backdrop": backdrop, "scale": scale},
+                  "glassd": {"key": g.get("key") or "glassd." + s["name"], "backdrop": backdrop, "scale": scale,
+                             "stereo": g.get("stereo") is True},
                   "coverDz": COVER_DZ, "baseDz": BASE_DZ, "popped": popped}
             if _num(s.get("coverDz"), -1, 1) is not None:
                 sp["coverDz"] = _num(s["coverDz"], -1, 1)
@@ -1811,7 +1825,8 @@ class Shell:
             if isinstance(gv, dict) and _nums(gv.get("backdrop"), 4) is not None:
                 vr.append({"name": vn, "glassd": {"key": gv.get("key") or "glassd.vr." + vn,
                                                   "backdrop": _nums(gv.get("backdrop"), 4),
-                                                  "scale": _num(gv.get("backdropScale") or 0.75, 0.05, 4)}})
+                                                  "scale": _num(gv.get("backdropScale") or 0.75, 0.05, 4),
+                                                  "stereo": gv.get("stereo") is True}})
         if vr:
             spec["vr"] = vr
         flags = self.read_flags()
@@ -1826,7 +1841,8 @@ class Shell:
         if None in (texW, texH, scale) or backdrop is None:
             return None
         sp = {"steamKey": s["overlayKey"], "texW": texW, "texH": texH, "visible": False, "standby": True,
-              "glassd": {"key": g.get("key") or "glassd." + s["name"], "backdrop": backdrop, "scale": scale},
+              "glassd": {"key": g.get("key") or "glassd." + s["name"], "backdrop": backdrop, "scale": scale,
+                         "stereo": g.get("stereo") is True},
               "coverDz": COVER_DZ, "baseDz": BASE_DZ, "popped": []}
         if _num(s.get("coverDz"), -1, 1) is not None:
             sp["coverDz"] = _num(s["coverDz"], -1, 1)

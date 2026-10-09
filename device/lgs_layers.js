@@ -148,6 +148,7 @@
   const MODE_APPEAR_MS = 1500;   // a mode's cover reported this soon after the mode changed carries that time (appearAt)
   const EXIT_MAX_MS = 2000;      // a plate's content fade-out longer than this is not followed (exitMs)
   const PLATE_GONE_MS = 90;      // a plate whose element left the DOM: its glass fades this fast (exitMs)
+  const PAGE_OUT_MS = 150;       // --lgs-d-page-out: a page the shell stamped leaving (data-lgs-leaving) fades this long
   // spring tokens a morphing cover may name (native/shared/motion_tokens.h; glassd evaluates them)
   const MORPH_TOKENS = ['interactive', 'hover-in', 'fade', 'snappy', 'morph-open', 'morph-close', 'sheet-in', 'sheet-out', 'page', 'depth'];
   const PING_TTL_MS = 12000;    // no ping for this long (once pinged): stop
@@ -641,8 +642,6 @@
     try { return C.Instance ? !!C.Instance.IsInGamepadNav : null; } catch (_) { return null; }
   }
 
-  // Is the dashboard frame that shows this overlay visible? (A dashboard tab
-  // for another app hides Steam's window.) Unknown layouts don't block.
   // Does a shown Steam frame show one of SteamVR's own pages? Its frame action for that page (VR Settings)
   // is then "active" (the frame menu highlights it).
   function frameOnVrPage() {
@@ -656,6 +655,8 @@
     return false;
   }
 
+  // Is the dashboard frame that shows this overlay visible? (A dashboard tab
+  // for another app hides Steam's window.) Unknown layouts don't block.
   function frameVisible(key) {
     try {
       const frames = SteamUIStore.WindowStore.VRGamepadUIMainWindowInstance.VRFrameStore.frames;
@@ -756,7 +757,7 @@
   const INPUT_ATTRS = ['class', 'style', 'hidden', 'open', 'data-lgs-plate', 'data-lgs-plate-id',
     'data-lgs-plate-phase', 'data-lgs-plate-appear', 'data-lgs-plate-tint', 'data-lgs-plate-fill',
     'data-lgs-plate-occluder', 'data-lgs-plate-r', 'data-lgs-plate-inset', 'data-lgs-mosaic', 'data-lgs-nopop',
-    'data-lgs-destructive', 'data-lgs-media', 'data-lgs-window-dim', 'data-lgs-window-recede'];
+    'data-lgs-destructive', 'data-lgs-media', 'data-lgs-window-dim', 'data-lgs-window-recede', 'data-lgs-leaving'];
   const SPOT_RE = /--h[xy]\s*:[^;]*;?/g;
 
   function spotOnly(r) {
@@ -937,6 +938,15 @@
         bump('mutation');
         ent.domGen++;
         ent.dirty = true;
+        // reported plates whose elements this mutation took out (a route unmounting: Home's discs as Library
+        // commits) left with their content in this very frame: the report says so now, each plate fading
+        // from this moment (exitAt), not after the next frame-driven tick, which the new route's render
+        // starves (~270 ms measured), followed by the 350 ms dematerialize ramp. Nothing is measured here.
+        if (S.dash && !S.paused && ent.plateLast && ent.plateLast.size
+            && records.some((r) => r.type === 'childList' && r.removedNodes.length) && platesGone(ent)) {
+          bump('plates-gone');
+          emit();
+        }
         // a glass mode change is measured and reported right here, before Steam renders the new route
         // (a tick would wait for that render), so glassd starts materializing the window at once, from
         // the moment the mode changed (modeAt: the cover's appearAt)
@@ -1597,7 +1607,12 @@
     const goneAt = Date.now();
     const curIds = new Set(plates.map((p) => p.id));
     for (const [pid, last] of ent.plateLast || []) {
-      if (curIds.has(pid) || last.p.exitAt || !last.el || last.el.isConnected) continue;
+      if (curIds.has(pid) || last.p.exitAt || !last.el) continue;
+      // gone from the DOM, or still in it but no longer rendered (Steam hides the old route a frame
+      // before it unmounts it)
+      let shown = last.el.isConnected;
+      if (shown) { try { shown = last.el.checkVisibility({ visibilityProperty: true }); } catch (_) { shown = true; } }
+      if (shown) continue;
       plates.push(Object.assign({}, last.p, { exitAt: goneAt, exitMs: PLATE_GONE_MS }));
     }
     if (!why) ent.plateLast = new Map(out.plateEls.map((pe) => [pe.p.id, { p: pe.p, el: pe.el }]));
@@ -1758,6 +1773,13 @@
         // content instead of holding it at full glass until the element is gone
         if (ctx.held > held) exit = fadeOutOf(ctx, el);
       }
+    }
+    // its page is leaving (the shell's stamp, epoch ms, on an ancestor): the glass leaves on that clock
+    if (!appear && !exit) {
+      let lv = null;
+      try { lv = el.closest('[data-lgs-leaving]'); } catch (_) { lv = null; }
+      const at = lv ? +lv.getAttribute('data-lgs-leaving') : 0;
+      if (at > 0 && Date.now() - at < EXIT_MAX_MS) exit = { at, ms: PAGE_OUT_MS };
     }
     const p = { id, x: t.x, y: t.y, w: t.w, h: t.h, r: t.r, material: mat };
     if (appear) { p.appear = 'materialize'; p.phaseMs = Math.max(0, Math.min(2000, Math.round(appear.ms))); p.appearAt = Math.round(appear.at); }
@@ -2605,6 +2627,26 @@
       } catch (_) { /* window gone */ }
     }
     ent.applied = plan;
+  }
+
+  // The last report's plates whose element is no longer in the DOM, marked leaving from now (exitAt, over
+  // PLATE_GONE_MS) in the current report, without measuring anything. True when one was.
+  function platesGone(ent) {
+    const surf = ent.cur && ent.cur.surface;
+    if (!surf || !Array.isArray(surf.plates) || !surf.visible) return false;
+    const at = Date.now();
+    let n = 0;
+    const plates = surf.plates.map((p) => {
+      const last = ent.plateLast.get(p.id);
+      if (!last || !last.el || last.el.isConnected || p.exitAt) return p;
+      n++;
+      ent.plateLast.delete(p.id);      // left: the next compute does not mark it again
+      return Object.assign({}, p, { exitAt: at, exitMs: PLATE_GONE_MS });
+    });
+    if (!n) return false;
+    ent.cur = Object.assign({}, ent.cur, { surface: Object.assign({}, surf, { plates }) });
+    ent.sig = JSON.stringify(ent.cur.surface);
+    return true;
   }
 
   // A plate a route just inserted, in a native window: glassd's at once (data-lgs-plate-ack, so its CSS

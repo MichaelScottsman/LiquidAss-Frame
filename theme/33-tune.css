@@ -43,35 +43,40 @@
 }
 
 
-/* 2. The panel */
+/* 2. The panel: about 560 pp tall: Steam's bar popup contents stop at 600 (max-height, overflow hidden) */
 .lgs-tune-panel {
   box-sizing: border-box;
   width: 300px;
   max-width: 100%;
-  padding: 14px 12px 18px;
+  padding: 10px 12px 12px;
   display: flex;
   flex-direction: column;
+  /* the theme's 64 pp slider capsule, at 40 in this compact column (knob and fill follow it) */
+  --lgs-slider: 40px;
 }
 .lgs-tune-title {
-  font: var(--lgs-type-title3);
+  font: var(--lgs-type-headline);
   color: var(--lgs-text-1);
-  padding: 4px 12px 8px;
+  padding: 0 12px 4px;
 }
 .lgs-tune-note {
   font: var(--lgs-type-footnote);
   color: var(--lgs-text-2);
-  padding: 0 12px 8px;
+  padding: 0 12px 6px;
 }
+/* a row's name and value on one line */
 .lgs-tune-label {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  font: var(--lgs-type-body);
+  gap: 12px;
+  font: var(--lgs-type-subhead);
   color: var(--lgs-text-1);
-  padding: 6px 12px 4px;
+  white-space: nowrap;
+  padding: 2px 12px 0;
 }
 .lgs-tune-label > span {
-  font: var(--lgs-type-subhead);
+  font-variant-numeric: tabular-nums;
   color: var(--lgs-text-2);
 }
 
@@ -79,7 +84,7 @@
 .lgs-tune-swatches {
   display: flex;
   justify-content: space-between;
-  padding: 8px 12px 14px;
+  padding: 6px 12px 8px;
 }
 .lgs-tune-swatch {
   position: relative;
@@ -129,17 +134,36 @@
   outline: none;
 }
 
-/* 2.2 Sliders (Steam's SliderField): the panel's own padding, no separators */
+/* 2.2 Sliders: Steam's own, bare (no label of theirs), fitted like the Control Center's (31-cc.css) */
 .lgs-tune-row {
-  padding: 0 4px;
+  padding: 0 0 4px;
+}
+.lgs-tune-row %{*GamepadDialogContent>Field} {
+  padding: 0 4px !important;
+  margin: 0 !important;
+  min-height: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.lgs-tune-row %{*GamepadDialogContent>Field}::after {
+  display: none;
+}
+.lgs-tune-row %{*GamepadDialogContent>FieldLeftColumn},
+.lgs-tune-row %{*GamepadDialogContent>FieldLeftColumn} > %{*GamepadDialogContent>FieldChildrenWithIcon} {
+  padding: 0 !important;
+  margin: 0 !important;
+  min-height: 0 !important;
+}
+.lgs-tune-row %{*SliderControlAndNotches>SliderControlPanelGroup} {
+  padding-block: 0;
 }
 .lgs-tune-row.is-disabled {
-  opacity: .5;
+  opacity: .45;
 }
 
 /* 2.3 Reset */
 .lgs-tune-reset {
-  margin: 12px 12px 0;
-  min-height: 56px;
+  margin: 6px 8px 0;
+  min-height: 48px;
   border-radius: var(--lgs-r-capsule);
 }

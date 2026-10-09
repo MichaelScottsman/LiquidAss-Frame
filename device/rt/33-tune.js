@@ -123,13 +123,17 @@ __LGS_RT.define({
     // ---- the panel (the bar popup's contents)
     const contentsClass = () => { try { const s = rt.sel('%{DashboardBarPopupContents}'); return /^\.[\w-]+$/.test(s) ? s.slice(1) : ''; } catch (_) { return ''; } };
     const pct = (v) => Math.round(v * 100);
+    // one row: the name and the value on one line, Steam's bare slider below (its own gamepad and laser
+    // handling; no label of its own, so nothing wraps in the 300 pp column)
     function Slider(props) {
       if (!c.SliderField) return null;
-      return jsx('div', { className: 'lgs-tune-row' + (props.disabled ? ' is-disabled' : ''), children: jsx(c.SliderField, {
-        label: props.label, description: props.description, value: props.value, min: props.min || 0, max: props.max,
-        step: 1, showValue: true, valueSuffix: '%', disabled: !!props.disabled, bottomSeparator: 'none',
-        resetValue: props.reset, onChange: props.onChange,
-      }) });
+      return jsxs('div', { className: 'lgs-tune-row' + (props.disabled ? ' is-disabled' : ''), children: [
+        jsx('div', { className: 'lgs-tune-label', children: [props.label, jsx('span', { children: props.value + '%' }, 'v')] }, 'l'),
+        jsx(c.SliderField, {
+          value: props.value, min: props.min || 0, max: props.max, step: 1, disabled: !!props.disabled,
+          bottomSeparator: 'none', resetValue: props.reset, onChange: props.onChange,
+        }, 's'),
+      ] });
     }
     function TunePanel() {
       const [, bump] = React.useState(0);
@@ -138,7 +142,6 @@ __LGS_RT.define({
       const d = daemon();
       const cls = contentsClass();
       const hueName = (HUES.find((h) => h[0] === t.hue) || HUES[0])[1];
-      const nativeOnly = d.native ? undefined : 'Native glass only';
       return jsxs(Focusable, {
         className: 'lgs-tune-panel' + (cls ? ' ' + cls : ''),
         'flow-children': 'column',
@@ -146,6 +149,7 @@ __LGS_RT.define({
         children: [
           jsx('div', { className: 'lgs-tune-title', children: 'Glass' }, 'title'),
           d.live ? null : jsx('div', { className: 'lgs-tune-note', children: 'Glass service not running' }, 'note'),
+          d.live && !d.native ? jsx('div', { className: 'lgs-tune-note', children: 'Refraction and Highlights need native glass' }, 'nn') : null,
           jsx('div', { className: 'lgs-tune-label', children: ['Colour', jsx('span', { children: hueName }, 'v')] }, 'cl'),
           jsx(Focusable, {
             className: 'lgs-tune-swatches', 'flow-children': 'row',
@@ -158,13 +162,13 @@ __LGS_RT.define({
           }, 'sw'),
           jsx(Slider, { label: 'Tint strength', value: pct(t.hueK), max: 100, reset: 50, disabled: !t.hue,
             onChange: (v) => set({ hueK: v / 100 }) }, 'k'),
-          jsx(Slider, { label: 'Glass intensity', description: 'Clear to frosted', value: pct(t.dial), max: 100, reset: 50,
+          jsx(Slider, { label: 'Glass intensity', value: pct(t.dial), max: 100, reset: 50,
             onChange: (v) => set({ dial: v / 100 }) }, 'dial'),
-          jsx(Slider, { label: 'Refraction', description: nativeOnly, value: pct(t.refract), max: 200, reset: 100, disabled: !d.native,
+          jsx(Slider, { label: 'Refraction', value: pct(t.refract), max: 200, reset: 100, disabled: !d.native,
             onChange: (v) => set({ refract: v / 100 }) }, 'ref'),
           jsx(Slider, { label: 'Frost', value: pct(t.frost), max: 200, reset: 100,
             onChange: (v) => set({ frost: v / 100 }) }, 'frost'),
-          jsx(Slider, { label: 'Highlights', description: nativeOnly, value: pct(t.light), max: 200, reset: 100, disabled: !d.native,
+          jsx(Slider, { label: 'Highlights', value: pct(t.light), max: 200, reset: 100, disabled: !d.native,
             onChange: (v) => set({ light: v / 100 }) }, 'light'),
           c.DialogButton ? jsx(c.DialogButton, { className: 'lgs-tune-reset', onClick: reset, children: 'Reset to default' }, 'reset') : null,
         ],
@@ -185,6 +189,7 @@ __LGS_RT.define({
     function TuneButton() {
       const handle = React.useRef(undefined);
       const [open, setOpen] = React.useState(false);
+      S.btnHandle = handle;     // status, and the lab's open() / close()
       const Btn = findBtn();
       if (!Btn) return null;
       const bc = barClasses();
@@ -244,6 +249,10 @@ __LGS_RT.define({
         shown: (() => { try { return rt.windows.byKind('bar').some((e) => !!e.doc.querySelector('.lgs-tune')); } catch (_) { return null; } })() }),
       set: (patch) => set(patch || {}),
       reset,
+      // the popup, for tests (the wearer opens it with the paintbrush)
+      open: () => { const h = S.btnHandle && S.btnHandle.current; if (!h) return false; h.openPopup(); return true; },
+      close: () => { const h = S.btnHandle && S.btnHandle.current; if (!h) return false; h.closePopup(); return true; },
+      isOpen: () => { const h = S.btnHandle && S.btnHandle.current; return !!(h && h.BPopupOpen && h.BPopupOpen()); },
     };
   },
   remove() {

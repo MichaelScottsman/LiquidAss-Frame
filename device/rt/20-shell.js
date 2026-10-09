@@ -123,6 +123,29 @@
     const f = q(m.doc, S.footerSel);
     return !!(f && q(f, S.legendSel));
   }
+  // Leaving our Home (Home, a folder) for another route: Home has no route exit when the new route shares
+  // its top-level route (Home -> Library, both under /library): Steam swaps the content in one frame once
+  // Library has rendered, 100-500 ms later. The Home view that is leaving is stamped with the moment it
+  // started (epoch ms, before the glass mode flips, so the reporter's tick on that flip already sees it):
+  // it fades on the route exit (41-home.css, --lgs-d-page-out) and the reporter lets its plates go on the
+  // same clock (exitAt), however late its next tick comes while the new route renders. Only the views
+  // present now carry it (never the new page); back to Home clears it.
+  function leaving(path) {
+    const m = S.main;
+    if (!m || typeof path !== 'string') return;
+    const root = q(m.doc, S.rootSel);
+    const home = (k) => k === 'home' || k === 'folder';
+    let views = [];
+    try { views = [...m.doc.querySelectorAll('.lgs-home')]; } catch (_) { return; }
+    if (home(mapRoute(path).key)) {
+      for (const v of views) if (v.hasAttribute('data-lgs-leaving')) v.removeAttribute('data-lgs-leaving');
+      return;
+    }
+    // Steam's redirect right after (/library -> its tab) is a second history change: the stamp stays
+    if (!root || !home(S.route && S.route.key) || root.getAttribute('data-lgs-glass') !== 'windowless') return;
+    const at = String(Date.now());
+    for (const v of views) if (!v.hasAttribute('data-lgs-leaving')) v.setAttribute('data-lgs-leaving', at);
+  }
   // The new route's glass mode at once, in the history change itself, when the map alone decides it (no
   // hook of the route's own that reads its not-yet-rendered page): the reporter sees the mode flip before
   // Steam renders the route, so the window glass materializes with the route change (Home -> Library),
@@ -808,6 +831,7 @@
         e.html.style.removeProperty('--lgs-c1a-tab-wx');
         e.html.classList.remove('lgs-modal');
         for (const n of e.doc.querySelectorAll('.lgs-tabcap')) n.remove();
+        for (const n of e.doc.querySelectorAll('.lgs-home[data-lgs-leaving]')) n.removeAttribute('data-lgs-leaving');
       } catch (_) { /* closed */ }
     }
   }
@@ -825,6 +849,7 @@
         if (!S) return;
         try { trackHistory(loc, action); } catch (_) { /* keep going */ }
         S.otherMode = null; setTarget(null);
+        try { leaving(loc && loc.pathname); } catch (_) { /* no fade: Steam's swap */ }
         try { earlyMode(loc && loc.pathname); } catch (_) { /* applyRoute below */ }
         S.rt.setTimeout(() => S && applyRoute('history'), 0);
       });

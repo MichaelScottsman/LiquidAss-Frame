@@ -559,6 +559,15 @@
       linear-gradient(180deg, rgb(255 255 255 / .14), rgb(255 255 255 / .03)), rgb(0 0 0 / .66));
 }
 
+/* leaving Home for a route under the same top-level route (Home -> Library): the route exit's fade that
+   Steam gives every other route change (23-transitions.css: 150 ms linear). The shell stamps the leaving
+   view (data-lgs-leaving, rt 20-shell.js) and the reporter lets Home's plates go on the same clock. */
+.lgs-home[data-lgs-leaving] {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--lgs-d-page-out, 150ms) linear;
+}
+
 /* mosaic bands (HA §10.2): invisible boxes the reporter reads (data-lgs-mosaic) */
 .lgs-home-band {
   position: absolute;

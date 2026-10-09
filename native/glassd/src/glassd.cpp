@@ -100,6 +100,7 @@ struct Options {
     std::string keyPrefix = kDefaultPrefix;
     std::string feedDev = "/dev/video99";
     bool once = false, force = false, demo = false, noFeed = false, noMask = false, orphanOk = false;
+    bool mono = false;  // --mono: one copy per texture, from the head (no per-eye stereo)
     float zone[3] = {0.15f, 0.08f, 0.25f};  // main window mask zone: side, top, bottom (m)
     int debugView = 0;
     int dashOverride = -1;  // --dash on|off (tests): -1 = ask SteamVR
@@ -188,6 +189,7 @@ bool parseArgs(int argc, char **argv, Options &o) {
         else if (a == "--key-prefix") ok = next(o.keyPrefix);
         else if (a == "--feed") ok = next(o.feedDev);
         else if (a == "--no-feed") o.noFeed = true;
+        else if (a == "--mono") o.mono = true;
         else if (a == "--no-mask") o.noMask = true;
         else if (a == "--orphan-ok") o.orphanOk = true;
         else if (a == "--debug-view") { std::string v; ok = next(v); o.debugView = std::atoi(v.c_str()); }
@@ -531,6 +533,7 @@ struct SurfSpec {
     float coverDz = 0.001f;                 // scene units: the cover and plates relative to the surface
     std::vector<MaskSpec> masks;
     bool scaleFromOverlay = false;          // "scaleFrom": "overlay": no rescale to the window's mpp
+    bool stereo = false;                    // "stereo": per-eye layout (a surface the scene graph shows whole)
 };
 // The wearer's glass tune (the bar's paintbrush panel; cap "tune"): multipliers on every material's
 // refraction (lens and dispersion), frost and light (key specular, Fresnel, sheen), and a colour for the
@@ -544,6 +547,7 @@ struct Spec {
     long long seq = 0;
     float dial = 0.5f;
     Tune tune;
+    bool stereo = true;   // "stereo": false = every surface mono (cap stereo)
     bool reduceMotion = false;
     float unitM = 0.369f;  // v3: metres per scene unit (S x r)
     float roomDim = 0;     // v3 G7: every piece of glass sees the room darkened by this (0..1)
@@ -708,6 +712,7 @@ bool parseSpec(const std::string &text, Spec &out, std::string &err) {
         }
     }
     out.reduceMotion = root.boolean("reduceMotion", false);
+    out.stereo = root.boolean("stereo", true);
     {
         const float d = float(root.num("roomDim", 0));
         out.roomDim = std::isfinite(d) ? std::clamp(d, 0.f, 0.9f) : 0.f;
@@ -858,6 +863,7 @@ bool parseSpec(const std::string &text, Spec &out, std::string &err) {
             }
         }
         ss.scaleFromOverlay = s.str("scaleFrom", "main") == "overlay";
+        ss.stereo = s.boolean("stereo", false);
         out.surfaces.push_back(std::move(ss));
     }
     return true;
@@ -898,6 +904,7 @@ struct Surface {
     vr::VROverlayHandle_t ov = vr::k_ulOverlayHandleInvalid;
     vr::VROverlayHandle_t steam = vr::k_ulOverlayHandleInvalid;
     int gw = 0, gh = 0, bw = 0, bh = 0;
+    int eyes = 1;                    // 2: the buffers hold the layout twice, left eye's on the left (stereo)
     float scale = 0.75f;
     Atlas atlas;
     std::vector<SlabSlot> slots, ghosts;
@@ -1110,6 +1117,8 @@ class Glassd {
     uint64_t haveSeq = 0;
     FeedCalib cal;
     Pose eyeToHead;
+    v3 eyeOffset[2] = {{-0.032f, 0, 0}, {0.032f, 0, 0}};  // each eye in head space (SteamVR's IPD)
+    uint64_t eyeOffsetAt = 0;
     std::deque<std::pair<uint64_t, Pose>> hist;
     Spec spec;
     bool haveSpec = false;
@@ -1401,8 +1410,10 @@ class Glassd {
     // the headroom costs memory, not bandwidth.
     static int atlasHeight(int bh) { return roundUp(bh + Atlas::kGutter + std::clamp(bh, 256, 1024), 32); }
 
+    int wantEyes(const Surface &s) const { return !opt.mono && spec.stereo && s.spec.stereo ? 2 : 1; }
     void resizeTexture(Surface &s, int gw, int gh) {
-        if (s.gw == gw && s.gh == gh) return;
+        const int eyes = wantEyes(s);
+        if (s.gw == gw && s.gh == gh && s.eyes == eyes) return;
         const uint64_t now = monoNowNs();
         for (auto &b : s.bufs) {
             if (b.bo) retired.push_back({b, now + 500000000ull});
@@ -1410,6 +1421,7 @@ class Glassd {
         }
         s.gw = gw;
         s.gh = gh;
+        s.eyes = eyes;
         s.next = 0;
         s.last = -1;
         s.rendered = false;
@@ -1486,7 +1498,7 @@ class Glassd {
         // one with their first slab (one texture resize) and keep it. Popups
         // that never pop anything stay backdrop-sized.
         const bool wantAtlas = s.atlasOn || sp.material == "window" || !sp.slabs.empty();
-        if (bw != s.bw || bh != s.bh || s.gh == 0 || wantAtlas != s.atlasOn) {
+        if (bw != s.bw || bh != s.bh || s.gh == 0 || wantAtlas != s.atlasOn || s.eyes != wantEyes(s)) {
             s.bw = bw;
             s.bh = bh;
             s.scale = scale;
@@ -1767,10 +1779,10 @@ class Glassd {
     bool ensureBuffers(Surface &s) {
         for (auto &b : s.bufs) {
             if (b.bo) continue;
-            if (!b.create(gfx, s.gw, s.gh)) return false;
+            if (!b.create(gfx, s.gw * s.eyes, s.gh)) return false;
             vr::DmabufAttributes_t a{};
             a.pNext = nullptr;
-            a.unWidth = uint32_t(s.gw);
+            a.unWidth = uint32_t(s.gw * s.eyes);
             a.unHeight = uint32_t(s.gh);
             a.unDepth = a.unMipLevels = a.unArrayLayers = a.unSampleCount = 1;
             a.unFormat = GBM_FORMAT_ABGR8888;
@@ -2606,10 +2618,17 @@ class Glassd {
         return a > 0 ? (0.006f + 0.003f) / designMpp() + 2.f : 2.f;
     }
 
+    // Stereo (s.eyes 2): each region of the layout is a pair, the left eye's copy and then the right eye's
+    // (every x doubled: the backdrop at [0, bw) and [bw, 2bw), a slab cell at x at [2x, 2x + w) and
+    // [2x + w, 2x + 2w)), each rendered from that eye (its own rays through the glass, its own highlights).
+    // SteamVR shows a "Parallel" panel's uv rect split in half, the left half to the left eye (measured on
+    // the device 2026-10-09: it splits the panel's own crop, not the texture), so a panel over a whole pair
+    // gives each eye its view and the room behind the glass has its own depth instead of lying on the glass
+    // like a picture. Mono: one copy, from the head.
     void renderSurface(Surface &s, const Pose &head, uint64_t now) {
         DmaTarget &b = s.bufs[s.next];
         glBindFramebuffer(GL_FRAMEBUFFER, b.fbo);
-        glViewport(0, 0, s.gw, s.gh);
+        glViewport(0, 0, s.gw * s.eyes, s.gh);
         glClearColor(0, 0, 0, 0);
         // Only the backdrop and the live cells (plus their gutters) are
         // cleared and drawn; the rest of a buffer is cleared once.
@@ -2618,8 +2637,24 @@ class Glassd {
             glClear(GL_COLOR_BUFFER_BIT);
             s.cleared[s.next] = true;
         }
+        for (int e = 0; e < s.eyes; e++) {
+            Pose eye = head;
+            if (s.eyes == 2) eye.t = head.t + head.rotate(eyeOffset[e]);
+            renderEye(s, b, eye, now, e);
+        }
+        glDisable(GL_SCISSOR_TEST);
+        s.last = s.next;
+        s.next = (s.next + 1) % 3;
+        s.rendered = true;
+    }
+
+    // Eye e's copy of the surface's layout (e 0 in mono).
+    void renderEye(Surface &s, DmaTarget &b, const Pose &head, uint64_t now, int e) {
+        const int ox = e * s.bw;  // the backdrop's copy
+        glBindFramebuffer(GL_FRAMEBUFFER, b.fbo);
+        glClearColor(0, 0, 0, 0);
         glEnable(GL_SCISSOR_TEST);
-        glScissor(0, 0, s.bw, s.bh);
+        glScissor(ox, 0, s.bw, s.bh);
         glClear(GL_COLOR_BUFFER_BIT);
         const Geometry &g = s.geo;
         const float mpp = designMpp();
@@ -2685,8 +2720,8 @@ class Glassd {
                     progGlass.set("uLowScale", lowScale);
                     progGlass.set("uInner", inner);
                 }
-                glScissor(sx0, sy0, sx1 - sx0, sy1 - sy0);
-                drawGlass(s, g, head, cm, cph, 0, 0, s.bw, s.bh, {0, 0, 0}, shapes, coverDzM, false, casters, twoPass ? 2 : 0);
+                glScissor(ox + sx0, sy0, sx1 - sx0, sy1 - sy0);
+                drawGlass(s, g, head, cm, cph, ox, 0, s.bw, s.bh, {0, 0, 0}, shapes, coverDzM, false, casters, twoPass ? 2 : 0);
                 coverDrawn = true;
             }
         }
@@ -2745,9 +2780,9 @@ class Glassd {
                 const int x1 = std::min(s.bw, int(std::ceil((p->s.x + p->s.w + pad) * s.scale)) + 1);
                 const int y1 = std::min(s.bh, int(std::ceil((p->s.y + p->s.h + pad) * s.scale)) + 1);
                 if (x1 <= x0 || y1 <= y0) continue;
-                glScissor(x0, y0, x1 - x0, y1 - y0);
+                glScissor(ox + x0, y0, x1 - x0, y1 - y0);
                 coverTaps = copyHasDetail(s, casters, p->s.x, p->s.y, p->s.x + p->s.w, p->s.y + p->s.h, false) ? 9 : 1;
-                drawGlass(s, g, head, pm, platePhase(*p, now), 0, 0, s.bw, s.bh, {0, 0, 0},
+                drawGlass(s, g, head, pm, platePhase(*p, now), ox, 0, s.bw, s.bh, {0, 0, 0},
                           {{p->s.x, p->s.y, p->s.w, p->s.h, p->s.r}}, plateDz, plateUnder, casters, 0, 0.f, plateLook(*p));
                 platesDrawn = true;
             }
@@ -2768,37 +2803,38 @@ class Glassd {
         auto drawSlab = [&](const SlabSlot &sl) {
             float ex, ey, sw, sh;
             slabRect(s, sl, ex, ey, sw, sh);
-            const int gx0 = std::max(0, sl.x - 1), gy0 = std::max(s.bh, sl.y - 1);
-            const int gx1 = std::min(s.gw, sl.x + sl.w + 1), gy1 = std::min(s.gh, sl.y + sl.h + 1);
-            glScissor(gx0, gy0, gx1 - gx0, gy1 - gy0);
-            glClear(GL_COLOR_BUFFER_BIT);  // the cell's gutter may hold an older cell's pixels
+            // the cell's copy for this eye; the pair (and its gutter) is cleared once, before the left eye
+            const int cx = s.eyes == 2 ? 2 * sl.x + e * sl.w : sl.x;
+            if (e == 0) {
+                const int px = s.eyes == 2 ? 2 * sl.x : sl.x, pw = s.eyes == 2 ? 2 * sl.w : sl.w;
+                const int gx0 = std::max(0, px - 1), gy0 = std::max(s.bh, sl.y - 1);
+                const int gx1 = std::min(s.gw * s.eyes, px + pw + 1), gy1 = std::min(s.gh, sl.y + sl.h + 1);
+                glScissor(gx0, gy0, gx1 - gx0, gy1 - gy0);
+                glClear(GL_COLOR_BUFFER_BIT);  // the cell's gutter may hold an older cell's pixels
+            }
             if (sl.s.none()) return;       // v3: a cell that draws nothing (its hole is on the cover)
             if (sl.s.dim()) {
                 // v3 G7: a flat dark cell (the room dim the scene graph stretches behind the window)
                 Look flat;
                 flat.flat = true;
                 flat.fill = sl.s.fill;
-                glScissor(sl.x, sl.y, sl.w, sl.h);
+                glScissor(cx, sl.y, sl.w, sl.h);
                 drawGlass(s, g, head, materialFor("liquid", dialNow(), std::min(sl.s.w, sl.s.h)),
-                          phaseMap(phaseOf(sl.anim), spec.reduceMotion), sl.x, sl.y, sl.w, sl.h, {ex, ey, 0},
+                          phaseMap(phaseOf(sl.anim), spec.reduceMotion), cx, sl.y, sl.w, sl.h, {ex, ey, 0},
                           {{0, 0, sw, sh, sl.s.r}}, 0.f, false, {}, 0, 0.f, flat);
                 return;
             }
             const Material m = materialFor(sl.s.material, dialNow(), std::min(sl.s.w, sl.s.h));
             Look look;
             look.tint = sl.s.tint;
-            glScissor(sl.x, sl.y, sl.w, sl.h);
+            glScissor(cx, sl.y, sl.w, sl.h);
             coverTaps = copyHasDetail(s, casters, ex + sl.s.ox, ey + sl.s.oy, ex + sl.s.ox + sw, ey + sl.s.oy + sh, true) ? 9 : 1;
-            drawGlass(s, g, head, m, phaseMap(phaseOf(sl.anim), spec.reduceMotion), sl.x, sl.y, sl.w, sl.h,
+            drawGlass(s, g, head, m, phaseMap(phaseOf(sl.anim), spec.reduceMotion), cx, sl.y, sl.w, sl.h,
                       {ex + sl.s.ox, ey + sl.s.oy, 0}, {{0, 0, sw, sh, sl.s.r}}, sl.s.dz * spec.unitM - 0.0008f, under, {}, 0, 0.f, look);
         };
         for (const SlabSlot &sl : s.slots) drawSlab(sl);
         for (const SlabSlot &sl : s.ghosts) drawSlab(sl);
         coverTaps = 9;
-        glDisable(GL_SCISSOR_TEST);
-        s.last = s.next;
-        s.next = (s.next + 1) % 3;
-        s.rendered = true;
     }
 
     // Renders every visible surface, waits for the GPU, then hands the new
@@ -2814,6 +2850,15 @@ class Glassd {
             todo.push_back(s.get());
         }
         if (todo.empty()) return 0;
+        // where each eye sits in the head (the wearer's IPD), every few seconds
+        if (!eyeOffsetAt || now - eyeOffsetAt > 5000000000ull) {
+            eyeOffsetAt = now;
+            for (int e = 0; e < 2; e++) {
+                const vr::HmdMatrix34_t m = vr::VRSystem()->GetEyeToHeadTransform(e ? vr::Eye_Right : vr::Eye_Left);
+                const v3 o{m.m[0][3], m.m[1][3], m.m[2][3]};
+                if (std::isfinite(o.x) && std::fabs(o.x) > 0.015f && std::fabs(o.x) < 0.05f) eyeOffset[e] = o;
+            }
+        }
         const uint64_t t0 = monoNowNs();
         renderTimer.begin();
         Program &p = progGlass;
@@ -2865,7 +2910,8 @@ class Glassd {
             // The scene graph sizes the panel from the mouse scale: change it
             // together with the first texture of a new size.
             if (b.w != s->submittedW || b.h != s->submittedH) {
-                vr::HmdVector2_t mouse = {float(b.w), float(b.h)};
+                // one eye's size: the panel is sized from it, and a stereo texture holds two
+                vr::HmdVector2_t mouse = {float(b.w / std::max(1, s->eyes)), float(b.h)};
                 vr::VROverlay()->SetOverlayMouseScale(s->ov, &mouse);
                 s->submittedW = b.w;
                 s->submittedH = b.h;
@@ -2931,7 +2977,7 @@ class Glassd {
                       spec.seq, int(getpid()), double(rt.tv_sec) + double(rt.tv_nsec) / 1e9, !exiting && healthy() ? "true" : "false",
                       exiting ? 0.0 : double(fpsNow), double(gpuMs()), (unsigned long long)frames, lastDash ? "true" : "false");
         o += b;
-        o += ", \"version\": 3, \"caps\": [\"plates\", \"holes\", \"tint\", \"masks\", \"coverDz\", \"none\", \"offset\", \"dim\", \"scaleFrom\", \"unitM\", \"roomDim\", \"dimSlab\", \"holeEdges\", \"morph\", \"appearAt\", \"armed\", \"exitAt\", \"tune\"]";
+        o += ", \"version\": 3, \"caps\": [\"plates\", \"holes\", \"tint\", \"masks\", \"coverDz\", \"none\", \"offset\", \"dim\", \"scaleFrom\", \"unitM\", \"roomDim\", \"dimSlab\", \"holeEdges\", \"morph\", \"appearAt\", \"armed\", \"exitAt\", \"tune\", \"stereo\"]";
         // the dial and the tune as drawn (eased toward the spec's)
         std::snprintf(b, sizeof b, ", \"tune\": {\"dial\": %.3f, \"refract\": %.3f, \"frost\": %.3f, \"light\": %.3f, \"hueK\": %.3f}",
                       double(dialNow()), double(tuneLive.refract), double(tuneLive.frost), double(tuneLive.light), double(tuneLive.hueK));
@@ -2950,7 +2996,7 @@ class Glassd {
                                  : s->spec.hasShapes ? std::min(s->spec.shapes.size(), size_t(kMaxShapes)) : size_t(1);
             std::snprintf(b, sizeof b,
                           "%s: {\"key\": %s, \"texW\": %d, \"texH\": %d, \"backdrop\": [0, 0, %.6f, %.6f], \"backdropScale\": %.6f, \"cover\": %zu",
-                          jsonEscape(s->spec.name).c_str(), jsonEscape(s->key).c_str(), s->gw, s->gh, s->bw / gw, s->bh / gh,
+                          jsonEscape(s->spec.name).c_str(), jsonEscape(s->key).c_str(), s->gw, s->gh, s->bw / (gw * s->eyes), s->bh / gh,
                           double(s->scale), cover);
             o += b;
             // where the surface is from the head: the angle off the view direction and the distance (lab:
@@ -2965,11 +3011,14 @@ class Glassd {
                 std::snprintf(b, sizeof b, ", \"view\": {\"offDeg\": %.1f, \"distM\": %.2f}", double(off), double(dist));
                 o += b;
             }
+            if (s->eyes == 2) o += ", \"stereo\": true";
             o += ", \"geometry\": " + jsonEscape(s->geoNote) + ", \"slabs\": {";
             for (size_t i = 0; i < s->slots.size(); i++) {
                 const SlabSlot &sl = s->slots[i];
-                std::snprintf(b, sizeof b, "%s%s: [%.6f, %.6f, %.6f, %.6f]", i ? ", " : "", jsonEscape(sl.s.id).c_str(), sl.x / gw, sl.y / gh,
-                              (sl.x + sl.w) / gw, (sl.y + sl.h) / gh);
+                // the cell (stereo: its left eye's copy; the right eye's follows it)
+                const float sx = float(s->eyes == 2 ? 2 * sl.x : sl.x), tw = gw * float(s->eyes);
+                std::snprintf(b, sizeof b, "%s%s: [%.6f, %.6f, %.6f, %.6f]", i ? ", " : "", jsonEscape(sl.s.id).c_str(), sx / tw, sl.y / gh,
+                              (sx + sl.w) / tw, (sl.y + sl.h) / gh);
                 o += b;
             }
             o += "}";

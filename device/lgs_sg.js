@@ -55,6 +55,7 @@
   const SLAB_OVER_COVER = 0.0003; // and at least this far in front of the cover
   const MIN_PIECE = 1;            // px; smaller mosaic slivers are dropped
   const SINK_MAX_MS = 600;        // glassd keeps a retired slab cell drawn this long
+  const STEREO_PARALLEL = 1;      // SteamVR's EStereoscopy: Mono 0, Parallel 1 (left eye: left half)
   const ROUTE_OUT_MS = 150;       // --lgs-d-page-out: a pop of a page that is leaving goes after this
   const ROUTE_ADOPT_MS = 400;     // ... and one still lifted this long after the mode change stays, as the page's
   const ROOT_ID = GLOBAL === '__LGS_SG' ? 'lgs-sg-root' : 'lgs-sg-root-' + GLOBAL;
@@ -501,6 +502,9 @@
       delete p.curvature;
     }
     Object.assign(p, d.flags || {});
+    // glassd's per-eye texture (left eye's layout on the left half): each eye sees its own half, at the
+    // same uv (SteamVR's stereoscopy "Parallel"), so the room behind the glass has its depth
+    if (d.stereo) p.stereoscopy = STEREO_PARALLEL;
     // Wearer profile only (PLAN 1.7, SP 2.6): the crop takes the laser itself.
     if (d.interactive) Object.assign(p, { interactive: true, 'steam-input-appid': 769, 'can-take-keyboard-focus': true });
     return p;
@@ -556,7 +560,8 @@
   // z of animated items is not part of the signature (applyAnimated sets it).
   function sigOf(d) {
     return [d.parentKey, r6(d.u), r6(d.v), d.popKey ? 'anim' : r6(d.z), d.key, d.uv.map(r6).join(','), d.mpp, d.name, d.curvOrigin || '',
-      JSON.stringify(d.flags || {}), d.interactive ? 1 : 0, d.dimKey || '', d.popKey ? r6(d.baseDz) + '/' + r6(d.coverDz) : ''].join('|');
+      JSON.stringify(d.flags || {}), d.interactive ? 1 : 0, d.dimKey || '', d.popKey ? r6(d.baseDz) + '/' + r6(d.coverDz) : '',
+      d.stereo ? 'st' : ''].join('|');
   }
 
   // Update in place; true if anything changed, 'rebuild' if the wrapper changes.
@@ -929,10 +934,14 @@
     for (const [pk, ps] of st.pops) if (ps.surface === key && c.seen.has(pk) && !routeOut(ps, windowless)) { popped = true; break; }
     const behind = COVER_BEHIND && (!popped || windowless) && W.__LGS_SG_FRONT !== true;
   // __LGS_SG_FRONT: lab A/B, the layout with crops
+    // a stereo surface (glassd: the left eye's backdrop, then the right eye's): the panel spans the pair,
+    // which SteamVR splits per eye; shown whole only (a crop of a pair would not split at its seam)
+    const cuv = [b0 + (b2 - b0) * R.x0 / Wd, b1 + (b3 - b1) * R.y0 / Ht, b0 + (b2 - b0) * R.x1 / Wd, b1 + (b3 - b1) * R.y1 / Ht];
+    const coverStereo = g.stereo === true && R.x0 === 0 && R.x1 === Wd;
+    if (coverStereo) cuv[2] = cuv[0] + 2 * (cuv[2] - cuv[0]);
     add('cover', {
       kind: 'cover', id: null, px: [R.x1 - R.x0, R.y1 - R.y0], u: au((R.x0 + R.x1) / 2), v: av((R.y0 + R.y1) / 2), z: behind ? COVER_BEHIND_DZ : coverDz,
-      key: g.key, uv: [b0 + (b2 - b0) * R.x0 / Wd, b1 + (b3 - b1) * R.y0 / Ht, b0 + (b2 - b0) * R.x1 / Wd, b1 + (b3 - b1) * R.y1 / Ht],
-      mpp: M / scale, name: 'lgs:cover:' + short, dimKey,
+      key: g.key, uv: cuv, mpp: M / scale, name: 'lgs:cover:' + short, dimKey, stereo: coverStereo,
     });
 
     const holes = [];
@@ -961,10 +970,14 @@
         // The slab is the element's full rect; crop it like the element was.
         const [s0, t0, s1, t1] = ps.slab.map(Number);
         const fx0 = (x0 - x) / w, fx1 = (x1 - x) / w, fy0 = (y0 - y) / h, fy1 = (y1 - y) / h;
-        add('slab:' + id, {
+        const suv = [s0 + (s1 - s0) * fx0, t0 + (t1 - t0) * fy0, s0 + (s1 - s0) * fx1, t0 + (t1 - t0) * fy1];
+        // stereo: the panel spans the cell's pair; clipped sideways (an element scrolled half out) the pair
+        // cannot be split at its seam, so the slab is left out while it is
+        const sideClip = fx0 > 0.001 || fx1 < 0.999;
+        if (g.stereo === true) suv[2] = suv[0] + 2 * (suv[2] - suv[0]);
+        if (!(g.stereo === true && sideClip)) add('slab:' + id, {
           kind: 'slab', id, ghost: ps.ghost, px: [x1 - x0, y1 - y0], u, v, z: ps.c.target, popKey: pk, baseDz, coverDz,
-          key: g.key, uv: [s0 + (s1 - s0) * fx0, t0 + (t1 - t0) * fy0, s0 + (s1 - s0) * fx1, t0 + (t1 - t0) * fy1],
-          mpp: M / scale, name: 'lgs:slab:' + short + ':' + id,
+          key: g.key, uv: suv, mpp: M / scale, name: 'lgs:slab:' + short + ':' + id, stereo: g.stereo === true,
         });
       }
     }
@@ -980,8 +993,10 @@
       const k = Math.max(1, num(o.scaleUp, ROOMDIM_SCALE));
       add('roomdim:' + o.id, {
         kind: 'roomdim', id: String(o.id), px: [Math.round(w * k), Math.round(h * k)], u: au(x + w / 2), v: av(y + h / 2),
-        z: Math.min(num(o.dz, ROOMDIM_DZ), ROOMDIM_DZ), key: g.key, uv: o.slab.map(Number), mpp: (M / scale) * k,
-        name: 'lgs:roomdim:' + short + ':' + o.id,
+        z: Math.min(num(o.dz, ROOMDIM_DZ), ROOMDIM_DZ), key: g.key, mpp: (M / scale) * k,
+        // stereo: the cell's pair (the same flat tone for both eyes)
+        uv: (() => { const q = o.slab.map(Number); if (g.stereo === true) q[2] = q[0] + 2 * (q[2] - q[0]); return q; })(),
+        name: 'lgs:roomdim:' + short + ':' + o.id, stereo: g.stereo === true,
       });
     }
 
@@ -1098,8 +1113,11 @@
       for (const k of Object.keys(sp)) if (!VR_SKIP.includes(k)) props[k] = sp[k];
       // a panel sized by metres per pixel: our texture has `scale` px per panel px
       if (num(sp['meters-per-pixel'], 0) > 0) props['meters-per-pixel'] = num(sp['meters-per-pixel'], 0) / scale;
-      Object.assign(props, { key: g.key, uv_min: [r6(b0), r6(b1)], uv_max: [r6(b2), r6(b3)], interactive: false, reflect: 0,
+      // stereo: the panel spans the left eye's backdrop and the right eye's after it
+      const vb2 = g.stereo === true ? b0 + 2 * (b2 - b0) : b2;
+      Object.assign(props, { key: g.key, uv_min: [r6(b0), r6(b1)], uv_max: [r6(vb2), r6(b3)], interactive: false, reflect: 0,
         debug_name: 'lgs:vr:' + d.name });
+      if (g.stereo === true) props.stereoscopy = STEREO_PARALLEL;
       let c = VRC.get(d.name);
       if (!c || c.el !== p || !c.xf || !c.xf.isConnected) {
         if (c) vrCoverDrop(d.name);
@@ -1723,6 +1741,34 @@
       }
       pushNow();
       return { yaw: d, applied: ov.applied, missing: ov.missing };
+    },
+    // A test panel on Steam's main window showing a crop of an overlay's texture with a stereoscopy mode
+    // (0 mono, 1 side-by-side parallel): how SteamVR maps a cropped panel per eye. probe(null) removes it.
+    // o: {key, uv: [u0, v0, u1, v1], stereo, u, v (anchor on main), z (m), mpp}
+    stereoProbe(o) {
+      if (st.destroyed) return { error: 'destroyed' };
+      contact();
+      if (st.stereoProbe) {
+        const p = st.stereoProbe;
+        st.stereoProbe = null;
+        try { p.remove(); } catch (_) { /* gone */ }
+        retire([p, ...p.querySelectorAll('[sgid]')]);
+      }
+      if (o && typeof o.key === 'string' && Array.isArray(o.uv) && o.uv.length === 4) {
+        const top = vnode('reparent-to-panel', { 'parent-overlay-key': STEAM_KEY });
+        const anchor = vnode('panel-anchor', { 'anchor-u': num(o.u, 0.5), 'anchor-v': num(o.v, 0.5) });
+        const xf = vtransform(num(o.z, 0.05));
+        const panel = vnode('panel', { key: o.key, uv_min: [o.uv[0], o.uv[1]], uv_max: [o.uv[2], o.uv[3]],
+          'meters-per-pixel': num(o.mpp, 0.0009), origin: [0, 0], interactive: false, visibility: 0, reflect: 0,
+          stereoscopy: Math.round(num(o.stereo, 0)), debug_name: 'lgs:stereo-probe' });
+        xf.appendChild(panel);
+        anchor.appendChild(xf);
+        top.appendChild(anchor);
+        rootEl().appendChild(top);
+        st.stereoProbe = top;
+      }
+      pushNow();
+      return { on: !!st.stereoProbe };
     },
   };
 
