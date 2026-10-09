@@ -58,6 +58,13 @@
   const ROOT_ID = GLOBAL === '__LGS_SG' ? 'lgs-sg-root' : 'lgs-sg-root-' + GLOBAL;
   const TIMELINE_MAX = 600;
   const SHARED_REPARENT = opts.sharedReparent !== undefined ? !!opts.sharedReparent : true;
+  // Without pops, a surface's glass goes just behind Steam's own panel, and Steam's panel shows its content
+  // over it: no base crops. A panel of ours that shows a Steam window's texture (a base crop, ~the whole
+  // window) made Steam's UI renderer keep every page a route unmounted (~290 DOM nodes and 70 listeners per
+  // route cycle, never released; 0 with the glass behind and no crops: soaks, 2026-10-09). Base crops (the
+  // page with holes under lifted parts) are built only while something is popped.
+  const COVER_BEHIND = opts.coverBehind !== undefined ? !!opts.coverBehind : true;
+  const COVER_BEHIND_DZ = -0.0004;   // as SteamVR's own panels' glass (vrCoverSync)
   const DEBUG_TINT = opts.debugTint || null;
   const FLAG_KEYS = ['frame-resize-scale-factor', 'sort-depth-bias', 'sort-order', 'no-depth-test', 'no-depth-write', 'reflect'];
   const DEFAULT_FLAGS = { 'frame-resize-scale-factor': 1 };
@@ -886,8 +893,11 @@
     // cover: glassd's backdrop maps linearly onto the Steam texture; plates
     // are drawn by glassd inside it (contracts/glassd.md 1.3)
     const [b0, b1, b2, b3] = g.backdrop.map(Number);
+    let popped = false;
+    for (const [pk, ps] of st.pops) if (ps.surface === key && c.seen.has(pk)) { popped = true; break; }
+    const behind = COVER_BEHIND && !popped;
     add('cover', {
-      kind: 'cover', id: null, px: [R.x1 - R.x0, R.y1 - R.y0], u: au((R.x0 + R.x1) / 2), v: av((R.y0 + R.y1) / 2), z: coverDz,
+      kind: 'cover', id: null, px: [R.x1 - R.x0, R.y1 - R.y0], u: au((R.x0 + R.x1) / 2), v: av((R.y0 + R.y1) / 2), z: behind ? COVER_BEHIND_DZ : coverDz,
       key: g.key, uv: [b0 + (b2 - b0) * R.x0 / Wd, b1 + (b3 - b1) * R.y0 / Ht, b0 + (b2 - b0) * R.x1 / Wd, b1 + (b3 - b1) * R.y1 / Ht],
       mpp: M / scale, name: 'lgs:cover:' + short, dimKey,
     });
@@ -952,6 +962,7 @@
         bands.push({ x0: Math.round(x) - R.x0, y0: Math.round(y) - R.y0, x1: Math.round(x + w) - R.x0, y1: Math.round(y + h) - R.y0 });
       }
     }
+    if (behind) return;   // Steam's own panel shows the content, over the glass
     mosaic(R.x1 - R.x0, R.y1 - R.y0, holes, bands).forEach((q, i) => {
       const p = { x0: q.x0 + R.x0, y0: q.y0 + R.y0, x1: q.x1 + R.x0, y1: q.y1 + R.y0 };
       add('base:' + i, {
