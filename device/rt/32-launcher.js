@@ -85,7 +85,7 @@ __LGS_RT.define({
   install(rt) {
     const S = {
       rt, R: null, handle: null, busy: false, t3: false, t3Error: null,
-      marked: 0, fitted: 0, glyphs: 0, attend: false, fit: new WeakMap(),
+      marked: 0, fitted: 0, glyphs: 0, attend: false, fit: new WeakMap(), fitOf: new Map(),
       lgEntry: null, steamRowLog: [], test: { noScan: false },
     };
     LAUNCHER_STATE.cur = S;
@@ -94,7 +94,9 @@ __LGS_RT.define({
     rt.windows.track((w) => {
       if (w.kind !== 'barpopup') return undefined;
       let queued = false, dimQueued = false;
-      const run = () => { queued = false; if (LAUNCHER_STATE.cur === S && w.visible()) tagPopup(S, w.doc); };
+      // tagged as its content mounts, hidden or not: a pooled popup is filled ahead of its open, so the open
+      // itself has nothing left to tag (on the open it cost ~50 ms before the popup's first frame)
+      const run = () => { queued = false; if (LAUNCHER_STATE.cur === S) tagPopup(S, w.doc); };
       const dimRun = () => { dimQueued = false; if (LAUNCHER_STATE.cur === S && w.visible()) attendTags(w.doc); };
       const dimSoon = () => { if (!dimQueued) { dimQueued = true; Promise.resolve().then(dimRun); } };
       let mo = null, moc = null;
@@ -108,7 +110,7 @@ __LGS_RT.define({
       // :hover has no mutation
       const opt = { capture: true, passive: true };
       try { w.doc.addEventListener('mouseover', dimSoon, opt); w.doc.addEventListener('mouseout', dimSoon, opt); } catch (_) { /* gone */ }
-      if (w.visible()) tagPopup(S, w.doc);
+      tagPopup(S, w.doc);
       return () => {
         try { if (mo) mo.disconnect(); } catch (_) { /* gone */ }
         try { if (moc) moc.disconnect(); } catch (_) { /* gone */ }
@@ -116,9 +118,11 @@ __LGS_RT.define({
         untag(w.doc);
       };
     });
+    // on show: a check after the popup's first frame (what changed while it was hidden is tagged already),
+    // never in the show itself
     rt.windows.onShow((w) => {
       if (w.kind !== 'barpopup') return;
-      tagPopup(S, w.doc);
+      try { w.win.requestAnimationFrame(() => rt.setTimeout(() => tagPopup(S, w.doc), 0)); } catch (_) { /* gone */ }
       rt.setTimeout(() => tagPopup(S, w.doc), 120);
     });
 
@@ -245,7 +249,15 @@ function tagPopup(S, doc) {
     const fl = c.querySelector(s.FL);
     if (fl) for (const k of fl.children) { if (!k.matches(s.FI)) { if (!k.hasAttribute('data-lgs-c2b-lbl')) k.setAttribute('data-lgs-c2b-lbl', ''); break; } }
     const key = name + '\u0000' + col + (l2 ? '\u0000' + l2.getAttribute('data-fit') : '');
-    if (S.fit.get(c) !== key) todo.push([c, mc, name, key, col]);
+    if (S.fit.get(c) !== key) {
+      // a label measured before (Steam renders new cells on every open): its verdict, no probe
+      const known = S.fitOf.get(key);
+      if (known) {
+        if (c.getAttribute('data-lgs-c2b-fit') !== known.fit) c.setAttribute('data-lgs-c2b-fit', known.fit);
+        if (c.getAttribute('data-lgs-c2b-under') !== known.under) c.setAttribute('data-lgs-c2b-under', known.under);
+        S.fit.set(c, key);
+      } else todo.push([c, mc, name, key, col]);
+    }
     // the CSS keys the laser's plate on P3's 0.4 s step only where it is registered
     if (S.attend) { if (c.getAttribute('data-lgs-c2b-step') !== String(PLATE_STEP_MS)) c.setAttribute('data-lgs-c2b-step', String(PLATE_STEP_MS)); }
     else if (c.hasAttribute('data-lgs-c2b-step')) c.removeAttribute('data-lgs-c2b-step');
@@ -289,6 +301,8 @@ function tagPopup(S, doc) {
       }
       if (c.getAttribute('data-lgs-c2b-under') !== under) c.setAttribute('data-lgs-c2b-under', under);
       S.fit.set(c, key);
+      if (S.fitOf.size > 400) S.fitOf.clear();
+      S.fitOf.set(key, { fit, under });
       S.fitted++;
     }
   } catch (e) {
