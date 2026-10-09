@@ -1142,7 +1142,8 @@ def main(argv):
                   f"echo installed {DESKTOP}")
         elif cmd == "uninstall":
             lgs(c, "off", "--quiet")
-            sh(c, f"rm -f {DESKTOP} && rm -rf {REMOTE} /tmp/lgs && echo removed")
+            sh(c, f"rm -f {DESKTOP} && rm -rf {REMOTE} /tmp/lgs \"${{XDG_CONFIG_HOME:-$HOME/.config}}/glass-shell\" "
+                  "&& echo removed")
         elif cmd in ("on", "off", "toggle", "reload", "status", "toast", "dial"):
             if cmd in ("on", "reload", "toggle"):
                 sync(c)

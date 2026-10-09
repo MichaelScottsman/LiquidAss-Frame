@@ -35,6 +35,12 @@ html.lgs-on {
   /* Transparency dial, 0 = clearest .. 1 = most opaque ("lgs dial 0.7").
      The bundler appends the remembered value after every file. */
   --lgs-dial: 0.5;
+  /* The wearer's glass colour (the bar's paintbrush panel; the bundler appends the saved one, rt
+     33-tune.js sets it live): the CSS glass tints mix toward it by --lgs-tune-mix, as glassd moves its
+     glass body's neutral toward it (uHue). k 0 = the neutral tints below, unchanged. */
+  --lgs-tune-hue: rgb(0 0 0);
+  --lgs-tune-hue-k: 0;
+  --lgs-tune-mix: calc(var(--lgs-tune-hue-k) * 35%);
 
   /* ================================================================ type */
   --lgs-font: "LGS Inter", "Motiva Sans", Arial, sans-serif;
@@ -179,15 +185,17 @@ html.lgs-on {
      05-native.css (P6) zeroes these where the daemon acknowledged a cover. */
   /* the window's tint alone (a colour, for slabs that build their own
      gradient stack; High Contrast makes it .94 like the -bg tokens) */
-  --lgs-mat-window-tint: rgb(20 22 30 / calc(.60 + var(--lgs-dial) * .24));
+  --lgs-mat-window-tint: color-mix(in srgb, rgb(20 22 30 / calc(.60 + var(--lgs-dial) * .24)),
+      rgb(from var(--lgs-tune-hue) r g b / calc(.60 + var(--lgs-dial) * .24)) var(--lgs-tune-mix));
   --lgs-mat-window-bg:
       linear-gradient(180deg, rgb(255 255 255 / .08) 0, rgb(255 255 255 / 0) 30%),
-      rgb(20 22 30 / calc(.60 + var(--lgs-dial) * .24));
+      var(--lgs-mat-window-tint);
   --lgs-mat-window-blur: none;
   --lgs-mat-window-shade: var(--lgs-darkedge-window);
   --lgs-mat-panel-bg:
       linear-gradient(180deg, rgb(255 255 255 / .08) 0, rgb(255 255 255 / 0) 40%),
-      rgb(28 30 40 / calc(.67 + var(--lgs-dial) * .22));
+      color-mix(in srgb, rgb(28 30 40 / calc(.67 + var(--lgs-dial) * .22)),
+        rgb(from var(--lgs-tune-hue) r g b / calc(.67 + var(--lgs-dial) * .22)) var(--lgs-tune-mix));
   --lgs-mat-panel-blur: none;
   --lgs-mat-panel-shade: var(--lgs-darkedge-panel);
   --lgs-mat-liquid-bg:
@@ -196,11 +204,13 @@ html.lgs-on {
   --lgs-mat-liquid-blur: blur(12px) saturate(1.7);
   --lgs-mat-liquid-room-bg:
       linear-gradient(180deg, rgb(255 255 255 / .12), rgb(255 255 255 / .03) 55%),
-      rgb(28 30 40 / calc(.58 + var(--lgs-dial) * .24));
+      color-mix(in srgb, rgb(28 30 40 / calc(.58 + var(--lgs-dial) * .24)),
+        rgb(from var(--lgs-tune-hue) r g b / calc(.58 + var(--lgs-dial) * .24)) var(--lgs-tune-mix));
   --lgs-mat-liquid-shade: var(--lgs-darkedge-liquid);
   --lgs-mat-thick-bg:
       linear-gradient(180deg, rgb(255 255 255 / .08), rgb(255 255 255 / 0) 35%),
-      rgb(36 37 42 / calc(.30 + var(--lgs-dial) * .20));
+      color-mix(in srgb, rgb(36 37 42 / calc(.30 + var(--lgs-dial) * .20)),
+        rgb(from var(--lgs-tune-hue) r g b / calc(.30 + var(--lgs-dial) * .20)) var(--lgs-tune-mix));
   --lgs-mat-thick-blur: blur(30px) saturate(1.5);
   --lgs-mat-thick-shade: var(--lgs-darkedge-thick);
   --lgs-mat-clear-bg: rgb(255 255 255 / .05);

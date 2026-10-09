@@ -10,5 +10,6 @@
  "wp.c4a": true, "wp.c4b": true,
  "wp.c5a": true, "wp.c5b": true,
  "wp.c6a": true, "wp.c6b": true,
- "wp.c7": true
+ "wp.c7": true,
+ "glassTune": true
 }

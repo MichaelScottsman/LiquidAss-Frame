@@ -93,6 +93,7 @@ uniform vec4 uShFill[16];  // hole: fill tone inside the crop rect (sRGB, alpha)
 uniform sampler2D uHoleTex;
 // v3 per-piece looks
 uniform vec4 uTintC;       // colour tint: linear rgb, strength (0 = none)
+uniform vec4 uHue;         // the wearer's glass colour: linear rgb at luminance 1, how far the neutral moves to it
 uniform vec4 uFillC;       // flat fill over the glass: sRGB rgb, alpha (0 = none)
 uniform int uOccl;         // 1 = occluder variant: brightness x.55, no light
 uniform int uFlat;         // 1 = "dim" plate: uFillC only, feathered by uFeather
@@ -344,8 +345,10 @@ void main() {
   float Lg = uBandMid + 0.03 * gCover + (Lr - uBandMid) * bandK * (Lr < uBandMid ? 1.2 : 0.8);
   float lumG = pow(clamp(Lg, 0.02, 0.95), 2.2);
   vec3 rgb = bg * clamp(lumG / lumR, 0.25, 4.0);
-  // neutral tint of the same luminance; over unknown room, the room's mean hue
-  vec3 hue = mix(vec3(0.97, 0.99, 1.04), avgCol / max(luma(avgCol), 1e-3), 0.35 * unk);
+  // neutral tint of the same luminance (or the wearer's glass colour, uHue); over unknown room, the
+  // room's mean hue
+  vec3 body = mix(vec3(0.97, 0.99, 1.04), uHue.rgb, clamp(uHue.a, 0.0, 1.0));
+  vec3 hue = mix(body, avgCol / max(luma(avgCol), 1e-3), 0.35 * unk);
   // glass over glass (a slab seeing the cover) adds only part of its tint:
   // the cover is already tinted
   rgb = mix(rgb, hue * lumG, clamp(uTintA * (1.0 - 0.5 * gCover) * (1.0 - 0.8 * uEdgeClear * band) + 0.1 * unk, 0.0, 0.95));

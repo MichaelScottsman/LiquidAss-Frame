@@ -39,7 +39,7 @@ DEFAULT_RATE = 1.0                     # s between accepted calls of one type
 GLOBAL_LIMIT, GLOBAL_WINDOW = 20, 10.0  # accepted calls in any window
 DEFAULT_TIMEOUT = 10.0
 ARG_TYPES = ("str", "int", "num", "bool", "enum")
-SPEC_KEYS = {"args", "sources", "rate", "kind", "flag", "timeout"}
+SPEC_KEYS = {"args", "sources", "rate", "kind", "flag", "timeout", "global"}
 ARG_KEYS = {"type", "optional", "max", "re", "min", "values"}
 STR_MAX = 256
 TEST_PREFIX = "test:"                  # plugins from the registry's test_dir (RAM, lab only)
@@ -102,8 +102,13 @@ def check_spec(atype, spec):
     flag = spec.get("flag")
     if flag is not None and not isinstance(flag, str):
         raise ValueError(f"{atype}: flag must be a string")
+    # global: False = the type's own rate is its only limit (a slider dragged: up to 1/rate calls a second,
+    # which the global window would cut off after GLOBAL_LIMIT). Only for cheap, side-effect-light kinds.
+    glob = spec.get("global", True)
+    if not isinstance(glob, bool) or (not glob and (kind != "ui" or rate < 0.02)):
+        raise ValueError(f"{atype}: global False needs kind ui and a rate of at least 0.02 s")
     return {"args": norm_args, "sources": list(sources), "kind": kind, "rate": rate,
-            "timeout": timeout, "flag": flag}
+            "timeout": timeout, "flag": flag, "global": glob}
 
 
 def validate_args(schema, args):
@@ -399,10 +404,11 @@ class Registry:
             last = self.last_ok.get(atype)
             if last is not None and now - last < spec["rate"]:
                 raise ActionError("rate", f"{spec['rate']} s between calls")
-            if len(self.recent) >= GLOBAL_LIMIT:
+            if spec["global"] and len(self.recent) >= GLOBAL_LIMIT:
                 raise ActionError("rate", f"{GLOBAL_LIMIT} calls in {GLOBAL_WINDOW:g} s")
             self.last_ok[atype] = now
-            self.recent.append(now)
+            if spec["global"]:
+                self.recent.append(now)
         except ActionError as e:
             return self._reject(cid, e.code, e.detail, call) if cid else (self._reject(None, e.code, e.detail, call) and None)
         if spec["kind"] in DRY_KINDS:
@@ -430,7 +436,8 @@ class Registry:
             return self._reject(cid, "plugin-error", f"{e!r}"[:200] or tb[:200], call)
         finally:
             self.inflight.discard(atype)
-        self._log(f"action {cid} {atype} from {src}: ok")
+        if spec["global"]:       # a slider's stream of calls is not logged one by one
+            self._log(f"action {cid} {atype} from {src}: ok")
         return {"id": cid, "ok": True, "result": result}
 
     def status(self):

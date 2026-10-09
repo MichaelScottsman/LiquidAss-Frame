@@ -121,6 +121,8 @@ ACTION_TICK_S = 1.0                # plugin scan and tick
 RAMP_IN_MS = {"window": 735, "thick": 735}     # GM §5.2: covers and thick ride sheet-in (settles ~0.73 s)
 RAMP_OUT_MS = {"window": 514, "thick": 514}    # sheet-out (~0.51 s)
 RAMP_IN_DEFAULT_MS, RAMP_OUT_DEFAULT_MS, RAMP_REDUCED_MS = 250, 350, 180
+PAGE_OUT_MS = 150                  # --lgs-d-page-out: a leaving route's fade; plates removed with it fade on it
+TUNE_SAVE_S = 0.4                  # the wearer's tune is saved (and the dial file mirrored) this long after the last change
 # glassd.json v3 fields copied from the report, and the glassd cap each needs
 # (contracts/glassd.md; contracts/daemon.md §7)
 SURF_V3 = {"plates": "plates", "coverDz": "coverDz", "masks": "masks", "scaleFrom": "scaleFrom"}
@@ -128,7 +130,7 @@ SURF_V2 = ("quad", "phase", "appear", "phaseMs")
 SLAB_V3 = {"tint": "tint", "hole": "holes", "ox": "offset", "oy": "offset"}
 SLAB_V2 = ("phase", "appear", "phaseMs")
 PLATE_KEYS = ("id", "x", "y", "w", "h", "r", "material", "phase", "appear", "phaseMs", "appearAt", "tint", "fill",
-              "occluder", "shadow")
+              "occluder", "shadow", "exitAt", "exitMs")
 TOP_V3 = {"unitM": "unitM", "masks": "masks", "roomDim": "roomDim"}
 COVER_DZ, BASE_DZ = 0.001, 0.002   # metres toward the viewer (NATIVE.md)
 SG_MAX_PUSH_HZ = 15                # lgs_sg.js scheduler pushes per second, at most
@@ -211,11 +213,14 @@ def remove_glassd_files():
 
 
 def read_dial():
+    return lgs.read_dial()
+
+
+def _mtime(path):
     try:
-        with open(lgs.DIAL, encoding="utf-8") as f:
-            return min(1.0, max(0.0, float(f.read().strip())))
-    except (OSError, ValueError):
-        return 0.5
+        return os.stat(path).st_mtime_ns
+    except OSError:
+        return None
 
 
 def http_json(url, timeout=3):
@@ -833,6 +838,11 @@ def clean_plate(p, i):
         out["occluder"] = p["occluder"]
     if "shadow" in p and _num(p["shadow"], 0, 1) is not None:
         out["shadow"] = _round(_num(p["shadow"], 0, 1))
+    # its content fading out (a route leaving): from that epoch ms over that long (contracts/glassd.md §1.3)
+    if _num(p.get("exitAt"), 1, 1e15) is not None:
+        ms = _num(p.get("exitMs"), 0, 2000)
+        out["exitAt"] = int(_num(p["exitAt"], 1, 1e15))
+        out["exitMs"] = int(ms) if ms is not None else PAGE_OUT_MS
     return out
 
 
@@ -1003,6 +1013,13 @@ class Shell:
         self.gjson_full = None
         self.gjson_written_at = 0.0
         self.dial_mtime = None
+        # the wearer's glass tune (lgs.TUNE, kept across reboots): glassd.json's dial and tune, the bridge
+        # value 'tune'; saved TUNE_SAVE_S after the last change (a slider streams changes)
+        self.tune = lgs.read_tune()
+        self.tune_mtime = _mtime(lgs.TUNE)
+        self.dial_v = lgs.read_dial()
+        self.tune_save = None                 # the pending save (asyncio TimerHandle)
+        self.tune_mirrored = (self.dial_v, self.tune["hue"], self.tune["hueK"])
         # SteamVR page theming and page scripts
         self.vr_version = None
         self.vr_pages = {}
@@ -1016,7 +1033,7 @@ class Shell:
         self.profile = "default"
         self.reduce_motion = False
         # bridge to Steam's runtime (__LGS_RT.bridge)
-        self.bridge_values = {}               # name -> value
+        self.bridge_values = {"tune": dict(self.tune)}   # name -> value
         self.bridge_sent = {}                 # name -> (json without 'at', time)
         self.bridge_runtime = None            # True / False once checked
         self.bridge_beat_at = 0.0
@@ -1030,6 +1047,18 @@ class Shell:
                      "reset": {"type": "bool", "optional": True}},
             "sources": ["main", "bar", "barpopup", "ccpopup"], "rate": 0.25, "kind": "ui"},
             self.action_sgwindow)
+        # the wearer's glass tune (the bar's paintbrush panel, rt 33-tune.js): every field optional, a partial
+        # update merged; a slider streams calls, so its own rate (25 a second) is its only limit
+        self.registry.add_builtin("glass.tune", {
+            "args": {"dial": {"type": "num", "min": 0, "max": 1, "optional": True},
+                     "hueK": {"type": "num", "min": 0, "max": 1, "optional": True},
+                     "refract": {"type": "num", "min": 0, "max": 2, "optional": True},
+                     "frost": {"type": "num", "min": 0, "max": 2, "optional": True},
+                     "light": {"type": "num", "min": 0, "max": 2, "optional": True},
+                     "hue": {"type": "str", "max": 7, "re": r"^(#[0-9a-fA-F]{6})?$", "optional": True},
+                     "reset": {"type": "bool", "optional": True}},
+            "sources": ["bar", "barpopup", "main"], "rate": 0.04, "kind": "ui", "global": False},
+            self.action_glass_tune)
         # echo restricted to the main window: the wrong-source probe of DM-4
         self.registry.add_builtin("echo.main", {"args": {"text": {"type": "str", "max": 200, "optional": True}},
                                                 "sources": ["main"], "rate": 0.2, "kind": "echo"},
@@ -1055,6 +1084,7 @@ class Shell:
         self.vr_shown = set()                 # ... the ones on the page now
         self.items_last = {}                  # (surface, kind, id) -> last item written (for its fade-out)
         self.fading = {}                      # (surface, kind, id) -> (item with phase 0, until)
+        self.cover_last = {}                  # surface -> had a cover in the last glassd.json
         self.plate_acks = {}
         self.cover_keys = []
         self.pop_clips = {}                   # (surface, id) -> clip rect trimmed by build_spec (hole.clip)
@@ -1262,6 +1292,51 @@ class Shell:
         self.changed.set()
         return {"window": self.window_state()}
 
+    async def action_glass_tune(self, ctx, atype, args, call):
+        """Built-in 'glass.tune': the wearer's glass tune from the bar's paintbrush panel (dial, colour,
+        refraction, frost, highlights; reset). glassd.json and the bridge follow at once (glassd eases
+        to it); tune.json, kept across reboots, TUNE_SAVE_S after the last change."""
+        if args.get("reset"):
+            t = dict(lgs.TUNE_DEFAULT)
+        else:
+            t = dict(self.tune)
+            for k in ("dial", "hueK", "refract", "frost", "light"):
+                if k in args:
+                    t[k] = args[k]
+            if "hue" in args:
+                t["hue"] = args["hue"] or None
+        self.set_tune(lgs.clean_tune(t), save=True)
+        return {"tune": self.tune}
+
+    def set_tune(self, t, save):
+        """A new tune (the panel's, or tune.json changed by `lgs dial`): glassd.json, the bridge, and
+        (save) tune.json plus the dial file a moment later."""
+        self.tune = t
+        self.dial_v = t["dial"] if save or os.path.exists(lgs.TUNE) else lgs.read_dial()
+        self.bridge_values["tune"] = dict(t)
+        self.write_glassd_json()
+        self.changed.set()
+        if save:
+            if self.tune_save is not None:
+                self.tune_save.cancel()
+            self.tune_save = asyncio.get_running_loop().call_later(TUNE_SAVE_S, self.save_tune)
+
+    def save_tune(self):
+        """tune.json (removed at the defaults) and, when the dial or the colour changed, the dial file:
+        the theme bundle carries both, and lgs_vr re-themes the SteamVR pages on the dial file."""
+        self.tune_save = None
+        try:
+            lgs.write_tune(self.tune)
+            mirror = (self.tune["dial"], self.tune["hue"], self.tune["hueK"])
+            if mirror != self.tune_mirrored:
+                with open(lgs.DIAL, "w", encoding="utf-8") as f:
+                    f.write(f"{self.tune['dial']:g}\n")
+                self.tune_mirrored = mirror
+        except OSError as e:
+            self.note(f"tune: not saved ({e})")
+        self.tune_mtime = _mtime(lgs.TUNE)
+        self.dial_mtime = _mtime(lgs.DIAL)
+
     def status(self):
         g = self.gout or {}
         sg = self.sg_status or {}
@@ -1334,7 +1409,7 @@ class Shell:
         now = time.time()
         caps = self.caps()
         rep = self.current_report() or {"surfaces": []}
-        surfaces, by_name, current, shown = [], {}, {}, set()
+        surfaces, by_name, current, shown, gained = [], {}, {}, set(), set()
         for s in rep.get("surfaces", []):
             if not isinstance(s, dict) or not s.get("name") or not s.get("overlayKey"):
                 continue
@@ -1413,6 +1488,10 @@ class Shell:
                                   if isinstance(s.get("plates"), list)) if p]
             if "dim" not in caps:     # a dim plate is a flat dark tone: never glass instead
                 plates = [p for p in plates if p.get("material") != "dim"]
+            if "exitAt" not in caps:
+                for p in plates:
+                    p.pop("exitAt", None)
+                    p.pop("exitMs", None)
             if plates and "plates" in caps:
                 surf["plates"] = plates[:32]
             elif plates and isinstance(surf.get("shapes"), list):
@@ -1437,14 +1516,30 @@ class Shell:
                     current[key] = it
             if surf["visible"]:
                 shown.add(name)
+            # a cover is "shapes" non-empty, or (absent) the whole texture of a window-material surface
+            cover = bool(surf["shapes"]) if isinstance(surf.get("shapes"), list) else surf["material"] == "window"
+            if cover and self.cover_last.get(name) is False:
+                gained.add(name)
+            self.cover_last[name] = cover
             surfaces.append(surf)
             by_name[name] = surf
-        # ... and one that leaves dematerializes: phase 0 for its out-ramp, then gone
+        # ... and one that leaves dematerializes: phase 0 for its out-ramp, then gone. A plate whose content
+        # was fading out (exitAt) stays for exactly that fade instead, glassd fading it with the page; on a
+        # surface that just gained its cover (Home -> a window route) a plate removed before any fade was
+        # seen fades on the page's leave (PAGE_OUT_MS) from now
         for key, it in self.items_last.items():
             if key in current or key in self.fading:
                 continue
             if key[0] not in shown:            # its surface closed or hid: nothing to fade on
                 continue
+            if key[1] == "plate" and "exitAt" in caps:
+                if "exitAt" not in it and key[0] in gained:
+                    it = it | {"exitAt": int(now * 1000), "exitMs": PAGE_OUT_MS}
+                if "exitAt" in it:
+                    until = (it["exitAt"] + it["exitMs"]) / 1000
+                    if until > now:
+                        self.fading[key] = ({k: v for k, v in it.items() if k != "appear"}, min(until, now + 2.0))
+                    continue
             until = now + self.ramp_ms(it.get("material"), True, key[1]) / 1000
             self.fading[key] = ({k: v for k, v in it.items() if k != "appear"} | {"phase": 0}, until)
         for key, (it, until) in list(self.fading.items()):
@@ -1470,7 +1565,12 @@ class Shell:
             surfaces.append({"name": "vr." + vn, "overlayKey": STEAM_MAIN_KEY, "texW": w, "texH": h,
                              "radius": gr, "material": vp["material"], "visible": on, "armed": not on, "slabs": [],
                              "shapes": [{"x": gx, "y": gy, "w": gw, "h": gh, "r": gr}]})
-        cfg = {"dial": read_dial(), "reduceMotion": bool(self.reduce_motion), "surfaces": surfaces}
+        cfg = {"dial": self.dial_v, "reduceMotion": bool(self.reduce_motion), "surfaces": surfaces}
+        if "tune" in caps:          # the wearer's tune (glassd eases to it; contracts/glassd.md §1.1)
+            t = self.tune
+            cfg["tune"] = {"refract": t["refract"], "frost": t["frost"], "light": t["light"]}
+            if t["hue"]:
+                cfg["tune"].update(hue=t["hue"], hueK=t["hueK"])
         if "unitM" in caps and self.geom and _num(self.geom.get("unitM"), 0.01, 10) is not None:
             cfg["unitM"] = self.geom["unitM"]
         if "masks" in caps and rep.get("masks") is not None:
@@ -2990,12 +3090,15 @@ class Shell:
     # ---------------------------------------------------------------- status
     async def status_loop(self):
         while not self.stopping:
-            try:
-                m = os.stat(lgs.DIAL).st_mtime_ns
-            except OSError:
-                m = None
+            # tune.json written by someone else (`lgs dial`): taken over; our own saves set tune_mtime
+            tm = _mtime(lgs.TUNE)
+            if tm != self.tune_mtime and self.tune_save is None:
+                self.tune_mtime = tm
+                self.set_tune(lgs.read_tune(), save=False)
+            m = _mtime(lgs.DIAL)
             if m != self.dial_mtime:
                 self.dial_mtime = m
+                self.dial_v = lgs.read_dial()
                 self.write_glassd_json()
             try:
                 write_json_atomic(STATUS, self.status())

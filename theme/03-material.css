@@ -65,6 +65,7 @@
   :where(.lgs-home-wn-glass)::before,
   :where(.lgs-search-glass)::before,
   :where(.lgs-tabcap)::before,
+  :where(.lgs-tune)::before,
   :where([data-lgs-mat="clear"])::before,
   :where([data-lgs-mat="liquid"])::before,
   :where([data-lgs-mat="panel"])::before,
@@ -167,6 +168,7 @@
   :where(.lgs-home-seg)::before,
   :where(.lgs-home-wn-glass)::before,
   :where(.lgs-tabcap)::before,
+  :where(.lgs-tune)::before,
   :where([data-lgs-mat="liquid"])::before
 /* lgs-hosts edge:liquid ::before end */
   { --_lgs-rim: var(--lgs-rim-liquid); }
@@ -239,6 +241,7 @@
   :where(.lgs-home-wn-glass)::before,
   :where(.lgs-search-glass)::before,
   :where(.lgs-tabcap)::before,
+  :where(.lgs-tune)::before,
   :where([data-lgs-mat="clear"])::before,
   :where([data-lgs-mat="liquid"])::before,
   :where([data-lgs-mat="panel"])::before,

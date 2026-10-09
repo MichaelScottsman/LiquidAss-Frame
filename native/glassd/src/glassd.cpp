@@ -491,6 +491,10 @@ struct PlateSpec {
     Color tint, fill;
     bool occluder = false;
     float shadow = -1;  // contact shadow alpha, -1 = the material's
+    // "exitAt"/"exitMs": its content fades out (a route or sheet leaving) from that epoch ms over that
+    // long; the glass fades with it, linearly, its optics unchanged (cap "exitAt")
+    double exitAtMs = 0;
+    float exitMs = 0;
 };
 // v3 extra feed mask on a surface (Steam px, may lie outside the texture).
 struct MaskSpec {
@@ -528,9 +532,18 @@ struct SurfSpec {
     std::vector<MaskSpec> masks;
     bool scaleFromOverlay = false;          // "scaleFrom": "overlay": no rescale to the window's mpp
 };
+// The wearer's glass tune (the bar's paintbrush panel; cap "tune"): multipliers on every material's
+// refraction (lens and dispersion), frost and light (key specular, Fresnel, sheen), and a colour for the
+// glass body (the neutral the tint pulls toward), applied in drawGlass on top of the presets and the dial.
+struct Tune {
+    float refract = 1, frost = 1, light = 1;  // 0..2
+    float hueK = 0;                           // 0..1: how far the body colour moves from neutral to `hue`
+    Color hue;                                // sRGB; unset = neutral
+};
 struct Spec {
     long long seq = 0;
     float dial = 0.5f;
+    Tune tune;
     bool reduceMotion = false;
     float unitM = 0.369f;  // v3: metres per scene unit (S x r)
     float roomDim = 0;     // v3 G7: every piece of glass sees the room darkened by this (0..1)
@@ -679,6 +692,21 @@ bool parseSpec(const std::string &text, Spec &out, std::string &err) {
         out.seq = std::isfinite(sq) ? (long long)std::clamp(sq, -9.0e18, 9.0e18) : 0;
     }
     out.dial = float(root.num("dial", 0.5));
+    if (!std::isfinite(out.dial)) out.dial = 0.5f;
+    out.dial = std::clamp(out.dial, 0.f, 1.f);
+    if (const JVal *t = root.get("tune"); t && t->type == JVal::Obj) {
+        auto mult = [&](const char *k) {
+            const float v = float(t->num(k, 1));
+            return std::isfinite(v) ? std::clamp(v, 0.f, 2.f) : 1.f;
+        };
+        out.tune.refract = mult("refract");
+        out.tune.frost = mult("frost");
+        out.tune.light = mult("light");
+        if (parseColor(t->get("hue"), out.tune.hue)) {
+            const float k = float(t->num("hueK", 0.5));
+            out.tune.hueK = std::isfinite(k) ? std::clamp(k, 0.f, 1.f) : 0.f;
+        }
+    }
     out.reduceMotion = root.boolean("reduceMotion", false);
     {
         const float d = float(root.num("roomDim", 0));
@@ -801,6 +829,13 @@ bool parseSpec(const std::string &text, Spec &out, std::string &err) {
                 parseColor(q.get("fill"), p.fill);
                 p.occluder = q.boolean("occluder", false);
                 if (q.has("shadow")) p.shadow = std::clamp(finite(float(q.num("shadow", -1))), 0.f, 1.f);
+                if (q.has("exitAt")) {
+                    const double at = q.num("exitAt", 0);
+                    if (std::isfinite(at) && at > 0) {
+                        p.exitAtMs = at;
+                        p.exitMs = std::clamp(finite(float(q.num("exitMs", 150))), 0.f, 2000.f);
+                    }
+                }
                 const float x0 = std::max(0.f, p.x), y0 = std::max(0.f, p.y);
                 const float x1 = std::min(float(ss.texW), p.x + p.w), y1 = std::min(float(ss.texH), p.y + p.h);
                 if (x1 - x0 < 1 || y1 - y0 < 1 || ss.plates.size() >= size_t(kMaxPlates)) {
@@ -853,6 +888,7 @@ struct SlabSlot {
 struct PlateSlot {
     PlateSpec s;
     PhaseAnim anim;
+    uint64_t exitT0 = 0;  // its content's fade-out started then (monotonic ns); 0 = not leaving
 };
 
 struct Surface {
@@ -1116,6 +1152,15 @@ class Glassd {
     bool dumpedOnce = false;
     uint64_t lastPhaseNs = 0;  // when the phases were last stepped (dump lines)
     PhaseAnim roomDimAnim;     // v3 G7: the room dim, on sheet-in up and sheet-out down
+    // The dial and the tune as drawn: eased toward the spec's (time constant kTuneTau), so a slider dragged
+    // in the paintbrush panel moves the glass smoothly instead of in steps; the body colour is linear rgb
+    // at luminance 1
+    struct TuneLive {
+        bool init = false;
+        float dial = 0.5f, refract = 1, frost = 1, light = 1, hueK = 0, hr = 1, hg = 1, hb = 1;
+    } tuneLive;
+    uint64_t tuneNs = 0;
+    static constexpr float kTuneTau = 0.04f;  // s: 95 % of a change in 120 ms
 
     // ------------------------------------------------------------- shaders
     std::string shaderSource(const std::string &name) {
@@ -1581,8 +1626,10 @@ class Glassd {
         if (!kept) s.anim.init = false;
         if (wasVisible && !on) s.clearPending = true;
         s.anim.set(shown ? ns.ph.phase : 0.f, true, ns.ph.ms, ns.ph.materialize ? 0.f : -1.f, now);
-        // appearing with the page's open animation: the ramp runs from when that started
-        if (!kept && shown && ns.ph.materialize && ns.ph.atMs > 0) s.anim.t0 = epochToMono(ns.ph.atMs, now);
+        // appearing with the page's open animation: the ramp runs from when that started. Also on a
+        // surface that stays on screen and gains its cover (main: Home -> Library), so the window glass
+        // springs in from the route change, not from when the report reached glassd
+        if ((!kept || !wasShown) && shown && ns.ph.materialize && ns.ph.atMs > 0) s.anim.t0 = epochToMono(ns.ph.atMs, now);
         if (!(kept && wasShown && shown) || sameShapes(oldTarget, ns.shapes)) {
             if (!(kept && wasShown && shown)) s.morphTok = nullptr;
             return;  // nothing moved: a running morph goes on
@@ -1605,9 +1652,12 @@ class Glassd {
         next.reserve(s.spec.plates.size());
         for (const PlateSpec &p : s.spec.plates) {
             PlateSlot slot;
+            double exitWas = 0;
             for (auto &old : s.plates)
                 if (old.s.id == p.id) {
                     slot.anim = old.anim;
+                    slot.exitT0 = old.exitT0;
+                    exitWas = old.s.exitAtMs;
                     break;
                 }
             const bool fresh = !slot.anim.init;
@@ -1615,6 +1665,9 @@ class Glassd {
             slot.anim.set(p.ph.phase, plateSprings(p), p.ph.ms, p.ph.materialize ? 0.f : -1.f, now);
             // a new plate materializing with the page's own animation: the ramp runs from when that started
             if (fresh && p.ph.materialize && p.ph.atMs > 0) slot.anim.t0 = epochToMono(p.ph.atMs, now);
+            // its content fading out: from when that started (kept while the spec repeats the same fade)
+            if (p.exitAtMs <= 0) slot.exitT0 = 0;
+            else if (!slot.exitT0 || exitWas != p.exitAtMs) slot.exitT0 = epochToMono(p.exitAtMs, now);
             next.push_back(slot);
         }
         s.plates.swap(next);
@@ -1635,12 +1688,68 @@ class Glassd {
             }
             for (auto &sl : s->slots) moving |= sl.anim.step(now, spec.reduceMotion);
             for (auto &sl : s->ghosts) moving |= sl.anim.step(now, spec.reduceMotion);
-            for (auto &p : s->plates) moving |= p.anim.step(now, spec.reduceMotion);
+            for (auto &p : s->plates) {
+                moving |= p.anim.step(now, spec.reduceMotion);
+                if (p.exitT0 && now < p.exitT0 + uint64_t(double(p.s.exitMs) * 1e6)) moving = true;
+            }
         }
         moving |= roomDimAnim.step(now, spec.reduceMotion);
+        moving |= stepTune(now);
         return moving;
     }
+    // A colour as the glass body's hue: linear rgb at luminance 1 (glass.frag's luma), no channel over 4.
+    static void hueLin(const Color &c, float &r, float &g, float &b) {
+        r = srgbToLin1(c.r), g = srgbToLin1(c.g), b = srgbToLin1(c.b);
+        const float l = std::max(1e-3f, 0.2126f * r + 0.7152f * g + 0.0722f * b);
+        r /= l, g /= l, b /= l;
+        const float mx = std::max({r, g, b});
+        if (mx > 4.f) r *= 4.f / mx, g *= 4.f / mx, b *= 4.f / mx;
+    }
+    // Eases the drawn dial and tune toward the spec's; true while they still move. The first spec, and any
+    // under Reduce Motion, applies at once.
+    bool stepTune(uint64_t now) {
+        TuneLive &L = tuneLive;
+        const Tune &T = spec.tune;
+        float hr = L.hr, hg = L.hg, hb = L.hb;
+        if (T.hue.set) hueLin(T.hue, hr, hg, hb);
+        const float tgt[8] = {std::clamp(spec.dial, 0.f, 1.f), T.refract, T.frost, T.light, T.hue.set ? T.hueK : 0.f, hr, hg, hb};
+        float *cur[8] = {&L.dial, &L.refract, &L.frost, &L.light, &L.hueK, &L.hr, &L.hg, &L.hb};
+        const float dt = tuneNs && now > tuneNs ? std::min(0.1f, float(double(now - tuneNs) / 1e9)) : 0.f;
+        tuneNs = now;
+        if (!L.init || spec.reduceMotion) {
+            for (int i = 0; i < 8; i++) *cur[i] = tgt[i];
+            L.init = true;
+            return false;
+        }
+        const float a = 1.f - std::exp(-dt / kTuneTau);
+        bool moving = false;
+        for (int i = 0; i < 8; i++) {
+            const float d = tgt[i] - *cur[i];
+            if (std::fabs(d) < 1e-3f) {
+                *cur[i] = tgt[i];
+            } else {
+                *cur[i] += d * a;
+                moving = true;
+            }
+        }
+        return moving;
+    }
+    float dialNow() const { return tuneLive.init ? tuneLive.dial : std::clamp(spec.dial, 0.f, 1.f); }
     float phaseOf(const PhaseAnim &a) const { return opt.phasePin >= 0 ? std::clamp(opt.phasePin, 0.f, 1.f) : a.init ? a.x : 1.f; }
+    // A leaving plate's share of coverage at `now`: 1 -> 0 linearly over its content's fade-out.
+    static float exitAlpha(const PlateSlot &p, uint64_t now) {
+        if (!p.exitT0 || now <= p.exitT0) return 1.f;
+        if (p.s.exitMs <= 0.f) return 0.f;
+        return std::clamp(1.f - float(double(now - p.exitT0) / 1e6) / p.s.exitMs, 0.f, 1.f);
+    }
+    // A plate's materialize ramps with its exit fade folded into coverage and shadow.
+    Phased platePhase(const PlateSlot &p, uint64_t now) const {
+        Phased ph = phaseMap(phaseOf(p.anim), spec.reduceMotion);
+        const float e = exitAlpha(p, now);
+        ph.alpha *= e;
+        ph.shadow *= e;
+        return ph;
+    }
     float roomDimNow() const { return roomDimAnim.init ? std::clamp(roomDimAnim.x, 0.f, 0.9f) : 0.f; }
 
     void expireGhosts(uint64_t now) {
@@ -2232,22 +2341,27 @@ class Glassd {
         p.set("uBezel", std::max(1.f, std::min(m.bezelM / mpp, minHalf)));
         p.set("uThick", m.thick);
         p.set("uLensThick", m.lensThick);
-        p.set("uLens", m.lensDeg * ph.lens * 0.0174533f);
-        p.set("uDisp", m.disp);
-        p.set("uFrost", m.frost * ph.frost);
-        p.set("uEdgeFrost", m.edgeFrost * ph.frost);
+        // the wearer's tune (eased): refraction, frost (at most mip 6: 6.5 is the coarse tone read), light,
+        // and the body colour, which also deepens the tint a little so coloured glass reads as coloured
+        const TuneLive &tu = tuneLive;
+        const float light = look.occluder ? 1.f : tu.light;
+        p.set("uLens", m.lensDeg * tu.refract * ph.lens * 0.0174533f);
+        p.set("uDisp", m.disp * tu.refract);
+        p.set("uFrost", std::min(6.f, m.frost * tu.frost) * ph.frost);
+        p.set("uEdgeFrost", std::min(6.f, m.edgeFrost * tu.frost) * ph.frost);
         p.set("uEdgeClear", m.edgeClear);
-        p.set("uTintA", m.tintA * ph.tint);
+        p.set("uTintA", std::min(0.95f, m.tintA + 0.2f * tu.hueK) * ph.tint);
+        p.set("uHue", tu.hr, tu.hg, tu.hb, tu.hueK);
         p.set("uBandMid", 0.314f);  // L 80 of 255: the middle of text-bearing glass (DESIGN2 §6.3)
         p.set("uBandK", 1.f + (m.bandK - 1.f) * ph.tint);
         // v3 G7: the room dim folds into the backdrop dimming of glass that sees the room; a slab
         // over its cover sees the cover, which is dimmed already
         p.set("uDim", 1.f - (1.f - m.dim * ph.tint) * (1.f - (under ? 0.f : roomDimNow())));
-        p.set("uSpec", m.spec * ph.light);
+        p.set("uSpec", m.spec * light * ph.light);
         p.set("uGloss", m.gloss);
         p.set("uFill", m.fill);
-        p.set("uFres", m.fres * ph.light);
-        p.set("uSheen", m.sheen * ph.tint);
+        p.set("uFres", m.fres * light * ph.light);
+        p.set("uSheen", m.sheen * light * ph.tint);
         p.set("uDark", m.dark * ph.shade);
         p.set("uDarkW", std::max(2.f, m.darkW / mpp));
         p.set("uOcc", m.occ * ph.shade);
@@ -2344,7 +2458,7 @@ class Glassd {
                 if (c.alpha < 0.005f && (!c.fill.set || c.fill.a < 0.005f) && (!h.hasEdges() || c.edgeA < 0.005f)) continue;
                 holes.push_back(c);
             } else {
-                const Material sm = materialFor(sl.s.none() ? "liquid" : sl.s.material, spec.dial, std::min(sl.s.w, sl.s.h));
+                const Material sm = materialFor(sl.s.none() ? "liquid" : sl.s.material, dialNow(), std::min(sl.s.w, sl.s.h));
                 c.alpha = sm.slabShadow * settle * ph.shadow;
                 if (c.alpha < 0.005f) continue;
                 const float dzM = std::max(0.f, sl.s.dz * spec.unitM);
@@ -2518,7 +2632,7 @@ class Glassd {
         const std::vector<ShapeSpec> shapes = coverShapes(s);
         std::vector<const PlateSlot *> live;
         for (const PlateSlot &p : s.plates)
-            if (phaseOf(p.anim) > 0.002f) live.push_back(&p);
+            if (phaseOf(p.anim) > 0.002f && exitAlpha(p, now) > 0.002f) live.push_back(&p);
         // R1 (m1): plates over a cover see that cover behind them (glass over
         // glass, like a slab), so pass 1 also runs to give them its copy
         const bool platesOverCover = !shapes.empty() && !live.empty();
@@ -2533,7 +2647,7 @@ class Glassd {
             }
             float minSide = 1e9f;
             for (const ShapeSpec &q : shapes) minSide = std::min(minSide, std::min(q.w, q.h));
-            const Material cm = materialFor(s.spec.material, spec.dial, minSide);
+            const Material cm = materialFor(s.spec.material, dialNow(), minSide);
             // the contact shadow falls outside the shapes: widen the scissor
             const float pad = cm.shadow > 0 ? (0.006f + 0.003f) / mpp : 0.f;
             const int sx0 = std::max(0, int(std::floor((x0 - pad) * s.scale)) - 1);
@@ -2606,7 +2720,9 @@ class Glassd {
                 glEnable(GL_SCISSOR_TEST);
                 const float lowScale = s.scale / 4.f;
                 for (const PlateSlot *p : live) {
-                    const Material pm = materialFor(p->s.material, spec.dial, std::min(p->s.w, p->s.h));
+                    // pass 1 has no coverage alpha: a leaving plate leaves the slabs' view halfway through
+                    if (exitAlpha(*p, now) < 0.5f) continue;
+                    const Material pm = materialFor(p->s.material, dialNow(), std::min(p->s.w, p->s.h));
                     const float pad = platePad(*p, pm);
                     const int x0 = std::max(0, int(std::floor((p->s.x - pad) * lowScale)) - 1);
                     const int y0 = std::max(0, int(std::floor((p->s.y - pad) * lowScale)) - 1);
@@ -2622,7 +2738,7 @@ class Glassd {
             }
             if (plateUnder) bindCoverCopy();
             for (const PlateSlot *p : live) {
-                const Material pm = materialFor(p->s.material, spec.dial, std::min(p->s.w, p->s.h));
+                const Material pm = materialFor(p->s.material, dialNow(), std::min(p->s.w, p->s.h));
                 const float pad = platePad(*p, pm);
                 const int x0 = std::max(0, int(std::floor((p->s.x - pad) * s.scale)) - 1);
                 const int y0 = std::max(0, int(std::floor((p->s.y - pad) * s.scale)) - 1);
@@ -2631,7 +2747,7 @@ class Glassd {
                 if (x1 <= x0 || y1 <= y0) continue;
                 glScissor(x0, y0, x1 - x0, y1 - y0);
                 coverTaps = copyHasDetail(s, casters, p->s.x, p->s.y, p->s.x + p->s.w, p->s.y + p->s.h, false) ? 9 : 1;
-                drawGlass(s, g, head, pm, phaseMap(phaseOf(p->anim), spec.reduceMotion), 0, 0, s.bw, s.bh, {0, 0, 0},
+                drawGlass(s, g, head, pm, platePhase(*p, now), 0, 0, s.bw, s.bh, {0, 0, 0},
                           {{p->s.x, p->s.y, p->s.w, p->s.h, p->s.r}}, plateDz, plateUnder, casters, 0, 0.f, plateLook(*p));
                 platesDrawn = true;
             }
@@ -2663,12 +2779,12 @@ class Glassd {
                 flat.flat = true;
                 flat.fill = sl.s.fill;
                 glScissor(sl.x, sl.y, sl.w, sl.h);
-                drawGlass(s, g, head, materialFor("liquid", spec.dial, std::min(sl.s.w, sl.s.h)),
+                drawGlass(s, g, head, materialFor("liquid", dialNow(), std::min(sl.s.w, sl.s.h)),
                           phaseMap(phaseOf(sl.anim), spec.reduceMotion), sl.x, sl.y, sl.w, sl.h, {ex, ey, 0},
                           {{0, 0, sw, sh, sl.s.r}}, 0.f, false, {}, 0, 0.f, flat);
                 return;
             }
-            const Material m = materialFor(sl.s.material, spec.dial, std::min(sl.s.w, sl.s.h));
+            const Material m = materialFor(sl.s.material, dialNow(), std::min(sl.s.w, sl.s.h));
             Look look;
             look.tint = sl.s.tint;
             glScissor(sl.x, sl.y, sl.w, sl.h);
@@ -2815,7 +2931,11 @@ class Glassd {
                       spec.seq, int(getpid()), double(rt.tv_sec) + double(rt.tv_nsec) / 1e9, !exiting && healthy() ? "true" : "false",
                       exiting ? 0.0 : double(fpsNow), double(gpuMs()), (unsigned long long)frames, lastDash ? "true" : "false");
         o += b;
-        o += ", \"version\": 3, \"caps\": [\"plates\", \"holes\", \"tint\", \"masks\", \"coverDz\", \"none\", \"offset\", \"dim\", \"scaleFrom\", \"unitM\", \"roomDim\", \"dimSlab\", \"holeEdges\", \"morph\", \"appearAt\", \"armed\"]";
+        o += ", \"version\": 3, \"caps\": [\"plates\", \"holes\", \"tint\", \"masks\", \"coverDz\", \"none\", \"offset\", \"dim\", \"scaleFrom\", \"unitM\", \"roomDim\", \"dimSlab\", \"holeEdges\", \"morph\", \"appearAt\", \"armed\", \"exitAt\", \"tune\"]";
+        // the dial and the tune as drawn (eased toward the spec's)
+        std::snprintf(b, sizeof b, ", \"tune\": {\"dial\": %.3f, \"refract\": %.3f, \"frost\": %.3f, \"light\": %.3f, \"hueK\": %.3f}",
+                      double(dialNow()), double(tuneLive.refract), double(tuneLive.frost), double(tuneLive.light), double(tuneLive.hueK));
+        o += b;
         std::snprintf(b, sizeof b, ", \"last_submit_s\": %.1f, \"room_ms\": %.2f, \"room_updates\": %llu, \"feed\": %s%s",
                       lastSubmitNs ? double(now - lastSubmitNs) / 1e9 : -1.0, double(roomTimer.have ? roomTimer.ms : roomCpuMs),
                       (unsigned long long)room.updates, jsonEscape(feedState()).c_str(), exiting ? ", \"exiting\": true" : "");

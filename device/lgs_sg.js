@@ -55,6 +55,8 @@
   const SLAB_OVER_COVER = 0.0003; // and at least this far in front of the cover
   const MIN_PIECE = 1;            // px; smaller mosaic slivers are dropped
   const SINK_MAX_MS = 600;        // glassd keeps a retired slab cell drawn this long
+  const ROUTE_OUT_MS = 150;       // --lgs-d-page-out: a pop of a page that is leaving goes after this
+  const ROUTE_ADOPT_MS = 400;     // ... and one still lifted this long after the mode change stays, as the page's
   const ROOT_ID = GLOBAL === '__LGS_SG' ? 'lgs-sg-root' : 'lgs-sg-root-' + GLOBAL;
   const TIMELINE_MAX = 600;
   const SHARED_REPARENT = opts.sharedReparent !== undefined ? !!opts.sharedReparent : true;
@@ -787,6 +789,8 @@
     return Math.abs(a.x - b.x) > a.w / 4 || Math.abs(a.y - b.y) > a.h / 4;
   }
   const overlaps = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+  // was ps lifted in a glass mode its surface has left (windowless <-> window: a route change)?
+  const routeOut = (ps, windowless) => ps.routeOut === true || (typeof ps.windowless === 'boolean' && ps.windowless !== windowless);
 
   // Depth channel bookkeeping for one surface's spec pops (called by build).
   function trackPops(s, now, seenKeys) {
@@ -795,6 +799,7 @@
     const slabsOut = new Map();
     for (const o of Array.isArray(s.slabsOut) ? s.slabsOut : []) if (o && o.id !== undefined && Array.isArray(o.slab)) slabsOut.set(String(o.id), o.slab);
     const coverDz = num(s.coverDz, 0.001), baseDz = num(s.baseDz, 0.002);
+    const windowless = Array.isArray(s.mosaic);
     for (const p of Array.isArray(s.popped) ? s.popped : []) {
       if (!p || p.id === undefined) continue;
       const x = num(p.x, NaN), y = num(p.y, NaN), w = num(p.w, 0), h = num(p.h, 0);
@@ -822,9 +827,16 @@
       if (!ps) {
         // rise from the base plane (the rest depth), or from p.from
         const from = p.from === 'cut' || !tok ? dz : Math.max(num(p.from, baseDz), baseDz);
-        ps = { surface: key, id, rect, c: chan(from, k), sink: true, sinking: false, ghost: false, slab: null, clip: null };
+        // windowless: the glass mode it was lifted in (a pop of a page that is leaving: see routeOut)
+        ps = { surface: key, id, rect, c: chan(from, k), sink: true, sinking: false, ghost: false, slab: null, clip: null, windowless };
         st.pops.set(k, ps);
       }
+      // still lifted well after its surface changed glass mode: not a leaving page's (those are gone with
+      // Steam's route exit, ~200 ms), it belongs to the page now (a focus kept across Control Center)
+      if (ps.windowless !== windowless) {
+        if (!ps.flipAt) ps.flipAt = now;
+        else if (now - ps.flipAt > ROUTE_ADOPT_MS) { ps.windowless = windowless; ps.flipAt = 0; }
+      } else ps.flipAt = 0;
       ps.rect = rect;
       ps.p = p;
       ps.sink = p.sink !== false;
@@ -835,20 +847,26 @@
       ps.clip = Array.isArray(p.clip) ? p.clip : null;
       chanSet(ps.c, dz, tok, now);
     }
-    // pops of this surface that left the spec: sink, or go at once
+    // pops of this surface that left the spec: sink, or go at once. One lifted in the other glass mode left
+    // with its page (the route changed: Home's disc under the laser as Library comes in): it goes when the
+    // page's fade ends (ROUTE_OUT_MS), not after a full sink over the next page's content
     for (const [k, ps] of st.pops) {
       if (ps.surface !== key || seenKeys.has(k)) continue;
+      if (routeOut(ps, windowless) && !ps.routeOut) {
+        ps.routeOut = true;
+        if (!ps.sinking) ps.sinkAt = now;
+      }
       if (ps.sinking) {
         const so = slabsOut.get(ps.id);
         if (so) ps.slab = so;
-        if (now - ps.sinkAt > SINK_MAX_MS) { st.pops.delete(k); continue; }
+        if (now - ps.sinkAt > (ps.routeOut ? ROUTE_OUT_MS : SINK_MAX_MS)) { st.pops.delete(k); continue; }
         seenKeys.add(k);
         continue;
       }
       const tok = depthToken('fade');
       if (!ps.sink || !tok || cut.has(ps.id) || chanAt(ps.c, now)[0] <= baseDz) { st.pops.delete(k); continue; }
       ps.sinking = true;
-      ps.sinkAt = now;
+      if (!ps.routeOut) ps.sinkAt = now;
       const so = slabsOut.get(ps.id);
       if (so) ps.slab = so;
       chanSet(ps.c, baseDz, 'fade', now);
@@ -904,9 +922,11 @@
     // under the laser changed every plate's tone at once (Steam's panel reflects the room, reflect .1; our
     // crops do not). With window glass, a popped part's own pixels on Steam's panel must be hidden: the crops
     // layout (cover in front, base crops with a hole under each pop) for as long as something is popped.
-    let popped = false;
-    for (const [pk, ps] of st.pops) if (ps.surface === key && c.seen.has(pk)) { popped = true; break; }
+    // A pop lifted in the other glass mode belongs to the page that is leaving (Home's disc as Library comes
+    // in): it never switches the new page to the crops layout mid-transition.
     const windowless = Array.isArray(s.mosaic);
+    let popped = false;
+    for (const [pk, ps] of st.pops) if (ps.surface === key && c.seen.has(pk) && !routeOut(ps, windowless)) { popped = true; break; }
     const behind = COVER_BEHIND && (!popped || windowless) && W.__LGS_SG_FRONT !== true;
   // __LGS_SG_FRONT: lab A/B, the layout with crops
     add('cover', {

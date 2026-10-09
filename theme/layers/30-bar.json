@@ -7,13 +7,14 @@
     "transparent in the theme, so the old two-shape cover (00-base.json) would glass the gap between the capsules. Not flagged:",
     "the shapes follow the T1 CSS, which is always on. No pops on the bar (PLAN 1.7: bar popups are their own quads at +25 mm,",
     "theme/popups/30-bar.json; tooltips are CSS shadow only). notifications, volumelevel and tooltip covers are in 00-base.json",
-    "(flag wp.c3a)."
+    "(flag wp.c3a).",
+    "A fourth piece when the glass tuner is on (flag glassTune, rt 33-tune.js): the paintbrush circle .lgs-tune after the system capsule."
   ],
   "owns": ["bar"],
   "surfaces": {
     "bar": {
       "cover": {
-        "sel": "%{PopupBody>DashboardBar} %{BarSurface}%{Bookend}, %{PopupBody>DashboardBar} %{BarSurface}:not(%{Bookend}) > %{BarSurfaceSection}%{LowBatteryGauge>Tabs}, %{PopupBody>DashboardBar} %{BarSurfaceSection}%{Tray}",
+        "sel": "%{PopupBody>DashboardBar} %{BarSurface}%{Bookend}, %{PopupBody>DashboardBar} %{BarSurface}:not(%{Bookend}) > %{BarSurfaceSection}%{LowBatteryGauge>Tabs}, %{PopupBody>DashboardBar} %{BarSurfaceSection}%{Tray}, %{PopupBody>DashboardBar} .lgs-tune",
         "all": true,
         "r": "capsule"
       },

@@ -56,7 +56,12 @@ FLAGS_FILE = "/tmp/lgs/flags.json"                  # session overrides (RAM)
 CDP = "http://127.0.0.1:8080"
 LOG = "/tmp/lgs/lgs.log"
 LOG_MAX = 512 * 1024   # /tmp is RAM: keep the log and one older copy (lgs.log.1)
-DIAL = "/tmp/lgs/dial"                              # lgs dial (RAM: rule 7, nothing survives a reboot)
+DIAL = "/tmp/lgs/dial"                              # lgs dial, mirrored from TUNE (watched by lgs_vr.py)
+# The wearer's glass tune (the bar's paintbrush panel, `lgs dial`): the one file kept across reboots, by the
+# wearer's choice (README rule 7's exception). Absent = the defaults; a reset removes it.
+TUNE = os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"), "glass-shell", "tune.json")
+TUNE_DEFAULT = {"v": 1, "dial": 0.5, "hue": None, "hueK": 0.5, "refract": 1.0, "frost": 1.0, "light": 1.0}
+TUNE_HUE = re.compile(r"^#[0-9a-fA-F]{6}$")
 READY_WAIT_S = 120     # "on": how long to wait for Steam's UI and a plausible class index (review R1 M1)
 READY_BACKOFF_S = (2, 4, 8, 15)                     # then every 15 s
 MIN_CLASS_MODULES = 200                             # a sane index of Steam's client bundle (healthy: about 550)
@@ -90,7 +95,63 @@ BUILTIN_FLAGS = {
     "actionsDryRun": False,     # P8: nav/launch actions logged, not run (daemon.md §2)
     "sgDepthAnim": True,        # P8/P7: depth motion kill switch (daemon.md §2)
     "shellThemeGraceS": 600,    # P8: dormant seconds while the theme is off without lgs off (daemon.md §2)
+    "glassTune": False,         # the bar's paintbrush (glass tuner, rt 33-tune.js); defaults.json turns it on
 }
+
+
+def clean_tune(d):
+    """A tune dict onto the defaults: known keys, numbers clamped, the hue "#rrggbb" or None."""
+    out = dict(TUNE_DEFAULT)
+    if not isinstance(d, dict):
+        return out
+    for k, lo, hi in (("dial", 0.0, 1.0), ("hueK", 0.0, 1.0), ("refract", 0.0, 2.0), ("frost", 0.0, 2.0),
+                      ("light", 0.0, 2.0)):
+        v = d.get(k)
+        if isinstance(v, (int, float)) and not isinstance(v, bool) and v == v:
+            out[k] = round(min(hi, max(lo, float(v))), 3)
+    h = d.get("hue")
+    out["hue"] = h.lower() if isinstance(h, str) and TUNE_HUE.match(h) else None
+    return out
+
+
+def read_tune():
+    try:
+        with open(TUNE, encoding="utf-8") as f:
+            return clean_tune(json.load(f))
+    except (OSError, ValueError):
+        return dict(TUNE_DEFAULT)
+
+
+def write_tune(t):
+    """Saves the tune (atomically); the defaults remove the file (and its folder when empty)."""
+    t = clean_tune(t)
+    if t == TUNE_DEFAULT:
+        try:
+            os.remove(TUNE)
+        except OSError:
+            pass
+        try:
+            os.rmdir(os.path.dirname(TUNE))
+        except OSError:
+            pass
+        return t
+    os.makedirs(os.path.dirname(TUNE), exist_ok=True)
+    tmp = TUNE + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(t, f, sort_keys=True)
+    os.replace(tmp, TUNE)
+    return t
+
+
+def read_dial():
+    """The dial: the tune's when the wearer saved one, else a session `lgs dial` (older), else 0.5."""
+    if os.path.exists(TUNE):
+        return read_tune()["dial"]
+    try:
+        with open(DIAL, encoding="utf-8") as f:
+            return min(1.0, max(0.0, float(f.read().strip())))
+    except (OSError, ValueError):
+        return TUNE_DEFAULT["dial"]
 
 
 def visible_files(directory, suffix):
@@ -289,12 +350,11 @@ def bundle_files(paths):
             for m in sorted({m.group(0) for m in AT_NOWRAP.finditer(clean)}):
                 log(f"warning: {name} uses {m}; move it to a *.nowrap.css file")
             parts.append(f"/* {name} */\nhtml.lgs-on {{\n{text}\n}}")
-    try:
-        with open(DIAL, encoding="utf-8") as f:
-            dial = min(1.0, max(0.0, float(f.read().strip())))
-        parts.append(f"html.lgs-on {{ --lgs-dial: {dial:g}; }}")
-    except (OSError, ValueError):
-        pass
+    # the dial and the wearer's glass colour (the runtime's tune module overrides both live, rt 33-tune.js)
+    tune = read_tune()
+    parts.append(f"html.lgs-on {{ --lgs-dial: {read_dial():g}; }}")
+    if tune["hue"]:
+        parts.append(f"html.lgs-on {{ --lgs-tune-hue: {tune['hue']}; --lgs-tune-hue-k: {tune['hueK']:g}; }}")
     return "\n\n".join(parts)
 
 
@@ -1597,6 +1657,12 @@ def st_rt5(lab, ctx):
 
 PERSIST_DIRS = ["~", "/tmp", "/var/tmp", "/dev/shm", "/run/user/%d" % (os.getuid() if hasattr(os, "getuid") else 1000)]
 PERSIST_ALLOWED = [re.compile(p) for p in (r"^/tmp/lgs(/|$)", r"^/dev/shm/lgs(/|$)")]
+# The wearer's glass tune (TUNE): the one file kept across reboots, written only when the wearer changes it
+# (the paintbrush panel, `lgs dial`), never by on / off; allowed by name, nothing else in that folder
+TUNE_ALLOWED = re.compile(r"^" + re.escape(os.path.dirname(TUNE)) + r"(/tune\.json(\.tmp)?)?$")
+PERSIST_ALLOWED.append(re.compile(r"^" + re.escape(
+    ("~" + TUNE[len(os.path.expanduser("~")):]) if TUNE.startswith(os.path.expanduser("~") + "/") else TUNE)
+    + r"$"))
 PERSIST_KNOWN = [  # not written by Glass Shell: classified, listed, not failures
     (re.compile(r"^/run/user/\d+/systemd/"), "systemd runtime state of the transient unit (tmpfs, gone at reboot)"),
     (re.compile(r"^~/\.local/share/Steam/|^~/\.steam/"), "Steam's own files"),
@@ -1779,7 +1845,7 @@ def st_rt6(lab, ctx):
     background = sorted((test & (control | after)))
     new = sorted(test - control - after)
     ours_written = sorted(audit.paths)
-    audit_bad = [p for p in ours_written if not AUDIT_ALLOWED.match(p)]
+    audit_bad = [p for p in ours_written if not AUDIT_ALLOWED.match(p) and not TUNE_ALLOWED.match(p)]
     allowed, known, unexplained, checked = [], [], [], []
     for p in new:
         if any(rx.match(p) for rx in PERSIST_ALLOWED):
@@ -2302,6 +2368,7 @@ def main(argv):
             res = op("on", quiet=True, vr=True, native=None, flags=cli_flags, rt=rt)
         elif cmd == "dial":
             v = min(1.0, max(0.0, float(args[1])))
+            write_tune(dict(read_tune(), dial=v))      # the wearer's tune: kept, like the paintbrush panel's
             with open(DIAL, "w", encoding="utf-8") as f:
                 f.write(f"{v:g}\n")
             res = op("on", quiet=True, vr=True, native=None) if is_on() else {"dial": v, "enabled": False}

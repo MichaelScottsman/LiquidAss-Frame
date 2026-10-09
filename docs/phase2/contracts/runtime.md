@@ -328,7 +328,8 @@ The bundler (`lgs on`) uses the same file listing: `lgs.visible_files(dir, suffi
 | `visible_files(dir, suffix)`, `theme_css_files()`, `rt_sources()` | Listings with the `_wip` rule |
 | `run_js(target, expr, timeout)`, `Session`, `targets()`, `find_target()`, `overlay_key()` | Phase 1 CDP plumbing, unchanged |
 | `bundle_files(paths)`, `brace_error(text)`, `log(msg)`, `THEME_DIR`, `ROOT` | Unchanged (the bundler's `@keyframes`/`@property` warnings now ignore comments and strings) |
-| `DIAL` | `/tmp/lgs/dial` since R1 (was `~/.local/share/glass-shell/dial`, which survived a reboot: rule 7). `lgs dial` is remembered until a reboot only |
+| `DIAL` | `/tmp/lgs/dial` since R1 (was `~/.local/share/glass-shell/dial`, which survived a reboot: rule 7). Since 2026-10-09 a mirror of `TUNE`'s dial: the daemon rewrites it after a tune change (lgs_vr re-themes the SteamVR pages on it); `read_dial()` prefers `TUNE` |
+| `TUNE`, `TUNE_DEFAULT`, `read_tune()`, `write_tune(t)`, `clean_tune(d)`, `read_dial()` | The wearer's glass tune, `~/.config/glass-shell/tune.json` (`$XDG_CONFIG_HOME`): dial, hue, hueK, refract, frost, light. **The one file kept across reboots, by the wearer's choice** (2026-10-09): written only when they change it (the bar's paintbrush panel through the daemon's `glass.tune` action, or `lgs dial`), never by on/off; the defaults remove it (and its folder). RT-6 allows exactly this path. The bundler appends `--lgs-dial` and, with a hue, `--lgs-tune-hue` / `--lgs-tune-hue-k` |
 
 ---
 

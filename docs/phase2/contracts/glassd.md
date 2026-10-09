@@ -23,7 +23,8 @@ Units, unless a row says otherwise:
 | Field | Type | Default | Meaning | Status |
 |---|---|---|---|---|
 | `seq` | int | 0 | Echoed in the output | live |
-| `dial` | 0..1 | 0.5 | Transparency dial (GM §2) | live |
+| `dial` | 0..1 | 0.5 | Transparency dial (GM §2). Eased (time constant 40 ms) when it changes, like `tune` | live |
+| **`tune`** | `{refract, frost, light, hue?, hueK?}` | all 1, no hue | The wearer's glass tune (the bar's paintbrush panel, `lgs dial`; P8 sends it from `~/.config/glass-shell/tune.json`). Multipliers 0..2 on every material after its preset, size and the dial: `refract` × lens deviation and dispersion, `frost` × interior and edge frost (at most mip 6), `light` × key specular, Fresnel and sheen (not on occluders). `hue` (a colour) with `hueK` 0..1 moves the glass body's neutral toward that colour (`uHue`; the tint deepens by 0.2 × `hueK`); per-piece `tint`s stay on top. glassd eases every value (40 ms) and renders while it moves; `glassd-out.json` `tune` shows the values drawn. Cap `tune` | built |
 | `reduceMotion` | bool | false | Every phase ramp is a 180 ms coverage fade (MO C8) | live |
 | **`roomDim`** | 0..0.9 | 0 | G7 (SM-D6 "surroundings dim", behind C7's flag `roomDim`, off by default): every cover and plate sees the room darkened by this much (folded into the glass's backdrop dimming), so the glass stays consistent with a dimmed room behind it. glassd animates it itself on `sheet-in` up and `sheet-out` down (180 ms fade under `reduceMotion`); the first spec applies it at once. The dark panel around the window is a `dim` slab (§1.4) that P7 stretches behind the window | live |
 | **`unitM`** | metres | 0.369 | Metres per scene unit, S × r (SP §1.1). P8 sends its live geometry value; glassd converts every depth with it | live |
@@ -38,7 +39,7 @@ Units, unless a row says otherwise:
 | `quad` | `{O, U, V}` | — | World placement (Steam px (0,0) and steps per Steam px right and down) | live |
 | `phase`, `appear`, `phaseMs` | | 1, —, by size | The cover's materialize (GM §5). The target is 0 while the surface has no cover: on a surface that stays visible, a cover that appears materializes on `sheet-in` and one that goes dematerializes on `sheet-out` with the shapes it had (main between windowless and window routes). A surface that appears or hides as a whole is at its target at once; `phaseMs: 0` makes any change instant | live |
 | **`armed`** | bool | false | `visible: false` but the content is ready (a pooled popup about to show): the glass is drawn ahead in the surface's texture, which nothing shows until the scene graph attaches it. A surface that hides gets one transparent frame (no stale glass on the next open). Cap `armed` | live |
-| **`appearAt`** | epoch ms | — | With `appear: "materialize"` on a cover appearing or a new plate: the ramp runs from this moment (the page's own open animation), not from when the spec arrived. Cap `appearAt` | live |
+| **`appearAt`** | epoch ms | — | With `appear: "materialize"` on a cover appearing (a surface appearing, or one that stays shown and gains its cover: main from Home to Library) or a new plate: the ramp runs from this moment (the page's own open animation or the route change), not from when the spec arrived. Cap `appearAt` | live |
 | **`morph`** | `{token, at}` | — | The cover's shapes move from what is shown toward `shapes` on the spring `token` (a name in `motion_tokens.h`), from `at` (epoch ms; within 2 s of now, else now), so the glass follows a page that animates its box (the frame menu opening). Only when the shape count is unchanged and the surface stays shown; a new spec with the same `shapes` lets a running morph go on. Cap `morph` | live |
 | `slabs` | `[slab]` | [] | §1.4 | live (+ v3 fields) |
 | **`plates`** | `[plate]` | [] | §1.3. **≤ 32**; extra plates are dropped and listed (§3) | live |
@@ -60,6 +61,7 @@ A plate is one rounded rect of glass drawn **in the surface's backdrop region** 
 | `fill` | colour | — | A flat tone composited over the glass inside the shape, blended in sRGB like CSS (SET's container tone: black .14 inside a platter) | live |
 | `occluder` | bool | false | The **occluder variant** (HA §10.2): brightness × .55, no key specular, no transmitted lip, no Fresnel, no contact shadow. Use it under a pop that sits over its own plate (Home's focused cell), so off axis the plate reads as the pop's shadow | live |
 | `shadow` | 0..1 | material's contact shadow | Contact-shadow alpha outside the plate (needs transparent texels around it). `0` turns it off | live |
+| **`exitAt`, `exitMs`** | epoch ms, ms (≤ 2000) | —, 150 | The plate's content is fading out (a route or a sheet leaving) from `exitAt` over `exitMs`: the glass fades with it, coverage and shadow × (1 − elapsed / `exitMs`), linearly like the page's opacity, its optics unchanged; nothing is drawn after. Kept while repeated with the same `exitAt`. Cap `exitAt` | built |
 
 Notes:
 

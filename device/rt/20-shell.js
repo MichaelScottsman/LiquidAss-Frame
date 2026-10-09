@@ -123,6 +123,18 @@
     const f = q(m.doc, S.footerSel);
     return !!(f && q(f, S.legendSel));
   }
+  // The new route's glass mode at once, in the history change itself, when the map alone decides it (no
+  // hook of the route's own that reads its not-yet-rendered page): the reporter sees the mode flip before
+  // Steam renders the route, so the window glass materializes with the route change (Home -> Library),
+  // not a task and a render later. applyRoute, deferred, sets the rest and confirms the mode.
+  function earlyMode(path) {
+    const m = S.main;
+    if (!m || typeof path !== 'string') return;
+    const r = mapRoute(path);
+    if (r.key === 'home' || S.hooks.has(r.key)) return;
+    const mode = hookMode(r.key) || r.mode || 'window';
+    setAttr(q(m.doc, S.rootSel), 'data-lgs-glass', mode);
+  }
   function applyRoute(reason) {
     const m = S.main;
     if (!m) return;
@@ -812,7 +824,9 @@
       const un = inst().m_history.listen((loc, action) => {
         if (!S) return;
         try { trackHistory(loc, action); } catch (_) { /* keep going */ }
-        S.otherMode = null; setTarget(null); S.rt.setTimeout(() => S && applyRoute('history'), 0);
+        S.otherMode = null; setTarget(null);
+        try { earlyMode(loc && loc.pathname); } catch (_) { /* applyRoute below */ }
+        S.rt.setTimeout(() => S && applyRoute('history'), 0);
       });
       S.rt.cleanup(() => { try { un(); } catch (_) { /* gone */ } });
     } catch (e) { log('warn', 'no history listener', String(e && e.message || e)); }

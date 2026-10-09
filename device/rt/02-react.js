@@ -798,6 +798,11 @@
         let sel = null; try { sel = rt.sel('%{QuickAccessButton}'); } catch (_) { return false; }
         return !!el.matches(sel);
       },
+      // The dashboard bar (the glass tuner, rt 33-tune.js): the memo with no props that renders
+      // %{PopupBody>DashboardBar} around the Home circle (Bookend) and the main %{BarSurface}; its source
+      // names the bar's tab lists (probed on build 11094443: one match).
+      dashboardBar: (p, f) => !!f && (f.tag === 15 || f.tag === 0) && Object.keys(p).length === 0
+        && fnSrc(f.type).includes('rgBarTabsForMainSurface'),
       // The game page's action row (GP §4.12): the forwardRef that renders %{AppButtons} (Play, Steam
       // Input, the gear) as a Focusable row inside its output. Its parent PlaySection has the same props
       // plus onNav; the row's own source names its CSS module class ActionRow.

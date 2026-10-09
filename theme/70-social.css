@@ -28,9 +28,10 @@
 /*    Access panel reuses the literal friends classes.                    */
 /* ====================================================================== */
 
-/* the page starts under the toolbar row (C1a's fallback: 68 px pad) */
+/* the page starts under the toolbar row: the search capsule's box runs to y 94, so the sidebar's
+   platter starts at y 108 like Settings' list (C1a's pad + 40), never under the capsule */
 %{FriendsChats} {
-  padding-top: var(--lgs-hdr-pad, 68px);
+  padding-top: calc(var(--lgs-hdr-pad, 68px) + 40px);
   padding-bottom: max(var(--gamepadui-current-footer-height, 0px), 92px);
   box-sizing: border-box;
 }

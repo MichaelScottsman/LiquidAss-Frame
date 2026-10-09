@@ -145,6 +145,9 @@
   const MOSAIC_PAD = 48;         // CSS px a windowless base band reaches past its plates (glows, shadows)
   const GLASS_WAIT_MS = 1500;   // native window: a cover or plate is glassd's at once; CSS glass back if never acked by then
   const COVER_PENDING_MS = 2000; // ack mode, native window: a glass mode's cover is "pending" this long after the mode starts
+  const MODE_APPEAR_MS = 1500;   // a mode's cover reported this soon after the mode changed carries that time (appearAt)
+  const EXIT_MAX_MS = 2000;      // a plate's content fade-out longer than this is not followed (exitMs)
+  const PLATE_GONE_MS = 90;      // a plate whose element left the DOM: its glass fades this fast (exitMs)
   // spring tokens a morphing cover may name (native/shared/motion_tokens.h; glassd evaluates them)
   const MORPH_TOKENS = ['interactive', 'hover-in', 'fade', 'snappy', 'morph-open', 'morph-close', 'sheet-in', 'sheet-out', 'page', 'depth'];
   const PING_TTL_MS = 12000;    // no ping for this long (once pinged): stop
@@ -640,6 +643,19 @@
 
   // Is the dashboard frame that shows this overlay visible? (A dashboard tab
   // for another app hides Steam's window.) Unknown layouts don't block.
+  // Does a shown Steam frame show one of SteamVR's own pages? Its frame action for that page (VR Settings)
+  // is then "active" (the frame menu highlights it).
+  function frameOnVrPage() {
+    try {
+      for (const f of SteamUIStore.WindowStore.VRGamepadUIMainWindowInstance.VRFrameStore.frames) {
+        if (!f.isVisible) continue;
+        const defs = (f.m_info && f.m_info.action_definitions) || [];
+        if (defs.some((a) => a && a.active === true)) return true;
+      }
+    } catch (_) { /* no store */ }
+    return false;
+  }
+
   function frameVisible(key) {
     try {
       const frames = SteamUIStore.WindowStore.VRGamepadUIMainWindowInstance.VRFrameStore.frames;
@@ -922,8 +938,14 @@
         ent.domGen++;
         ent.dirty = true;
         // a glass mode change is measured and reported right here, before Steam renders the new route
-        // (a tick would wait for that render), so glassd starts materializing the window at once
-        if (s.modes && records.some((r) => r.attributeName === s.modes.attr)) { modePending(ent); wakeUp(); return; }
+        // (a tick would wait for that render), so glassd starts materializing the window at once, from
+        // the moment the mode changed (modeAt: the cover's appearAt)
+        if (s.modes && records.some((r) => r.attributeName === s.modes.attr)) {
+          ent.modeAt = Date.now();
+          modePending(ent);
+          tickNow();
+          return;
+        }
         // a pooled popup mounting its content while still hidden: Steam's main thread is busy with that
         // mount, so a frame-driven tick would only come after the popup shows. Measure and report (armed)
         // here, so glassd draws the glass before Steam's panel appears.
@@ -1449,6 +1471,7 @@
     const out = { surface, kept: [], covers: [], plateEls: [], warnings: [], windowReq: null };
     const off = (reason) => {
       if (why) why.push({ surface: reason });
+      if (!why) ent.plateLast = null;   // nothing of this surface on screen: no plate leaves from here (below)
       return out;
     };
     if (texW >= 2 && texH >= 2) { ent.lastTexW = texW; ent.lastTexH = texH; }
@@ -1472,10 +1495,15 @@
     // return. lgs_sg.js takes main's nodes off the scene graph while the page is away and puts them back
     // in the update the page returns in; the frame menu, which stays with the frame, keeps its glass.
     if (s.frameKey && !frameVisible(s.frameKey)) {
+      if (!why) ent.plateLast = null;
       if (ent.full && ent.full.surface && ent.full.surface.visible) { ent.full.frameAway = true; return ent.full; }
       return off('dashboard frame hidden');
     }
-    if (s.laserOnly) {
+    // On one of SteamVR's own pages (VR Settings) the laser-only rule does not hold: Steam's gamepad-nav
+    // flag goes stale there (the laser works SteamVR's page, Steam never hears of it) and SteamVR shows
+    // the frame menu beside its page in either input mode. Keyed on the flag, the sidebar's native glass
+    // went on and off with every input Steam saw, its CSS glass painting in between.
+    if (s.laserOnly && !frameOnVrPage()) {
       const g = gamepadNav();
       if (g !== false) return off(g === null ? 'input mode unknown yet (laser-only surface)' : 'controller navigation (laser-only surface)');
     }
@@ -1508,6 +1536,9 @@
           if (t) {
             shapes.push(t);
             out.covers.push(modeEl);
+            // the mode just changed (Home -> Library): glassd springs this cover in from that moment, not
+            // from when this report lands (it ignores appearAt once the cover is shown)
+            if (ent.modeAt && Date.now() - ent.modeAt < MODE_APPEAR_MS) ctx.modeAt = ent.modeAt;
             if (why) why.push({ cover: describe(modeEl), mode, ok: t });
           } else if (why) why.push({ cover: describe(modeEl), mode, skip: 'too small or animating (new)' });
         }
@@ -1558,6 +1589,18 @@
         out.plateEls.push({ el, p, occ: el.getAttribute('data-lgs-plate-occluder') });
       }
     }
+    // Plates whose element left the DOM since the last report went with their content at once (Home ->
+    // Library stays inside one /library route: no page fade, Home unmounts when Library has rendered), so
+    // their glass goes in PLATE_GONE_MS (exitAt; the daemon keeps it for exactly that), not on the 350 ms
+    // dematerialize ramp, which left Home's discs over the Library grid
+    // (only while the surface stayed on screen since: off() forgets the last plates)
+    const goneAt = Date.now();
+    const curIds = new Set(plates.map((p) => p.id));
+    for (const [pid, last] of ent.plateLast || []) {
+      if (curIds.has(pid) || last.p.exitAt || !last.el || last.el.isConnected) continue;
+      plates.push(Object.assign({}, last.p, { exitAt: goneAt, exitMs: PLATE_GONE_MS }));
+    }
+    if (!why) ent.plateLast = new Map(out.plateEls.map((pe) => [pe.p.id, { p: pe.p, el: pe.el }]));
 
     if (!shapes.length && !plates.length) return off(armed ? 'window hidden' : mode === 'windowless' ? 'windowless, no plates on screen' : 'no cover on screen');
     if (armed) {
@@ -1575,6 +1618,8 @@
     if (ctx.morph) surface.morph = ctx.morph;
     // the cover is materializing with the page (a popup opening): glassd ramps it from the same moment
     if (ctx.appear) { surface.appear = 'materialize'; surface.phaseMs = ctx.appear.ms; surface.appearAt = ctx.appear.at; }
+    // ... or with a route change (its own spring, no phaseMs)
+    else if (ctx.modeAt) { surface.appear = 'materialize'; surface.appearAt = ctx.modeAt; }
     if (mode) surface.mode = mode;
     if (s.coverDz) surface.coverDz = r4(unitsOf(s.coverDz, ctx));
     if (s.scaleFrom) surface.scaleFrom = s.scaleFrom;
@@ -1687,7 +1732,7 @@
     // a plate still materializing in (a Home disc fading up from opacity 0, a card growing): reported now,
     // where its animation ends, with when that started, so glassd materializes it with the page instead
     // of the CSS plate painting first and being swapped out later
-    let appear = null;
+    let appear = null, exit = null;
     const b = measure(ctx, el, spec, false, true);
     let t = null;
     if (b.skip) {
@@ -1699,6 +1744,7 @@
       t = toTex(b, ctx);
       if (!t) { if (why) why.push({ plate: id, el: describe(el), skip: 'too small' }); return null; }
       const m = ctx.ent.settled.get(el);
+      const held = ctx.held;
       const ts = settleShape(ctx, el, t, 'plate');
       if (!ts && !(m && m.plate)) {
         const end = seekEnd(ctx, el, spec, true);
@@ -1707,10 +1753,15 @@
         appear = end;
       } else {
         t = ts;
+        // held under a running animation that fades its content out (a route leaving, a sheet closing):
+        // reported with when that fade started and how long it runs, so glassd fades the glass with its
+        // content instead of holding it at full glass until the element is gone
+        if (ctx.held > held) exit = fadeOutOf(ctx, el);
       }
     }
     const p = { id, x: t.x, y: t.y, w: t.w, h: t.h, r: t.r, material: mat };
     if (appear) { p.appear = 'materialize'; p.phaseMs = Math.max(0, Math.min(2000, Math.round(appear.ms))); p.appearAt = Math.round(appear.at); }
+    if (exit) { p.exitAt = Math.round(exit.at); p.exitMs = Math.round(exit.ms); }
     const ph = el.getAttribute('data-lgs-plate-phase');
     if (ph !== null && ph !== '' && Number.isFinite(+ph)) p.phase = Math.max(0, Math.min(1, +ph));
     const ap = el.getAttribute('data-lgs-plate-appear');
@@ -1812,6 +1863,39 @@
     if (!end) return null;
     ctx.appear = { at: Math.round(end.at), ms: Math.max(0, Math.min(2000, Math.round(end.ms))) };
     return end.t;
+  }
+
+  // Is el's content fading out: a running opacity transition or animation on el or an ancestor that
+  // ends below 0.05? {at: epoch ms that fade started, ms: how long it runs} (the latest-ending one), or
+  // null. Read from the fades' own keyframes and timing: nothing is seeked or measured.
+  function fadeOutOf(ctx, el) {
+    let best = null;
+    let pnow = 0;
+    try { pnow = ctx.win.performance.now(); } catch (_) { return null; }
+    const enow = Date.now();
+    for (let n = el; n && n.nodeType === 1; n = n.parentElement) {
+      let as = [];
+      try { as = n.getAnimations(); } catch (_) { continue; }
+      for (const a of as) {
+        if (a.playState !== 'running' || !a.effect) continue;
+        if (a.transitionProperty !== undefined && a.transitionProperty !== 'opacity') continue;
+        try {
+          const ct = a.effect.getComputedTiming();
+          if (ct.iterations !== 1) continue;
+          const back = a.playbackRate < 0 || ct.direction === 'reverse';
+          const kf = a.effect.getKeyframes();
+          const endK = kf.filter((k) => k.computedOffset === (back ? 0 : 1) && k.opacity !== undefined && k.opacity !== '');
+          if (!endK.length || !(parseFloat(endK[endK.length - 1].opacity) < 0.05)) continue;
+          const delay = +(ct.delay || 0);
+          const ms = Math.max(0, +ct.endTime - delay);
+          if (!(ms <= EXIT_MAX_MS)) continue;
+          const startPerf = a.startTime !== null ? a.startTime + delay : pnow - (+a.currentTime || 0) + delay;
+          const at = enow + (startPerf - pnow);
+          if (!best || at + ms > best.at + best.ms) best = { at, ms };
+        } catch (_) { /* finished meanwhile */ }
+      }
+    }
+    return best;
   }
 
   // The running geometric animations on el and its ancestors, seeked to their end for one measure.

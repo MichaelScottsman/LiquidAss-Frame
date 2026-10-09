@@ -25,21 +25,22 @@ A glass toast confirms "Liquid Glass · On". Do the same again to turn it off.
 
 Nothing starts at boot. There are no systemd units, autostart entries or Steam file patches.
 
-Only two things stay installed, so the toggle is there after a reboot:
+Only two things stay installed, so the toggle is there after a reboot, plus one file of your own:
 
 | Path | What it is |
 |---|---|
 | `~/.local/share/applications/glass-shell.desktop` | The "Liquid Glass" entry in + › Launch Program |
 | `~/.local/share/glass-shell/` | The toggle script and the theme files it reads |
+| `~/.config/glass-shell/tune.json` | Your glass settings from the paintbrush button on the bar (colour, intensity, refraction, frost, highlights). Written only when you change them; **Reset to default** in that panel deletes it. The one exception to "nothing persists", by request |
 
-`python glass.py uninstall` removes both.
+`python glass.py uninstall` removes all three.
 
 ## From the PC
 
 ```bash
 python glass.py install        # copy to the headset and add the launcher
 python glass.py on | off | toggle | status
-python glass.py dial 0.7       # transparency dial: 0 = clearest, 1 = most opaque
+python glass.py dial 0.7       # glass intensity: 0 = clearest, 1 = most opaque (saved with your glass settings)
 python glass.py uninstall
 ```
 
