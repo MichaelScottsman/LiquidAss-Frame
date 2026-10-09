@@ -211,8 +211,8 @@
 /* native: glassd's glass is right behind these panels (html.lgs-native-vr-*,
    set by device/lgs_sg.js with the cover node): their CSS fill and shade go,
    so Steam's window behind them no longer shows through a tint */
-html.lgs-native-vr-ctl %{FrameControlsContainer},
-html.lgs-native-vr-more %{AdditionalOptions} {
+&.lgs-native-vr-ctl %{FrameControlsContainer},
+&.lgs-native-vr-more %{AdditionalOptions} {
   background: transparent;
   box-shadow: none;
 }
