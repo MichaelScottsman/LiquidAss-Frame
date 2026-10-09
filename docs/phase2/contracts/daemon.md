@@ -272,6 +272,7 @@ Phase 1 fields stay. `mode` is `native`, `starting`, `css-only (<reason>)` or `d
 
 ## 12. Changes
 
+- 2026-10-08 (native-only glass): §8 `lgs-native` goes on every Steam window while native mode is live (`NATIVE_JS` `all`; `lgs_core.js` sets it at injection), not per acked key. §7 `armed` and `appearAt` (surfaces and plates) pass through. §9 a hidden pooled popup is sent to the scene graph as `standby: true` with its glassd backdrop: `lgs_sg.js` builds its nodes the moment Steam inserts the popup's panel (panel watch), in the same scene-graph update.
 - 2026-10-08 (motion): §7 a surface's `morph` `{token, at}` from the report goes to glassd with its `morph` cap; a page-away surface carries `phaseMs: 0` (its cover goes at once with Steam's page). §8 `lgs-native` stays 1.5 s after the last glass drawn. Backward compatible.
 
 - 2026-10-07 (maintenance, session 4): §4.2 Steam's window away (main empty in glassd.json, out of the spec, while the frame shows another page; REQ C6b->P8); §6 the page-script pass reads the flags files itself, `apply_once()` ends the vr pause, a pause older than 300 s is stale (REQ C6b->P8); §9 `mosaic` only without a cover (REQ C2a->P8 #17); §10 `mainAway`, `pausedS`. All backward compatible.
