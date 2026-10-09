@@ -64,7 +64,10 @@
   // route cycle, never released; 0 with the glass behind and no crops: soaks, 2026-10-09). Base crops (the
   // page with holes under lifted parts) are built only while something is popped.
   const COVER_BEHIND = opts.coverBehind !== undefined ? !!opts.coverBehind : true;
-  const COVER_BEHIND_DZ = -0.0004;   // as SteamVR's own panels' glass (vrCoverSync)
+  const COVER_BEHIND_DZ = -0.0004;
+  // Base crops reflect the room as Steam's own panel does: the same content over the same glass keeps its
+  // tone when a surface switches between the two layouts (a menu opening over window glass)
+  const STEAM_REFLECT = 0.1;   // as SteamVR's own panels' glass (vrCoverSync)
   const DEBUG_TINT = opts.debugTint || null;
   const FLAG_KEYS = ['frame-resize-scale-factor', 'sort-depth-bias', 'sort-order', 'no-depth-test', 'no-depth-write', 'reflect'];
   const DEFAULT_FLAGS = { 'frame-resize-scale-factor': 1 };
@@ -483,7 +486,7 @@
       curvature: 'inherit-from-parent-panel',
       interactive: false,
       visibility: 0,
-      reflect: 0,
+      reflect: num(d.reflect, 0),
       debug_name: d.name,
     };
     // Steam's bar, floating footer and bar popups curve about the dashboard's
@@ -711,7 +714,7 @@
         const p = el.buildNode({}, el)[1].properties;
         const uv = [p.uv_min[0], p.uv_min[1], p.uv_max[0], p.uv_max[1]].map(Number);
         if (uv.every(Number.isFinite) && uv[2] > uv[0] && uv[3] > uv[1]) {
-          return { src: 'popup', uv, mpp: num(p['meters-per-pixel'], 0), curv: curvOriginOf(el, 0) };
+          return { src: 'popup', uv, mpp: num(p['meters-per-pixel'], 0), curv: curvOriginOf(el, 0), reflect: num(p.reflect, 0) };
         }
       } catch (_) { /* fall through */ }
     }
@@ -719,7 +722,9 @@
       if (!mountsKey(f, key)) continue;
       try {
         const h = num(f.buildNode({}, f)[1].properties['override-pre-resize-main-panel-height'], 0);
-        if (h > 0 && texH > 0) return { src: 'frame', uv: [0, 0, 1, 1], mpp: h / texH };
+        // the main window's own panel is in Steam's mounted scene graph (unreadable here): Steam's panels
+        // reflect the room at .1 (the bar, the frame controls)
+        if (h > 0 && texH > 0) return { src: 'frame', uv: [0, 0, 1, 1], mpp: h / texH, reflect: STEAM_REFLECT };
       } catch (_) { /* skip */ }
     }
     return { src: 'none', uv: [0, 0, 1, 1], mpp: 0 };
@@ -893,9 +898,17 @@
     // cover: glassd's backdrop maps linearly onto the Steam texture; plates
     // are drawn by glassd inside it (contracts/glassd.md 1.3)
     const [b0, b1, b2, b3] = g.backdrop.map(Number);
+    // Windowless surfaces (Home: the spec's mosaic bands, no window glass) keep the glass behind Steam's panel
+    // with a part popped too: Steam's panel shows the page there in either layout (the crops covered only the
+    // bands), so the crops' hole hid nothing, and switching the surface to the crops layout for a Home card
+    // under the laser changed every plate's tone at once (Steam's panel reflects the room, reflect .1; our
+    // crops do not). With window glass, a popped part's own pixels on Steam's panel must be hidden: the crops
+    // layout (cover in front, base crops with a hole under each pop) for as long as something is popped.
     let popped = false;
     for (const [pk, ps] of st.pops) if (ps.surface === key && c.seen.has(pk)) { popped = true; break; }
-    const behind = COVER_BEHIND && !popped && W.__LGS_SG_FRONT !== true;   // __LGS_SG_FRONT: lab A/B, the layout with crops
+    const windowless = Array.isArray(s.mosaic);
+    const behind = COVER_BEHIND && (!popped || windowless) && W.__LGS_SG_FRONT !== true;
+  // __LGS_SG_FRONT: lab A/B, the layout with crops
     add('cover', {
       kind: 'cover', id: null, px: [R.x1 - R.x0, R.y1 - R.y0], u: au((R.x0 + R.x1) / 2), v: av((R.y0 + R.y1) / 2), z: behind ? COVER_BEHIND_DZ : coverDz,
       key: g.key, uv: [b0 + (b2 - b0) * R.x0 / Wd, b1 + (b3 - b1) * R.y0 / Ht, b0 + (b2 - b0) * R.x1 / Wd, b1 + (b3 - b1) * R.y1 / Ht],
@@ -968,6 +981,7 @@
       add('base:' + i, {
         kind: 'base', id: null, px: [p.x1 - p.x0, p.y1 - p.y0], u: au((p.x0 + p.x1) / 2), v: av((p.y0 + p.y1) / 2), z: baseDz,
         key, uv: [p.x0 / Wd, p.y0 / Ht, p.x1 / Wd, p.y1 / Ht], mpp: M, name: 'lgs:base:' + short + ':' + i, dimKey,
+        reflect: num(P.reflect, 0),
       });
     });
   }
