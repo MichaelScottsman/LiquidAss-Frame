@@ -4,6 +4,11 @@
 
 LiquidAss re-skins the Steam Frame's VR UI in Apple's glass design language. AI assisted.
 
+<p align="center">
+  <img src="assets/screenshots/Cover.jpg" alt="LiquidAss quick access menu in glass over the SteamVR home" width="49%">
+  <img src="assets/screenshots/Passthrough.jpg" alt="LiquidAss library in glass over passthrough" width="49%">
+</p>
+
 ## Install
 
 Run this in a terminal on the headset (Desktop Mode's terminal, or over SSH). It downloads the latest release and adds **LiquidAss** to **+ › Launch Program**:
@@ -27,7 +32,19 @@ curl -fsSL https://github.com/MichaelScottsman/LiquidAss-Frame/releases/latest/d
 1. On the dashboard bar, press **+**.
 2. Under **Launch Program**, pick **LiquidAss**.
 
-A glass toast confirms "LiquidAss · On". Do the same again to turn it off.
+A glass toast confirms "LiquidAss · On".
+
+<p align="center"><img src="assets/screenshots/LaunchTheme.jpg" alt="Launching LiquidAss from + › Launch Program" width="80%"></p>
+
+To turn it off and return to Steam's original UI, do the same again: **+** › **LiquidAss**.
+
+<p align="center"><img src="assets/screenshots/ReturnToOriginal.jpg" alt="Turning LiquidAss off from the + menu returns Steam's original UI" width="80%"></p>
+
+## Configure the glass
+
+Press the paintbrush button at the right end of the dashboard bar. Its panel sets the glass colour and tint strength, glass intensity, refraction, frost and highlights, and changes apply live. **Reset to default** restores the original look. Your settings are kept across reboots (see below).
+
+<p align="center"><img src="assets/screenshots/Configure.jpg" alt="The paintbrush glass panel: colour, tint strength, intensity, refraction, frost, highlights" width="80%"></p>
 
 ## Nothing persists
 
