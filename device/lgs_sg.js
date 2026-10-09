@@ -936,11 +936,16 @@
   // __LGS_SG_FRONT: lab A/B, the layout with crops
     // a stereo surface (glassd: the left eye's backdrop, then the right eye's): the panel spans the pair,
     // which SteamVR splits per eye; shown whole only (a crop of a pair would not split at its seam)
-    const cuv = [b0 + (b2 - b0) * R.x0 / Wd, b1 + (b3 - b1) * R.y0 / Ht, b0 + (b2 - b0) * R.x1 / Wd, b1 + (b3 - b1) * R.y1 / Ht];
-    const coverStereo = g.stereo === true && R.x0 === 0 && R.x1 === Wd;
+    // glassd built the pair around its crop (g.crop, u range): the panel spans exactly that pair, so its
+    // horizontal range is glassd's crop (the same as R once glassd has the latest; a frame apart while the
+    // bar resizes), split by SteamVR at the seam between the two eyes' copies
+    const crop = g.stereo === true && Array.isArray(g.crop) && g.crop.length === 2 ? g.crop.map(Number) : null;
+    const cx0 = crop ? Math.round(crop[0] * Wd) : R.x0, cx1 = crop ? Math.round(crop[1] * Wd) : R.x1;
+    const cuv = [b0 + (b2 - b0) * cx0 / Wd, b1 + (b3 - b1) * R.y0 / Ht, b0 + (b2 - b0) * cx1 / Wd, b1 + (b3 - b1) * R.y1 / Ht];
+    const coverStereo = g.stereo === true && (crop !== null || (R.x0 === 0 && R.x1 === Wd));
     if (coverStereo) cuv[2] = cuv[0] + 2 * (cuv[2] - cuv[0]);
     add('cover', {
-      kind: 'cover', id: null, px: [R.x1 - R.x0, R.y1 - R.y0], u: au((R.x0 + R.x1) / 2), v: av((R.y0 + R.y1) / 2), z: behind ? COVER_BEHIND_DZ : coverDz,
+      kind: 'cover', id: null, px: [cx1 - cx0, R.y1 - R.y0], u: au((cx0 + cx1) / 2), v: av((R.y0 + R.y1) / 2), z: behind ? COVER_BEHIND_DZ : coverDz,
       key: g.key, uv: cuv, mpp: M / scale, name: 'lgs:cover:' + short, dimKey, stereo: coverStereo,
     });
 
@@ -1183,6 +1188,14 @@
       pushIn: st.pushTimer ? Math.max(0, st.pushDue - Date.now()) : (st.anim.timer ? 0 : null),
       specSeq: st.specSeq, now: Date.now(), anim: animCount(), surf: surfSummary(),
       vr: (() => { try { return vrPanelsInfo(); } catch (_) { return null; } })(),
+      // the u range of each Steam texture its panel shows (glassd builds a stereo surface's eye pair there)
+      crops: (() => {
+        const o = {};
+        for (const [k, inf] of Object.entries(st.parents || {})) {
+          if (inf && Array.isArray(inf.uv) && (inf.src === 'popup' || inf.src === 'frame')) o[k] = [r6(inf.uv[0]), r6(inf.uv[2])];
+        }
+        return o;
+      })(),
     };
   }
 

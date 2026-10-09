@@ -533,7 +533,8 @@ struct SurfSpec {
     float coverDz = 0.001f;                 // scene units: the cover and plates relative to the surface
     std::vector<MaskSpec> masks;
     bool scaleFromOverlay = false;          // "scaleFrom": "overlay": no rescale to the window's mpp
-    bool stereo = false;                    // "stereo": per-eye layout (a surface the scene graph shows whole)
+    bool stereo = false;                    // "stereo": per-eye layout
+    float cropU0 = 0, cropU1 = 1;           // "crop": the part of the texture the scene graph shows (u range)
 };
 // The wearer's glass tune (the bar's paintbrush panel; cap "tune"): multipliers on every material's
 // refraction (lens and dispersion), frost and light (key specular, Fresnel, sheen), and a colour for the
@@ -864,6 +865,11 @@ bool parseSpec(const std::string &text, Spec &out, std::string &err) {
         }
         ss.scaleFromOverlay = s.str("scaleFrom", "main") == "overlay";
         ss.stereo = s.boolean("stereo", false);
+        if (const JVal *c = s.get("crop"); c && c->type == JVal::Arr && c->a.size() == 2 && c->a[0].type == JVal::Num &&
+                                           c->a[1].type == JVal::Num) {
+            const float u0 = std::clamp(float(c->a[0].n), 0.f, 1.f), u1 = std::clamp(float(c->a[1].n), 0.f, 1.f);
+            if (std::isfinite(u0) && std::isfinite(u1) && u1 - u0 > 0.01f) ss.cropU0 = u0, ss.cropU1 = u1;
+        }
         out.surfaces.push_back(std::move(ss));
     }
     return true;
@@ -1997,7 +2003,7 @@ class Glassd {
             s.rescaled = false;
             s.geoOkNs = now;
             s.geoNote = "test";
-            if (s.spec.overlayKey == kMainKey) mainMpp = mpp;
+            if (s.spec.overlayKey == kMainKey && s.spec.name == "main") mainMpp = mpp;
             return;
         }
         if (!fetch) {
@@ -2032,7 +2038,10 @@ class Glassd {
         }
         if (!why) {
             const bool isMain = s.spec.overlayKey == kMainKey;
-            if (isMain) mainMpp = g.mpp;
+            // the window's scale comes from the window's own surface only: SteamVR's panels (vr.settings,
+            // vr.ctl) are placed by the same overlay but have their own sizes, and taking theirs made the
+            // bar's and the frame menu's glass jump x3.8 every geometry fetch while VR Settings was open
+            if (isMain && s.spec.name == "main") mainMpp = g.mpp;
             s.rawGeo = g;
             const float ratio = isMain || s.spec.scaleFromOverlay ? 1.f : rescaleToMain(g, tw, th);
             s.rescaled = ratio != 1.f;
@@ -2648,13 +2657,28 @@ class Glassd {
         s.rendered = true;
     }
 
-    // Eye e's copy of the surface's layout (e 0 in mono).
+    // Eye e's copy of the surface's layout (e 0 in mono). The backdrop's pair is built around the part the
+    // scene graph shows (crop [c0, c1)): the left eye's copy in place, the right eye's shifted right by the
+    // crop's width so its crop lands at [c1, c1 + cw), each eye's drawing clipped to its own crop. A panel
+    // over [c0, c1 + cw) then splits at c1, the left eye's crop on the left (main: the whole backdrop).
     void renderEye(Surface &s, DmaTarget &b, const Pose &head, uint64_t now, int e) {
-        const int ox = e * s.bw;  // the backdrop's copy
+        int c0 = 0, c1 = s.bw;
+        if (s.eyes == 2) {
+            c0 = std::clamp(int(std::floor(s.spec.cropU0 * float(s.bw))), 0, s.bw - 1);
+            c1 = std::clamp(int(std::ceil(s.spec.cropU1 * float(s.bw))), c0 + 1, s.bw);
+        }
+        const int cw = c1 - c0;
+        const int ox = e * cw;  // the backdrop's copy for this eye
+        const int kx0 = e == 0 ? c0 : c1, kx1 = e == 0 ? c1 : c1 + cw;
+        auto scissor = [&](int x, int y, int w, int h) {
+            const int a = std::max(x, kx0), z = std::min(x + w, kx1);
+            if (z <= a) glScissor(0, 0, 0, 0);
+            else glScissor(a, y, z - a, h);
+        };
         glBindFramebuffer(GL_FRAMEBUFFER, b.fbo);
         glClearColor(0, 0, 0, 0);
         glEnable(GL_SCISSOR_TEST);
-        glScissor(ox, 0, s.bw, s.bh);
+        scissor(ox, 0, s.bw, s.bh);
         glClear(GL_COLOR_BUFFER_BIT);
         const Geometry &g = s.geo;
         const float mpp = designMpp();
@@ -2720,7 +2744,7 @@ class Glassd {
                     progGlass.set("uLowScale", lowScale);
                     progGlass.set("uInner", inner);
                 }
-                glScissor(ox + sx0, sy0, sx1 - sx0, sy1 - sy0);
+                scissor(ox + sx0, sy0, sx1 - sx0, sy1 - sy0);
                 drawGlass(s, g, head, cm, cph, ox, 0, s.bw, s.bh, {0, 0, 0}, shapes, coverDzM, false, casters, twoPass ? 2 : 0);
                 coverDrawn = true;
             }
@@ -2780,7 +2804,7 @@ class Glassd {
                 const int x1 = std::min(s.bw, int(std::ceil((p->s.x + p->s.w + pad) * s.scale)) + 1);
                 const int y1 = std::min(s.bh, int(std::ceil((p->s.y + p->s.h + pad) * s.scale)) + 1);
                 if (x1 <= x0 || y1 <= y0) continue;
-                glScissor(ox + x0, y0, x1 - x0, y1 - y0);
+                scissor(ox + x0, y0, x1 - x0, y1 - y0);
                 coverTaps = copyHasDetail(s, casters, p->s.x, p->s.y, p->s.x + p->s.w, p->s.y + p->s.h, false) ? 9 : 1;
                 drawGlass(s, g, head, pm, platePhase(*p, now), ox, 0, s.bw, s.bh, {0, 0, 0},
                           {{p->s.x, p->s.y, p->s.w, p->s.h, p->s.r}}, plateDz, plateUnder, casters, 0, 0.f, plateLook(*p));
@@ -3011,7 +3035,10 @@ class Glassd {
                 std::snprintf(b, sizeof b, ", \"view\": {\"offDeg\": %.1f, \"distM\": %.2f}", double(off), double(dist));
                 o += b;
             }
-            if (s->eyes == 2) o += ", \"stereo\": true";
+            if (s->eyes == 2) {
+                std::snprintf(b, sizeof b, ", \"stereo\": true, \"crop\": [%.4f, %.4f]", double(s->spec.cropU0), double(s->spec.cropU1));
+                o += b;
+            }
             o += ", \"geometry\": " + jsonEscape(s->geoNote) + ", \"slabs\": {";
             for (size_t i = 0; i < s->slots.size(); i++) {
                 const SlabSlot &sl = s->slots[i];

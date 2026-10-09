@@ -1085,6 +1085,7 @@ class Shell:
         self.items_last = {}                  # (surface, kind, id) -> last item written (for its fade-out)
         self.fading = {}                      # (surface, kind, id) -> (item with phase 0, until)
         self.cover_last = {}                  # surface -> had a cover in the last glassd.json
+        self.sg_crops = {}                    # Steam overlay key -> [u0, u1] its scene-graph panel shows
         self.plate_acks = {}
         self.cover_keys = []
         self.pop_clips = {}                   # (surface, id) -> clip rect trimmed by build_spec (hole.clip)
@@ -1511,8 +1512,13 @@ class Shell:
                 surf["scaleFrom"] = s["scaleFrom"]
             # per-eye glass where the scene graph shows the surface whole (Steam's window; the bar, the frame
             # menu and the popups show crops of theirs, which a stereo panel cannot split per eye)
-            if "stereo" in caps and name == "main" and self.stereo_on():
+            # stereo where the scene graph says which part of the texture its panel shows (glassd builds
+            # the eye pair around that crop; the panel spans the pair): Steam's window, the bar, the frame
+            # menu, the footer, popups once shown
+            crop = (self.sg_crops or {}).get(s["overlayKey"]) if "stereo" in caps and self.stereo_on() else None
+            if isinstance(crop, list) and len(crop) == 2 and None not in (_num(crop[0], 0, 1), _num(crop[1], 0, 1))                     and crop[1] - crop[0] > 0.01:
                 surf["stereo"] = True
+                surf["crop"] = [round(float(crop[0]), 3), round(float(crop[1]), 3)]
             # materialize: a new slab or plate id appears with materialize (GM §5.4)
             for kind, items in (("slab", surf["slabs"]), ("plate", surf.get("plates") or [])):
                 for it in items:
@@ -1788,7 +1794,7 @@ class Shell:
                 popped.append(p)
             sp = {"steamKey": s["overlayKey"], "texW": texW, "texH": texH, "visible": True,
                   "glassd": {"key": g.get("key") or "glassd." + s["name"], "backdrop": backdrop, "scale": scale,
-                             "stereo": g.get("stereo") is True},
+                             "stereo": g.get("stereo") is True, "crop": g.get("crop")},
                   "coverDz": COVER_DZ, "baseDz": BASE_DZ, "popped": popped}
             if _num(s.get("coverDz"), -1, 1) is not None:
                 sp["coverDz"] = _num(s["coverDz"], -1, 1)
@@ -1842,7 +1848,7 @@ class Shell:
             return None
         sp = {"steamKey": s["overlayKey"], "texW": texW, "texH": texH, "visible": False, "standby": True,
               "glassd": {"key": g.get("key") or "glassd." + s["name"], "backdrop": backdrop, "scale": scale,
-                         "stereo": g.get("stereo") is True},
+                         "stereo": g.get("stereo") is True, "crop": g.get("crop")},
               "coverDz": COVER_DZ, "baseDz": BASE_DZ, "popped": []}
         if _num(s.get("coverDz"), -1, 1) is not None:
             sp["coverDz"] = _num(s["coverDz"], -1, 1)
@@ -2423,6 +2429,17 @@ class Shell:
     def set_beat(self, b):
         if isinstance(b, dict) and "surf" in b:
             self.sg_beat, self.sg_beat_at = b, time.time()
+            # the part of each Steam texture its panel shows: kept (a surface hidden for a moment keeps its
+            # crop), a change rewrites glassd.json (the eye pair is built around it)
+            c = b.get("crops")
+            if isinstance(c, dict):
+                crops = dict(self.sg_crops or {})
+                for k, v in c.items():
+                    if isinstance(k, str) and isinstance(v, list) and len(v) == 2:
+                        crops[k] = [round(float(x), 3) for x in v if isinstance(x, (int, float))][:2]
+                if crops != self.sg_crops:
+                    self.sg_crops = crops
+                    self.changed.set()
             # SteamVR Settings' panel (lgs_sg.js measures it while the page shows): its size and glass rect
             # are kept, so glassd's "vrsettings" glass stays drawn ahead for the next time the page shows
             v = b.get("vr")
