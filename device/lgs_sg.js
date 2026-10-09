@@ -1016,7 +1016,9 @@
     st.depthToken = typeof spec.depthMotion === 'string' && spec.depthMotion ? spec.depthMotion : 'depth';
     if (num(spec.unitM, 0) > 0 && spec.unitM !== st.unitM) { st.unitM = num(spec.unitM, 0); geomCache = null; }
     if (!st.M) { st.M = readM(); st.MSource = st.M ? 'PooledPopup' : ''; }
-    const surfaces = (Array.isArray(spec.surfaces) ? spec.surfaces : []).filter((s) => s && s.steamKey && s.visible !== false);
+    // standby: a hidden pooled popup the daemon keeps glass for; built only while Steam's panel for it
+    // is on the page (describe), which the panel watch below catches the moment it is inserted
+    const surfaces = (Array.isArray(spec.surfaces) ? spec.surfaces : []).filter((s) => s && s.steamKey && (s.visible !== false || s.standby === true));
     // dims first (describe reads them)
     const dimWant = new Map();
     for (const s of surfaces) if (s.dim !== undefined && s.dim !== null && Number.isFinite(Number(s.dim))) dimWant.set(String(s.steamKey), clamp(Number(s.dim), 0, 1));
@@ -1562,7 +1564,7 @@
       scheduler: { module: sched.module, push: !!sched.push, retire: !!sched.retire, error: sched.error },
       attached: isAttached(),
       M: st.M, MSource: st.MSource,
-      parents: st.parents, relayouts: st.relayouts, surfaces,
+      parents: st.parents, relayouts: st.relayouts, panelBuilds: st.panelBuilds || 0, surfaces,
       items: st.items.size, panels: counts, surf: surfSummary(),
       nodes: st.root ? st.root.querySelectorAll('*').length : 0,
       pushes: st.pushes,
@@ -1619,6 +1621,7 @@
       } catch (_) { /* best effort */ }
       st.destroyed = true;
       clearInterval(st.tick);
+      try { if (st.panelWatch) st.panelWatch.disconnect(); } catch (_) { /* gone */ }
       clearTimeout(yawTimer);
       if (st.pushTimer) { clearTimeout(st.pushTimer); st.pushTimer = 0; }
       if (st.anim.timer) { clearTimeout(st.anim.timer); st.anim.timer = 0; }
@@ -1626,6 +1629,47 @@
     }
     return true;
   }
+
+  // Panel watch: Steam inserts a pooled popup's panel (PooledPopup-<key>) when the popup opens and removes
+  // it when it closes. For a surface the spec holds in standby, our cover and base nodes are built in the
+  // mutation callback itself, before Steam's scheduler runs, and pushed at once: they join the same scene-
+  // graph update as Steam's own panel, so the popup never shows without its glass for a round trip. A
+  // panel whose crop is not readable yet is caught on the next frame, then by the 0.5 s relayout check.
+  function standbyKeys() {
+    const ks = new Set();
+    const sp = st.lastSpec;
+    for (const x of (sp && Array.isArray(sp.surfaces)) ? sp.surfaces : []) if (x && x.standby === true && x.steamKey) ks.add(String(x.steamKey));
+    return ks;
+  }
+  function panelAdded(recs) {
+    if (st.destroyed || st.expired || !st.lastSpec) return false;
+    const ks = standbyKeys();
+    if (!ks.size) return false;
+    for (const r of recs) {
+      for (const n of r.addedNodes) {
+        if (n.nodeType !== 1) continue;
+        const els = (n.id && n.id.startsWith('PooledPopup-')) ? [n] : [...n.querySelectorAll('[id^="PooledPopup-"]')];
+        for (const e of els) if (ks.has(e.id.slice('PooledPopup-'.length))) return true;
+      }
+    }
+    return false;
+  }
+  function relayoutNow(why) {
+    try {
+      build(st.lastSpec);
+      if (st.pushTimer) { clearTimeout(st.pushTimer); st.pushTimer = 0; }
+      pushNow();
+      st.panelBuilds = (st.panelBuilds || 0) + 1;
+    } catch (e) { note('panel ' + why + ': ' + e.message); }
+  }
+  try {
+    st.panelWatch = new MutationObserver((recs) => {
+      if (!panelAdded(recs)) return;
+      relayoutNow('insert');
+      requestAnimationFrame(() => { if (!st.destroyed && parentSig(st.lastSpec) !== st.parentSig) relayoutNow('frame'); });
+    });
+    st.panelWatch.observe(document.body || document.documentElement, { childList: true, subtree: true });
+  } catch (e) { note('panel watch: ' + e.message); }
 
   // Housekeeping: re-attach after React re-renders, re-layout when Steam
   // re-crops a parent, re-find override targets, heartbeat watchdog.

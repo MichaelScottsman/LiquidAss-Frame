@@ -621,6 +621,30 @@
   will-change: auto;
 }
 
+/* Native: the page under an open menu, alert or sheet is cut out of Steam's
+   texture (rt/22-menus.js sets data-lgs-hole and the rect on BasicHome's
+   children other than the modal overlay). Steam draws the menu into the
+   same texture as the page, and this CEF's backdrop-filter does not blur
+   it: without the hole the lifted crop carried the page at full contrast
+   (labels colliding, ghosting against the page outside). The hole fades in
+   with the open and back after the slab has gone (mat-in's 250 ms on a
+   registered number, 00-tokens). */
+&.lgs-native %{BasicHome} > [data-lgs-hole] {
+  /* the opaque layer reaches far past the box (no-clip), so content that
+     overflows it (the header's capsules) is only cut by the hole */
+  mask-image: linear-gradient(#000, #000), linear-gradient(rgb(0 0 0 / var(--lgs-hole-k)), rgb(0 0 0 / var(--lgs-hole-k)));
+  mask-size: 8000px 8000px, var(--lgs-hole-w, 0px) var(--lgs-hole-h, 0px);
+  mask-position: -4000px -4000px, var(--lgs-hole-x, 0px) var(--lgs-hole-y, 0px);
+  mask-repeat: no-repeat;
+  mask-clip: no-clip;
+  mask-origin: border-box;
+  mask-composite: exclude;
+  transition: --lgs-hole-k var(--lgs-d-mat-in, 250ms) linear;
+}
+&.lgs-native %{BasicHome} > [data-lgs-hole="on"] {
+  --lgs-hole-k: 1;
+}
+
 /* ------------------------------------------------------------------ */
 /* 9. Markup of C1c's T2 (device/rt/22-menus.js, flag wp.c1c); inert    */
 /*    without it                                                         */

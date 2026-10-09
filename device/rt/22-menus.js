@@ -58,6 +58,8 @@
   const POWER_GROUPS = [['#Downloads_ThisDevice', 'This Device'], ['#Menu_Steam', 'Steam']];
   const BOX = { top: 108, bottom: 616, left: 24, right: 1256, gap: 16, ornGap: 8 };   // D7, D28, C2c REQ-6
   const SOURCE_MS = 1500;   // a pointerdown / vgp event this recent is the menu's source
+  const HOLE_HOLD_MS = 520; // after a close, the page hole stays while glassd's slab dematerializes (sheet-out 514)
+  const HOLE_FADE_MS = 300; // ... then fades back (the CSS transition, + a frame)
 
   let R = null;
   let S = null;   // live state, created by install
@@ -503,6 +505,69 @@
       if (card && wl) setAttr(card, 'data-lgs-plate', 'thick');
     }
     if (!kind) prune();
+    // the page under what is open (native): the menus' slabs, or the alert's or sheet's card
+    const rects = [];
+    for (const bcm of bcms) for (const c of bcm.querySelectorAll(S.sel.contents)) rects.push(c.getBoundingClientRect());
+    if (kind === 'alert' || kind === 'sheet') {
+      const pos = top && top.querySelector(S.sel.pos);
+      const card = pos && (pos.querySelector(':scope > ' + S.sel.card) || sheetOf(pos));
+      if (card) rects.push(card.getBoundingClientRect());
+    }
+    pageHole(main, rects);
+  }
+
+  // Native mode: Steam draws a menu, alert or sheet into the same texture as the page under it, so the
+  // crop that lifts it (and the base inside its plate on windowless routes) carried that page: labels
+  // collided with the menu's and ghosted against the page outside, and this CEF's backdrop-filter does not
+  // blur it. While one is open the page's own layers (BasicHome's children other than the modal overlay)
+  // get a hole at its rect (data-lgs-hole, 22-presentations.css), faded in with the open, so the lifted
+  // glass holds only the menu, over glassd's glass. After a close the hole stays while the slab
+  // dematerializes (the sinking crop shows no bare page), then fades back.
+  function pageHole(main, rects) {
+    const H = S.hole;
+    const doc = main.doc;
+    const native = main.html.classList.contains('lgs-native');
+    const ov = S.overlay;
+    const home = ov && ov.parentElement;
+    const live = native && home && rects.length > 0;
+    if (live) {
+      if (H.timer) { H.timer(); H.timer = 0; }
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      for (const r of rects) { x0 = Math.min(x0, r.left); y0 = Math.min(y0, r.top); x1 = Math.max(x1, r.right); y1 = Math.max(y1, r.bottom); }
+      const want = new Set();
+      for (const el of home.children) {
+        if (el === ov || el.contains(ov)) continue;
+        const b = el.getBoundingClientRect();
+        if (b.width < 1 || b.height < 1) continue;
+        want.add(el);
+        const st = el.style;
+        const v = { x: x0 - b.left, y: y0 - b.top, w: x1 - x0, h: y1 - y0 };
+        for (const k of ['x', 'y', 'w', 'h']) st.setProperty('--lgs-hole-' + k, Math.round(v[k]) + 'px');
+        if (el.getAttribute('data-lgs-hole') !== 'on') el.setAttribute('data-lgs-hole', 'on');
+      }
+      for (const el of H.els) if (!want.has(el)) clearHole(el);
+      H.els = want;
+      try { doc.documentElement.classList.add('lgs-page-hole'); } catch (_) { /* closed */ }
+      return;
+    }
+    if (!H.els.size || H.timer) return;
+    const els = H.els;
+    H.timer = R.setTimeout(() => {
+      for (const el of els) if (el.getAttribute('data-lgs-hole') === 'on') el.setAttribute('data-lgs-hole', 'off');
+      try { doc.documentElement.classList.remove('lgs-page-hole'); } catch (_) { /* closed */ }
+      H.timer = R.setTimeout(() => {
+        H.timer = 0;
+        if (H.els !== els) return;
+        for (const el of els) clearHole(el);
+        H.els = new Set();
+      }, HOLE_FADE_MS);
+    }, native ? HOLE_HOLD_MS : 0);
+  }
+  function clearHole(el) {
+    try {
+      el.removeAttribute('data-lgs-hole');
+      for (const k of ['x', 'y', 'w', 'h']) el.style.removeProperty('--lgs-hole-' + k);
+    } catch (_) { /* gone */ }
   }
 
   function schedule() {
@@ -533,7 +598,7 @@
       R = rt;
       S = {
         sel: {}, marks: new Map(), menus: new WeakMap(), sourceMarks: [], lastSource: null, lastPower: 0,
-        modalOn: false, close: null, pending: false, obs: null, overlay: null,
+        modalOn: false, close: null, pending: false, obs: null, overlay: null, hole: { els: new Set(), timer: 0 },
       };
       for (const [k, v] of Object.entries(T)) S.sel[k] = rt.sel(v);
 
@@ -586,8 +651,10 @@
       if (!S) return { left: 0 };
       if (S.obs) { S.obs.disconnect(); S.obs = null; }
       if (S.close) { try { S.close.node.remove(); } catch (_) { /* gone */ } S.close = null; }
+      if (S.hole.timer) S.hole.timer();
+      for (const el of S.hole.els) clearHole(el);
       undoAll();
-      R.windows.each((w) => { try { w.html.classList.remove('lgs-modal', 'lgs-menu-open'); } catch (_) { /* closed */ } });
+      R.windows.each((w) => { try { w.html.classList.remove('lgs-modal', 'lgs-menu-open', 'lgs-page-hole'); } catch (_) { /* closed */ } });
       S = null;
       return { left: 0 };
     },

@@ -444,6 +444,7 @@ struct PhaseSpec {
     float phase = 1;        // target materialize progress 0..1
     bool materialize = false;  // "appear": "materialize": first sight starts at 0
     float ms = -1;          // "phaseMs": linear ramp duration (ms) instead of the size's default
+    double atMs = 0;        // "appearAt": epoch ms the materialize started (the page's own open animation)
 };
 // A colour from the spec: sRGB, straight alpha (v3: tint, fill, hole fill).
 struct Color {
@@ -503,6 +504,7 @@ struct SurfSpec {
     int texW = 0, texH = 0;
     float radius = 0;
     bool visible = true;
+    bool armed = false;  // hidden, but its content is ready: draw its glass ahead (a pooled popup about to show)
     // Cover shapes. Explicit (hasShapes, possibly empty = no cover), or absent:
     // then a "window" surface is covered whole and any other gets no cover.
     bool hasShapes = false;
@@ -647,6 +649,8 @@ void readPhase(const JVal &o, PhaseSpec &ph) {
     if (!std::isfinite(ph.phase)) ph.phase = 1;
     ph.materialize = o.str("appear", "") == "materialize";
     ph.ms = o.has("phaseMs") ? std::clamp(float(o.num("phaseMs", -1)), 0.f, 10000.f) : -1.f;
+    ph.atMs = o.has("appearAt") ? o.num("appearAt", 0) : 0;
+    if (!std::isfinite(ph.atMs) || ph.atMs < 0) ph.atMs = 0;
 }
 
 const char *kDemoSpec = R"({"seq": 1, "dial": 0.5, "surfaces": [
@@ -706,6 +710,7 @@ bool parseSpec(const std::string &text, Spec &out, std::string &err) {
         ss.radius = float(s.num("radius", 0));
         ss.material = s.str("material", "window");
         ss.visible = s.boolean("visible", true);
+        ss.armed = !ss.visible && s.boolean("armed", false);
         readPhase(s, ss.ph);
         if (const JVal *m = s.get("morph"); m && m->type == JVal::Obj) {
             ss.morphToken = m->str("token", "");
@@ -878,6 +883,7 @@ struct Surface {
     std::vector<ShapeSpec> morphFrom, fadeShapes;
     const lgs_motion::Token *morphTok = nullptr;
     uint64_t morphT0 = 0;
+    bool clearPending = false;       // hidden since the last frame: one transparent frame, so no stale glass shows on the next open
     Target lowTex;                   // the cover at 1/4 resolution, mipmapped (glass.frag pass 1): its flat
                                      // interior for pass 2, and what slabs see behind them
     Target coverTex;                 // R1: a copy of lowTex with the cover only (no plates), mipmapped:
@@ -1546,17 +1552,22 @@ class Glassd {
     // A spec with "morph" moves the shapes from what is shown toward the new ones (morphProgress).
     void setCoverPhase(Surface &s, const SurfSpec &ns, uint64_t now) {
         const bool init = s.anim.init;
-        const bool wasShown = init && s.spec.visible && specCover(s.spec);
-        const bool shown = ns.visible && specCover(ns);
-        const bool kept = init && s.spec.visible && ns.visible;
+        const bool wasOn = s.spec.visible || s.spec.armed, on = ns.visible || ns.armed;
+        const bool wasShown = init && wasOn && specCover(s.spec);
+        const bool shown = on && specCover(ns);
+        const bool kept = init && wasOn && on;
         std::vector<ShapeSpec> before;
         if (init && wasShown) before = coverShapes(s);
         const std::vector<ShapeSpec> oldTarget = s.spec.shapes;
+        const bool wasVisible = init && wasOn;
         s.spec = ns;
         if (kept && wasShown && !shown) s.fadeShapes = before;
         else if (shown || !kept) s.fadeShapes.clear();
         if (!kept) s.anim.init = false;
+        if (wasVisible && !on) s.clearPending = true;
         s.anim.set(shown ? ns.ph.phase : 0.f, true, ns.ph.ms, ns.ph.materialize ? 0.f : -1.f, now);
+        // appearing with the page's open animation: the ramp runs from when that started
+        if (!kept && shown && ns.ph.materialize && ns.ph.atMs > 0) s.anim.t0 = epochToMono(ns.ph.atMs, now);
         if (!(kept && wasShown && shown) || sameShapes(oldTarget, ns.shapes)) {
             if (!(kept && wasShown && shown)) s.morphTok = nullptr;
             return;  // nothing moved: a running morph goes on
@@ -1584,8 +1595,11 @@ class Glassd {
                     slot.anim = old.anim;
                     break;
                 }
+            const bool fresh = !slot.anim.init;
             slot.s = p;
             slot.anim.set(p.ph.phase, plateSprings(p), p.ph.ms, p.ph.materialize ? 0.f : -1.f, now);
+            // a new plate materializing with the page's own animation: the ramp runs from when that started
+            if (fresh && p.ph.materialize && p.ph.atMs > 0) slot.anim.t0 = epochToMono(p.ph.atMs, now);
             next.push_back(slot);
         }
         s.plates.swap(next);
@@ -2659,7 +2673,7 @@ class Glassd {
     int renderAll(const Pose &head, bool force, bool fetchGeo, uint64_t now) {
         std::vector<Surface *> todo;
         for (auto &s : surfaces) {
-            if (!(s->spec.visible || force)) continue;
+            if (!(s->spec.visible || s->spec.armed || force || s->clearPending)) continue;
             if (s->ov == vr::k_ulOverlayHandleInvalid && !ensureOverlay(*s)) continue;
             if (!s->bufs[0].bo && !ensureBuffers(*s)) continue;
             if (!s->bufs[s->next].bo) continue;
@@ -2690,7 +2704,10 @@ class Glassd {
         const v3 key = normalize(v3{-0.30f, 0.90f, 0.32f});
         p.set("uKeyL", key.x, key.y, key.z);
         p.set("uDebug", opt.debugView);
-        for (Surface *s : todo) renderSurface(*s, head, now);
+        for (Surface *s : todo) {
+            renderSurface(*s, head, now);
+            s->clearPending = false;
+        }
         renderTimer.end();
         glFinish();  // SteamVR samples the dmabufs from another process
         cpuMs = cpuMs * 0.9f + float(double(monoNowNs() - t0) / 1e6) * 0.1f;
@@ -2781,7 +2798,7 @@ class Glassd {
                       spec.seq, int(getpid()), double(rt.tv_sec) + double(rt.tv_nsec) / 1e9, !exiting && healthy() ? "true" : "false",
                       exiting ? 0.0 : double(fpsNow), double(gpuMs()), (unsigned long long)frames, lastDash ? "true" : "false");
         o += b;
-        o += ", \"version\": 3, \"caps\": [\"plates\", \"holes\", \"tint\", \"masks\", \"coverDz\", \"none\", \"offset\", \"dim\", \"scaleFrom\", \"unitM\", \"roomDim\", \"dimSlab\", \"holeEdges\", \"morph\"]";
+        o += ", \"version\": 3, \"caps\": [\"plates\", \"holes\", \"tint\", \"masks\", \"coverDz\", \"none\", \"offset\", \"dim\", \"scaleFrom\", \"unitM\", \"roomDim\", \"dimSlab\", \"holeEdges\", \"morph\", \"appearAt\", \"armed\"]";
         std::snprintf(b, sizeof b, ", \"last_submit_s\": %.1f, \"room_ms\": %.2f, \"room_updates\": %llu, \"feed\": %s%s",
                       lastSubmitNs ? double(now - lastSubmitNs) / 1e9 : -1.0, double(roomTimer.have ? roomTimer.ms : roomCpuMs),
                       (unsigned long long)room.updates, jsonEscape(feedState()).c_str(), exiting ? ", \"exiting\": true" : "");

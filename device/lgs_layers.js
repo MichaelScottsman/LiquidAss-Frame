@@ -142,6 +142,7 @@
   const COVER_FOLLOW_MS = 150;  // an animating cover's shape is updated at most this often
   const ACK_DELAY_MS = 350;     // an element must hold its id this long before an ack applies to it (scene-graph latency)
   const COVER_FALLBACK_MS = 3000; // ack mode, key never acked but window lgs-native: tag the cover
+  const GLASS_WAIT_MS = 1500;   // native window: a cover or plate is glassd's at once; CSS glass back if never acked by then
   const COVER_PENDING_MS = 2000; // ack mode, native window: a glass mode's cover is "pending" this long after the mode starts
   // spring tokens a morphing cover may name (native/shared/motion_tokens.h; glassd evaluates them)
   const MORPH_TOKENS = ['interactive', 'hover-in', 'fade', 'snappy', 'morph-open', 'morph-close', 'sheet-in', 'sheet-out', 'page', 'depth'];
@@ -796,7 +797,7 @@
     // glassd should follow at once (a glass mode, a morphing cover): the next tick runs on a timer,
     // without waiting out MIN_TICK_MS or a frame of a busy window
     const tickNow = () => {
-      if (!S || !S.dash || S.paused || S.dashPending) { wakeUrgent(); return; }
+      if (!S || !S.dash || S.paused) { wakeUrgent(); return; }
       S.urgent = true;
       cancelFrame();
       tick();
@@ -825,7 +826,9 @@
         return;
       }
       if (t === 'resize') { bump(t); ent.domGen++; ent.hitGen++; ent.dirty = true; wakeUp(); return; }
-      if (t === 'visibilitychange') { bump(t); ent.dirty = true; refreshDash(); wakeUp(); return; }
+      // a pooled popup showing: measure and report in this task, before its first frame, so its cover
+      // is marked glassd's (no CSS glass painted) and glassd starts materializing it with the page
+      if (t === 'visibilitychange') { bump(t); ent.dirty = true; ent.domGen++; refreshDash(); tickNow(); return; }
       if (t === 'focusin' || t === 'focusout') {
         // focus following a scroll inside the scroller waits for the settle
         const T = ev.target;
@@ -883,6 +886,17 @@
         // that alone never moves anything
         const records = all.filter((r) => !spotOnly(r));
         if (!records.length) { bump('spot'); return; }
+        // plates inserted (a route's discs and cards, tagged in their markup): report them before they
+        // paint, so they are glassd's from the first frame (updateAttrs marks them optimistically). Ahead
+        // of the scroll deferral below: a route change resets the page's scroll as its content mounts.
+        if (!s.keyPrefix && records.some((r) => r.type === 'childList' && [...r.addedNodes].some((n) => n.nodeType === 1
+          && (n.hasAttribute('data-lgs-plate') || n.querySelector('[data-lgs-plate]'))))) {
+          bump('plates');
+          ent.domGen++;
+          ent.dirty = true;
+          tickNow();
+          return;
+        }
         // mutations inside a scrolling scroller (virtualized rows) wait for it
         if (ent.scrolling.size) {
           const act = activeScrollers(ent, performance.now());
@@ -898,6 +912,14 @@
         // a glass mode change is measured and reported right here, before Steam renders the new route
         // (a tick would wait for that render), so glassd starts materializing the window at once
         if (s.modes && records.some((r) => r.attributeName === s.modes.attr)) { modePending(ent); tickNow(); return; }
+        // a pooled popup mounting its content while still hidden: Steam's main thread is busy with that
+        // mount, so a frame-driven tick would only come after the popup shows. Measure and report (armed)
+        // here, so glassd draws the glass before Steam's panel appears.
+        if (s.keyPrefix && records.some((r) => r.type === 'childList')) {
+          let hidden = false;
+          try { hidden = doc.visibilityState !== 'visible'; } catch (_) { /* gone */ }
+          if (hidden) { tickNow(); return; }
+        }
         wakeUp();
       });
       ent.mo.observe(doc.documentElement, {
@@ -1379,7 +1401,22 @@
       if (why) why.push({ surface: reason });
       return out;
     };
-    if (s.docVisibility && doc.visibilityState !== 'visible') return off('window hidden');
+    if (texW >= 2 && texH >= 2) { ent.lastTexW = texW; ent.lastTexH = texH; }
+    // A pooled popup builds its content while still hidden (~150 ms before Steam shows it). Its covers are
+    // measured then and reported "armed" (visible: false): glassd draws the glass ahead in the popup's own
+    // texture, nothing shows it until Steam's panel comes back, and the scene graph's nodes join that same
+    // update (lgs_sg.js panel watch), so the popup and its glass appear in one frame. Its cover elements are
+    // marked glassd's already (updateAttrs), so the first visible frame paints no CSS glass either.
+    let armed = false;
+    if (s.docVisibility && doc.visibilityState !== 'visible') {
+      if (texW < 2 && ent.lastTexW) { surface.texW = ent.lastTexW; surface.texH = ent.lastTexH; }
+      // shown before: what settled then is not where the next open starts
+      if (ent.cur && ent.cur.surface.visible) for (const el of ent.cur.covers || []) { const m = ent.settled.get(el); if (m) m.cover = null; }
+      if (!s.keyPrefix || texW < 2 || texH < 2) return off('window hidden');
+      try { out.hiddenCovers = queries(ent).cover; } catch (_) { /* gone */ }
+      if (!out.hiddenCovers || !out.hiddenCovers.length) return off('window hidden');
+      armed = true;
+    }
     if (s.frameKey && !frameVisible(s.frameKey)) return off('dashboard frame hidden');
     if (s.laserOnly) {
       const g = gamepadNav();
@@ -1427,10 +1464,22 @@
           continue;
         }
         const b = measure(ctx, el, s.cover, false, true);
-        if (b.skip) { if (why) why.push({ cover: describe(el), skip: b.skip }); continue; }
+        if (b.skip) {
+          // still fading in (a popup materializing from opacity 0): where its open animation ends
+          const end = !s.cover.morph && /transparent/.test(b.skip) ? seekEnd(ctx, el, s.cover, true) : null;
+          if (end) {
+            ctx.appear = { at: Math.round(end.at), ms: Math.max(0, Math.min(2000, Math.round(end.ms))) };
+            shapes.push(end.t);
+            out.covers.push(el);
+            if (why) why.push({ cover: describe(el), ok: end.t, appearing: true });
+            continue;
+          }
+          if (why) why.push({ cover: describe(el), skip: b.skip });
+          continue;
+        }
         let t = toTex(b, ctx);
         if (!t) { if (why) why.push({ cover: describe(el), skip: 'too small' }); continue; }
-        t = s.cover.morph ? morphShape(ctx, el, t, s.cover) : settleShape(ctx, el, t, 'cover');
+        t = s.cover.morph ? morphShape(ctx, el, t, s.cover) : appearShape(ctx, el, t, s.cover);
         if (!t) { if (why) why.push({ cover: describe(el), skip: 'animating (new)' }); continue; }
         shapes.push(t);
         out.covers.push(el);
@@ -1453,12 +1502,22 @@
       }
     }
 
-    if (!shapes.length && !plates.length) return off(mode === 'windowless' ? 'windowless, no plates on screen' : 'no cover on screen');
+    if (!shapes.length && !plates.length) return off(armed ? 'window hidden' : mode === 'windowless' ? 'windowless, no plates on screen' : 'no cover on screen');
+    if (armed) {
+      surface.shapes = shapes;
+      surface.armed = true;
+      if (shapes.length) surface.radius = shapes[0].r;
+      if (ctx.appear) { surface.appear = 'materialize'; surface.phaseMs = ctx.appear.ms; surface.appearAt = ctx.appear.at; }
+      out.covers = [];
+      return off('window hidden (armed)');
+    }
     surface.visible = true;
     if (shapes.length) surface.radius = shapes[0].r;
     else if (mode && s.modes.shapes.window && s.modes.shapes.window.r !== null) surface.radius = Math.round(s.modes.shapes.window.r * dpr);
     surface.shapes = shapes;
     if (ctx.morph) surface.morph = ctx.morph;
+    // the cover is materializing with the page (a popup opening): glassd ramps it from the same moment
+    if (ctx.appear) { surface.appear = 'materialize'; surface.phaseMs = ctx.appear.ms; surface.appearAt = ctx.appear.at; }
     if (mode) surface.mode = mode;
     if (s.coverDz) surface.coverDz = r4(unitsOf(s.coverDz, ctx));
     if (s.scaleFrom) surface.scaleFrom = s.scaleFrom;
@@ -1568,17 +1627,37 @@
     if (!id || !ID_RE.test(id)) id = 'p' + n;
     while (seen.has(id)) id += '~';
     seen.add(id);
+    // a plate still materializing in (a Home disc fading up from opacity 0, a card growing): reported now,
+    // where its animation ends, with when that started, so glassd materializes it with the page instead
+    // of the CSS plate painting first and being swapped out later
+    let appear = null;
     const b = measure(ctx, el, spec, false, true);
-    if (b.skip) { if (why) why.push({ plate: id, el: describe(el), skip: b.skip }); return null; }
-    let t = toTex(b, ctx);
-    if (!t) { if (why) why.push({ plate: id, el: describe(el), skip: 'too small' }); return null; }
-    t = settleShape(ctx, el, t, 'plate');
-    if (!t) { if (why) why.push({ plate: id, el: describe(el), skip: 'animating (new)' }); return null; }
+    let t = null;
+    if (b.skip) {
+      const end = /transparent/.test(b.skip) ? seekEnd(ctx, el, spec, true) : null;
+      if (!end) { if (why) why.push({ plate: id, el: describe(el), skip: b.skip }); return null; }
+      t = end.t;
+      appear = end;
+    } else {
+      t = toTex(b, ctx);
+      if (!t) { if (why) why.push({ plate: id, el: describe(el), skip: 'too small' }); return null; }
+      const m = ctx.ent.settled.get(el);
+      const ts = settleShape(ctx, el, t, 'plate');
+      if (!ts && !(m && m.plate)) {
+        const end = seekEnd(ctx, el, spec, true);
+        if (!end) { if (why) why.push({ plate: id, el: describe(el), skip: 'animating (new)' }); return null; }
+        t = end.t;
+        appear = end;
+      } else {
+        t = ts;
+      }
+    }
     const p = { id, x: t.x, y: t.y, w: t.w, h: t.h, r: t.r, material: mat };
+    if (appear) { p.appear = 'materialize'; p.phaseMs = Math.max(0, Math.min(2000, Math.round(appear.ms))); p.appearAt = Math.round(appear.at); }
     const ph = el.getAttribute('data-lgs-plate-phase');
     if (ph !== null && ph !== '' && Number.isFinite(+ph)) p.phase = Math.max(0, Math.min(1, +ph));
     const ap = el.getAttribute('data-lgs-plate-appear');
-    if (ap === 'materialize' || ap === 'dematerialize') p.appear = ap;
+    if (ap === 'materialize' || ap === 'dematerialize') { p.appear = ap; if (ap === 'dematerialize') { delete p.phaseMs; delete p.appearAt; } }
     const tint = colorOf(el.getAttribute('data-lgs-plate-tint'));
     if (tint && tint !== 'auto' && tint !== 'scrim') p.tint = tint;
     const fill = el.getAttribute('data-lgs-plate-fill') === 'scrim' ? 'rgba(0, 0, 0, 0.35)' : colorOf(el.getAttribute('data-lgs-plate-fill'));
@@ -1659,9 +1738,24 @@
     return end.t;
   }
 
+  // A cover that appears while its open animation runs (a popup materializing): instead of waiting for
+  // it to settle (its CSS glass showing meanwhile), report where it ends at once, with when the animation
+  // started and how long it runs, so glassd materializes the glass with the page. A cover already shown
+  // keeps settleShape's behaviour.
+  function appearShape(ctx, el, t, cover) {
+    const ent = ctx.ent;
+    const m = ent.settled.get(el);
+    if ((m && m.cover) || !animating(ent, el, ctx.now, 'cover')) return settleShape(ctx, el, t, 'cover');
+    const end = seekEnd(ctx, el, cover, true);
+    if (!end) return null;
+    ctx.appear = { at: Math.round(end.at), ms: Math.max(0, Math.min(2000, Math.round(end.ms))) };
+    return end.t;
+  }
+
   // The running geometric animations on el and its ancestors, seeked to their end for one measure.
   // Returns {t: the end shape in texture px, at: epoch ms when the motion starts} or null.
-  function seekEnd(ctx, el, cover) {
+  // all: every running animation (an appear: opacity-only fades count), not only geometric ones
+  function seekEnd(ctx, el, cover, all) {
     const list = [];
     for (let n = el; n && n.nodeType === 1; n = n.parentElement) {
       let as = [];
@@ -1670,32 +1764,37 @@
         if (a.playState !== 'running') continue;
         const geo = a.transitionProperty !== undefined ? !isPaintProp(a.transitionProperty)
           : a.animationName !== undefined ? animGeometric(n, a.animationName) : true;
-        if (geo) list.push(a);
+        if (geo || all) list.push(a);
       }
     }
     if (!list.length) return null;
-    const saved = list.map((a) => a.currentTime);
-    if (saved.some((c) => c === null || !Number.isFinite(+c))) return null;
-    let at = -Infinity, b = null;
+    // an animation created by this very style flush (an element just inserted) has no time yet: it is
+    // put back at its start
+    const saved = list.map((a) => (a.currentTime === null ? 0 : a.currentTime));
+    if (saved.some((c) => !Number.isFinite(+c))) return null;
+    let at = -Infinity, ms = 0, b = null;
     try {
       const pnow = ctx.win.performance.now(), enow = Date.now();
       for (const a of list) {
         const ct = a.effect.getComputedTiming();
         const delay = +(ct.delay || 0);
+        ms = Math.max(ms, +ct.endTime - delay);
         // the motion starts after the delay: from the start time, or (not started yet) a frame from now
         const startPerf = a.startTime !== null ? a.startTime + delay : pnow + 16 + delay - (+a.currentTime || 0);
         at = Math.max(at, enow + (startPerf - pnow));
         a.currentTime = Math.max(0, +ct.endTime - 0.5);
       }
+      ctx.ent.animGen++;   // cached style facts (an ancestor's opacity) are read at the end state
       b = measure(ctx, el, cover, false, true);
     } catch (_) {
       b = null;
     } finally {
       list.forEach((a, i) => { try { a.currentTime = saved[i]; } catch (_) { /* finished meanwhile */ } });
+      ctx.ent.animGen++;
     }
     if (!b || b.skip) return null;
     const t = toTex(b, ctx);
-    return t ? { t, at } : null;
+    return t ? { t, at, ms } : null;
   }
 
   function blank(ent, texW, texH) {
@@ -2137,8 +2236,12 @@
     if (adm.nopop.some((x) => overlaps(t, x))) return { skip: 'rule1-nopop' };
     // rule 3: not over media
     if (!rule.media && adm.media.some((x) => overlaps(t, x))) return { skip: 'rule3-media' };
-    t = settleSize(ctx, el, rule, t);
-    if (!t) return { skip: 'animating (new)' };
+    // a menu, alert or sheet opening (modal rules): its open morph animates only its clip, so its layout
+    // rect is already where it ends; report it now, so glassd's slab and the lift start with the open
+    // instead of after it (the 607 ms morph)
+    const ts = settleSize(ctx, el, rule, t);
+    if (!ts && !rule.modal) return { skip: 'animating (new)' };
+    t = ts || t;
     for (const k of kept) if (overlaps(t, k.t)) return { skip: 'overlaps ' + k.layer.id };
     // rule 2: click-safe cap, snapped down to the allowed set
     const interactive = !!eff.interactive;
@@ -2234,6 +2337,11 @@
       const plan = new Map();
       const cur = ent.cur;
       refreshHold(ent, now);
+      if (cur && !cur.surface.visible && cur.hiddenCovers && cur.hiddenCovers.length && S.ackMode) {
+        let native = false;
+        try { native = ent.doc.documentElement.classList.contains('lgs-native'); } catch (_) { /* gone */ }
+        if (native) for (const el of cur.hiddenCovers) plan.set(el, { cover: false, pending: true, pop: [], plate: false, noslab: [] });
+      }
       if (cur && cur.surface.visible) {
         const ack = S.ackMode ? ackedFor(ent, now) : null;
         // a daemon that leaves out surfaces with nothing popped: the window's
@@ -2248,6 +2356,16 @@
           if (part === 'cover') shown = !!((ack && ack.cover) || fallback);
           else if (part === 'plate') shown = !!(ack && ack.plates.includes(r.id));
           else shown = !!(ack && ack.pops.includes(r.id));
+          // Native windows: covers and plates are glassd's from the moment they are reported (glassd
+          // materializes them; no CSS glass first, no swap at the ack). Never acked within GLASS_WAIT_MS:
+          // the CSS glass comes back (glassd did not draw it).
+          if ((part === 'cover' || part === 'plate') && ent.nativeSince) {
+            if (shown) r.acked = true;
+            if (r.acked) return true;
+            const until = r.since + GLASS_WAIT_MS;
+            if (now < until) { due = Math.min(due, until); return true; }
+            return false;
+          }
           if (!shown) return false;
           const t = r.since + S.ackDelay;
           if (now >= t) return true;
@@ -2438,7 +2556,7 @@
     const t0 = performance.now();
     const since = t0 - S.lastTickAt;
     if (since < MIN_TICK_MS && !S.urgent) { schedule(MIN_TICK_MS - since); return; }
-    if (S.dashPending) { schedule(16); return; } // a dashboard check is in flight
+    if (S.dashPending && !S.urgent) { schedule(16); return; } // a dashboard check is in flight
     S.urgent = false;
     S.lastTickAt = t0;
     let again = false;
@@ -2469,6 +2587,8 @@
       const cur = present(ent, t0);
       const sig = JSON.stringify(cur.surface);
       ent.cur = cur;
+      // hidden pooled popup content not marked yet: attributes only (the report is unchanged)
+      if (cur.hiddenCovers && S.ackMode && cur.hiddenCovers.some((el) => !el.hasAttribute(ent.attrCover))) S.structureChanged = true;
       if (sig !== ent.sig) {
         ent.sig = sig;
         ent.changes++;
@@ -2501,8 +2621,10 @@
     for (const ent of S.ents.values()) {
       const r = final ? blank(ent, ent.cur ? ent.cur.surface.texW : 0, ent.cur ? ent.cur.surface.texH : 0) : ent.cur && ent.cur.surface;
       if (!r) continue;
-      // a hidden pooled popup costs glassd an overlay and buffers: leave it out
-      if (ent.s.keyPrefix && !r.visible) continue;
+      // a hidden pooled popup stays in the report (visible: false) once it has a size: glassd keeps its
+      // overlay and buffers and the scene graph its nodes, so the next open shows glass at once
+      if (ent.s.keyPrefix && !r.visible && !(r.texW >= 2 && r.texH >= 2)) continue;
+      if (ent.s.keyPrefix) r.pooled = true;
       out.push(r);
     }
     return out;

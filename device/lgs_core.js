@@ -291,6 +291,12 @@
     if (!doc || !doc.head || !doc.body || !doc.documentElement) return false;
     const root = doc.documentElement;
     if (!root.classList.contains(ROOT_CLASS)) root.classList.add(ROOT_CLASS);
+    // native mode live (the daemon's NATIVE_JS, all windows): a window gets lgs-native with its sheet, in
+    // the same task, so a popup created now never paints its CSS glass before glassd's
+    try {
+      const N = window.__LGS_NATIVE;
+      if (N && N.all && typeof N.live === 'function' && N.live() && !root.classList.contains('lgs-native')) root.classList.add('lgs-native');
+    } catch (_) { /* no daemon */ }
     const want = cssFor(name);
     let st = doc.getElementById(IDS.style);
     // The sheet's identity is its key (version + scope), not its ~0.9 MB text:

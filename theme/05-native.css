@@ -269,4 +269,43 @@
   &.lgs-native [data-lgs-pop~="after"]:not([data-lgs-pop~="self"], [data-lgs-noslab~="after"]) {
     --lgs-edge: none;
   }
+
+  /* ------------------------------------------------------------------ */
+  /* 5. Menus, alerts and sheets keep their in-page frosted backing       */
+  /* ------------------------------------------------------------------ */
+  /* Steam draws a menu into the same texture as the page under it, so its
+     popped crop (and, on windowless routes, the base inside its plate) is
+     whatever lies in that rect. With the tint and blur zeroed above, that
+     was the page at full contrast lifted 10 mm: its labels collided with
+     the menu's and ghosted against the page outside (headset shots
+     2026-10-08). These keep the thick tint and the blur of the page behind
+     them in Steam's texture: the glass over a window refracts the window.
+     glassd's slab or plate still draws the edge, the shadow and the depth;
+     the CSS drop shadow stays off (it would be cut by the crop). The tokens
+     are taken back from the root (`inherit`), so the dial still applies.
+     Only until the runtime cuts the page out under it (html.lgs-page-hole,
+     rt/22-menus.js): then the slab is transparent glass over glassd's. */
+  &.lgs-native:not(.lgs-page-hole) :is(%{*BasicContextMenuModal>contextMenuContents}, %{*GamepadDialogContent>ModalPosition} > :not(%{*GamepadDialogContent>ModalClickToDismiss}), %{DialogWrapper>CompatFilterDialog}):is([data-lgs-pop], [data-lgs-plate-ack]) {
+    --lgs-mat-thick-bg: inherit;
+    --lgs-mat-thick-blur: inherit;
+    --lgs-thick-bg: inherit;
+    --lgs-panel-sheen: inherit;
+    background: var(--lgs-mat-thick-bg);
+    backdrop-filter: var(--lgs-mat-thick-blur);
+    box-shadow: none;
+  }
+  /* with the page cut out under it (lgs-page-hole), the slab is glassd's
+     from the moment it opens: no CSS tint first and a swap when the lift is
+     acknowledged; the glass behind is the window's until glassd's slab
+     materializes and lifts it */
+  &.lgs-native.lgs-page-hole :is(%{*BasicContextMenuModal>contextMenuContents}, %{*GamepadDialogContent>ModalPosition} > :not(%{*GamepadDialogContent>ModalClickToDismiss}), %{DialogWrapper>CompatFilterDialog}) {
+    --lgs-mat-thick-bg: transparent;
+    --lgs-mat-thick-shade: 0 0 0 0 transparent;
+    --lgs-thick-bg: transparent;
+    --lgs-panel-sheen: linear-gradient(transparent, transparent);
+    --lgs-glass-rim: 0 0 0 0 transparent;
+    backdrop-filter: none;
+    box-shadow: none;
+    --lgs-edge: none;
+  }
 }

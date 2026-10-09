@@ -127,7 +127,7 @@ SURF_V3 = {"plates": "plates", "coverDz": "coverDz", "masks": "masks", "scaleFro
 SURF_V2 = ("quad", "phase", "appear", "phaseMs")
 SLAB_V3 = {"tint": "tint", "hole": "holes", "ox": "offset", "oy": "offset"}
 SLAB_V2 = ("phase", "appear", "phaseMs")
-PLATE_KEYS = ("id", "x", "y", "w", "h", "r", "material", "phase", "appear", "phaseMs", "tint", "fill",
+PLATE_KEYS = ("id", "x", "y", "w", "h", "r", "material", "phase", "appear", "phaseMs", "appearAt", "tint", "fill",
               "occluder", "shadow")
 TOP_V3 = {"unitM": "unitM", "masks": "masks", "roomDim": "roomDim"}
 COVER_DZ, BASE_DZ = 0.001, 0.002   # metres toward the viewer (NATIVE.md)
@@ -508,18 +508,23 @@ async def eval_once(ws_url, expr, timeout=20, name="page"):
 # (__LGS_LAYERS.ack: only those get data-lgs-pop). Only while the theme
 # (__LGS) is on. Without a heartbeat (set()) for ttl ms it removes the class
 # again, so a dead daemon never leaves windows unpainted.
+# `all`: native mode is live (glassd and the scene graph healthy): every Steam
+# window is native, pooled popups included, before they first show, so their
+# glass is glassd's from the first frame (lgs_core.js also sets the class on a
+# window it injects into while h.live()).
 NATIVE_JS = r"""
-(function (keys, ttl, acks, plates, covers) {
+(function (keys, ttl, acks, plates, covers, all) {
   const W = window;
   let h = W.__LGS_NATIVE;
   if (!h) {
     const ALIAS = { 'valve.steam.gamepadui.main': /^VR_uid/, 'valve.steam.gamepadui.keyboard': /^VRKeyboard_uid/,
                     'valve.steam.gamepadui.notifications': /^VRNotificationToasts_uid/ };
     const matches = (name, key) => (ALIAS[key] ? ALIAS[key].test(name) : (name.startsWith(key + '.') || name.startsWith(key + '_')));
-    h = W.__LGS_NATIVE = { keys: [], acks: {}, plates: {}, covers: [], last: 0, ttl, timer: 0, applied: [], tagged: null };
+    h = W.__LGS_NATIVE = { keys: [], acks: {}, plates: {}, covers: [], all: false, last: 0, ttl, timer: 0, applied: [], tagged: null };
+    h.live = () => (h.all || h.keys.length > 0) && Date.now() - h.last < h.ttl
+      && !!(W.__LGS && W.__LGS.state && W.__LGS.state.enabled);
     h.sweep = () => {
-      const themeOn = !!(W.__LGS && W.__LGS.state && W.__LGS.state.enabled);
-      const live = h.keys.length > 0 && Date.now() - h.last < h.ttl && themeOn;
+      const live = h.live();
       const applied = [];
       let pops = [];
       try { pops = [...g_PopupManager.m_mapPopups.values()]; } catch (_) { /* not ready */ }
@@ -527,7 +532,7 @@ NATIVE_JS = r"""
         let doc = null;
         try { doc = p.window && p.window.document; } catch (_) { continue; }
         if (!doc || !doc.documentElement) continue;
-        const on = live && h.keys.some((k) => matches(p.m_strName, k));
+        const on = live && (h.all || h.keys.some((k) => matches(p.m_strName, k)));
         const cl = doc.documentElement.classList;
         if (on !== cl.contains('lgs-native')) cl.toggle('lgs-native', on);
         if (on) applied.push(p.m_strName.replace(/_uid\d+$/, ''));
@@ -554,15 +559,15 @@ NATIVE_JS = r"""
         h.tagged = L.ack(map);
       } catch (_) { /* reporter restarting */ }
     };
-    h.set = (ks, ac, pl, cv) => {
-      h.keys = ks || []; h.acks = ac || {}; h.plates = pl || {}; h.covers = cv || h.keys; h.last = Date.now();
-      if (!h.timer && h.keys.length) h.timer = setInterval(h.sweep, 1000);
+    h.set = (ks, ac, pl, cv, al) => {
+      h.keys = ks || []; h.acks = ac || {}; h.plates = pl || {}; h.covers = cv || h.keys; h.all = !!al; h.last = Date.now();
+      if (!h.timer && (h.all || h.keys.length)) h.timer = setInterval(h.sweep, 1000);
       const r = h.sweep(); h.ack(); return r;
     };
-    h.clear = () => { h.keys = []; h.acks = {}; h.plates = {}; h.covers = []; const r = h.sweep(); h.ack(); if (h.timer) clearInterval(h.timer); delete W.__LGS_NATIVE; return r; };
+    h.clear = () => { h.keys = []; h.acks = {}; h.plates = {}; h.covers = []; h.all = false; const r = h.sweep(); h.ack(); if (h.timer) clearInterval(h.timer); delete W.__LGS_NATIVE; return r; };
   }
   h.ttl = ttl;
-  const applied = h.set(keys, acks, plates, covers);
+  const applied = h.set(keys, acks, plates, covers, all);
   return JSON.stringify({ applied, tagged: h.tagged });
 })
 """
@@ -805,6 +810,9 @@ def clean_phase_fields(src, dst):
         dst["appear"] = src["appear"]
     if "phaseMs" in src and _num(src["phaseMs"], 0, 10000) is not None:
         dst["phaseMs"] = int(_num(src["phaseMs"], 0, 10000))
+    # the epoch ms the materialize started at (the page's own open animation): glassd ramps from then
+    if "appearAt" in src and _num(src["appearAt"], 0, 1e15) is not None:
+        dst["appearAt"] = int(_num(src["appearAt"], 0, 1e15))
 
 
 def clean_plate(p, i):
@@ -1382,6 +1390,9 @@ class Shell:
                     "texW": round(texW), "texH": round(texH), "radius": round(radius),
                     "material": mat_s[:16] if isinstance(mat_s, str) else "panel",
                     "visible": bool(s.get("visible", True)), "slabs": slabs}
+            # a hidden pooled popup whose content is ready: glassd draws its glass ahead (contracts/glassd.md)
+            if s.get("armed") is True and not surf["visible"]:
+                surf["armed"] = True
             # the cover's rounded shapes (bar segments, a popup's card); glassd
             # covers the whole texture with `radius` when absent
             if isinstance(s.get("shapes"), list):
@@ -1556,7 +1567,15 @@ class Shell:
             if not isinstance(s, dict) or not isinstance(s.get("name"), str) or not isinstance(s.get("overlayKey"), str):
                 continue
             g = gsurf.get(s["name"])
-            if not isinstance(g, dict) or not s.get("visible", True) or self.page_away(s["overlayKey"]):
+            if not isinstance(g, dict) or self.page_away(s["overlayKey"]):
+                continue
+            if not s.get("visible", True):
+                # a hidden pooled popup: its nodes wait in lgs_sg.js (standby) and are built the moment
+                # Steam puts its panel back on the page, in the same scene-graph update as Steam's own
+                if s.get("pooled") is True:
+                    sb = self.standby_entry(s, g)
+                    if sb:
+                        out.append(sb)
                 continue
             if s.get("name") == "main" and self.main_resized(g):
                 continue
@@ -1681,6 +1700,28 @@ class Shell:
         if flags and out:
             spec["flags"] = flags
         return spec
+
+    def standby_entry(self, s, g):
+        texW, texH = _num(s.get("texW"), 1, 16384), _num(s.get("texH"), 1, 16384)
+        scale = _num(g.get("backdropScale") or 0.75, 0.05, 4)
+        backdrop = _nums(g.get("backdrop"), 4)
+        if None in (texW, texH, scale) or backdrop is None:
+            return None
+        sp = {"steamKey": s["overlayKey"], "texW": texW, "texH": texH, "visible": False, "standby": True,
+              "glassd": {"key": g.get("key") or "glassd." + s["name"], "backdrop": backdrop, "scale": scale},
+              "coverDz": COVER_DZ, "baseDz": BASE_DZ, "popped": []}
+        if _num(s.get("coverDz"), -1, 1) is not None:
+            sp["coverDz"] = _num(s["coverDz"], -1, 1)
+        return sp
+
+    def native_live(self):
+        """Native mode is live: glassd produces frames and the scene graph follows our spec (the same
+        preconditions native_state needs). Then every Steam window is lgs-native."""
+        if not (self.native_ok() and self.sysui_ok and self.sg_beat and self.spec_sent_obj):
+            return False
+        b = self.sg_beat
+        return not (time.time() - self.sg_beat_at > SG_BEAT_FRESH_S or b.get("expired") or not b.get("attached")
+                    or not b.get("push"))
 
     def native_state(self):
         """(overlay keys that get lgs-native, {key: popped ids shown}, {key: plate
@@ -2132,17 +2173,18 @@ class Shell:
                 continue
             try:
                 keys, acks, plates, covers = self.native_state()
-                payload = (keys, acks, plates, covers)
+                live = self.native_live()
+                payload = (keys, acks, plates, covers, live)
                 now = time.time()
                 if not self.native_force:
-                    if payload == sent and (not keys or now - sent_at < NATIVE_BEAT_S):
+                    if payload == sent and (not (keys or live) or now - sent_at < NATIVE_BEAT_S):
                         continue
-                    if sent is None and not keys and not self.native_applied:
+                    if sent is None and not keys and not live and not self.native_applied:
                         sent = payload       # nothing native and nothing applied: no call needed
                         continue
                 self.native_force = False
                 r = await s.eval(f"({NATIVE_JS})({json.dumps(keys)}, {NATIVE_TTL_MS}, {json.dumps(acks)}, "
-                                 f"{json.dumps(plates)}, {json.dumps(covers)})", 5)
+                                 f"{json.dumps(plates)}, {json.dumps(covers)}, {json.dumps(live)})", 5)
                 res = json.loads(r) if isinstance(r, str) else {}
                 sent, sent_at = payload, now
                 applied = res.get("applied") or []

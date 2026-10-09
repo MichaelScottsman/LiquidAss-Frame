@@ -16,6 +16,8 @@
 @property --lgs-press { syntax: "<number>"; inherits: false; initial-value: 0; }
 @property --lgs-lift { syntax: "<number>"; inherits: false; initial-value: 0; }
 @property --lgs-dis { syntax: "<number>"; inherits: false; initial-value: 0; }
+/* the page hole under an open menu, alert or sheet in native mode (22-presentations.css, rt/22-menus.js) */
+@property --lgs-hole-k { syntax: "<number>"; inherits: false; initial-value: 0; }
 /* ---- hook switches (03-material.css, 04-states.css): an element asks for a
    hook by setting one of these; non-inherited so children never inherit it ---- */
 @property --lgs-edge { syntax: "*"; inherits: false; }
