@@ -1515,7 +1515,9 @@ class Shell:
             # stereo where the scene graph says which part of the texture its panel shows (glassd builds
             # the eye pair around that crop; the panel spans the pair): Steam's window, the bar, the frame
             # menu, the footer, popups once shown
-            crop = (self.sg_crops or {}).get(s["overlayKey"]) if "stereo" in caps and self.stereo_on() else None
+            # not the frame menu: it opens by animating its width and Steam widens its crop along with it, which
+            # reaches glassd a beat (~1 s) late, so a pair built around the old crop cut the opening glass off
+            crop = (self.sg_crops or {}).get(s["overlayKey"])                 if "stereo" in caps and self.stereo_on() and not name.startswith("frame.menu") else None
             if isinstance(crop, list) and len(crop) == 2 and None not in (_num(crop[0], 0, 1), _num(crop[1], 0, 1))                     and crop[1] - crop[0] > 0.01:
                 surf["stereo"] = True
                 surf["crop"] = [round(float(crop[0]), 3), round(float(crop[1]), 3)]
