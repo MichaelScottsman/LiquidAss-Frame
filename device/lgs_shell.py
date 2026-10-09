@@ -77,6 +77,7 @@ import collections  # noqa: E402
 import hashlib  # noqa: E402
 import json  # noqa: E402
 import os  # noqa: E402
+import shutil  # noqa: E402
 import signal  # noqa: E402
 import subprocess  # noqa: E402
 import time  # noqa: E402
@@ -3362,6 +3363,29 @@ def core_args(argv):
     return out
 
 
+GLASSD_PREBUILT = os.path.join(lgs.ROOT, "native", "glassd", "prebuilt", "glassd")
+
+
+def ensure_glassd(path=GLASSD_BIN):
+    """The shipped glassd (native/glassd/prebuilt/glassd) in place when no build is there yet, so native
+    glass works out of the box and a Liquid Glass toggle that runs before a build finishes is never stuck
+    CSS-only. True when an executable glassd is in place."""
+    if os.access(path, os.X_OK):
+        return True
+    if path != GLASSD_BIN or not os.access(GLASSD_PREBUILT, os.R_OK):
+        return False
+    try:
+        tmp = path + ".tmp"
+        shutil.copyfile(GLASSD_PREBUILT, tmp)
+        os.chmod(tmp, 0o755)
+        os.replace(tmp, path)
+        log("glassd: no build here; the shipped binary is in place")
+        return True
+    except OSError as e:
+        log(f"glassd: could not put the shipped binary in place: {e}")
+        return False
+
+
 def start(glassd=GLASSD_BIN, stay=False, glassd_args=None, native=None, test_report=None, assume_caps=None):
     """Start the unit. Also resumes SteamVR page theming that a lab "--theme
     off" on a vr: page paused.
@@ -3379,6 +3403,8 @@ def start(glassd=GLASSD_BIN, stay=False, glassd_args=None, native=None, test_rep
     loser's systemd-run fail with "already loaded" although a unit ran (review
     R1 m5); if the lock cannot be had in 60 s, it goes on and treats that
     error as running."""
+    if glassd and glassd != "none":
+        ensure_glassd(glassd)
     try:
         lk = FileLock(START_LOCK, 60).__enter__()
     except (OSError, TimeoutError):

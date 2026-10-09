@@ -58,13 +58,15 @@ The [uninstall](#uninstall) command (or `python glass.py uninstall`) removes all
 ## From the PC
 
 ```bash
-python glass.py install        # copy this checkout to the headset and add the launcher (for development)
+python glass.py install        # copy this checkout to the headset, set up glassd and add the launcher (for development)
 python glass.py on | off | toggle | status
 python glass.py dial 0.7       # glass intensity: 0 = clearest, 1 = most opaque (saved with your glass settings)
 python glass.py uninstall
 ```
 
 On the headset itself, `~/.local/share/glass-shell/device/lgs on|off|toggle|status|dial V` does the same.
+
+Native glass works out of the box. `install` puts the shipped glassd (`native/glassd/prebuilt/glassd`, built for the Frame) in place, then rebuilds it from the sources over it; if that build fails, the shipped binary stays. The daemon also puts the shipped binary in place whenever glassd is missing, so the Liquid Glass toggle never starts CSS-only. Native mode is on by default (`device/defaults.json`).
 
 ## How it works
 

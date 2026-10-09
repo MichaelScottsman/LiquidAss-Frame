@@ -161,12 +161,13 @@ def sync(client, only=None):
             for f in sorted(p.rglob("*")):
                 if f.is_dir() or "__pycache__" in f.parts or f.suffix == ".pyc":
                     continue
-                # native/: sources only; builds happen on the Frame
-                if sub == "native" and ("build" in f.parts or f.suffix in (".o", ".so", ".png", ".jpg")
-                                        or (f.suffix == "" and f.name not in ("Makefile",))):
+                # native/: sources only (builds happen on the Frame), plus the shipped glassd binary
+                prebuilt = sub == "native" and "prebuilt" in f.parts
+                if sub == "native" and not prebuilt and ("build" in f.parts or f.suffix in (".o", ".so", ".png", ".jpg")
+                                                         or (f.suffix == "" and f.name not in ("Makefile",))):
                     continue
                 ti = tar.gettarinfo(str(f), arcname=str(f.relative_to(ROOT)).replace("\\", "/"))
-                ti.mode = 0o755 if f.suffix in (".py", ".sh") or f.name == "lgs" else 0o644
+                ti.mode = 0o755 if f.suffix in (".py", ".sh") or f.name == "lgs" or prebuilt else 0o644
                 ti.uid = ti.gid = 1000
                 ti.uname = ti.gname = "steamos"
                 with open(f, "rb") as fh:
@@ -204,6 +205,21 @@ def native_build(client, fake=False):
                "else echo 'native/glassd has no build.sh or CMakeLists.txt'; exit 3; fi && "
                f"ls -la {d}/glassd")
     code, _, _ = sh(client, cmd, timeout=600)
+    return code
+
+
+def install_glassd(client):
+    """glassd for native mode: the shipped binary (native/glassd/prebuilt/glassd), then a build from
+    the synced sources over it. Exit code 0 when a working glassd is in place."""
+    d = f"{REMOTE}/native/glassd"
+    code, _, _ = sh(client, f"test -x {d}/prebuilt/glassd && install -m755 {d}/prebuilt/glassd {d}/glassd "
+                            f"&& echo 'glassd: shipped binary in place'", timeout=60)
+    if native_build(client):
+        print("glassd: the build from source failed; the shipped binary stays")
+    code, _, _ = sh(client, f"{d}/glassd --help >/dev/null 2>&1; test -x {d}/glassd && echo 'glassd: ready ({d}/glassd)'",
+                    timeout=60)
+    if code:
+        print("glassd: no working binary; native glass is off until `python glass.py native-build` succeeds")
     return code
 
 
@@ -1136,6 +1152,11 @@ def main(argv):
             sync(c, only=rest or None)
         elif cmd == "install":
             sync(c)
+            # native glass out of the box: the shipped glassd goes in place first (the Liquid Glass toggle
+            # may run at once), then a build from these sources replaces it; a failed build keeps it
+            code = install_glassd(c)
+            if code:
+                return code
             sh(c, f"install -Dm644 {REMOTE}/device/glass-shell.desktop {DESKTOP} && "
                   f"chmod 755 {REMOTE}/device/lgs {REMOTE}/device/lgs.py && "
                   f"(update-desktop-database ~/.local/share/applications >/dev/null 2>&1 || true) && "
