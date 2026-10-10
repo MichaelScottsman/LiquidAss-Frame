@@ -1,0 +1,53 @@
+/* Glass Shell: the music note on the bar (the assPod, device/rt/34-asspod.js, flag assPod).
+   Wrapped as html.lgs-on { ... }.
+
+   - .lgs-asspod: a glass circle of its own between the system capsule and the paintbrush, the
+     paintbrush's glass and size (33-tune.css §1). Its native cover is in theme/layers/30-bar.json.
+     The button inside is Steam's small bar button (VRDashboardBarSmallButton > Highlight), so
+     30-bar.css §1.2 lights it like the other discs (laser hover, gamepad focus).
+   - While the assPod is out (html.lgs-asspod-out, set by the module while the daemon's bridge value
+     says so), Steam's windows fade out and take no laser clicks: the assPod has the controls. */
+
+
+/* 1. The circle */
+.lgs-asspod {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 80px;
+  height: 80px;
+  background: var(--lgs-mat-liquid-room-bg);
+  box-shadow: var(--lgs-mat-liquid-shade);
+  border-radius: var(--lgs-r-capsule);
+  --lgs-edge: liquid;
+}
+/* 56 pp disc at a 64 pp pitch, as in the system capsule */
+.lgs-asspod .VRDashboardBarSmallButton {
+  font-size: 28px;
+  padding: 0 4px;
+}
+.lgs-asspod-icon {
+  display: flex;
+  width: 24px;
+  height: 24px;
+}
+.lgs-asspod-icon svg {
+  display: block;
+  width: 24px;
+  height: 24px;
+}
+
+
+/* 2. The assPod is out: the whole UI fades out (every Steam window: the window, sidebars, the bar,
+   popups) and takes no clicks; it fades back in when the assPod is put away. The native glass fades
+   with it (lgs_sg.js fade(), called by the assPod in SteamVR's page). */
+body {
+  transition: opacity 300ms ease;
+}
+&.lgs-asspod-out body {
+  opacity: 0;
+  pointer-events: none;
+}

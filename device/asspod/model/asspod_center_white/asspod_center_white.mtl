@@ -1,0 +1,8 @@
+newmtl asspod_center_white
+Kd 1 1 1
+Ns 512
+d 1
+illum 2
+Ka 0 0 0
+Ks 0.6 0.6 0.6
+map_Kd asspod_center_white_color.png

@@ -1,5 +1,6 @@
 /* Glass Shell: the paintbrush on the bar (the glass tuner; flag glassTune).
-   - Where: a glass circle of its own after the system capsule, the third child of the bar's
+   - Where: a glass circle of its own after the system capsule (and after the assPod's music note,
+     34-asspod.js, when that is on), a child of the bar's
      %{PopupBody>DashboardBar} (mirroring the Home circle, Steam's Bookend, before the apps capsule).
      Added by a layer on P2's `dashboardBar` patch (rt.react.patch.targets.dashboardBar); its glass
      is theme/33-tune.css, its native cover theme/layers/30-bar.json (.lgs-tune).
@@ -221,7 +222,9 @@ __LGS_RT.define({
     const insert = (el, add, depth) => {
       if (!el || typeof el !== 'object' || depth > 10) return null;
       if (Array.isArray(el)) {
-        const at = el.findIndex((x) => x && typeof x === 'object' && x.props && isMainSurface(x.props));
+        let at = el.findIndex((x) => x && typeof x === 'object' && x.props && isMainSurface(x.props));
+        // the assPod's music note (34-asspod.js) stays between the capsule and the paintbrush
+        if (at >= 0 && el[at + 1] && el[at + 1].key === 'lgs-asspod') at++;
         if (at >= 0) { const n = el.slice(); n.splice(at + 1, 0, add); return n; }
         for (let i = 0; i < el.length; i++) { const n = insert(el[i], add, depth + 1); if (n) { const cpy = el.slice(); cpy[i] = n; return cpy; } }
         return null;

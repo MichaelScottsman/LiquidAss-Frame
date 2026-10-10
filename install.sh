@@ -9,6 +9,8 @@
 #
 # install    fetch the latest release, put it in ~/.local/share/glass-shell and
 #            add "LiquidAss" to + > Launch Program. Running it again updates.
+#            The assPod (the music note on the bar) plays through VLC: when VLC
+#            is missing, it offers to install it (Flathub, for this user only).
 # uninstall  turn the theme off, remove the launcher entry, the files and
 #            your saved glass settings.
 #
@@ -16,6 +18,7 @@
 #   LIQUIDASS_VERSION=v0.1      install that release instead of the latest
 #   LIQUIDASS_ARCHIVE=FILE      install from a local LiquidAss-Frame.tar.gz (no download)
 #   GITHUB_TOKEN=...            needed only while the repository is private
+#   LIQUIDASS_VLC=yes|no        answer the VLC question without asking
 set -eu
 
 REPO=MichaelScottsman/LiquidAss-Frame
@@ -109,6 +112,47 @@ install_app() {
     fi
 }
 
+# VLC for the assPod: found (a system vlc or the Flathub app), or offered.
+has_vlc() {
+    command -v vlc >/dev/null 2>&1 && return 0
+    command -v flatpak >/dev/null 2>&1 && flatpak info org.videolan.VLC >/dev/null 2>&1
+}
+
+check_vlc() {
+    if has_vlc; then
+        say "VLC is installed: the assPod is ready (press the music note on the dashboard bar)"
+        return 0
+    fi
+    say "the assPod (the music note on the dashboard bar) plays your music and videos with VLC, which is not installed"
+    answer=${LIQUIDASS_VLC:-}
+    if [ -z "$answer" ]; then
+        if [ -r /dev/tty ] && [ -w /dev/tty ]; then
+            printf 'LiquidAss: install VLC now? [y/N] ' > /dev/tty
+            read -r answer < /dev/tty || answer=
+        else
+            answer=no
+        fi
+    fi
+    case "$answer" in
+        y|Y|yes|YES|Yes)
+            if ! command -v flatpak >/dev/null 2>&1; then
+                say "flatpak is missing, so VLC cannot be installed from here; install VLC from Discover in Desktop Mode"
+                return 0
+            fi
+            say "installing VLC from Flathub (for this user)"
+            flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo >/dev/null 2>&1 || true
+            if flatpak install --user -y --noninteractive flathub org.videolan.VLC; then
+                say "VLC installed: the assPod is ready"
+            else
+                say "VLC could not be installed; the assPod needs it (Discover in Desktop Mode, or: flatpak install flathub org.videolan.VLC)"
+            fi
+            ;;
+        *)
+            say "skipped: install VLC to use the assPod (Discover in Desktop Mode, or: flatpak install flathub org.videolan.VLC)"
+            ;;
+    esac
+}
+
 uninstall_app() {
     if [ -f "$DEST/device/lgs.py" ] && command -v python3 >/dev/null 2>&1; then
         py "$DEST/device/lgs.py" off --quiet >/dev/null 2>&1 || true
@@ -120,7 +164,7 @@ uninstall_app() {
 }
 
 case "${1:-install}" in
-    install) install_app ;;
+    install) install_app; check_vlc ;;
     uninstall) uninstall_app ;;
     -h|--help|help) sed -n '2,20p' "$0" 2>/dev/null | sed 's/^# \{0,1\}//' || true ;;
     *) die "unknown command '$1' (use install or uninstall)" ;;

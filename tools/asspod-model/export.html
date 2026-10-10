@@ -1,0 +1,213 @@
+<!doctype html>
+<!-- Exports the assPod's 3D body (asspod-model.js, the original procedural model) as SteamVR render
+     models: one folder per part under device/asspod/model/, each <name>.obj + <name>.mtl + texture.
+     SteamVR lights them and draws them in the hand (device/asspod/src/sg.js); the live screen, the
+     touch marker and the gloss are a panel on the front.
+
+     Run: python tools/build_asspod_model.py   (serves the repo, opens this page in a browser and
+     writes the files the page sends back).
+
+     Parts: steel_back (the flat mirror back, planar-mapped onto the polished-steel texture with the
+     engraved peach), steel_edge (the steel that wraps the sides, mapped by its normal onto a baked
+     chrome reflection), plate_<finish> (the front plate), wheel_<finish> (ring with its labels),
+     center_<finish> (the centre button), well (the gap around the wheel), ports (top and bottom). -->
+<html><head><meta charset="utf-8"><title>assPod model export</title>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head><body>
+<pre id="log">exporting…</pre>
+<script type="module">
+import * as THREE from 'three';
+import { createAssPodModel, GEOMETRY } from './asspod-model.js';
+import { drawBack } from '../../device/asspod/src/face.js';
+import { drawPeachSilhouette } from '../../device/asspod/src/brand/peach.js';
+
+const { BODY } = GEOMETRY;
+const FILES = {};
+const log = (s) => { document.getElementById('log').textContent += '\n' + s; };
+
+// ---- textures
+function canvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+const b64 = (c) => c.toDataURL('image/png').split(',')[1];
+// raw RGBA for the native renderer (native/podd): "RGBA", width, height (u32 little-endian), rows top first
+function rgba(c) {
+  const g = c.getContext('2d');
+  const d = g.getImageData(0, 0, c.width, c.height).data;
+  const out = new Uint8Array(12 + d.length);
+  out.set([82, 71, 66, 65]);
+  new DataView(out.buffer).setUint32(4, c.width, true);
+  new DataView(out.buffer).setUint32(8, c.height, true);
+  out.set(d, 12);
+  let bin = '';
+  for (let i = 0; i < out.length; i += 0x8000) bin += String.fromCharCode.apply(null, out.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+function solid(hex) {
+  const c = canvas(8, 8);
+  const g = c.getContext('2d');
+  g.fillStyle = hex;
+  g.fillRect(0, 0, 8, 8);
+  return c;
+}
+// A chrome reflection by normal (a "matcap"): polished steel shows a bright studio sky, a dark
+// horizon band, a pale floor and one strong highlight.
+function chromeMap(size) {
+  const c = canvas(size, size);
+  const g = c.getContext('2d');
+  const img = g.createImageData(size, size);
+  const env = (ry, rx) => {
+    let v;
+    if (ry > 0.25) v = 0.93 + 0.07 * Math.min(1, (ry - 0.25) / 0.5);
+    else if (ry > 0.02) v = 0.45 + 0.48 * ((ry - 0.02) / 0.23);
+    else if (ry > -0.12) v = 0.2 + 0.25 * ((ry + 0.12) / 0.14);
+    else v = 0.62 + 0.18 * Math.min(1, (-ry - 0.12) / 0.6);
+    const hx = rx + 0.45, hy = ry - 0.55;
+    v += 0.6 * Math.exp(-(hx * hx + hy * hy) / 0.03);
+    return Math.min(1, v);
+  };
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const nx = (x + 0.5) / size * 2 - 1;
+      const ny = 1 - (y + 0.5) / size * 2;
+      const r2 = nx * nx + ny * ny;
+      const i = (y * size + x) * 4;
+      const nz = Math.sqrt(Math.max(0, 1 - Math.min(1, r2)));
+      // reflect the view (0,0,-1) about n: r = v - 2(v.n)n, v = (0,0,-1)
+      const rx = 2 * nz * nx, ry = 2 * nz * ny;
+      const l = env(ry, rx);
+      img.data[i] = Math.round(255 * l * 0.97);
+      img.data[i + 1] = Math.round(255 * l * 0.98);
+      img.data[i + 2] = Math.round(255 * l);
+      img.data[i + 3] = 255;
+    }
+  }
+  g.putImageData(img, 0, 0);
+  return c;
+}
+
+// ---- OBJ writer: a geometry (positions, normals, uvs; indexed or not) in the model's frame
+function objText(name, geo) {
+  const g = geo.index ? geo.toNonIndexed() : geo;
+  const p = g.attributes.position, n = g.attributes.normal, t = g.attributes.uv;
+  const out = [`# ${name}: the assPod body (tools/asspod-model/export.html)`, `mtllib ${name}.mtl`, `usemtl ${name}`];
+  const f = (v) => v.toFixed(6);
+  for (let i = 0; i < p.count; i++) out.push(`v ${f(p.getX(i))} ${f(p.getY(i))} ${f(p.getZ(i))}`);
+  for (let i = 0; i < p.count; i++) out.push(`vt ${f(t ? t.getX(i) : 0.5)} ${f(t ? t.getY(i) : 0.5)}`);
+  for (let i = 0; i < p.count; i++) out.push(`vn ${f(n.getX(i))} ${f(n.getY(i))} ${f(n.getZ(i))}`);
+  for (let i = 0; i < p.count; i += 3) out.push(`f ${i + 1}/${i + 1}/${i + 1} ${i + 2}/${i + 2}/${i + 2} ${i + 3}/${i + 3}/${i + 3}`);
+  return out.join('\n') + '\n';
+}
+function mtlText(name, { ks = 0.04, ns = 256 } = {}) {
+  return `newmtl ${name}\nKd 1 1 1\nNs ${ns}\nd 1\nillum 2\nKa 0 0 0\nKs ${ks} ${ks} ${ks}\nmap_Kd ${name}_color.png\n`;
+}
+function part(name, geo, tex, mtl) {
+  const dir = `device/asspod/model/${name}/`;
+  FILES[dir + name + '.obj'] = { text: objText(name, geo) };
+  FILES[dir + name + '.mtl'] = { text: mtlText(name, mtl) };
+  FILES[dir + name + '_color.png'] = { b64: b64(tex) };
+  FILES[dir + name + '_color.rgba'] = { b64: rgba(tex) };
+  log(`${name}: ${(geo.index ? geo.index.count : geo.attributes.position.count) / 3} triangles`);
+}
+
+// The mesh's geometry in the model's frame (its own and its parents' transforms applied).
+function baked(mesh, root) {
+  root.updateMatrixWorld(true);
+  const g = mesh.geometry.clone();
+  if (!g.attributes.normal) g.computeVertexNormals();
+  g.applyMatrix4(mesh.matrixWorld);
+  return g;
+}
+// Splits a non-indexed geometry by a triangle predicate.
+function split(geo, test) {
+  const g = geo.index ? geo.toNonIndexed() : geo;
+  const a = new THREE.BufferGeometry(), b = new THREE.BufferGeometry();
+  const keep = [[], []];
+  const n = g.attributes.normal;
+  for (let i = 0; i < g.attributes.position.count; i += 3) {
+    const avg = new THREE.Vector3();
+    for (let k = 0; k < 3; k++) avg.add(new THREE.Vector3(n.getX(i + k), n.getY(i + k), n.getZ(i + k)));
+    keep[test(avg.normalize(), g, i) ? 0 : 1].push(i);
+  }
+  for (const [dst, list] of [[a, keep[0]], [b, keep[1]]]) {
+    for (const key of ['position', 'normal', 'uv']) {
+      const src = g.attributes[key];
+      if (!src) continue;
+      const arr = new Float32Array(list.length * 3 * src.itemSize);
+      list.forEach((i, j) => { for (let k = 0; k < 3; k++) for (let c = 0; c < src.itemSize; c++) arr[(j * 3 + k) * src.itemSize + c] = src.array[(i + k) * src.itemSize + c]; });
+      dst.setAttribute(key, new THREE.BufferAttribute(arr, src.itemSize));
+    }
+  }
+  return [a, b];
+}
+function setUV(geo, fn) {
+  const p = geo.attributes.position, n = geo.attributes.normal;
+  const uv = new Float32Array(p.count * 2);
+  for (let i = 0; i < p.count; i++) {
+    const [u, v] = fn(p.getX(i), p.getY(i), p.getZ(i), n.getX(i), n.getY(i), n.getZ(i));
+    uv[i * 2] = u; uv[i * 2 + 1] = v;
+  }
+  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  return geo;
+}
+
+const FINISH = {
+  black: { front: '#0b0b0c', well: '#030303' },
+  white: { front: '#f4f4f2', well: '#8d8d89' },
+};
+
+for (const finish of ['black', 'white']) {
+  const model = createAssPodModel({ screenCanvas: canvas(64, 48), envMap: null, finish });
+  const meshes = [];
+  model.root.traverse((o) => { if (o.isMesh) meshes.push(o); });
+  const byName = (n) => meshes.find((m) => m.name === n);
+  const chrome = meshes.find((m) => m.material.metalness === 1 && m.material.roughness < 0.1);
+  const plate = meshes.find((m) => m.material.isMeshPhysicalMaterial && m.name !== 'center');
+  const well = meshes.find((m) => m.material.side === THREE.DoubleSide && m.material.roughness === 0.7);
+  const ports = meshes.find((m) => m.material.vertexColors && m.name !== 'lcd');
+  const wheel = byName('wheel');
+  const center = byName('center');
+  if (finish === 'black') {
+    // the steel, once: the flat back (planar onto the polished steel), the rest by its normal
+    const [back, edge] = split(baked(chrome, model.root), (nrm) => nrm.z < -0.97);
+    const backTex = canvas(512, Math.round(512 * BODY.h / BODY.w));
+    drawBack(backTex, drawPeachSilhouette);
+    // seen from behind: +x of the model is the viewer's left, so u runs from +x to -x
+    setUV(back, (x, y) => [0.5 - x / BODY.w, 0.5 + y / BODY.h]);
+    setUV(edge, (x, y, z, nx, ny, nz) => [0.5 + nx * 0.48, 0.5 + ny * 0.48]);
+    part('asspod_steel_back', back, backTex, { ks: 0.5, ns: 512 });
+    // the engraving as a mask (white = etched) for the native renderer's metal: satin where etched
+    const mask = canvas(512, Math.round(512 * BODY.h / BODY.w));
+    {
+      const g = mask.getContext('2d');
+      g.fillStyle = '#000';
+      g.fillRect(0, 0, mask.width, mask.height);
+      const k = mask.width / (BODY.w * 1000);
+      drawPeachSilhouette(g, mask.width / 2, 30 * k, 18.5 * k, '#fff');
+      g.fillStyle = '#fff';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.font = `600 ${Math.round(5 * k)}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
+      g.fillText('assPod', mask.width / 2, 52 * k);
+    }
+    FILES['device/asspod/model/asspod_steel_back/asspod_steel_back_mask.rgba'] = { b64: rgba(mask) };
+    part('asspod_steel_edge', edge, chromeMap(256), { ks: 0.6, ns: 512 });
+    part('asspod_ports', baked(ports, model.root), solid('#2a2b2e'), { ks: 0.2 });
+  }
+  const fin = FINISH[finish];
+  part(`asspod_plate_${finish}`, baked(plate, model.root), solid(fin.front), { ks: 0.6, ns: 512 });
+  part(`asspod_well_${finish}`, baked(well, model.root), solid(fin.well), { ks: 0 });
+  part(`asspod_wheel_${finish}`, baked(wheel, model.root), wheel.material.map.image, { ks: 0.08, ns: 64 });
+  part(`asspod_center_${finish}`, baked(center, model.root), solid(fin.front), { ks: 0.6, ns: 512 });
+}
+window.FILES = FILES;
+log('exported ' + Object.keys(FILES).length + ' files');
+// tools/build_asspod_model.py writes them into the repo
+fetch('/asspod-model', { method: 'POST', body: JSON.stringify(FILES) })
+  .then((r) => r.text()).then((t) => { log('saved: ' + t); window.DONE = true; })
+  .catch((e) => { log('not saved (open this page through tools/build_asspod_model.py): ' + e); window.DONE = true; });
+</script>
+</body></html>
