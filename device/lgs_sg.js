@@ -11,6 +11,8 @@
 //                    last spec and re-applies the last overrides
 //   overrides(set)   transform overrides of SteamVR's own chrome ({rules})
 //   windowState(w)   Steam's real window panel: {dim, recede, motion}
+//   fade(v)          every node's opacity to v (0..1) on the fade token: the assPod hides the menu's
+//                    glass with it (device/asspod), 1 brings it back
 //   clear()          remove every node, restore every override, push once
 //   destroy()        clear() and uninstall
 //   status() dump() geom() timeline() spec()  inspection
@@ -227,6 +229,7 @@
     timeline: [],
     sg: { created: 0, retired: 0, live: new Set(), noRetire: 0 },
     profile: 'default',
+    fade: { c: chan(1), wrap: false },   // fade(): an opacity node over every item while not at 1
     reduce: false,
     depthToken: 'depth',
     unitM: 0,
@@ -367,6 +370,7 @@
     for (const p of st.pops.values()) if (p.c.moving && !chanSettled(p.c, now)) return true;
     for (const d of st.dims.values()) if (d.c.moving && !chanSettled(d.c, now)) return true;
     for (const c of animatedOverrideChans()) if (c.moving && !chanSettled(c, now)) return true;
+    if (st.fade.c.moving && !chanSettled(st.fade.c, now)) return true;
     return false;
   }
 
@@ -398,6 +402,7 @@
     for (const p of st.pops.values()) if (p.c.moving) { p.c.moving = false; p.c.x0 = p.c.target; p.c.v0 = 0; }
     for (const d of st.dims.values()) if (d.c.moving) { d.c.moving = false; d.c.x0 = d.c.target; d.c.v0 = 0; }
     for (const c of animatedOverrideChans()) if (c.moving) { c.moving = false; c.x0 = c.target; c.v0 = 0; }
+    if (st.fade.c.moving) { st.fade.c.moving = false; st.fade.c.x0 = st.fade.c.target; st.fade.c.v0 = 0; }
   }
 
   // Sunk pops and faded-out dims leave; removed override rules restore.
@@ -406,6 +411,7 @@
     for (const [k, p] of st.pops) if (p.sinking && !p.c.moving) { st.pops.delete(k); structural = true; }
     for (const [k, d] of st.dims) if (d.want === null && !d.c.moving) { st.dims.delete(k); structural = true; }
     if (ovCleanup()) structural = true;
+    if (st.fade.wrap && !st.fade.c.moving && st.fade.c.target >= 1) { st.fade.wrap = false; structural = true; }
     if (structural && st.lastSpec && !st.expired) { build(st.lastSpec); }
     else if (structural) schedulePush();
   }
@@ -437,6 +443,13 @@
           it.zNow = z;
         }
       }
+      if (it.op) it.op.__lgsProps = { opacity: r6(clamp(chanAt(st.fade.c, now)[0], 0, 1)) };
+    }
+    for (const c of VRC.values()) {
+      if (c.op) c.op.__lgsProps = { opacity: r6(clamp(chanAt(st.fade.c, now)[0], 0, 1)) };
+    }
+    for (const it of st.items.values()) {
+      const d = it.d;
       if (it.wrap && d.dimKey) {
         const dm = st.dims.get(d.dimKey);
         const v = dm ? clamp(chanAt(dm.c, now)[0], 0, 1) : 1;
@@ -539,6 +552,12 @@
     } else {
       xf.appendChild(panel);
     }
+    let op = null;
+    if (st.fade.wrap) {
+      op = vnode('opacity', { opacity: r6(clamp(chanAt(st.fade.c, Date.now())[0], 0, 1)) });
+      op.appendChild(xf.firstElementChild);
+      xf.appendChild(op);
+    }
     const anchor = vnode('panel-anchor', { 'anchor-u': r6(d.u), 'anchor-v': r6(d.v) });
     anchor.appendChild(xf);
     let it;
@@ -546,12 +565,12 @@
       const g = groupFor(d.parentKey);
       g.top.appendChild(anchor);
       g.n++;
-      it = { d, top: null, anchor, xf, wrap, panel, sig: sigOf(d), group: d.parentKey, pushedAt: 0 };
+      it = { d, top: null, anchor, xf, op, wrap, panel, sig: sigOf(d), group: d.parentKey, pushedAt: 0 };
     } else {
       const top = vnode('reparent-to-panel', { 'parent-overlay-key': d.parentKey });
       top.appendChild(anchor);
       rootEl().appendChild(top);
-      it = { d, top, anchor, xf, wrap, panel, sig: sigOf(d), pushedAt: 0 };
+      it = { d, top, anchor, xf, op, wrap, panel, sig: sigOf(d), pushedAt: 0 };
     }
     st.unpushed.add(it);
     return it;
@@ -566,6 +585,7 @@
 
   // Update in place; true if anything changed, 'rebuild' if the wrapper changes.
   function updateItem(it, d) {
+    if (st.fade.wrap !== !!it.op) return 'rebuild';   // fade(): the opacity node comes or goes
     const sig = sigOf(d);
     if (sig === it.sig) return false;
     // a wrapper appears or goes (dim on / off): new nodes, swapped in one push
@@ -598,11 +618,11 @@
     st.unpushed.delete(it);
     if (it.top) {
       it.top.remove();
-      retire([it.top, it.anchor, it.xf, it.wrap, it.panel]);
+      retire([it.top, it.anchor, it.xf, it.op, it.wrap, it.panel]);
       return;
     }
     it.anchor.remove();
-    retire([it.anchor, it.xf, it.wrap, it.panel]);
+    retire([it.anchor, it.xf, it.op, it.wrap, it.panel]);
     const g = groups.get(it.group);
     if (g && --g.n <= 0) {
       g.top.remove();
@@ -1088,7 +1108,7 @@
     const c = VRC.get(name);
     if (c && c.xf) {
       try { c.xf.remove(); } catch (_) { /* gone */ }
-      retire([c.xf, c.panel]);
+      retire([c.xf, c.op, c.panel]);
     }
     VRC.delete(name);
     setVrClass(name, false);
@@ -1124,13 +1144,15 @@
         debug_name: 'lgs:vr:' + d.name });
       if (g.stereo === true) props.stereoscopy = STEREO_PARALLEL;
       let c = VRC.get(d.name);
-      if (!c || c.el !== p || !c.xf || !c.xf.isConnected) {
+      if (!c || c.el !== p || !c.xf || !c.xf.isConnected || st.fade.wrap !== !!c.op) {
         if (c) vrCoverDrop(d.name);
         const xf = vtransform(-0.0004);
         const panel = vnode('panel', props);
-        xf.appendChild(panel);
+        // fade(): an opacity node over it too
+        const op = st.fade.wrap ? vnode('opacity', { opacity: r6(clamp(chanAt(st.fade.c, Date.now())[0], 0, 1)) }) : null;
+        if (op) { op.appendChild(panel); xf.appendChild(op); } else xf.appendChild(panel);
         p.parentElement.insertBefore(xf, p);
-        VRC.set(d.name, c = { el: p, xf, panel });
+        VRC.set(d.name, c = { el: p, xf, op, panel });
         changed = true;
       } else if (JSON.stringify(c.panel.__lgsProps) !== JSON.stringify(props)) {
         c.panel.__lgsProps = props;
@@ -1730,6 +1752,20 @@
     const now = Date.now();
     return { dim: r6(chanAt(win.dimC, now)[0]), dimTarget: win.dimC.target, recede: r6(chanAt(win.recC, now)[0]), recedeTarget: win.recC.target, error };
   }
+  // Every node's opacity to v (0..1) on the fade token; the opacity nodes go again once back at 1.
+  function fade(v) {
+    if (st.destroyed) return { error: 'destroyed' };
+    const target = clamp(num(v, 1), 0, 1);
+    const now = Date.now();
+    if (target < 1 && !st.fade.wrap) {
+      st.fade.wrap = true;
+      if (st.lastSpec && !st.expired) build(st.lastSpec);
+    }
+    chanSet(st.fade.c, target, st.reduce ? null : 'fade', now);
+    if (anyMoving(now)) startAnim(); else { schedulePush(); afterSettle(); }
+    return { fade: r6(chanAt(st.fade.c, now)[0]), target, wrap: st.fade.wrap };
+  }
+
   function windowState(w) {
     if (st.destroyed) return { error: 'destroyed' };
     contact();
@@ -1981,7 +2017,7 @@
   }
 
   const api = {
-    version: VERSION, caps: CAPS, update, ping, overrides, windowState, clear, status, dump, destroy,
+    version: VERSION, caps: CAPS, update, ping, overrides, windowState, fade, clear, status, dump, destroy,
     geom: () => Object.assign({}, geom()), timeline, spec: () => st.lastSpec, guillotine, mosaic, test,
     _spring: spring, _token: tokenDB, _retargets: () => retargets.slice(),
   };

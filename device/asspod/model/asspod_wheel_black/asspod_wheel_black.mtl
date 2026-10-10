@@ -1,0 +1,8 @@
+newmtl asspod_wheel_black
+Kd 1 1 1
+Ns 64
+d 1
+illum 2
+Ka 0 0 0
+Ks 0.08 0.08 0.08
+map_Kd asspod_wheel_black_color.png

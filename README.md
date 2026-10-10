@@ -46,6 +46,10 @@ Press the paintbrush button at the right end of the dashboard bar. Its panel set
 
 <p align="center"><img src="assets/screenshots/Configure.jpg" alt="The paintbrush glass panel: colour, tint strength, intensity, refraction, frost, highlights" width="80%"></p>
 
+## Open the assPod
+
+Press the music note button on the dashboard bar, just left of the paintbrush. The assPod appears in the hand you pressed it with.
+
 ## Nothing persists
 
 **The theme is never written to disk.** `lgs` injects the stylesheet into the *running* Steam client through its local devtools socket (`127.0.0.1:8080`; Steam on the Frame runs with `-cef-enable-debugging`). Any of these brings back the stock UI:

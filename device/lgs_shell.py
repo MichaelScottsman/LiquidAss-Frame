@@ -1077,6 +1077,7 @@ class Shell:
         self.geom_dump_at = 0.0               # last DumpLaserOverlays read (status geomDumpAt; DM-3 waits for one)
         self.geom_ok = False
         self.vr_conns = {}                    # SteamVR page target id -> CDP (kept open; m4)
+        self.vr_targets = {}                  # SteamVR page title -> devtools target (the page loop's last list)
         self.vr_http = None                   # aiohttp session for 8090's /json/list (keep-alive)
         # glassd.json v3 and the materialize policy
         self.items_first = {}                 # (surface, kind, id) -> time first written
@@ -1251,11 +1252,24 @@ class Shell:
         return await eval_once(t["webSocketDebuggerUrl"], expr, timeout, "steam-ext")
 
     async def ext_vr_eval(self, page, expr, timeout=10):
-        loop = asyncio.get_running_loop()
-        for t in await loop.run_in_executor(None, lgs_vr.targets):
-            if (t.get("title") or "") == page:
-                return await eval_once(t["webSocketDebuggerUrl"], expr, timeout, "vr-ext")
-        raise ConnectionError(f"no SteamVR page {page!r}")
+        """Over the page's kept socket (the page loop's target list, else a fresh one): plugins that
+        poll a page several times a second (asspod) cost one message per call, not a new socket."""
+        t = self.vr_targets.get(page)
+        if t is None:
+            loop = asyncio.get_running_loop()
+            t = next((x for x in await loop.run_in_executor(None, lgs_vr.targets) if (x.get("title") or "") == page), None)
+            if t is None:
+                raise ConnectionError(f"no SteamVR page {page!r}")
+        try:
+            return await self.vr_page_eval(t, expr, timeout)
+        except RuntimeError as e:
+            if str(e).startswith("JS: "):
+                raise
+            self.vr_targets.pop(page, None)
+            raise
+        except Exception:
+            self.vr_targets.pop(page, None)
+            raise
 
     def ext_vr_pages(self):
         return sorted(self.vr_pages)
@@ -3093,12 +3107,13 @@ class Shell:
         while not self.stopping:
             await asyncio.sleep(lgs_vr.POLL)
             if self.vr_paused():             # lab "--theme off" on a vr: page (page scripts stripped with it)
-                self.vrx_status, self.vr_pages = {}, {}
+                self.vrx_status, self.vr_pages, self.vr_targets = {}, {}, {}
                 await self.vr_conns_close()
                 continue
             try:
                 ts = await self.vr_list()
                 if ts is None:
+                    self.vr_targets = {}
                     await self.vr_conns_close()
                     continue
                 s = lgs_vr.signature()
@@ -3110,6 +3125,7 @@ class Shell:
                              " ? (window.__LGS_VR.apply() ? 'ok' : 'retry') : 'need'")
                     self.vr_version = p["version"]
                     log(f"vr: theme {p['version']} ({len(p['css'])} bytes)")
+                self.vr_targets = {(t.get("title") or t.get("url")): t for t in ts}
                 pages = {}
                 scripts = self.vr_scripts_cached()
                 await self.vr_conns_close(keep={t.get("id") or t["webSocketDebuggerUrl"] for t in ts})

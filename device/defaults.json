@@ -12,5 +12,6 @@
  "wp.c6a": true, "wp.c6b": true,
  "wp.c7": true,
  "glassTune": true,
+ "assPod": true,
  "pointerProxy": "off"
 }

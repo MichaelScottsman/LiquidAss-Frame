@@ -96,6 +96,8 @@ BUILTIN_FLAGS = {
     "sgDepthAnim": True,        # P8/P7: depth motion kill switch (daemon.md §2)
     "shellThemeGraceS": 600,    # P8: dormant seconds while the theme is off without lgs off (daemon.md §2)
     "glassTune": False,         # the bar's paintbrush (glass tuner, rt 33-tune.js); defaults.json turns it on
+    "assPod": False,            # the bar's music note: the assPod (rt 34-asspod.js, shell_ext/asspod.py, vr script);
+                                # defaults.json turns it on
 }
 
 
