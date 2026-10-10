@@ -15,5 +15,5 @@ trap 'rm -rf "$stage"' EXIT
 python tools/build_asspod.py --check   # the assPod page script must match its sources
 git archive --format=tar HEAD device theme lab native | tar -xf - -C "$stage"
 printf '%s\n' "$ver" > "$stage/VERSION"
-tar -czf dist/LiquidAss-Frame.tar.gz -C "$stage" VERSION device theme lab native
+tar -czf dist/LiquidAss-Frame.tar.gz --owner=0 --group=0 --numeric-owner -C "$stage" VERSION device theme lab native   # no local user names in the archive
 echo "dist/LiquidAss-Frame.tar.gz ($ver, $(git rev-parse --short HEAD))"
