@@ -81,7 +81,7 @@ python glass.py uninstall
 
 On the headset itself, `~/.local/share/glass-shell/device/lgs on|off|toggle|status|dial V` does the same.
 
-Native glass works out of the box. Releases ship glassd built for the Frame (`native/glassd/prebuilt/glassd`), and the installer puts it in place. `python glass.py install` does the same, then rebuilds glassd from the checkout's sources over it (if that build fails, the shipped binary stays). The daemon also puts the shipped binary in place whenever glassd is missing, so the LiquidAss toggle never starts CSS-only. Native mode is on by default (`device/defaults.json`).
+Native glass works out of the box. Releases ship glassd built for the Frame (`native/glassd/prebuilt/glassd`), and the installer puts it in place. `python glass.py install` does the same, then rebuilds glassd from the checkout's sources over it (if that build fails, the shipped binary stays). The daemon also puts the shipped binary in place whenever glassd is missing, so the LiquidAss toggle never starts CSS-only. Native mode is on by default (`device/defaults.json`). The assPod's 3D renderer, podd, ships the same way (`native/podd/prebuilt/podd`).
 
 ## How it works
 

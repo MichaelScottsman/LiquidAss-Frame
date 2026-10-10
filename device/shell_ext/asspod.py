@@ -54,6 +54,7 @@ ACTIONS = {
 PAGE = "systemui"
 MODEL_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "asspod", "model")   # the 3D body
 PODD = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))), "native", "podd", "podd")
+PODD_PREBUILT = os.path.join(os.path.dirname(PODD), "prebuilt", "podd")
 PODD_SPEC = "/dev/shm/lgs/podd.json"
 PODD_OUT = "/dev/shm/lgs/podd-out.json"
 API = "window.__LGS_VRX && window.__LGS_VRX.asspod && window.__LGS_VRX.asspod.api"
@@ -1115,6 +1116,13 @@ def _podd_kill_strays():
 async def _podd_start(ctx, model_dir, scale, finish):
     """podd up with its layout (podd-out.json), or None (then SteamVR's render models draw the body)."""
     s = _st(ctx)
+    if not os.access(PODD, os.X_OK) and os.path.isfile(PODD_PREBUILT):
+        # the release's shipped podd (built for the Frame), when none was built here
+        try:
+            shutil.copyfile(PODD_PREBUILT, PODD)
+            os.chmod(PODD, 0o755)
+        except OSError as e:
+            _err(ctx, f"podd: {e!r}")
     if not os.access(PODD, os.X_OK):
         return None
     _podd_spec(s, open=False, scale=scale, finish=finish)

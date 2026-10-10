@@ -91,6 +91,11 @@ install_app() {
         cp "$tmp/new/native/glassd/prebuilt/glassd" "$tmp/new/native/glassd/glassd"
         chmod 755 "$tmp/new/native/glassd/glassd"
     fi
+    # The assPod's 3D body: the release's shipped podd (built for the Frame from the same source)
+    if [ -f "$tmp/new/native/podd/prebuilt/podd" ]; then
+        cp "$tmp/new/native/podd/prebuilt/podd" "$tmp/new/native/podd/podd"
+        chmod 755 "$tmp/new/native/podd/podd"
+    fi
     rm -rf "$DEST.old"
     [ -d "$DEST" ] && mv "$DEST" "$DEST.old"
     mv "$tmp/new" "$DEST"
